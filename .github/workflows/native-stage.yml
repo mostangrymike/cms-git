@@ -103,6 +103,11 @@ on:
       - 'src/GITPH3M.C'
       - 'src/GITPH5M.C'
       - 'src/GITPH8M.C'
+      - 'src/GITPH9M.C'
+      - 'src/GITPH9.EXEC'
+      - 'tests/test-m189-eightway.py'
+      - 'tests/bench-m189-eightway.py'
+      - 'docs/M189_EIGHTWAY.md'
       - 'src/GITPH8.EXEC'
       - 'tests/test-m188-fast-eol.py'
       - 'tests/bench-m188-fast-eol.py'
@@ -262,6 +267,11 @@ on:
       - 'src/GITPH3M.C'
       - 'src/GITPH5M.C'
       - 'src/GITPH8M.C'
+      - 'src/GITPH9M.C'
+      - 'src/GITPH9.EXEC'
+      - 'tests/test-m189-eightway.py'
+      - 'tests/bench-m189-eightway.py'
+      - 'docs/M189_EIGHTWAY.md'
       - 'src/GITPH8.EXEC'
       - 'tests/test-m188-fast-eol.py'
       - 'tests/bench-m188-fast-eol.py'
@@ -397,6 +407,10 @@ jobs:
         run: python3 tests/test-m185-direct-skip.py
       - name: Check M188 fast EOL differential skip reader
         run: python3 tests/test-m188-fast-eol.py
+      - name: Check M189 eight-way skipped-hex C89 parity
+        run: python3 tests/test-m189-eightway.py
+      - name: Compare M189 eight-way skipped-hex host readers
+        run: python3 tests/bench-m189-eightway.py
       - name: Compare M188 EOL fast path against M185 host
         run: python3 tests/bench-m188-fast-eol.py
       - name: Check M186 randomized skipped-record differential parity

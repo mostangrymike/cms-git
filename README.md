@@ -1,5 +1,28 @@
 # IBM Sandbox
 
+## M189 eight-way hex validator — host-only negative speed result
+
+M189 uses separate `GITPH9M.C` and `GITPH9.EXEC`,
+cloned from M188, but checks eight skipped hex chars
+with a single combined validhex-table test before
+the unchanged strict suffix handling. Full C89
+host SHA/record/index/parity tests pass; no
+protected G data or proven modules are modified.
+
+On one seven-run Linux comparison, M189 median
+**0.0427s** versus M188 **0.0407s** and M185
+**0.0411s** on the same 15.36MB host fixture.
+Thus **M189 did not improve host speed**.
+This is **not real CMS evidence**. M185 remains
+the fastest verified on z/VM at **209.97s**.
+Prioritize the isolated M188 CMS experiment
+ahead of M189. Full details and optional
+independent M189 runbook:
+`docs/M189_EIGHTWAY.md`.
+
+---
+
+
 ## M188 isolated native EOL fast path (host proven only)
 
 M185 is confirmed on real z/VM 6.3: CPU 206.72s,
