@@ -1,5 +1,66 @@
 # M193 — First native CMS FSREAD by record number
 
+## October 11, 2026 — REAL z/VM 6.3 M193 FIRST PASS
+
+**Target-proven**, not host-only. Operator's actual CMS transcript:
+
+```text
+GLOBAL MACLIB OSMACRO DMSGPI PDPCLIB
+Ready; T=0.01/0.01 15:29:21
+ASSEMBLE GITFSRD
+ASSEMBLER (XF) DONE
+NO STATEMENTS FLAGGED IN THIS ASSEMBLY
+Ready; T=0.14/0.17 15:29:23
+GLOBAL TXTLIB PDPCLIB
+LOAD GITFSRD (NOAUTO NOMAP
+GENMOD GITFSRD
+GITFSP G FIRST
+M193 DIRECT FSREAD G1 PROBE BEGIN FIRST
+M193 FSREAD BEGIN FIRST RECNO 1
+M193 FSREAD RETURNED
+M193 RECORD HEADER PASS
+M193 READ ONLY FSREAD PROBE PASS
+M193 CMS FSREAD GATE PASS G FIRST
+Ready; T=0.01/0.01 15:29:48
+```
+
+Native CMS `FSREAD` with `FORM=E`, `RECFM=V`,
+`NOREC=1`, and buffer length 64 successfully
+read original `M173NET STAGE G1` **logical record
+number 1**, returning the correct OBJ 1 prefix.
+Assembly, LOAD/GENMOD, FSREAD and wrapper cross-check
+all succeeded. Total observed command CPU/elapsed
+**0.01/0.01s**, excluding compile/link. This establishes
+real CMS single-record read viability at FIRST only.
+
+**Evidence boundary:** MID record 1,969,357 and LAST
+record 3,864,789 have not been tested using FSREAD.
+Do not infer random distant-record access speed.
+The supplied transcript also does not include a
+post-run `QUERY FILEDEF`. No writes to G are involved.
+
+**Immediate next safe, read-only target check** using
+the already installed known-good `GITFSRD MODULE A`:
+
+```text
+GITFSP G MID
+QUERY FILEDEF
+```
+
+Expect native begin/return/header PASS for RECNO
+1,969,357 and wrapper gate `... G MID`.
+Capture actual `Ready; T=cpu/elapsed`; compare
+with previously measured C stdio text `fseek`
+MID elapsed **25.82s**, not with unrelated
+whole-walk duration. If MID fails or stalls,
+stop the new FSREAD optimization experiments and
+preserve working M188 (208.27s full closure).
+No need for a LAST probe until MID evidence is
+available.
+
+---
+
+
 ## Confirmed M192 real CMS evidence (October 11, 2026)
 
 Original protected input `M173NET STAGE G` is a

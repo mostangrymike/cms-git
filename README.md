@@ -1,5 +1,30 @@
 # IBM Sandbox
 
+## M193 native CMS FSREAD FIRST — target PASS
+
+October 11, 2026: `GITFSRD ASSEMBLE`, LOAD,
+GENMOD, and `GITFSP G FIRST` all passed
+**on actual z/VM 6.3 CMS**. The assembler
+read a single variable-length record through
+native CMS `FSREAD` using absolute RECNO 1,
+returned from the macro, verified `OBJ 1 `,
+closed the file, and passed the wrapper gate.
+Observed FIRST CPU/elapsed was **0.01/0.01s**.
+The original G stage/index and proven M185/M188
+modules are unchanged.
+
+**MID (RECNO 1969357) and LAST (3864789) have
+not yet been tested using native FSREAD.**
+The next guarded native trial is `GITFSP G MID`
+followed by `QUERY FILEDEF`. Capture CPU/elapsed
+and compare with C text-stream MID seek elapsed
+25.82s. Do not rerun the 272-seek M190 walk.
+Full proof and continuation in
+`docs/M193_FSREAD_PROBE.md`.
+
+---
+
+
 ## M192 real CMS PASS; M193 native FSREAD header probe
 
 M192 compiled and passed **on actual z/VM 6.3 CMS**.
