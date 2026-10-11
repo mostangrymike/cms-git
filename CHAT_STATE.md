@@ -11197,3 +11197,60 @@ pretend to run native CMS from GitHub.
 Never ERASE/FORMAT/reimport/reindex GIT600,
 replace proven M181, or write-link physically
 overlapping PMAINT 0141 fullpack.
+
+
+## 2026-10-11 11:19 CDT — M185 REAL CMS PASS; NEW BASELINE 209.97s
+
+Operator's actual z/VM 6.3 CMS transcript proves new M185
+native success. `CMSCLNK GITPH5M PLAIN`: XF assembler DONE,
+NO flagged statements, native `GITPH5M MODULE` built in 2.30s.
+Actual `GITPH5 G CCB18BEC067E7886D70B82EF138EE56A8B899A61`
+printed:
+```text
+TREE CLOSURE ROOT CCB18BEC067E7886D70B82EF138EE56A8B899A61
+TREE CLOSURE TREES 8 BLOBS 272 GITLINKS 0
+TREE CLOSURE ENTRIES 279 VERIFIED 280
+TREE CLOSURE MAX OBJECT 393767 RESIDENT PEAK 6546851
+TREE CLOSURE INDEX TOTAL 7736 UNIQUE 7736
+M185 FORWARD SCANS 2 RECORDS 15472 SEEKS 0
+M185 AUTHENTICATED BLOBS 272
+M185 STAGE LINES PASS1 3864799 PASS2 3864799
+M185 CPU INDEX UNAVAILABLE
+M185 CPU TREE_SCAN UNAVAILABLE
+M185 CPU GRAPH UNAVAILABLE
+M185 CPU BLOB_SCAN UNAVAILABLE
+M185 DIRECT SKIP VALIDATOR PASS
+M185 TREE CLOSURE PASS
+M185 VERIFIED FAST TREE TARGET GATE PASS CCB18BEC067E7886D70B82EF138EE56A8B899A61 G
+```
+Ready RC0 at 11:19:23, `T=206.72/209.97`.
+Real target M185 CPU **206.72s**, elapsed **209.97s**.
+M181 CPU 294.57s, elapsed 298.38s, so M185
+saves 87.85s CPU, 88.41s elapsed **29.6%** and
+passes identical authenticated closure on same
+index/object count with 2 scans, zero seeks.
+M185 is **new fastest measured real z/VM 6.3
+positive-path native tree reader**. M179 elapsed
+459.44s, M180 708.52s. Individual runs only;
+no statistically measured timing variation.
+
+**This M185 transcript has NO post-run QUERY FILEDEF**
+and no repeated explicit preflight printed. Never
+claim final FILEDEF cleanliness from this transcript;
+one cheap `QUERY FILEDEF` would suffice separately.
+M182 and M183 still **host-proven only** and have no
+CMS results. Previous M186 (181-case seeded host
+differential suite) merged PR #160, and M187
+(synthetic 7736 unique object / 8-tree 272-blob
+host parity fixture) merged PR #161 at
+`718eaf16841ec93d4e24105d644c6d3c448e7f59`.
+
+Preserve working `GITPH5 EXEC A` and
+`GITPH5M MODULE A`, older M176–M184 modules,
+`GIT600 600 G R/W`, `M173NET STAGE G`,
+`M174NET INDEX G`, protected M171 inputs.
+Never format/erase/reimport/reindex, never
+write-link overlapping PMAINT0141 fullpack.
+**Continue coding without pause** on host and GitHub,
+new standalone module names only, until actual CMS
+validation is needed for a new native benchmark.
