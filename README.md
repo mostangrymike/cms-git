@@ -1,5 +1,45 @@
 # IBM Sandbox
 
+## M190 interruption; M191 direct CMS seek diagnostic
+
+A real z/VM 6.3 test successfully built
+`GITPSKM MODULE` but its terminal output
+after `GITPSK G ...` was only `HX` and
+`CMS`, with **no native seek preflight,
+tree closure, target PASS or final Ready**.
+IBM documents HX as *Halt Execution*,
+which returns the terminal to CMS. Thus
+M190 is **not target verified**, and the
+reason it was interrupted remains unknown.
+Its wrapper buffers native output using
+`PIPE CMS ... | STEM`, hiding progress
+until the native call returns.
+
+New isolated M191 `GITPRBM.C` and
+`GITPRB.EXEC` provide a **read-only,
+direct-console** seek diagnostic that
+checks just one indexed first, middle, or
+last stage header without scanning the
+multi-million-line stage. Progress is
+flushed before and after `fseek`; there
+is no buffered native-output PIPE. It
+fails closed for mismatched positions,
+headers and invalid indexes, owns only
+temporary FILEDEFs, and never modifies G.
+
+After strict host CI, run `GITPRB G FIRST`
+first, then separately MID and LAST if
+safe. The full runbook is
+`docs/M191_CMS_SEEK_PROBE.md`. Do **not**
+repeat the full M190 walk merely to
+diagnose `fseek`. M185 and M188 stay
+target-proven, the latest M188 elapsed
+baseline being **208.27s** (two scans,
+zero seeks). No original G files changed.
+
+---
+
+
 ## M190 — experimental indexed reachable-blob readback
 
 The current **actual CMS positive-path** baseline is
