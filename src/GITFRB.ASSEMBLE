@@ -81,18 +81,22 @@ HEADOK   LINEWRT DATA=(HOK,L'HOK)
          LTR   7,7
          BZ    BODYOK
          LA    6,BODYBUF
+* EBCDIC collates lowercase, uppercase, then decimal digits.
 CHECKCHR CLI   0(6),C'0'
-         BL    BADBODY
-         CLI   0(6),C'9'
-         BNH   NEXTCHR
+         BNL   DIGIT
          CLI   0(6),C'A'
-         BL    BADBODY
-         CLI   0(6),C'F'
-         BNH   NEXTCHR
+         BNL   UPPER
          CLI   0(6),C'a'
          BL    BADBODY
          CLI   0(6),C'f'
-         BH    BADBODY
+         BNH   NEXTCHR
+         B     BADBODY
+UPPER    CLI   0(6),C'F'
+         BNH   NEXTCHR
+         B     BADBODY
+DIGIT    CLI   0(6),C'9'
+         BNH   NEXTCHR
+         B     BADBODY
 NEXTCHR  LA    6,1(6)
          BCT   7,CHECKCHR
 BODYOK   LINEWRT DATA=(BOK,L'BOK)
