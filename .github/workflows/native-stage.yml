@@ -105,6 +105,8 @@ on:
       - 'src/GITPH5.EXEC'
       - 'tests/test-m185-direct-skip.py'
       - 'tests/test-m186-skip-differential.py'
+      - 'tests/test-m187-live-scale.py'
+      - 'docs/M187_NATIVE_SCALE.md'
       - 'docs/M186_DIFFERENTIAL.md'
       - 'tests/bench-m185-direct-skip.py'
       - 'docs/M185_DIRECT_SKIP.md'
@@ -257,6 +259,8 @@ on:
       - 'src/GITPH5.EXEC'
       - 'tests/test-m185-direct-skip.py'
       - 'tests/test-m186-skip-differential.py'
+      - 'tests/test-m187-live-scale.py'
+      - 'docs/M187_NATIVE_SCALE.md'
       - 'docs/M186_DIFFERENTIAL.md'
       - 'tests/bench-m185-direct-skip.py'
       - 'docs/M185_DIRECT_SKIP.md'
@@ -383,6 +387,8 @@ jobs:
         run: python3 tests/test-m185-direct-skip.py
       - name: Check M186 randomized skipped-record differential parity
         run: python3 tests/test-m186-skip-differential.py
+      - name: Check M187 synthetic 7736-object native closure
+        run: python3 tests/test-m187-live-scale.py
       - name: Compare M181 M182 M183 M185 host skip readers
         run: python3 tests/bench-m185-direct-skip.py
       - name: Compare M181 M182 M183 skipped-body host timings
