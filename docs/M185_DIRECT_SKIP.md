@@ -1,5 +1,58 @@
 # M185 — direct bounded validation of skipped CMS hex records
 
+## October 11, 2026 — M185 real z/VM 6.3 CMS target PASS
+
+The user's native CMS transcript provides **actual successful target
+validation** (not host-only evidence). `CMSCLNK GITPH5M PLAIN` produced
+`ASSEMBLER (XF) DONE`, `NO STATEMENTS FLAGGED`, and
+`built GITPH5M MODULE mode PLAIN`, elapsed **2.30s**.
+The invoked wrapper was:
+`GITPH5 G CCB18BEC067E7886D70B82EF138EE56A8B899A61`.
+
+```text
+TREE CLOSURE ROOT CCB18BEC067E7886D70B82EF138EE56A8B899A61
+TREE CLOSURE TREES 8 BLOBS 272 GITLINKS 0
+TREE CLOSURE ENTRIES 279 VERIFIED 280
+TREE CLOSURE MAX OBJECT 393767 RESIDENT PEAK 6546851
+TREE CLOSURE INDEX TOTAL 7736 UNIQUE 7736
+M185 FORWARD SCANS 2 RECORDS 15472 SEEKS 0
+M185 AUTHENTICATED BLOBS 272
+M185 STAGE LINES PASS1 3864799 PASS2 3864799
+M185 CPU INDEX UNAVAILABLE
+M185 CPU TREE_SCAN UNAVAILABLE
+M185 CPU GRAPH UNAVAILABLE
+M185 CPU BLOB_SCAN UNAVAILABLE
+M185 DIRECT SKIP VALIDATOR PASS
+M185 TREE CLOSURE PASS
+M185 VERIFIED FAST TREE TARGET GATE PASS CCB18BEC067E7886D70B82EF138EE56A8B899A61 G
+Ready; T=206.72/209.97 11:19:23
+```
+
+M185 **real CPU 206.72s, elapsed 209.97s**; M181 was CPU
+294.57s, elapsed 298.38s. M185 saves **87.85s CPU**
+and **88.41s elapsed (29.6%)**, with the same selective
+SHA-authenticated root closure, two stage scans, 272 reached
+blobs and zero random seeks. M179 elapsed 459.44s, M180
+elapsed 708.52s. One-run performance comparison is
+descriptive, not a controlled distribution of samples.
+
+**Evidence boundary:** This successful M185 transcript does
+not include preflight output or a *post-run* `QUERY FILEDEF`.
+The earlier safe wrapper/host checks do not independently
+establish success-path FILEDEF cleanup on CMS. One standalone
+`QUERY FILEDEF` is sufficient; do **not** rerun the costly
+walk to check it.
+
+M185 is now the **fastest measured real z/VM 6.3 reader**.
+Preserve the target-proven `GITPH5 EXEC A` and
+`GITPH5M MODULE A` unchanged; future work must fork
+isolated new stems and leave `GIT600`, `M173NET STAGE G`
+and `M174NET INDEX G` intact. M182/M183 remain host-only
+without actual CMS transcripts.
+
+---
+
+
 ## Motivation and status
 
 The z/VM 6.3 target-proven positive-path reference is
