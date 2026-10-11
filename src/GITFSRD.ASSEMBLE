@@ -8,7 +8,7 @@ GITFSRD  CSECT
 * FIRST=1, MID=1969357, LAST=3864789.
 * Never performs FSWRITE, FSERASE, or text-stream fseek.
 *
-         LINERD DATA=(SELECT,8),TYPE=STACK,CASE=MIXED,TRANS=NO,    X
+         LINERD DATA=(SELECT,8),TYPE=STACK,CASE=MIXED,TRANS=NO,        X
                PAD=BLANK,ERROR=BADSEL
          C     0,=F'5'
          BE    TRYFIRST
@@ -34,7 +34,7 @@ TRYLAST  CLC   SELECT(4),=C'LAST'
 DOFSREAD XC    RECBUF(64),RECBUF
 * FSREAD: extended RECNO supports positions > 65535.
 * A single variable record is at most 64 bytes on this G file.
-         FSREAD 'M173NET STAGE G1',BUFFER=RECBUF,BSIZE=64,       X
+         FSREAD 'M173NET STAGE G1',BUFFER=RECBUF,BSIZE=64,             X
                RECFM=V,RECNO=(5),NOREC=1,FORM=E,ERROR=RDERR
          ST    0,READLEN
          LINEWRT DATA=(RETURNED,L'RETURNED)
