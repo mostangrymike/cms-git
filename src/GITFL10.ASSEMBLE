@@ -1,0 +1,120 @@
+GITFL10  CSECT
+         USING GITFL10,12
+         LR    12,15
+         ST    14,RETADR
+*
+* M195 read-only LAST complete body record gate.
+* Header 3864789, stage end 3864799: exactly ten body records.
+* The M192 count model and M193/M194 probes justify that range.
+* This is not full Git OID or SHA-1 validation.
+*
+         LINEWRT DATA=(BEGIN,L'BEGIN)
+         XC    HDRBUF(64),HDRBUF
+         L     5,=F'3864789'
+         FSREAD 'M173NET STAGE G1',BUFFER=HDRBUF,BSIZE=64,             X
+               RECFM=V,RECNO=(5),NOREC=1,FORM=E,ERROR=RDERR
+         ST    0,HDRLEN
+         LINEWRT DATA=(HRET,L'HRET)
+         L     0,HDRLEN
+         C     0,=F'9'
+         BL    BADHDR
+         CLC   HDRBUF(9),=C'OBJ 7736 '
+         BNE   BADHDR
+         LINEWRT DATA=(HOK,L'HOK)
+         L     6,=F'3864790'
+         ST    6,CURNO
+         L     6,=F'1'
+         ST    6,COUNT
+         XC    TOTAL,TOTAL
+         LINEWRT DATA=(BBEG,L'BBEG)
+BODYLOOP XC    BODYBUF(64),BODYBUF
+         L     5,CURNO
+         FSREAD 'M173NET STAGE G1',BUFFER=BODYBUF,BSIZE=64,            X
+               RECFM=V,RECNO=(5),NOREC=1,FORM=E,ERROR=RDERR
+         ST    0,BODYLEN
+         L     7,BODYLEN
+         C     7,=F'64'
+         BH    BADBODY
+         L     6,COUNT
+         C     6,=F'10'
+         BE    LASTREC
+         C     7,=F'64'
+         BNE   BADBODY
+         B     EVENCHECK
+LASTREC  LTR   7,7
+         BZ    BADBODY
+EVENCHECK LR    6,7
+         N     6,=F'1'
+         BNZ   BADBODY
+         L     4,BODYLEN
+         SRL   4,1
+         A     4,TOTAL
+         ST    4,TOTAL
+         LA    6,BODYBUF
+CHECKCHR CLI   0(6),C'0'
+         BNL   DIGIT
+         CLI   0(6),C'A'
+         BNL   UPPER
+         CLI   0(6),C'a'
+         BL    BADBODY
+         CLI   0(6),C'f'
+         BNH   NEXTCHR
+         B     BADBODY
+UPPER    CLI   0(6),C'F'
+         BNH   NEXTCHR
+         B     BADBODY
+DIGIT    CLI   0(6),C'9'
+         BNH   NEXTCHR
+         B     BADBODY
+NEXTCHR  LA    6,1(6)
+         BCT   7,CHECKCHR
+         L     6,COUNT
+         C     6,=F'10'
+         BE    DONEBODY
+         LA    6,1(6)
+         ST    6,COUNT
+         L     6,CURNO
+         LA    6,1(6)
+         ST    6,CURNO
+         B     BODYLOOP
+DONEBODY L     4,TOTAL
+         C     4,=F'289'
+         BL    BADBODY
+         C     4,=F'320'
+         BH    BADBODY
+         LINEWRT DATA=(BOK,L'BOK)
+         FSCLOSE 'M173NET STAGE G1',ERROR=CLERR
+         LINEWRT DATA=(PASS,L'PASS)
+         SR    15,15
+         B     RETURN
+BADHDR   LINEWRT DATA=(HERR,L'HERR)
+         B     CLOSEBAD
+BADBODY  LINEWRT DATA=(BERR,L'BERR)
+         B     CLOSEBAD
+RDERR    LINEWRT DATA=(RERR,L'RERR)
+CLOSEBAD FSCLOSE 'M173NET STAGE G1',ERROR=CLERR
+         B     BADRET
+CLERR    LINEWRT DATA=(CERR,L'CERR)
+BADRET   LA    15,8
+RETURN   L     14,RETADR
+         BR    14
+         LTORG
+RETADR   DS    F
+CURNO    DS    F
+COUNT    DS    F
+TOTAL    DS    F
+HDRLEN   DS    F
+BODYLEN  DS    F
+HDRBUF   DS    CL64
+BODYBUF  DS    CL64
+BEGIN    DC    C'M195 LAST FSREAD COMPLETE BODY BEGIN'
+HRET     DC    C'M195 LAST HEADER RETURNED'
+HOK      DC    C'M195 LAST HEADER PASS'
+BBEG     DC    C'M195 LAST TEN BODY READS BEGIN'
+BOK      DC    C'M195 LAST TEN BODY RECORDS HEX PASS'
+PASS     DC    C'M195 READ ONLY COMPLETE BODY RECORDS PASS'
+HERR     DC    C'M195 LAST HEADER MISMATCH'
+BERR     DC    C'M195 LAST BODY LENGTH OR HEX INVALID'
+RERR     DC    C'M195 LAST FSREAD FAILED'
+CERR     DC    C'M195 LAST FSCLOSE FAILED'
+         END   GITFL10
