@@ -1,5 +1,28 @@
 # IBM Sandbox
 
+## M188 real CMS target PASS — 208.27 s elapsed
+
+On October 11, 2026, **M188 passed** on the actual z/VM 6.3
+target. The isolated `GITPH8 EXEC` and `GITPH8M MODULE`
+verified 8 trees, 272 blobs, 279 entries, 280 reached
+objects and 7,736 unique indexed OIDs. Two forward
+scans each read 3,864,799 CMS stage text records,
+with zero random seeks. Native CPU **205.04s**,
+elapsed **208.27s**. The previous real CMS M185
+was CPU 206.72s, elapsed 209.97s, so the
+single observed M188 run is **1.70s/0.81% shorter**.
+This small difference is not a robust performance
+claim without repeated samples. G was checked as a
+4096-byte disk; stage/index present; FILEDEF clean
+**before** execution. The transcript did **not**
+include post-run `QUERY FILEDEF`; final DD cleanup
+not independently proven. Original modules and G
+data remain preserved. Evidence:
+`docs/M188_FAST_EOL.md`.
+
+---
+
+
 ## M189 eight-way hex validator — host-only negative speed result
 
 M189 uses separate `GITPH9M.C` and `GITPH9.EXEC`,
