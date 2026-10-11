@@ -101,6 +101,11 @@ on:
       - 'src/GITPHXM.C'
       - 'src/GITPH2M.C'
       - 'src/GITPH3M.C'
+      - 'src/GITPH5M.C'
+      - 'src/GITPH5.EXEC'
+      - 'tests/test-m185-direct-skip.py'
+      - 'tests/bench-m185-direct-skip.py'
+      - 'docs/M185_DIRECT_SKIP.md'
       - 'src/GITPH3.EXEC'
       - 'tests/test-m183-skip-len.py'
       - 'tests/bench-m184-hex-selective.py'
@@ -246,6 +251,11 @@ on:
       - 'src/GITPHXM.C'
       - 'src/GITPH2M.C'
       - 'src/GITPH3M.C'
+      - 'src/GITPH5M.C'
+      - 'src/GITPH5.EXEC'
+      - 'tests/test-m185-direct-skip.py'
+      - 'tests/bench-m185-direct-skip.py'
+      - 'docs/M185_DIRECT_SKIP.md'
       - 'src/GITPH3.EXEC'
       - 'tests/test-m183-skip-len.py'
       - 'tests/bench-m184-hex-selective.py'
@@ -365,6 +375,10 @@ jobs:
         run: python3 tests/test-m182-hex-pair.py
       - name: Check M183 skipped-body length/unroll parity
         run: python3 tests/test-m183-skip-len.py
+      - name: Check M185 direct skipped-record validation parity
+        run: python3 tests/test-m185-direct-skip.py
+      - name: Compare M181 M182 M183 M185 host skip readers
+        run: python3 tests/bench-m185-direct-skip.py
       - name: Compare M181 M182 M183 skipped-body host timings
         run: python3 tests/bench-m184-hex-selective.py
       - name: Cross-check permanent CMS data disk safety runbook

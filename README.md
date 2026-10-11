@@ -1,5 +1,36 @@
 # IBM Sandbox
 
+## M185 — direct skipped-record validation, host gated
+
+Continuing without waiting for M182/M183 CMS evidence,
+M185 adds an isolated C89 reader `GITPH5M.C` with
+distinct REXX wrapper `GITPH5.EXEC`. It preserves
+M181's selective two-scan Git SHA/index/tree rules but
+removes `strlen` from the frequent *skipped*
+hex-text-record validation path. It checks all expected
+hex characters and any trailing space, CR or LF in
+one bounded read, retaining native encoding support
+and fail-closed invalid records. Stage lines are
+not skipped; each is still read and checked.
+
+All new tests compile strictly C89, compare correct
+closures, and reject shortened/extended records,
+malformed hex, malformed suffixes and corrupted
+reached SHA. A disposable Linux 15.36MB stage
+benchmark shows the new M185 median **0.0760s**
+versus M183 **0.0908s**, M182 **0.0987s** and
+M181 **0.1211s** in one seven-round host run.
+These are **host-only observational timings**;
+the last actual z/VM 6.3 result is M181
+**298.38s** elapsed (CPU 294.57s). M182,
+M183 and M185 are not target-proven; no real
+CMS speedup claimed. See `docs/M185_DIRECT_SKIP.md`
+for isolated and nondestructive target commands.
+No stage/index/PACK or older module changed.
+
+---
+
+
 ## M184 — independent native host comparison, no CMS wait
 
 Without pausing for the pending M182/M183 real CMS
