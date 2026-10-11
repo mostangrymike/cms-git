@@ -11117,3 +11117,83 @@ read-only runbooks `docs/M182_HEX_PAIR.md`,
 ERASE/FORMAT, protected G stage/index writes,
 or PMAINT0141 write-link. Keep successful M181
 and all earlier working modules.
+
+
+## 2026-10-11 — M187 LIVE-CARDINALITY SYNTHETIC HOST CI PASS
+
+Continue per user explicit `do not pause`: do
+maximum independent coding/CI while M182/M183/M185
+actual CMS validation is outstanding.
+
+M186 deterministic differential validation (181
+seeded/fixed skipped-record cases, M181/M183/M185
+RC + authenticated closure parity, all in
+disposable host fixture) merged into `main`
+via PR #160 at commit
+`a5d1d1b82adda950de0f0b01d777ce31c622a923`.
+Full native host CI success, no CMS action.
+
+M187 is another HOST-ONLY synthetic stage/index
+scalability and authenticated closure check,
+branch `m187-7736-object-native-scale-fixture-20261011`.
+New `tests/test-m187-live-scale.py` compiles
+M181, M182, M183, M185 native C in strict
+C89, plus canonical `GITPIDX.C`; generates
+**7736 unique** Git SHA1 object IDs:
+272 reachable blobs, 7 subtree objects, 1
+root tree, **7456 unrelated blob objects**.
+Each of 7 subtrees owns part of 272 unique
+regular-file entries; root references all 7.
+Expected reachable graph exactly matches
+real CMS: **8 TREES 272 BLOBS 0 GITLINKS,
+279 ENTRIES 280 VERIFIED**, index TOTAL 7736
+UNIQUE 7736. Synthetic stage has 15791
+text records (not the real 3864799/scan).
+All 4 readers must read 2 forward passes,
+visit 15472 headers, 0 random seeks,
+272 authenticated reached blobs, stage text
+line counter 15791/pass, exact root OID,
+same index and native PASS.
+
+Negatives on same host index: changed
+unrelated blob with legal hex is accepted
+(selective SHA only verifies reached blobs);
+invalid nonhex in skipped unrelated blob
+is rejected; valid hex tampering with reached
+blob rejects by SHA1; truncated stage
+rejects. Hash original stage/index
+before/after restoration, no native read
+is allowed to mutate index or live G data.
+
+Full native-stage GitHub Actions run
+`38153433319` **PASS** and output:
+```text
+M187 INDEXED 7736 UNIQUE 7736 RECORDS 15791
+M187 REACHABLE TREES 8 BLOBS 272 ENTRIES 279 VERIFIED 280
+M187 TWO SCANS 15472 HEADER VISITS ALL FOUR READERS PASS
+M187 NEGATIVE CORRUPTION AND IMMUTABILITY PASS
+M187 SYNTHETIC HOST FIXTURE, NOT REAL CMS VALIDATION
+```
+CI hook added; docs `docs/M187_NATIVE_SCALE.md`
+and README updated. No production C or REXX
+changes in M187; test is host-only.
+
+Real target benchmark remains M181 CPU
+294.57s, elapsed 298.38s with original
+protected G stage/index and 3864799 text
+records per scan. M182/M183/M185 are
+host-verified but **NOT real CMS target-run**
+until operator submits output. No post-run
+QUERY FILEDEF was included with M181's
+successful transcript.
+
+Next safe user-side target instructions
+already prepared at `docs/M182_HEX_PAIR.md`,
+`docs/M183_SKIP_LENGTH.md` and
+`docs/M185_DIRECT_SKIP.md`. User specifically
+wants no unnecessary pause; continue
+independent host development rather than
+pretend to run native CMS from GitHub.
+Never ERASE/FORMAT/reimport/reindex GIT600,
+replace proven M181, or write-link physically
+overlapping PMAINT 0141 fullpack.
