@@ -1,5 +1,32 @@
 # IBM Sandbox
 
+## M181 real CMS pass; isolated M182 native pair-hex candidate
+
+October 11, 2026: the fixed separate `GITPHX EXEC`
+and `GITPHXM MODULE` passed real z/VM 6.3:
+8 trees, 272 blobs, 279 entries, 280 verified objects,
+index 7736/7736, two full 3,864,799-line scans,
+zero seeks and correct Git SHA authentication.
+CPU **294.57s**, elapsed **298.38s**, versus
+M179 elapsed 459.44s, a **161.06s/35.1%**
+single-run improvement. The final independent
+`QUERY FILEDEF` was not included in this success
+transcript. Verified original M181 remains preserved.
+
+Next M182 is an isolated host-tested research branch:
+native `GITPH2M.C` and differently named
+`GITPH2.EXEC` use a 65,536-entry table to validate
+**pairs of skipped hex characters**, rather than
+M181's 256-entry one-character table. It retains
+the proven two-pass, selective-SHA and failure
+checks and is **not yet real-CMS target-proven**.
+It may be faster or slower. Exact read-only next
+commands: `docs/M182_HEX_PAIR.md`. Do not
+reformat/reimport or touch permanent G inputs.
+
+---
+
+
 ## M181 name-collision correction (October 11, 2026)
 
 On real z/VM 6.3 CMS, the first M181 build of
