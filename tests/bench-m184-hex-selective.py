@@ -14,9 +14,9 @@ SOURCES = {
     "M182": ("GITPH2M.C", "M182 HEX PAIR VALIDATOR PASS"),
     "M183": ("GITPH3M.C", "M183 UNROLLED HEX VALIDATOR PASS"),
 }
-DATA = bytes(range(256)) * 20000
+DATA = bytes(range(256)) * 60000
 SMALL = b"Verified native CMS stage benchmark"
-RUNS = 3
+RUNS = 7
 
 
 def oid(typ, body):
@@ -75,7 +75,7 @@ with tempfile.TemporaryDirectory(prefix="m184-") as td:
 
     elapsed = {label: [] for label in SOURCES}
     labels = tuple(SOURCES.keys())
-    # One warmup, then three rotations to limit simple order effects.
+    # One warmup, then seven rotating rounds to reduce noise.
     for iteration in range(RUNS + 1):
         order = labels[iteration % len(labels):]
         order += labels[:iteration % len(labels)]
