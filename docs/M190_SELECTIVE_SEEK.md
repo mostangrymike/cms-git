@@ -67,24 +67,22 @@ New `src/GITPSKM.C` forks the target-proven M188
 reader but replaces the second exhaustive forward
 scan with indexed random-access readback:
 
-1. Read and validate all `7736` stage object headers,
-   index offsets/IDs/sizes/types, every skipped blob
-   hex record and Git SHA1 of all trees via **one
-   complete forward scan**, including EOF check.
-   This is identical to the original M188 pass 1.
-2. Using cached and SHA-authenticated tree bodies,
-   traverse the requested tree graph and mark only
-   actually reachable blobs. Preserve all original
-   name, mode, depth, cycle, count and memory limits.
-3. Before that full scan, perform a lightweight **read-only
-   preflight**: seek to the first, middle and last
-   indexed offsets, require `ftell` equality and
-   exact header number/type/size/OID match. On
-   failure, exit RC8 immediately, without paying
-   for a 3,864,799-line scan. The preflight reports
-   `M190 SEEK PREFLIGHT PASS 3` on the live
-   7,736-object index; these three setup probes
-   are **not** counted as reachable blob readbacks.
+1. After reading the index, perform a lightweight
+   **read-only seek preflight** against its first,
+   middle and last stage offsets. Require `ftell`
+   equality and exact header number/type/size/OID
+   match. On failure exit RC8 immediately, before
+   scanning 3,864,799 stage text records. On G
+   report `M190 SEEK PREFLIGHT PASS 3`. These
+   setup probes are not counted as blob readbacks.
+2. Read and validate all 7736 stage headers,
+   index offsets/IDs/sizes/types, every skipped
+   blob hex record and Git SHA1 of all trees via
+   **one complete forward scan**, including EOF.
+   This is the original M188 first scan.
+3. Traverse the cached SHA-verified tree graph to
+   mark only reached blobs, preserving original
+   mode/name/depth/cycle/memory limits.
 4. Reopen `dd:STGIN` **read-only**, and for each
    reached blob use its **first-pass verified** native
    `ftell` offset from the original sorted index.
