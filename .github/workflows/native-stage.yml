@@ -103,6 +103,12 @@ on:
       - 'src/GITPH3M.C'
       - 'src/GITPH5M.C'
       - 'src/GITPH8M.C'
+      - 'src/GITPSKM.C'
+      - 'src/GITPSK.EXEC'
+      - 'tests/test-m190-selective-seek.py'
+      - 'tests/test-m190-scale-seek.py'
+      - 'tests/bench-m190-selective-seek.py'
+      - 'docs/M190_SELECTIVE_SEEK.md'
       - 'src/GITPH9M.C'
       - 'src/GITPH9.EXEC'
       - 'tests/test-m189-eightway.py'
@@ -267,6 +273,12 @@ on:
       - 'src/GITPH3M.C'
       - 'src/GITPH5M.C'
       - 'src/GITPH8M.C'
+      - 'src/GITPSKM.C'
+      - 'src/GITPSK.EXEC'
+      - 'tests/test-m190-selective-seek.py'
+      - 'tests/test-m190-scale-seek.py'
+      - 'tests/bench-m190-selective-seek.py'
+      - 'docs/M190_SELECTIVE_SEEK.md'
       - 'src/GITPH9M.C'
       - 'src/GITPH9.EXEC'
       - 'tests/test-m189-eightway.py'
@@ -407,6 +419,12 @@ jobs:
         run: python3 tests/test-m185-direct-skip.py
       - name: Check M188 fast EOL differential skip reader
         run: python3 tests/test-m188-fast-eol.py
+      - name: Check M190 one-pass validated selective seek readback
+        run: python3 tests/test-m190-selective-seek.py
+      - name: Check M190 7736-object selective seek closure
+        run: python3 tests/test-m190-scale-seek.py
+      - name: Compare M190 indexed seek vs M188 two-pass host
+        run: python3 tests/bench-m190-selective-seek.py
       - name: Check M189 eight-way skipped-hex C89 parity
         run: python3 tests/test-m189-eightway.py
       - name: Compare M189 eight-way skipped-hex host readers

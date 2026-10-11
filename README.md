@@ -1,5 +1,42 @@
 # IBM Sandbox
 
+## M190 — experimental indexed reachable-blob readback
+
+The current **actual CMS positive-path** baseline is
+M188 CPU **205.04s**, elapsed **208.27s**:
+8 trees, 272 reached blobs, 280 verified objects,
+7736 indexed unique, two full sequential stage
+scans and zero seeks. Its observed 1.70s elapsed
+advantage over M185 is only 0.81% (one sample);
+a post-run FILEDEF result was not supplied.
+
+M190 is an **independent HOST-ONLY candidate**:
+`GITPSKM.C` / distinct wrapper `GITPSK.EXEC`.
+It validates the entire original stage/index
+and authenticates all trees in a **single full
+forward scan**, traverses the requested root,
+and reopens the stage read-only to `fseek`
+directly to each 272 reached blobs using
+first-pass verified `ftell` offsets. Every
+sought header and reached blob SHA1 is fully
+reverified; any unsupported seek or mismatch
+fails closed. All protected original files
+and prior modules remain unchanged.
+
+Host CI on 7736 unique synthetic indexed
+objects passed strict C89, exact 280-object
+reached closure, one scan/272 seeks, and
+malformed index/hex/SHA negatives. A seven-round
+Linux-host comparison showed **M190 0.0369s**
+vs **M188 0.0719s** on a disposable 15.36MB
+fixture. **Those are not z/VM results.** IBM
+CMS's C text stream seek behavior on `dd:STGIN`
+is unproven; test only as a separate reader,
+following `docs/M190_SELECTIVE_SEEK.md`.
+
+---
+
+
 ## M188 real CMS target PASS — 208.27 s elapsed
 
 On October 11, 2026, **M188 passed** on the actual z/VM 6.3

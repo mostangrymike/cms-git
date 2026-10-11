@@ -11432,3 +11432,135 @@ run on real CMS. Do not use host times as CMS proof.
 User preference: **do not pause**, continue
 independent GitHub CI work, isolate any new
 native module by a new distinct EXEC/MODULE name.
+
+
+## 2026-10-11 — M188 real CMS PASS recorded; M190 host seek experiment
+
+Operator's new actual z/VM 6.3 MAINT transcript M188:
+GIT600 G 4096-byte disk (2 files), both original
+M173NET STAGE G and M174NET INDEX G present.
+QUERY FILEDEF clean **before** run.
+`CMSCLNK GITPH8M PLAIN` clean XF compile,
+native `GITPH8 G CCB18BEC067E7886D70B82EF138EE56A8B899A61`
+returned RC0 with:
+- 8 trees, 272 reached blobs, 0 gitlinks,
+  279 entries, 280 verified, 7736 index unique
+- 2 full forward scans, 15472 header visits,
+  3864799 physical stage records per pass, 0 seeks
+- 272 authenticated reachable blobs, all M188
+  native plus wrapper PASS
+- CPU 205.04s / elapsed **208.27s** at 12:48:26.
+M185 real baseline CPU206.72/elapsed209.97;
+M188 single run saved 1.68CPU/1.70elapsed,
+0.81%: **too small to claim reliable speedup**.
+M188 end-of-run `QUERY FILEDEF` not provided.
+User still wants max work; keep proven M185/M188 unchanged.
+Real target result recorded in README/docs/CHAT_STATE
+via merged PR #165, commit
+`aca4040ffb0485542c1e97fbc9462f22f0532c6b`.
+
+M190 is new isolated host-only risky but bounded
+experiment from target-proven M188. Sources:
+`src/GITPSKM.C` (new native 8-char CMS stem),
+`src/GITPSK.EXEC` (different 6-char wrapper).
+Instead of 2 full forward stage scans, **first
+one full scan** verifies all 7736 index/stage
+headers, offset cookies from `ftell`, all skipped
+hex physical line syntax, SHA-authenticates all
+tree bodies and validates EOF exactly as M188.
+Walk verified root graph to mark reached blobs.
+Reopen `dd:STGIN` read-only, use each reached
+blob's **first-pass verified** index offset
+in `fseek(f,offset,SEEK_SET)`. Require `ftell`
+to match, reparse header/index fields and bytes,
+read full blob and verify Git SHA1. Count
+`stage_seeks`; reached state changes 3->4
+on successful SHA. Any fseek mismatch/unsupported
+C text stream returns RC8 and NO PASS marker.
+All previous type/name/depth/cycle/resident
+limits and protected read-only inputs unchanged.
+The REXX wrapper requires exactly one full scan,
+exactly as many seeks and authenticated SHA blobs
+as reached blobs, exact root, native success and
+owned temporary FILEDEF cleanup. Never alter
+or overwrite target-proven M188/M185.
+
+Host regressions:
+`tests/test-m190-selective-seek.py`: strict
+C89 compile, positive reached SHA closure,
+one full scan and exact seek/readback lines,
+invalid unselected hex, malformed stage/index,
+tampered reached SHA and stage/index immutability.
+`tests/test-m190-scale-seek.py`: synthetic 7736
+unique objects, 8 trees/272 blobs/279 entries/
+280 verified, one scan/7736 headers/272 seeks,
+compared to four native 2-scan reference readers,
+fail-closed mutation/truncation negatives.
+`tests/bench-m190-selective-seek.py`: seven
+rotating Linux host comparisons against M188
+with a disposable 15.36MB unreferenced blob,
+same reached SHA closure, unchanged input
+SHA256, no timing threshold. Full Actions run
+`38166026873` SUCCESS. Printed Linux medians:
+M188 0.0719s and M190 0.0369s (about 48.7%
+shorter host sample). **This is host evidence
+only, not CMS functionality or throughput.**
+The test summary was later corrected to say
+M190 one scan and 272 seeks vs reference 2 scans.
+Runbook `docs/M190_SELECTIVE_SEEK.md`;
+README/workflow updated.
+
+**Most important target uncertainty**:
+whether z/VM 6.3 C runtime `fseek` is supported
+using indexed `ftell` cookies for a CMS text
+record stream `dd:STGIN`. A CMS target failure
+might simply mean unsupported stream repositioning.
+Do not reformat/rewrite/reindex the original G
+to make it work. Fail closed and retain proven M188.
+
+After M190 merge+CI:
+Mac `ibm-sandbox/src`:
+```sh
+git pull
+./cms-upload.sh GITPSKM.C GITPSK.EXEC
+```
+CMS MAINT:
+```text
+QUERY DISK G
+STATE M173NET STAGE G
+STATE M174NET INDEX G
+QUERY FILEDEF
+STATE GITPSKM C A
+CMSCLNK GITPSKM PLAIN
+STATE GITPSKM MODULE A
+```
+Only after preflight+compile success:
+```text
+GITPSK G CCB18BEC067E7886D70B82EF138EE56A8B899A61
+QUERY FILEDEF
+```
+Require same 8/272/279/280, index7736/7736,
+M190 FORWARD SCANS 1 RECORDS 7736 SEEKS 272,
+M190 AUTHENTICATED BLOBS 272,
+M190 STAGE LINES FULL 3864799 READBACK
+(variable small count), all native and wrapper PASS.
+Measure elapsed against proven M188 208.27s,
+no broad claims from one run. No reimport/reindex,
+ERASE/FORMAT, M185/M188 MODULE overwrite, G
+stage/index write or overlapping PMAINT 0141 link.
+
+
+M190 ADDENDUM — early unsupported-seek detection:
+Before the expensive complete stage scan, M190 now
+performs `seekpreflight()` on first, midpoint and
+last native index offsets, using read-only `fopen`,
+`fseek`, `ftell`, exact OBJ header reparse.
+Success prints `M190 SEEK PREFLIGHT PASS 3`
+(on G's 7736 unique records). Any mismatch/unsupported
+text repositioning yields RC8 immediately. These
+3 setup seeks are separate from the expected
+272 reached-blob readback seeks, and stage-line
+accounting excludes preflight. CMS wrapper requires
+this preflight PASS and one full scan/272 readbacks.
+Host parity and scale tests now require preflight
+marker. Actual IBM CMS C seek support remains UNKNOWN.
