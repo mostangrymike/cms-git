@@ -1,5 +1,77 @@
 # M188 — direct skipped-record fast end-of-line path
 
+## October 11, 2026 — M188 REAL CMS NATIVE SUCCESS
+
+The operator ran the new isolated M188 reader on z/VM 6.3, **actual
+target success**, at 12:44–12:48 local time. Protected data preflight:
+
+```text
+QUERY DISK G
+GIT600 600 G R/W 1600 3390 4096 2 62526-22 225474 288000
+STATE M173NET STAGE G
+Ready
+STATE M174NET INDEX G
+Ready
+QUERY FILEDEF
+No user defined FILEDEF in effect
+STATE GITPH8M C A
+Ready
+CMSCLNK GITPH8M PLAIN
+ASSEMBLER (XF) DONE
+NO STATEMENTS FLAGGED IN THIS ASSEMBLY
+CMSCLNK: built GITPH8M MODULE mode PLAIN
+Ready; T=2.17/2.27 12:44:41
+```
+
+Actual `GITPH8 G CCB18BEC067E7886D70B82EF138EE56A8B899A61`
+output:
+
+```text
+TREE CLOSURE ROOT CCB18BEC067E7886D70B82EF138EE56A8B899A61
+TREE CLOSURE TREES 8 BLOBS 272 GITLINKS 0
+TREE CLOSURE ENTRIES 279 VERIFIED 280
+TREE CLOSURE MAX OBJECT 393767 RESIDENT PEAK 6546851
+TREE CLOSURE INDEX TOTAL 7736 UNIQUE 7736
+M188 FORWARD SCANS 2 RECORDS 15472 SEEKS 0
+M188 AUTHENTICATED BLOBS 272
+M188 STAGE LINES PASS1 3864799 PASS2 3864799
+M188 CPU INDEX UNAVAILABLE
+M188 CPU TREE_SCAN UNAVAILABLE
+M188 CPU GRAPH UNAVAILABLE
+M188 CPU BLOB_SCAN UNAVAILABLE
+M188 FAST EOL VALIDATOR PASS
+M188 TREE CLOSURE PASS
+M188 VERIFIED FAST TREE TARGET GATE PASS CCB18BEC067E7886D70B82EF138EE56A8B899A61 G
+Ready; T=205.04/208.27 12:48:26
+```
+
+**Measured target timing:** CPU **205.04s**, elapsed **208.27s**;
+M185 CPU 206.72s, elapsed 209.97s. M188 saves **1.68s CPU**
+and **1.70s elapsed (0.81%)** in these single observations.
+Both readers verified identical closures and scanned both
+3,864,799-line stages with zero seeks. The ~0.8% difference
+is small enough that variation in CMS load/cache can explain it;
+**do not claim a statistically robust speed advantage**.
+M181 historical elapsed 298.38s; M180 708.52s.
+
+**Hygiene evidence boundary:** pre-run `QUERY FILEDEF`
+was clean, but **there is no post-run `QUERY FILEDEF`**
+in the M188 transcript. Native functional RC0 and
+wrapper PASS are proven; final FILEDEF cleanup is not
+independently verified. Only a cheap `QUERY FILEDEF`
+would close that gap; no repeat stage walk is necessary.
+
+M188 `GITPH8 EXEC A` and `GITPH8M MODULE A` are now
+**target-proven positive-path**, and must be preserved.
+M185 also remains intact and target-proven.
+M189 eight-way grouping passed host integrity but was
+slower on the measured Linux fixture and has not run
+on CMS. Leave GIT600's two protected source files,
+existing modules, and PMAINT0141 overlap untouched.
+
+---
+
+
 ## Baseline and safety
 
 Actual October 11 native z/VM 6.3 M185 compiled successfully
