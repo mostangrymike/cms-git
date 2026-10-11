@@ -1,0 +1,53 @@
+/* M196: authenticated-index geometry; stage is never opened. */
+address cms
+parse upper arg fm obj limit extra
+if fm\='G' | obj='' | limit='' | extra\='' then do
+ say 'Usage: GITRP6 G object-number max-body-records'
+ exit 4
+end
+if datatype(obj,'W')\=1 | datatype(limit,'W')\=1 then exit 4
+if obj<1 | obj>7736 | limit<1 | limit>64 then exit 4
+drop d.
+d.0=0
+'PIPE CMS QUERY DISK G | STEM d.'
+if rc\=0 then exit 8
+ok=0
+do i=1 to d.0
+ if word(d.i,3)='G' & word(d.i,7)='4096' then ok=ok+1
+end
+if ok\=1 then do
+ say 'M196 G DISK NOT ACCESSED 4K'
+ exit 8
+end
+'STATE M173NET STAGE G'
+if rc\=0 then exit 8
+'STATE M174NET INDEX G'
+if rc\=0 then exit 8
+'STATE GITRP6M MODULE A'
+if rc\=0 then exit 8
+drop f.
+f.0=0
+'PIPE CMS QUERY FILEDEF | STEM f.'
+if rc\=0 then exit 8
+do i=1 to f.0
+ if translate(word(f.i,1))='IDXIN' then do
+  say 'M196 IDXIN ALREADY DEFINED'
+  exit 8
+ end
+end
+'FILEDEF IDXIN DISK M174NET INDEX G'
+if rc\=0 then do
+ say 'M196 IDXIN FILEDEF FAILED'
+ exit 8
+end
+say 'M196 NATIVE INDEX OBJECT RECORD PLAN BEGIN'
+'GITRP6M PLAN 3864799' obj limit
+workrc=rc
+'FILEDEF IDXIN CLEAR'
+clearrc=rc
+if workrc\=0 | clearrc\=0 then do
+ say 'M196 INDEX OBJECT PLAN GATE FAIL' workrc clearrc
+ exit 8
+end
+say 'M196 INDEX OBJECT PLAN GATE PASS G' obj
+exit 0
