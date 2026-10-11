@@ -12296,3 +12296,70 @@ Never overwrite prior target-proven modules or touch
 protected original GIT600 files; no G-format/reimport,
 no overlapping PMAINT0141 write-link or M190 272-seek
 experiment.
+
+
+## 2026-10-11 — M197 full canonical object SHA core HOST PASS
+
+Directive: maximize productive work per turn and avoid
+unnecessary pauses. Do not invent unreported CMS target PASS.
+
+Last actual mainframe result remains M194 FIRST/MID/LAST
+header+first-body native FSREAD PASS at 0.01s each.
+M195 full LAST ten-record body gate merged PR174 but
+real `GITFLP G LAST` proof NOT supplied. M196 arbitrary
+index-selected object record-plan merged PR175 commit
+7caed52a804c931c9c02928471799053707b4f91,
+strict host CI PASS; no real `GITRP6 G 7736 10`
+proof supplied. Neither M195/M196 is target proven.
+
+M197 adds isolated `src/GITVO7M.C` full-object
+canonical Git SHA-1/OID verifier and distinct wrapper
+`src/GITVO7.EXEC`. The native C89 component reads
+only disposable `dd:OBJIN`, requires exact object
+number, type 1..4, size up to 16 MiB, stored OID equal
+to expected independent 40-hex OID, and complete body
+hex records (empty size gets one empty line). Rejects
+invalid hex, odd/short/excess/truncated records,
+malformed headers, data mismatches and trailing records.
+Reconstructs binary body and recomputes Git SHA1 over
+canonical type + size + NUL + data. RC0 only if all
+20 digest bytes match expected. The wrapper uses only
+pre-existing disposable `GITVRAW DATA A`, binds
+`OBJIN` with collision preflight, calls the module
+directly and clears its owned FILEDEF. Neither touches
+the original protected G stage/index or previous modules.
+
+Host strict gcc C89 and extensive SHA1 blob/commit/tree/
+tag vectors passed via workflow, but there is NO
+FSREAD-to-disposable-object producer yet, and NO actual
+CMS target run of M197. `docs/M197_NATIVE_SHA.md` and
+`tests/test-m197-native-object-sha.py` document guardrails.
+M188 verified full-tree closure remains 205.04s CPU /
+208.27s elapsed.
+
+After M195/196 target gates, design isolated CMS assembler
+FSREAD adapter to read a single bounded M196 index-proven
+record span, publish only a protected-collision-checked
+disposable A scratch object with exact record identity,
+then validate using M197. Do not substitute host SHA
+fixture testing for real CMS authenticated object access.
+
+Immediate Mac work from ibm-sandbox/src if files not
+yet uploaded:
+```sh
+git pull
+./cms-upload.sh GITFL10.ASSEMBLE GITFLP.EXEC GITRP6M.C GITRP6.EXEC
+```
+CMS MAINT preflight G original stage/index, 4K disk,
+clean FILEDEF; assemble + GENMOD GITFL10 if not built;
+then `GITFLP G LAST` and `QUERY FILEDEF`.
+Compile GITRP6M with `CMSCLNK GITRP6M PLAIN`;
+then `GITRP6 G 7736 10` and `QUERY FILEDEF`.
+Each is a separate gate and stop on error.
+No scratch object producer exists; do not attempt
+M197 live G verification.
+
+No protected original G writes, reimport/reindex,
+GIT600 format/erase, overlapping PMAINT0141 write-link,
+replacement M185/M188/M193/M194/M195 modules, or
+full 272-seek M190 readback.
