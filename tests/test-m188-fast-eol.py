@@ -205,7 +205,7 @@ with tempfile.TemporaryDirectory() as temp:
         stage_lines[hdr + 1] += suffix
         (folder / "dd:STGIN").write_text(
             "\n".join(stage_lines))
-        if suffix not in ("\\t", "G"):
+        if suffix not in ("\t", "G"):
             (folder / "dd:IDXOUT").unlink()
             remake = subprocess.run(
                 [str(binaries["idx"]), "BUILD"],
@@ -220,7 +220,7 @@ with tempfile.TemporaryDirectory() as temp:
         assert cur.returncode == old.returncode, (
             suffix, old.stdout, cur.stdout)
         assert (cur.returncode == 0) == (
-            suffix not in ("\\t", "G")), suffix
+            suffix not in ("\t", "G")), suffix
     (folder / "dd:STGIN").write_text(txt)
     (folder / "dd:IDXIN").write_text(originalidx)
 
