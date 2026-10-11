@@ -107,13 +107,13 @@ with tempfile.TemporaryDirectory(prefix="m184-") as td:
     after = (hashlib.sha256(stage.read_bytes()).hexdigest(),
              hashlib.sha256(idxin.read_bytes()).hexdigest())
     assert before == after, "Native host scan mutated input"
-    print("M184 FIXTURE: %d bytes unrelated blob, %d stage lines" %
+    print("M185 FIXTURE: %d bytes unrelated blob, %d stage lines" %
           (len(DATA), records))
-    print("M184 REQUIRED: identical authenticated closure, no G writes")
+    print("M185 REQUIRED: identical authenticated closure, no G writes")
     for label in labels:
         measures = elapsed[label]
         print("%s HOST MEDIAN %.4fs MIN %.4fs MAX %.4fs" %
               (label, statistics.median(measures),
                min(measures), max(measures)))
-    print("M184 HOST TIMINGS ARE OBSERVATIONAL ONLY; NOT z/VM DATA")
-    print("M184 PARITY AND READ-ONLY BENCHMARK PASS")
+    print("M185 HOST TIMINGS ARE OBSERVATIONAL ONLY; NOT z/VM DATA")
+    print("M185 PARITY AND READ-ONLY BENCHMARK PASS")
