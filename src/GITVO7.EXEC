@@ -1,0 +1,39 @@
+/* M197: read-only full object SHA verifier on disposable A input. */
+address cms
+parse upper arg number oid extra
+if number='' | oid='' | extra\='' then do
+ say 'Usage: GITVO7 object-number 40-hex-oid'
+ exit 4
+end
+if datatype(number,'W')\=1 | number<1 | number>100000 then exit 4
+if length(oid)\=40 | verify(oid,'0123456789ABCDEF')\=0 then exit 4
+'STATE GITVRAW DATA A'
+if rc\=0 then do
+ say 'M197 DISPOSABLE INPUT MISSING'
+ exit 8
+end
+'STATE GITVO7M MODULE A'
+if rc\=0 then exit 8
+drop f.
+f.0=0
+'PIPE CMS QUERY FILEDEF | STEM f.'
+if rc\=0 then exit 8
+do i=1 to f.0
+ if translate(word(f.i,1))='OBJIN' then do
+  say 'M197 OBJIN ALREADY DEFINED'
+  exit 8
+ end
+end
+'FILEDEF OBJIN DISK GITVRAW DATA A'
+if rc\=0 then exit 8
+say 'M197 DISPOSABLE FULL OBJECT VERIFICATION BEGIN'
+'GITVO7M VERIFY' number oid
+workrc=rc
+'FILEDEF OBJIN CLEAR'
+clearrc=rc
+if workrc\=0 | clearrc\=0 then do
+ say 'M197 OBJECT GATE FAIL' workrc clearrc
+ exit 8
+end
+say 'M197 DISPOSABLE FULL OBJECT GATE PASS'
+exit 0

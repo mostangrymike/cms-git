@@ -1,5 +1,37 @@
 # IBM Sandbox
 
+## M197 — full canonical Git object SHA1 core (HOST-ONLY)
+
+New separate `GITVO7M.C` validates a complete
+bounded Git object supplied through **disposable**
+`dd:OBJIN`. It checks object number, type, size,
+complete hex record count/width/content, and independently
+calculates canonical SHA-1 for Git commit/tree/blob/tag.
+An exact expected 40-hex OID must match the stored header
+and computed 20-byte digest; malformed, extra, missing
+and corrupted body records fail closed.
+
+`GITVO7.EXEC` only binds an existing disposable
+`GITVRAW DATA A` to read-only OBJIN and clears its
+own FILEDEF. It **never opens the original G stage**
+or index. Strict C89 host tests cover zero/multiblock
+objects, boundary records and SHA-1 negative cases.
+
+**M197 is a host-only verification core**, not a working
+FSREAD-to-object bridge. It must not run on CMS without
+an independently prepared disposable object fixture and
+expected OID. Full target integration is still pending.
+
+M195 ten-record LAST body test and M196 selected-object
+record plan are both already merged and host tested.
+Neither has yet been reported as passing on real CMS.
+Proceed with their exact existing CMS tests first:
+`GITFLP G LAST` and `GITRP6 G 7736 10`.
+See `docs/M197_NATIVE_SHA.md` for scope and safeguards.
+The proven M188 full tree closure remains 208.27s elapsed.
+
+---
+
 ## M196 — verified index-selected object record plan (HOST-ONLY)
 
 M196 introduces new, separate `GITRP6M.C` and
