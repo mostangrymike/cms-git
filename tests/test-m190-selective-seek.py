@@ -47,7 +47,7 @@ for required in ("#include <time.h>", "clock()", "cpu_phase(",
                  "M190 SELECTIVE SEEK VALIDATOR PASS",
                  "scan(1)", "seekreadback()"):
     assert required in code, required
-assert code.count("fseek(") == 1
+assert code.count("fseek(") == 2
 
 # CMS command lookup collision regression: EXEC must never invoke itself.
 assert wrapper.stem == "GITPSK"
@@ -110,6 +110,7 @@ with tempfile.TemporaryDirectory() as temp:
     assert "M190 AUTHENTICATED BLOBS 2" in new.stdout
     assert "M190 TREE CLOSURE PASS" in new.stdout
     assert "M190 SELECTIVE SEEK VALIDATOR PASS" in new.stdout
+    assert "M190 SEEK PREFLIGHT PASS 3" in new.stdout
     for phase in ("INDEX", "TREE_SCAN", "GRAPH", "BLOB_SCAN"):
         match = re.search(r"^M190 CPU " + phase +
                           r" (\d+\.\d+|UNAVAILABLE)$",
