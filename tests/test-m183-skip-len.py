@@ -173,6 +173,7 @@ with tempfile.TemporaryDirectory() as temp:
     (folder / "dd:STGIN").write_text("\n".join(lines) + "\n")
     # Index offsets change when record width changes; rebuild index
     # only in this disposable host fixture, never on CMS G.
+    (folder / "dd:IDXOUT").unlink()
     rebuilt = subprocess.run(
         [str(binaries["idx"]), "BUILD"], cwd=folder,
         capture_output=True, text=True)
