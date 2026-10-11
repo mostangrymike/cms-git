@@ -40,7 +40,7 @@ def staged(objs):
 
 
 def build(path, target):
-    args = ["gcc", "-std=c89", "-Wall", "-Wextra", "-Werror",
+    args = ["gcc", "-x", "c", "-std=c89", "-Wall", "-Wextra", "-Werror",
             str(path), "-o", str(target)]
     subprocess.run(args, check=True)
 
