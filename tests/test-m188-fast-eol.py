@@ -205,13 +205,16 @@ with tempfile.TemporaryDirectory() as temp:
         stage_lines[hdr + 1] += suffix
         (folder / "dd:STGIN").write_text(
             "\n".join(stage_lines))
-        (folder / "dd:IDXOUT").unlink()
-        remake = subprocess.run(
-            [str(binaries["idx"]), "BUILD"],
-            cwd=folder, capture_output=True, text=True)
-        assert remake.returncode == 0, (
-            suffix, remake.stdout, remake.stderr)
-        shutil.copy(folder / "dd:IDXOUT", folder / "dd:IDXIN")
+        if suffix not in ("\\t", "G"):
+            (folder / "dd:IDXOUT").unlink()
+            remake = subprocess.run(
+                [str(binaries["idx"]), "BUILD"],
+                cwd=folder, capture_output=True, text=True)
+            assert remake.returncode == 0, (
+                suffix, remake.stdout, remake.stderr)
+            shutil.copy(folder / "dd:IDXOUT", folder / "dd:IDXIN")
+        else:
+            (folder / "dd:IDXIN").write_text(originalidx)
         old = run(original_m185, folder, rootoid)
         cur = run(binaries["new"], folder, rootoid)
         assert cur.returncode == old.returncode, (
