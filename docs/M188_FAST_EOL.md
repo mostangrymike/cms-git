@@ -121,3 +121,29 @@ Compare with the new real CMS M185 baseline
 Do not repeat completed M173 import/M174 index,
 erase/formats, overwrite any old module, or
 write-link overlapping PMAINT 0141.
+
+
+## Observed M188 Linux host result (not CMS evidence)
+
+Full native-stage Actions run
+[38155760171](https://github.com/mostangrymike/ibm-sandbox/actions/runs/38155760171)
+**PASS**, including native C89/regression, host read-only
+and identical authenticated closure checks. The seven-run
+rotating comparison on the same 15,360,000-byte unrelated
+blob, 480,007 text-records-per-scan fixture printed:
+
+```text
+M181 HOST MEDIAN 0.1211s MIN 0.1188s MAX 0.1327s
+M182 HOST MEDIAN 0.1003s MIN 0.0988s MAX 0.1008s
+M183 HOST MEDIAN 0.0914s MIN 0.0899s MAX 0.0930s
+M185 HOST MEDIAN 0.0766s MIN 0.0760s MAX 0.0890s
+M188 HOST MEDIAN 0.0735s MIN 0.0718s MAX 0.0786s
+M188 HOST TIMINGS ARE OBSERVATIONAL ONLY; NOT z/VM DATA
+M188 PARITY AND READ-ONLY BENCHMARK PASS
+```
+M188 is slightly faster than M185 on this **Linux
+host sample only**. CMS C library, EBCDIC, object
+data, load and scheduler differ. Do not promote
+the reader or claim CMS improvement without an
+actual mainframe PASS and timing.
+
