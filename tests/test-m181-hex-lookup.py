@@ -8,7 +8,7 @@ import subprocess
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
-native = root / "src" / "GITPHX.C"
+native = root / "src" / "GITPHXM.C"
 wrapper = root / "src" / "GITPHX.EXEC"
 base = root / "src" / "GITPFST.C"
 index = root / "src" / "GITPIDX.C"
@@ -47,12 +47,21 @@ for required in ("#include <time.h>", "clock()", "cpu_phase(",
                  "scan(1)", "scan(2)"):
     assert required in code, required
 assert "fseek(" not in code
+
+# CMS command lookup collision regression: EXEC must never invoke itself.
+assert wrapper.stem == "GITPHX"
+assert native.stem == "GITPHXM"
+assert wrapper.stem != native.stem
+assert "GITPHX MODULE" not in rexx
+assert not (root / "src" / "GITPHXM.EXEC").exists()
+assert "'PIPE CMS GITPHX WALK'" not in rexx
+assert "Usage: GITPHXM WALK tree-oid" in code
 for forbidden in ("ERASE", "FORMAT ", "DIRECTXA", "GITPIMP IMPORT",
                   "GITPIDX BUILD", "FILEDEF * CLEAR", "FILEDEF OBJOUT",
                   "FILEDEF IDXOUT"):
     assert forbidden not in rexx
-for required in ("'STATE GITPHX MODULE A'",
-                 "'PIPE CMS GITPHX WALK' oid '| STEM o.'",
+for required in ("'STATE GITPHXM MODULE A'",
+                 "'PIPE CMS GITPHXM WALK' oid '| STEM o.'",
                  "'PIPE CMS QUERY FILEDEF | STEM f.'",
                  "'FILEDEF IDXIN CLEAR'", "'FILEDEF STGIN CLEAR'",
                  "M181 VERIFIED FAST TREE TARGET GATE PASS"):
