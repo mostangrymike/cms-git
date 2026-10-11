@@ -108,6 +108,10 @@ on:
       - 'src/GITRCNM.C'
       - 'src/GITFSRD.ASSEMBLE'
       - 'src/GITFSP.EXEC'
+      - 'src/GITFRB.ASSEMBLE'
+      - 'src/GITFRP.EXEC'
+      - 'tests/test-m194-fsread-body.py'
+      - 'docs/M194_FSREAD_BODY.md'
       - 'tests/test-m193-fsread-guard.py'
       - 'docs/M193_FSREAD_PROBE.md'
       - 'src/GITRCN.EXEC'
@@ -290,6 +294,10 @@ on:
       - 'src/GITRCNM.C'
       - 'src/GITFSRD.ASSEMBLE'
       - 'src/GITFSP.EXEC'
+      - 'src/GITFRB.ASSEMBLE'
+      - 'src/GITFRP.EXEC'
+      - 'tests/test-m194-fsread-body.py'
+      - 'docs/M194_FSREAD_BODY.md'
       - 'tests/test-m193-fsread-guard.py'
       - 'docs/M193_FSREAD_PROBE.md'
       - 'src/GITRCN.EXEC'
@@ -451,6 +459,8 @@ jobs:
         run: python3 tests/test-m192-record-plan.py
       - name: Check M193 assembler FSREAD static and record model safety
         run: python3 tests/test-m193-fsread-guard.py
+      - name: Check M194 two-record FSREAD EBCDIC body safety
+        run: python3 tests/test-m194-fsread-body.py
       - name: Check M190 7736-object selective seek closure
         run: python3 tests/test-m190-scale-seek.py
       - name: Compare M190 indexed seek vs M188 two-pass host
