@@ -109,7 +109,7 @@ with tempfile.TemporaryDirectory() as temp:
     assert "M188 FORWARD SCANS 2 RECORDS 12 SEEKS 0" in new.stdout
     assert "M188 AUTHENTICATED BLOBS 2" in new.stdout
     assert "M188 TREE CLOSURE PASS" in new.stdout
-    assert "M188 DIRECT SKIP VALIDATOR PASS" in new.stdout
+    assert "M188 FAST EOL VALIDATOR PASS" in new.stdout
     for phase in ("INDEX", "TREE_SCAN", "GRAPH", "BLOB_SCAN"):
         match = re.search(r"^M188 CPU " + phase +
                           r" (\d+\.\d+|UNAVAILABLE)$",
