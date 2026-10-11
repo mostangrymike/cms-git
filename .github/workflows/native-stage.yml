@@ -100,6 +100,10 @@ on:
       - 'src/GITPHX.C'
       - 'src/GITPHXM.C'
       - 'src/GITPH2M.C'
+      - 'src/GITPH3M.C'
+      - 'src/GITPH3.EXEC'
+      - 'tests/test-m183-skip-len.py'
+      - 'docs/M183_SKIP_LENGTH.md'
       - 'src/GITPH2.EXEC'
       - 'tests/test-m182-hex-pair.py'
       - 'docs/M182_HEX_PAIR.md'
@@ -239,6 +243,10 @@ on:
       - 'src/GITPHX.C'
       - 'src/GITPHXM.C'
       - 'src/GITPH2M.C'
+      - 'src/GITPH3M.C'
+      - 'src/GITPH3.EXEC'
+      - 'tests/test-m183-skip-len.py'
+      - 'docs/M183_SKIP_LENGTH.md'
       - 'src/GITPH2.EXEC'
       - 'tests/test-m182-hex-pair.py'
       - 'docs/M182_HEX_PAIR.md'
@@ -351,6 +359,8 @@ jobs:
         run: python3 tests/test-m181-hex-lookup.py
       - name: Check M182 two-character hex LUT parity
         run: python3 tests/test-m182-hex-pair.py
+      - name: Check M183 skipped-body length/unroll parity
+        run: python3 tests/test-m183-skip-len.py
       - name: Cross-check permanent CMS data disk safety runbook
         run: python3 tests/test-m173-persistent-disk-runbook.py
       - name: Check read-only VMUDQ 6.3 source and fixed record model
