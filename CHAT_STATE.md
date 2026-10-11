@@ -11956,3 +11956,66 @@ after reviewing exact statement flags,
 do not alter G or old modules. No
 M190 full walk, no ERASE/FORMAT/reimport/
 reindex, no overlapping PMAINT0141 write-link.
+
+
+## 2026-10-11 15:29 — M193 **REAL CMS FIRST FSREAD PASS**
+
+User supplied actual z/VM 6.3:
+```text
+GLOBAL MACLIB OSMACRO DMSGPI PDPCLIB
+ASSEMBLE GITFSRD
+ASSEMBLER (XF) DONE
+NO STATEMENTS FLAGGED IN THIS ASSEMBLY
+Ready; T=0.14/0.17 15:29:23
+GLOBAL TXTLIB PDPCLIB
+LOAD GITFSRD (NOAUTO NOMAP
+GENMOD GITFSRD
+GITFSP G FIRST
+M193 DIRECT FSREAD G1 PROBE BEGIN FIRST
+M193 FSREAD BEGIN FIRST RECNO 1
+M193 FSREAD RETURNED
+M193 RECORD HEADER PASS
+M193 READ ONLY FSREAD PROBE PASS
+M193 CMS FSREAD GATE PASS G FIRST
+Ready; T=0.01/0.01 15:29:48
+```
+**M193 is TARGET-PROVEN for FIRST only**:
+assembler and linkage successful, 1 native
+record retrieved via CMS FSREAD FORM=E,
+RECFM=V, NOREC=1, RECNO1, correct OBJ1 header,
+FSCLOSE and wrapper PASS. 0.01s CPU/elapsed
+actual CMS. This is not a proof that middle or
+late-stage random record access is efficient.
+No post-execution QUERY FILEDEF in transcript.
+
+Previous M192 actual CMS stage model PASS:
+G file RECFM V LRECL64 3,864,799 records;
+7,736 indexed unique objects; physical header
+record ordinals FIRST1 MID1969357 LAST3864789.
+Previous M191 C text-stream fseek MID at byte
+offset127843709 returned correct header but
+elapsed 25.82s; avoid M190 272-seek readback.
+Current fastest real CMS full-tree positive
+closure M188 elapsed208.27s, CPU205.04s,
+2 full sequential scans, 0 seeks.
+M185 real elapsed209.97s. Preserve M185,
+M188, M193 MODULE A and GIT600 / protected
+M173NET STAGE G and M174NET INDEX G.
+
+Next legitimate CMS read-only validation is
+already-installed M193 MID only:
+```text
+GITFSP G MID
+QUERY FILEDEF
+```
+Expected native `M193 FSREAD BEGIN MID RECNO
+1969357`, `FSREAD RETURNED`, `RECORD HEADER
+PASS`, `READ ONLY FSREAD PROBE PASS`, wrapper
+`M193 CMS FSREAD GATE PASS G MID`. Record
+actual Ready CPU/elapsed. If it is fast,
+consider independent next-stage batch FSREAD
+probes / adapter; if very slow or unsupported,
+stop that optimization. Do not run LAST unless
+MID supports progressing. No reimport/reindex,
+ERASE/FORMAT, previous module overwrite, G
+writes or overlapping PMAINT0141 write-link.
