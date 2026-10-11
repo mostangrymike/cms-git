@@ -55,8 +55,10 @@ with tempfile.TemporaryDirectory(prefix="m192-") as dirname:
     expected_headers = {}
     for num in range(1, nobjects + 1):
         # Includes zero size, partial lines, and 32B/64B boundaries.
-        size = (num * 13) % 257
-        content = bytes([num % 251]) * size
+        size = 0 if num == 1 else max(4, (num * 13) % 257)
+        content = (b"" if size == 0 else
+                   num.to_bytes(4, "big") +
+                   bytes([num % 251]) * (size - 4))
         expected_headers[num] = len(rows) + 1
         rows.append("OBJ %d 3 %d %s" %
                     (num, size, oid("blob", content)))
