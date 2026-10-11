@@ -11060,3 +11060,60 @@ against **M181 298.38s**, NOT short Linux numbers.
 Do not repeat M173/M174 import/index, format G,
 overwrite established modules, ERASE data,
 or write-link overlapping PMAINT0141 fullpack.
+
+
+## 2026-10-11 — M186 deterministic host skipped-record differential matrix
+
+User instruction **"do not pause"**: continue independent
+coding/CI without waiting for M182/M183/M185 CMS proof.
+
+M185 isolated native `GITPH5M.C`/wrapper `GITPH5.EXEC`
+was merged via PR #159, main commit
+`2b0a1e67937dcd60d003ce703cddbc3d7c768827`.
+Native strict C89 host CI passed. M185 direct `skipline`
+tests each expected native-encoded hex nibble and
+trailing allowable whitespace without strlen.
+Seven-run Linux host medians on the 15.36MB
+unreachable blob fixture: M181 0.1211s, M182
+0.0987s, M183 0.0908s, M185 0.0760s. All
+authenticated reachable closure and read-only
+fixture integrity checks passed; **not real CMS
+performance proof**. Target-proven M181 remains
+294.57s CPU / 298.38s elapsed; 8 trees,
+272 reached blobs,279 entries,280 verified,
+7736 index total/unique,2 scans of 3,864,799
+text lines each and zero seeks. M182/M183/M185
+real target outputs have NOT yet been received.
+
+M186 is HOST ONLY differential assurance,
+branch `m186-skip-validator-differential-20261011`.
+New `tests/test-m186-skip-differential.py` strict
+C89-compiles native M181, M183, M185 with the
+canonical native index builder in a disposable
+tempfile folder, stages 4 real-format objects:
+unreachable 2048B blob, reached small blob,
+unreachable empty blob, and SHA-authenticated
+root tree. Deterministic seed186, 181 positive
+and negative cases: canonical stage, selected
+legal/illegal first-nibble substitutions, too
+short/long/invalid records, 160 random
+skipped-hex body mutations, zero-body validation.
+All 3 readers must match M181 return codes and
+successful root/closure/index counts; failing
+cases must not emit TREE CLOSURE PASS. Verifies
+index SHA256 unchanged, restores/checks original
+stage SHA256. Uses no production CMS modules
+or data. First native-stage Actions run
+`38153102905` completed SUCCESS; exact later
+runs may change. CI workflow includes test;
+documented at `docs/M186_DIFFERENTIAL.md`.
+This increases regression confidence, not
+evidence of z/VM speed or production readiness.
+
+Only next real CMS commands remain in established
+read-only runbooks `docs/M182_HEX_PAIR.md`,
+`docs/M183_SKIP_LENGTH.md`,
+`docs/M185_DIRECT_SKIP.md`. No imports/reindex,
+ERASE/FORMAT, protected G stage/index writes,
+or PMAINT0141 write-link. Keep successful M181
+and all earlier working modules.
