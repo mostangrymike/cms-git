@@ -10953,3 +10953,110 @@ Target work when operator ready:
 Never reimport or reindex the protected 7,736-object G
 stage/index, erase known-good modules or write-link
 physically overlapping `PMAINT 0141` fullpack.
+
+
+## 2026-10-11 — DO NOT PAUSE: M185 direct skipped-record C89 candidate
+
+User explicitly: **"do not pause."** Continue independent
+GitHub coding/CI without asking for M182/M183 target
+output; never hallucinate z/VM execution proof.
+
+M184 host-only comparative benchmark merged as PR
+#158, main commit `ecbaacad794ad1e3b7fa7c7343a066fe1b9cbe8e`.
+Seven Linux host runs on 15.36MB unreachable blob
+saw M181 0.1197s, M182 0.1010s, M183 0.0913s
+median. All authenticated closures/data protection
+passed. Host speed is not z/VM evidence.
+The fastest **real** z/VM 6.3 CMS tree reader
+remains M181 `GITPHX EXEC` -> `GITPHXM MODULE`,
+CPU 294.57s / elapsed **298.38s**, 8 trees,
+272 reachable SHA blobs, 280 verified objects,
+7736 unique indexed, two scans of 3864799
+CMS text records each, zero random seeks.
+No final post-success `QUERY FILEDEF` provided.
+M182/M183 require native CMS validation; no results yet.
+
+M185, branch `m185-direct-skipped-record-validation-20261011`,
+implements new isolated C89 `src/GITPH5M.C` from
+M183 selective two-scan implementation and new
+different-stem `src/GITPH5.EXEC` wrapper.
+Instead of computing `strlen` for each skipped
+CMS stage hex record, new bounded `skipline(f,expected)`
+uses exactly one `fgets` then verifies every expected
+hex character via unchanged 256-entry native
+ASCII/EBCDIC validhex table and accepts only
+space/CR/LF trailing trim codes before the NUL.
+It enforces original 128-buffer boundary,
+requires valid empty line for size0, preserves
+stage-line counters, fails closed on short/long
+records, invalid hex or suffix. Selected bodies
+still use original SHA and `readbody`; all
+index/OID/type/graph/cycle/64MiB cap unchanged.
+New wrapper checks explicit non-A 4KiB G, protects
+caller FILEDEF, binds only its own read STGIN/IDXIN,
+checks native and wrapper PASS and clears its DDs.
+Crucially `GITPH5 EXEC` calls `GITPH5M MODULE`,
+so M181 same-stem recursion is prevented.
+
+New strict C89 `tests/test-m185-direct-skip.py`
+checks positive tree closure and count parity,
+lowercase hex, invalid root/index, altered
+SHA-reached blob and skipped invalid hex;
+additional short, long, bad suffix, malformed
+last nibble, overlong line cases compare RC
+against the host-tested M183 baseline. Checks
+source 80-column limit and no disk writes.
+New `tests/bench-m185-direct-skip.py` compares
+M181/M182/M183/M185 on 15.36MB disposable
+unreachable blob, seven rotating host runs after
+warmup; stage/index SHA256 hashes before/after,
+two scans, exact physical stage counts and same
+authenticated closure required. No speed threshold
+in CI, and host speed not CMS evidence.
+First full native CI [run 38152656116] PASS
+recorded Linux-only seven-run medians:
+```text
+M181 HOST MEDIAN 0.1211s MIN 0.1179s MAX 0.1444s
+M182 HOST MEDIAN 0.0987s MIN 0.0985s MAX 0.1015s
+M183 HOST MEDIAN 0.0908s MIN 0.0896s MAX 0.0924s
+M185 HOST MEDIAN 0.0760s MIN 0.0759s MAX 0.0926s
+```
+Host benchmark labels were corrected after this
+run from leftover M184 headings to M185 headings.
+Additional CI test run 38152723070 success.
+This suggests M185 worth native testing; it is
+**NOT target-proven and must not replace M181**.
+Docs `docs/M185_DIRECT_SKIP.md`, README and
+workflow updated. Older M176–M184 modules unchanged.
+
+M185 TARGET, after merge and CI success:
+Mac in `ibm-sandbox/src`:
+```sh
+git pull
+./cms-upload.sh GITPH5M.C GITPH5.EXEC
+```
+CMS MAINT safe independent build/verify:
+```text
+QUERY DISK G
+STATE M173NET STAGE G
+STATE M174NET INDEX G
+QUERY FILEDEF
+STATE GITPH5M C A
+CMSCLNK GITPH5M PLAIN
+STATE GITPH5M MODULE A
+GITPH5 G CCB18BEC067E7886D70B82EF138EE56A8B899A61
+QUERY FILEDEF
+```
+Only run wrapper if original G input files are
+intact and native C build successful. Require
+M185 DIRECT SKIP VALIDATOR PASS, M185 TREE
+CLOSURE PASS, M185 VERIFIED FAST TREE TARGET
+GATE PASS; 8 trees,272 SHA-reached blobs,279
+entries,280 verified,7736 index total/unique,
+2 forward scans/15472 object visits,0 seeks,
+stage lines3864799/pass, identical before/after
+FILEDEF, and CMS CPU/elapsed. Compare elapsed
+against **M181 298.38s**, NOT short Linux numbers.
+Do not repeat M173/M174 import/index, format G,
+overwrite established modules, ERASE data,
+or write-link overlapping PMAINT0141 fullpack.
