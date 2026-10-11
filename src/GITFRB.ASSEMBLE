@@ -1,0 +1,137 @@
+GITFRB   CSECT
+         USING GITFRB,12
+         LR    12,15
+         ST    14,RETADR
+*
+* M194 isolated read-only CMS header and first-body probe.
+* FIRST/MID/LAST record numbers are sealed by M192/M193.
+* Never modifies protected G stage or index.
+*
+         LINERD DATA=(SELECT,8),TYPE=STACK,CASE=MIXED,TRANS=NO,        X
+               PAD=BLANK,ERROR=BADSEL
+         C     0,=F'5'
+         BE    TRYFIRST
+         C     0,=F'3'
+         BE    TRYMID
+         C     0,=F'4'
+         BE    TRYLAST
+         B     BADSEL
+TRYFIRST CLC   SELECT(5),=C'FIRST'
+         BNE   BADSEL
+         L     5,=F'1'
+         ST    5,HEADNO
+         L     5,=F'2'
+         ST    5,BODYNO
+         B     HEADREAD
+TRYMID   CLC   SELECT(3),=C'MID'
+         BNE   BADSEL
+         L     5,=F'1969357'
+         ST    5,HEADNO
+         L     5,=F'1969358'
+         ST    5,BODYNO
+         B     HEADREAD
+TRYLAST  CLC   SELECT(4),=C'LAST'
+         BNE   BADSEL
+         L     5,=F'3864789'
+         ST    5,HEADNO
+         L     5,=F'3864790'
+         ST    5,BODYNO
+HEADREAD LINEWRT DATA=(HBEG,L'HBEG)
+         XC    HDRBUF(64),HDRBUF
+         L     5,HEADNO
+         FSREAD 'M173NET STAGE G1',BUFFER=HDRBUF,BSIZE=64,             X
+               RECFM=V,RECNO=(5),NOREC=1,FORM=E,ERROR=RDERR
+         ST    0,HDRLEN
+         LINEWRT DATA=(HRET,L'HRET)
+         L     0,HDRLEN
+         CLI   SELECT,C'F'
+         BE    CHECKF
+         CLI   SELECT,C'M'
+         BE    CHECKM
+         C     0,=F'9'
+         BL    BADHDR
+         CLC   HDRBUF(9),=C'OBJ 7736 '
+         BNE   BADHDR
+         B     HEADOK
+CHECKF   C     0,=F'6'
+         BL    BADHDR
+         CLC   HDRBUF(6),=C'OBJ 1 '
+         BNE   BADHDR
+         B     HEADOK
+CHECKM   C     0,=F'9'
+         BL    BADHDR
+         CLC   HDRBUF(9),=C'OBJ 3868 '
+         BNE   BADHDR
+HEADOK   LINEWRT DATA=(HOK,L'HOK)
+         LINEWRT DATA=(BBEG,L'BBEG)
+         XC    BODYBUF(64),BODYBUF
+         L     5,BODYNO
+         FSREAD 'M173NET STAGE G1',BUFFER=BODYBUF,BSIZE=64,            X
+               RECFM=V,RECNO=(5),NOREC=1,FORM=E,ERROR=RDERR
+         ST    0,BODYLEN
+         LINEWRT DATA=(BRET,L'BRET)
+         L     7,BODYLEN
+         LTR   7,7
+         BM    BADBODY
+         C     7,=F'64'
+         BH    BADBODY
+         LR    6,7
+         N     6,=F'1'
+         BNZ   BADBODY
+         LTR   7,7
+         BZ    BODYOK
+         LA    6,BODYBUF
+CHECKCHR CLI   0(6),C'0'
+         BL    BADBODY
+         CLI   0(6),C'9'
+         BNH   NEXTCHR
+         CLI   0(6),C'A'
+         BL    BADBODY
+         CLI   0(6),C'F'
+         BNH   NEXTCHR
+         CLI   0(6),C'a'
+         BL    BADBODY
+         CLI   0(6),C'f'
+         BH    BADBODY
+NEXTCHR  LA    6,1(6)
+         BCT   7,CHECKCHR
+BODYOK   LINEWRT DATA=(BOK,L'BOK)
+         FSCLOSE 'M173NET STAGE G1',ERROR=CLERR
+         LINEWRT DATA=(PASS,L'PASS)
+         SR    15,15
+         B     RETURN
+BADHDR   LINEWRT DATA=(HERR,L'HERR)
+         B     CLOSEBAD
+BADBODY  LINEWRT DATA=(BERR,L'BERR)
+         B     CLOSEBAD
+RDERR    LINEWRT DATA=(RERR,L'RERR)
+CLOSEBAD FSCLOSE 'M173NET STAGE G1',ERROR=CLERR
+         B     BADRET
+CLERR    LINEWRT DATA=(CERR,L'CERR)
+         B     BADRET
+BADSEL   LINEWRT DATA=(SERR,L'SERR)
+BADRET   LA    15,8
+RETURN   L     14,RETADR
+         BR    14
+         LTORG
+RETADR   DS    F
+HEADNO   DS    F
+BODYNO   DS    F
+HDRLEN   DS    F
+BODYLEN  DS    F
+SELECT   DS    CL8
+HDRBUF   DS    CL64
+BODYBUF  DS    CL64
+HBEG     DC    C'M194 FSREAD HEADER BEGIN'
+HRET     DC    C'M194 FSREAD HEADER RETURNED'
+HOK      DC    C'M194 RECORD HEADER PASS'
+BBEG     DC    C'M194 FSREAD BODY BEGIN'
+BRET     DC    C'M194 FSREAD BODY RETURNED'
+BOK      DC    C'M194 FIRST BODY RECORD HEX PASS'
+PASS     DC    C'M194 READ ONLY BODY PROBE PASS'
+HERR     DC    C'M194 RECORD HEADER MISMATCH'
+BERR     DC    C'M194 BODY RECORD INVALID'
+RERR     DC    C'M194 FSREAD FAILED'
+CERR     DC    C'M194 FSCLOSE FAILED'
+SERR     DC    C'M194 EXPECT FIRST MID OR LAST'
+         END   GITFRB
