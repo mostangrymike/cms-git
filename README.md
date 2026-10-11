@@ -1,5 +1,34 @@
 # IBM Sandbox
 
+## M187 — synthetic 7,736-object native index/closure parity
+
+Without waiting for further z/VM 6.3 results,
+M187 adds `tests/test-m187-live-scale.py` to
+strict C89 host CI. It builds a disposable
+Git stage/index with exactly 7,736 unique
+indexed object IDs, including 8 trees and
+272 reachable blobs, and verifies the same
+280-object closure and 279 entries returned
+on the real G disk. The four isolated native
+readers M181, M182, M183 and M185 must agree
+on authenticated closure, two forward scans,
+15,472 object-header visits and zero seeks.
+The synthetic host fixture contains **15,791
+text records**, not the live 3,864,799 per
+pass. Unreachable malformed hex, reached
+SHA corruption and truncated stage all
+fail closed. Original temp fixture hashes
+are unchanged when the test completes.
+
+This is host-only correctness evidence,
+**not M182/M183/M185 z/VM performance proof**.
+Latest real CMS elapsed benchmark remains
+M181 **298.38s**. No read or write to
+protected G data. See `docs/M187_NATIVE_SCALE.md`.
+
+---
+
+
 ## M186 — deterministic host-only skipped-record differential safety
 
 M186 adds `tests/test-m186-skip-differential.py`,
