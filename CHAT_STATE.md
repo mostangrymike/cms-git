@@ -10880,3 +10880,76 @@ Do not touch previously proven modules or G files.
 On further user prompts, **continue independent
 GitHub host-level coding and CI rather than pausing**
 merely because M182/M183 need real CMS benchmarks.
+
+
+## 2026-10-11 — M184 HOST COMPARISON COMPLETE, no CMS wait
+
+Following user instruction `do not pause`, M183 was
+developed, CI-verified and merged into `main` via
+PR #157 at commit `534422e3b488fd85b12a8e87ef9011664b0de0b2`.
+M183 isolated `GITPH3M.C` skips a second strlen
+on each discarded stage hex text record, and checks
+four hex chars per loop using same 256-byte
+native encoding lookup as target-proven M181.
+`GITPH3.EXEC` calls distinct GITPH3M MODULE.
+Full native staging Actions CI `38151245150`
+PASS. M183 **not yet real CMS-run**.
+
+M184 adds observational, correctness-gated native
+host performance comparison across M181, M182
+and M183. New `tests/bench-m184-hex-selective.py`
+uses disposable Linux temp directory, compiles all
+three C89 native modules and native index builder,
+and creates 3-object test stage with deliberately
+unreachable 15,360,000-byte blob, reachable small
+blob and root tree. Root closure must be identical
+for all; all three modules authenticate the small
+reachable blob while scanning all skipped hex
+lines twice. Stage contains **480,007 physical
+text lines**, exact count verified for each scan,
+six object-header visits, zero seeks. Hash original
+stage and index before/after, fail CI on any
+difference. Seven rotating timing rounds after
+warmup, no thresholds/score-based CI failure.
+`.github/workflows/native-stage.yml` runs the
+host benchmark; docs in `docs/M184_HOST_COMPARISON.md`.
+No new CMS source or G disk operations are needed.
+
+Exact real CI [run 38151637954] PASS, printed:
+```text
+M184 FIXTURE: 15360000 bytes unrelated blob, 480007 stage lines
+M181 HOST MEDIAN 0.1197s MIN 0.1181s MAX 0.1292s
+M182 HOST MEDIAN 0.1010s MIN 0.0982s MAX 0.1198s
+M183 HOST MEDIAN 0.0913s MIN 0.0887s MAX 0.0954s
+M184 HOST TIMINGS ARE OBSERVATIONAL ONLY; NOT z/VM DATA
+M184 PARITY AND READ-ONLY BENCHMARK PASS
+```
+**Strict qualification**: these are short Linux
+host subprocess wall timings only and DO NOT
+establish IBM mainframe speed or z/VM correctness.
+Do not infer M183 production readiness or replace
+proven M181 based solely on the host ranking.
+
+Real CMS ranking remains based on actual evidence:
+M181 CPU **294.57s** / elapsed **298.38s**,
+functional PASS. M179 459.44s, M180 708.52s.
+M182 and M183 **host-proven only**, still need
+individual real CMS RC0, equivalent 8-tree/272-blob
+closure and `QUERY FILEDEF` to claim target success.
+
+Target work when operator ready:
+- M182 Mac `git pull` and `./cms-upload.sh
+  GITPH2M.C GITPH2.EXEC`, CMS preflight/build
+  `CMSCLNK GITPH2M PLAIN`, run `GITPH2 G
+  CCB18BEC067E7886D70B82EF138EE56A8B899A61`,
+  `QUERY FILEDEF`. Runbook `docs/M182_HEX_PAIR.md`.
+- M183 Mac `git pull` and `./cms-upload.sh
+  GITPH3M.C GITPH3.EXEC`, CMS preflight/build
+  `CMSCLNK GITPH3M PLAIN`, run `GITPH3 G
+  CCB18BEC067E7886D70B82EF138EE56A8B899A61`,
+  `QUERY FILEDEF`. Runbook `docs/M183_SKIP_LENGTH.md`.
+
+**Do not pause future independent coding unnecessarily.**
+Never reimport or reindex the protected 7,736-object G
+stage/index, erase known-good modules or write-link
+physically overlapping `PMAINT 0141` fullpack.

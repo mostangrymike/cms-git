@@ -1,5 +1,38 @@
 # IBM Sandbox
 
+## M184 — independent native host comparison, no CMS wait
+
+Without pausing for the pending M182/M183 real CMS
+measurements, M184 adds a **host-only comparative
+benchmark**, `tests/bench-m184-hex-selective.py`.
+It strictly compiles all three native C89 readers
+M181, M182 and M183, builds a disposable canonical
+stage/index (15,360,000-byte unreachable blob),
+verifies identical SHA-authenticated tree closure
+and read-only input hashes, then reports rotating
+7-run median/min/max host durations. Timings are
+observational only and are **not CMS performance
+claims**; CI can fail for correctness or input
+mutation, never for a speed ranking.
+
+On the Linux GitHub CI runner, the seven-run
+medians on the 15.36MB skipped-blob host fixture were
+**M181 0.1197s, M182 0.1010s, M183 0.0913s**;
+all exact authenticated closure and unchanged-input
+checks passed. These timings are **not** z/VM speed
+claims or a replacement of target proof.
+
+M181 remains the fastest **real target measured**
+at **298.38 seconds** elapsed, CPU 294.57s.
+M182 and M183 have host integrity PASS but
+z/VM runtime remains unmeasured. No existing
+CMS module or `GIT600` persistent stage/index
+is changed by this purely host-based M184 task.
+Details: `docs/M184_HOST_COMPARISON.md`.
+
+---
+
+
 ## M183 — isolated four-way skipped-record hex validation (host CI)
 
 The latest **real CMS** native performance baseline is M181:
