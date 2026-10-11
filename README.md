@@ -1,30 +1,67 @@
 # IBM Sandbox
 
-## M194 — first read-only CMS body record (HOST-ONLY; CMS NEXT)
+## M195 — bounded complete LAST body (HOST-ONLY; CMS NEXT)
 
-M193 FIRST, MID and LAST **all passed on real z/VM 6.3**,
-each in a reported 0.01s elapsed. M194 starts a new,
-isolated native FSREAD two-record probe rather than replacing
-the proven full-object/tree reader. New `GITFRB.ASSEMBLE` and
-`GITFRP.EXEC` read one exact-indexed header, then its
-adjacent first body record (RECNO+1), validating variable
-record length 0..64, even hex width and EBCDIC hex bytes.
-They never write to G or change the original stage/index.
+October 11, 2026: M194 assembled successfully on actual
+z/VM 6.3 CMS and **FIRST, MID, LAST all passed**, each reading
+the correct header **and first body record**. Every invocation
+reported 0.01s elapsed. M193's preceding one-record FIRST,
+MID and LAST tests also passed.
 
-Host static/model gates cannot prove IBM FSREAD on CMS.
-**After M194 CI/merge, the next real target gate is FIRST only:**
+M195 is a new **isolated, read-only native FSREAD** gate:
+`GITFL10.ASSEMBLE` / `GITFLP.EXEC`. The known final
+header of object 7,736 is CMS RECNO 3,864,789; original
+stage end is 3,864,799. Thus exactly ten body records
+remain. M195 checks all ten, requiring nine full 64-character
+hex records, an even nonzero 2..64-character final record,
+valid EBCDIC hex throughout, aggregate 289..320 bytes,
+FSCLOSE and native/wrapper RC0. Strict host source and
+synthetic index-model checks accompany the new module.
+
+**CMS execution is not yet proven.** After CI and merge,
+use Mac `ibm-sandbox/src`:
 
 ```sh
 git pull
-./cms-upload.sh GITFRB.ASSEMBLE GITFRP.EXEC
+./cms-upload.sh GITFL10.ASSEMBLE GITFLP.EXEC
 ```
 
-On CMS, run the preflight/build in
-`docs/M194_FSREAD_BODY.md` and then
-`GITFRP G FIRST` followed by `QUERY FILEDEF`.
-Do not run MID/LAST until FIRST succeeds. M194 is **not**
-complete-object SHA/OID validation; M188 remains the
-208.27-second authenticated full-tree baseline.
+Then follow the read-only preflight and exact assembler
+build in `docs/M195_LAST_BODY.md` before:
+
+```text
+GITFLP G LAST
+QUERY FILEDEF
+```
+
+A successful ten-record pass is **not** Git SHA-1/OID
+verification. M188 remains the verified 208.27s full-tree
+closure baseline. No stage/index write, reimport, old
+module replacement, GIT600 format/erase, or physically
+overlapping PMAINT 0141 write-link is permitted.
+
+---
+
+## M194 — FIRST/MID/LAST header and body REAL CMS PASS
+
+Actual M194 target transcript on October 11, 2026:
+`ASSEMBLE GITFRB` reported `NO STATEMENTS FLAGGED`;
+`LOAD`/`GENMOD` succeeded; `GITFRP G FIRST`,
+`GITFRP G MID`, and `GITFRP G LAST` each printed:
+
+```text
+M194 FSREAD HEADER RETURNED
+M194 RECORD HEADER PASS
+M194 FSREAD BODY RETURNED
+M194 FIRST BODY RECORD HEX PASS
+M194 READ ONLY BODY PROBE PASS
+```
+
+and exact wrapper `M194 BODY PROBE GATE PASS G FIRST`,
+`... G MID`, `... G LAST`, respectively, each at
+0.01s elapsed. No post-run `QUERY FILEDEF`
+output was supplied. M194 is complete for this
+two-record feasibility gate, not for full-object SHA.
 
 ---
 

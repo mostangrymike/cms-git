@@ -12137,3 +12137,97 @@ each prior probe pass. Never run M190 272 C text seeks,
 format/erase GIT600, reindex/import original stage,
 replace existing proven modules, or enable write
 access to overlapping PMAINT0141.
+
+
+## 2026-10-11 16:04 — M194 REAL CMS THREE-WAY BODY PASS
+
+Actual z/VM 6.3 transcript supplied:
+```text
+ASSEMBLE GITFRB
+ASSEMBLER (XF) DONE
+NO STATEMENTS FLAGGED IN THIS ASSEMBLY
+Ready; T=0.16/0.18 16:03:16
+GLOBAL TXTLIB PDPCLIB
+LOAD GITFRB (NOAUTO NOMAP
+GENMOD GITFRB
+GITFRP G FIRST
+M194 FSREAD HEADER RETURNED
+M194 RECORD HEADER PASS
+M194 FSREAD BODY RETURNED
+M194 FIRST BODY RECORD HEX PASS
+M194 READ ONLY BODY PROBE PASS
+M194 BODY PROBE GATE PASS G FIRST
+Ready; T=0.01/0.01 16:03:47
+GITFRP G MID
+M194 FSREAD HEADER RETURNED
+M194 RECORD HEADER PASS
+M194 FSREAD BODY RETURNED
+M194 FIRST BODY RECORD HEX PASS
+M194 READ ONLY BODY PROBE PASS
+M194 BODY PROBE GATE PASS G MID
+Ready; T=0.01/0.01 16:04:08
+GITFRP G LAST
+M194 FSREAD HEADER RETURNED
+M194 RECORD HEADER PASS
+M194 FSREAD BODY RETURNED
+M194 FIRST BODY RECORD HEX PASS
+M194 READ ONLY BODY PROBE PASS
+M194 BODY PROBE GATE PASS G LAST
+Ready; T=0.01/0.01 16:04:15
+```
+All invocations printed native HEADER BEGIN and BODY BEGIN too.
+**M194 is real CMS target-proven for header + first hex body
+record at FIRST/MID/LAST.** All three individual runtimes
+report 0.01s CPU/elapsed. No final QUERY FILEDEF output
+was provided. No complete-body or SHA/OID proof; keep
+M188 full authenticated closure 208.27s baseline.
+
+## M195 — new independent host-gated ten-record LAST probe
+
+M192 original file record count 3,864,799 and M193/M194
+LAST header RECNO 3,864,789 imply precisely ten trailing
+body records, RECNO 3,864,790 through 3,864,799.
+The original chunk model predicts 9 x 64 hex characters
+then final even hex length 2..64; decoded last object size
+is 289..320 bytes. The new standalone
+`src/GITFL10.ASSEMBLE` and `src/GITFLP.EXEC`
+read only the original protected G stage, check the
+exact LAST header prefix, then 10 absolute FSREAD calls
+with exact hex width/character constraints, calculated
+total-byte bounds, FSCLOSE and native/wrapper PASS.
+`tests/test-m195-last-body.py` has host-only static
+IBM-macro guardrails and 7,736-object synthetic model.
+`docs/M195_LAST_BODY.md` preserves operator commands.
+The source is NOT target-proven until real CMS assembly
+and complete-LAST-body run. It does NOT verify the entire
+stored Git OID or SHA1. Avoid claims of full-object parity.
+
+After green host CI and PR merge, Mac in ibm-sandbox/src:
+```sh
+git pull
+./cms-upload.sh GITFL10.ASSEMBLE GITFLP.EXEC
+```
+CMS MAINT preflight/compile:
+```text
+QUERY DISK G
+STATE M173NET STAGE G
+STATE M174NET INDEX G
+LISTFILE M173NET STAGE G (ALLOC
+QUERY FILEDEF
+GLOBAL MACLIB OSMACRO DMSGPI PDPCLIB
+ASSEMBLE GITFL10
+```
+Proceed only on NO STATEMENTS FLAGGED:
+```text
+GLOBAL TXTLIB PDPCLIB
+LOAD GITFL10 (NOAUTO NOMAP
+GENMOD GITFL10
+STATE GITFL10 MODULE A
+GITFLP G LAST
+QUERY FILEDEF
+```
+Capture all markers/RC, CPU/elapsed and FILEDEF.
+Never modify original G stage/index, replace proven
+M185/M188/M193/M194 modules, reimport/reindex/FORMAT
+GIT600, write-link overlapping PMAINT0141, or run
+the 272-seek M190 experiment.

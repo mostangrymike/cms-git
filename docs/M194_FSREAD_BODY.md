@@ -1,5 +1,65 @@
 # M194 — Read-only native CMS FSREAD first-body-record gate
 
+## October 11, 2026 — REAL CMS FIRST/MID/LAST TARGET PASS
+
+User's actual z/VM 6.3 console showed clean XF assembly:
+
+```text
+ASSEMBLE GITFRB
+ASSEMBLER (XF) DONE
+NO STATEMENTS FLAGGED IN THIS ASSEMBLY
+Ready; T=0.16/0.18 16:03:16
+LOAD GITFRB (NOAUTO NOMAP
+GENMOD GITFRB
+```
+
+All three independent native two-record probes passed:
+
+```text
+GITFRP G FIRST
+M194 FSREAD HEADER RETURNED
+M194 RECORD HEADER PASS
+M194 FSREAD BODY RETURNED
+M194 FIRST BODY RECORD HEX PASS
+M194 READ ONLY BODY PROBE PASS
+M194 BODY PROBE GATE PASS G FIRST
+Ready; T=0.01/0.01 16:03:47
+
+GITFRP G MID
+M194 FSREAD HEADER RETURNED
+M194 RECORD HEADER PASS
+M194 FSREAD BODY RETURNED
+M194 FIRST BODY RECORD HEX PASS
+M194 READ ONLY BODY PROBE PASS
+M194 BODY PROBE GATE PASS G MID
+Ready; T=0.01/0.01 16:04:08
+
+GITFRP G LAST
+M194 FSREAD HEADER RETURNED
+M194 RECORD HEADER PASS
+M194 FSREAD BODY RETURNED
+M194 FIRST BODY RECORD HEX PASS
+M194 READ ONLY BODY PROBE PASS
+M194 BODY PROBE GATE PASS G LAST
+Ready; T=0.01/0.01 16:04:15
+```
+
+Each target invocation additionally printed its DIRECT BODY PROBE BEGIN,
+FSREAD HEADER BEGIN and FSREAD BODY BEGIN markers.
+M194 is **REAL CMS TARGET PROVEN** for both header and first
+hexadecimal body record at FIRST/MID/LAST. Each invocation
+reported 0.01s elapsed, not a full-reader benchmark.
+The supplied transcript does not include post-run `QUERY FILEDEF`.
+
+**Next isolated gate: M195** reads the entire known LAST
+object body: ten records, using `GITFL10`/`GITFLP`.
+See `docs/M195_LAST_BODY.md`. It is host-only until
+separate successful real-CMS assembly/execution.
+No complete-object SHA/OID check exists yet;
+the working M188 tree closure remains 208.27s elapsed.
+
+---
+
 ## Motivation and actual baseline
 
 On October 11, 2026, M193 passed **on real z/VM 6.3 CMS** at
@@ -54,7 +114,7 @@ header, obtain full object bytes, validate its OID/SHA-1, or walk
 trees. Those are separate mandatory steps for the future native
 FSREAD/C bridge. A body-hex PASS is **not** a full Git object PASS.
 
-## Host gating and first real-CMS validation
+## Historical M194 initial-target runbook (completed)
 
 Only after the M194 GitHub CI completes successfully and changes
 are merged into `main`, on the Mac in `ibm-sandbox/src`:
