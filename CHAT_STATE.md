@@ -1,6 +1,6 @@
 # CMS/zVM Native Git Client — Chat State
 
-Updated: 2026-09-26
+Updated: 2026-10-11
 Repository: `mostangrymike/ibm-sandbox`, branch `main`
 
 ## Workflow/rules
@@ -12019,3 +12019,47 @@ stop that optimization. Do not run LAST unless
 MID supports progressing. No reimport/reindex,
 ERASE/FORMAT, previous module overwrite, G
 writes or overlapping PMAINT0141 write-link.
+
+
+## 2026-10-11 15:37 — M193 REAL CMS MID FSREAD PASS
+
+New actual z/VM 6.3 CMS transcript after FIRST passed:
+```text
+GITFSP G MID
+M193 DIRECT FSREAD G1 PROBE BEGIN MID
+M193 FSREAD BEGIN MID RECNO 1969357
+M193 FSREAD RETURNED
+M193 RECORD HEADER PASS
+M193 READ ONLY FSREAD PROBE PASS
+M193 CMS FSREAD GATE PASS G MID
+Ready; T=0.01/0.01 15:37:38
+```
+**M193 FIRST and MID are both REAL CMS TARGET-PROVEN** via the
+stand-alone `GITFSRD MODULE A`, with the exact `OBJ 1 `
+and `OBJ 3868 ` header prefixes; both individual probes
+show 0.01s elapsed. This verifies fast distant-record
+CMS FSREAD feasibility, NOT a complete Git object reader.
+The prior M191 C fseek MID took 25.82s elapsed.
+The current full authenticated closure remains M188
+208.27s elapsed, CPU205.04s, two scans, zero seeks.
+The original stage M173NET STAGE G1 has RECFM V
+LRECL64, 3864799 records; M192 computed exact record
+ordinals using all 7736 uniquely indexed objects.
+No post-M193 QUERY FILEDEF output was included.
+
+**Next CMS operator commands (same installed module,
+no Mac transfer):**
+```text
+GITFSP G LAST
+QUERY FILEDEF
+```
+Require last header RECNO3864789 and exact
+`OBJ 7736 ` prefix, wrapper PASS, actual runtime
+and no residual user FILEDEF. This LAST check is
+not yet performed. After LAST passes, consider
+an independent read-only FSREAD adapter with
+index-based logical record ordinals and exact
+variable-record lengths plus SHA/OID object verification.
+No original G stage/index write, no old-module replace,
+no M190 272-seek experiment, no GIT600 reformat,
+no PMAINT0141 overlapping write-link.

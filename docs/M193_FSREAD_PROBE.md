@@ -1,19 +1,13 @@
-# M193 — First native CMS FSREAD by record number
+# M193 — Native CMS FSREAD by record number
 
-## October 11, 2026 — REAL z/VM 6.3 M193 FIRST PASS
+## October 11, 2026 — REAL z/VM 6.3 FIRST and MID PASS
 
-**Target-proven**, not host-only. Operator's actual CMS transcript:
+**Target-proven at FIRST and MID (one record per invocation).**
+Actual CMS `ASSEMBLE GITFSRD` produced no flagged statements,
+then `LOAD GITFSRD (NOAUTO NOMAP` and `GENMOD GITFSRD`
+succeeded. The operator's real single-record probes were:
 
 ```text
-GLOBAL MACLIB OSMACRO DMSGPI PDPCLIB
-Ready; T=0.01/0.01 15:29:21
-ASSEMBLE GITFSRD
-ASSEMBLER (XF) DONE
-NO STATEMENTS FLAGGED IN THIS ASSEMBLY
-Ready; T=0.14/0.17 15:29:23
-GLOBAL TXTLIB PDPCLIB
-LOAD GITFSRD (NOAUTO NOMAP
-GENMOD GITFSRD
 GITFSP G FIRST
 M193 DIRECT FSREAD G1 PROBE BEGIN FIRST
 M193 FSREAD BEGIN FIRST RECNO 1
@@ -22,43 +16,61 @@ M193 RECORD HEADER PASS
 M193 READ ONLY FSREAD PROBE PASS
 M193 CMS FSREAD GATE PASS G FIRST
 Ready; T=0.01/0.01 15:29:48
+
+GITFSP G MID
+M193 DIRECT FSREAD G1 PROBE BEGIN MID
+M193 FSREAD BEGIN MID RECNO 1969357
+M193 FSREAD RETURNED
+M193 RECORD HEADER PASS
+M193 READ ONLY FSREAD PROBE PASS
+M193 CMS FSREAD GATE PASS G MID
+Ready; T=0.01/0.01 15:37:38
 ```
 
-Native CMS `FSREAD` with `FORM=E`, `RECFM=V`,
-`NOREC=1`, and buffer length 64 successfully
-read original `M173NET STAGE G1` **logical record
-number 1**, returning the correct OBJ 1 prefix.
-Assembly, LOAD/GENMOD, FSREAD and wrapper cross-check
-all succeeded. Total observed command CPU/elapsed
-**0.01/0.01s**, excluding compile/link. This establishes
-real CMS single-record read viability at FIRST only.
+Both exact header checks passed: `OBJ 1 ` and `OBJ 3868 `.
+Both probes use read-only native `FSREAD`, `FORM=E`,
+`RECFM=V`, `NOREC=1`, `BSIZE=64`,
+and `FSCLOSE` with the known one-based RECNO.
+The underlying original G file has 3,864,799
+variable records of LRECL 64. These are genuine
+target results, not Linux-host IBM-macro simulations.
 
-**Evidence boundary:** MID record 1,969,357 and LAST
-record 3,864,789 have not been tested using FSREAD.
-Do not infer random distant-record access speed.
-The supplied transcript also does not include a
-post-run `QUERY FILEDEF`. No writes to G are involved.
+The 0.01s MID elapsed compares favorably with the
+**25.82s** actual C text-stream `fseek` MID probe.
+However, 0.01s is a two-decimal timer reading;
+two isolated probes do not prove a repeatable
+per-object bound or a full Git reader speedup.
 
-**Immediate next safe, read-only target check** using
-the already installed known-good `GITFSRD MODULE A`:
+**Evidence boundary:** LAST RECNO 3,864,789 remains
+untested. Neither FULL object-body reads, Git SHA/OID
+authentication through FSREAD, nor post-run
+`QUERY FILEDEF` has been demonstrated by the
+supplied M193 transcripts. The proven complete
+closure baseline remains M188, 208.27s elapsed.
+
+**Next safe CMS test using the already-installed,
+known-good `GITFSRD MODULE A`:**
 
 ```text
-GITFSP G MID
+GITFSP G LAST
 QUERY FILEDEF
 ```
 
-Expect native begin/return/header PASS for RECNO
-1,969,357 and wrapper gate `... G MID`.
-Capture actual `Ready; T=cpu/elapsed`; compare
-with previously measured C stdio text `fseek`
-MID elapsed **25.82s**, not with unrelated
-whole-walk duration. If MID fails or stalls,
-stop the new FSREAD optimization experiments and
-preserve working M188 (208.27s full closure).
-No need for a LAST probe until MID evidence is
-available.
+Require native `M193 FSREAD BEGIN LAST RECNO 3864789`,
+`M193 FSREAD RETURNED`, `M193 RECORD HEADER PASS`,
+`M193 READ ONLY FSREAD PROBE PASS`, and wrapper
+`M193 CMS FSREAD GATE PASS G LAST`; record actual
+CPU/elapsed. No Mac transfer or reassembly needed.
+A failure halts new FSREAD optimization work,
+without touching G or replacing M188.
+
+If LAST passes, move to a **new isolated** index-to-record
+adapter with independent record count/length and
+SHA/OID validation; avoid uncontrolled large-scale
+seek experiments and do not replace older proven modules.
 
 ---
+
 
 
 ## Confirmed M192 real CMS evidence (October 11, 2026)
@@ -96,7 +108,7 @@ That expense motivates CMS **record-number** I/O,
 not more C `fseek` calls. The 272-seek M190 walk
 should **not** be rerun as a performance experiment.
 
-## M193 isolated assembler experiment
+## M193 isolated assembler experiment (original host-only design notes)
 
 The first native CMS macro probe is a separate
 `src/GITFSRD.ASSEMBLE` program and distinct
@@ -146,14 +158,14 @@ prints before/after the single FSREAD so that
 the progress is visible on the operator's
 3270 console.
 
-**M193 is NOT yet assembled or executed on z/VM.**
+**Historical pre-target note:** at the time this section was drafted, M193 had not yet assembled or executed on z/VM. FIRST and MID have now passed, as documented above.
 The host CI test is only a **static assembler
 guardrail** plus an independent C89 host model
 of the record arithmetic; Linux cannot expand
 the IBM `FSREAD`/CMS macros. Actual assembler
 success and return codes remain target gates.
 
-## Safe first CMS validation
+## Original first CMS validation runbook (historical)
 
 Mac, from the usual `ibm-sandbox/src` directory:
 
