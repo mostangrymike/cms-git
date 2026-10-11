@@ -34,7 +34,7 @@ any existing production source or CMS module.
    sources, plus the existing read-only host
    `GITPIDX` index generator into a temp directory.
 2. Generate a disposable native stage with one
-   deliberately *unreachable* 5,120,000-byte blob
+   deliberately *unreachable* 15,360,000-byte blob
    to exercise skipped-body validation, a small
    reachable blob, and the root tree that refers
    only to the small blob.
@@ -47,7 +47,7 @@ any existing production source or CMS module.
    2 full forward stage scans, no random seeks,
    exactly equal physical stage-line counts
    and each candidate's specific terminal PASS.
-5. After one warmup, run 3 comparative iterations
+5. After one warmup, run 7 comparative iterations
    with rotating order and print median, minimum
    and maximum wall-clock seconds for each module.
    Hash stage and index before/after; demand
