@@ -1,5 +1,22 @@
 # IBM Sandbox
 
+## M191 actual CMS indexed seek evidence
+
+M191 FIRST and MID read-only header probes both
+**passed on actual z/VM CMS**. FIRST at offset 0
+took **0.64s elapsed**; MID at indexed offset
+127843709 took **25.82s elapsed**. This indicates
+potentially expensive location-dependent C text
+seeks. The full 272-seek M190 walk remains
+**unverified and not recommended**; the LAST
+probe has not run. Investigating native CMS
+record-number FSREAD as a separate approach,
+first through read-only host mapping tests.
+See `docs/M191_CMS_SEEK_PROBE.md`.
+
+---
+
+
 ## M190 interruption; M191 direct CMS seek diagnostic
 
 A real z/VM 6.3 test successfully built
