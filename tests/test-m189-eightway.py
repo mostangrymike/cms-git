@@ -261,4 +261,4 @@ with tempfile.TemporaryDirectory() as temp:
     assert truncated.returncode == 8
     assert "M189 TREE CLOSURE PASS" not in truncated.stdout
 
-print("M189 FAST EOL SKIPPED RECORD HOST PARITY PASS")
+print("M189 EIGHTWAY SKIPPED RECORD HOST PARITY PASS")
