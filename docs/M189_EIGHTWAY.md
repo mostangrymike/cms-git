@@ -1,5 +1,38 @@
 # M189 — eight-hex-character validation in native stage reader
 
+## Measured host-only negative performance result
+
+In successful full native-stage GitHub Actions
+[run 38156179675](https://github.com/mostangrymike/ibm-sandbox/actions/runs/38156179675),
+all six readers produced identical read-only authenticated
+closure. A shared seven-run observational Linux benchmark
+on the 15.36MB unrelated-blob fixture printed:
+
+```text
+M181 HOST MEDIAN 0.0607s MIN 0.0596s MAX 0.0613s
+M182 HOST MEDIAN 0.0516s MIN 0.0515s MAX 0.0523s
+M183 HOST MEDIAN 0.0456s MIN 0.0455s MAX 0.0467s
+M185 HOST MEDIAN 0.0411s MIN 0.0406s MAX 0.0421s
+M188 HOST MEDIAN 0.0407s MIN 0.0402s MAX 0.0461s
+M189 HOST MEDIAN 0.0427s MIN 0.0426s MAX 0.0503s
+M189 HOST TIMINGS ARE OBSERVATIONAL ONLY; NOT z/VM DATA
+M189 PARITY AND READ-ONLY BENCHMARK PASS
+```
+
+M189 was about **4.9% slower than M188** on this
+single Linux host sample. Grouping eight checks did
+not provide a host advantage, even though functional
+integrity passed. Treat this as a **negative host
+performance experiment**; prioritize M188 for one real
+CMS measurement if the operator wants the next target
+benchmark. Do not claim a 4.9% z/VM regression or
+target CPU performance from host measurements.
+M185 remains actual target-proven fastest at
+**209.97s elapsed**, 206.72s CPU.
+
+---
+
+
 ## Status, baseline and isolation
 
 M185 is the fastest **real CMS verified** native tree
