@@ -11564,3 +11564,110 @@ accounting excludes preflight. CMS wrapper requires
 this preflight PASS and one full scan/272 readbacks.
 Host parity and scale tests now require preflight
 marker. Actual IBM CMS C seek support remains UNKNOWN.
+
+
+## 2026-10-11 14:09 — M190 native BUILD PASS but WALK interrupted
+
+User's actual z/VM 6.3 CMS output:
+```text
+CMSCLNK GITPSKM PLAIN
+ASSEMBLER (XF) DONE
+NO STATEMENTS FLAGGED IN THIS ASSEMBLY
+CMSCLNK: built GITPSKM MODULE mode PLAIN
+Ready; T=2.40/2.50 14:09:04
+GITPSK G CCB18BEC067E7886D70B82EF138EE56A8B899A61
+HX
+CMS
+```
+Only the native C compilation/build is proven.
+**M190 WALK did not complete or emit any expected
+native/preflight/closure/wrapper PASS or Ready**.
+Do not claim M190 successfully ran, or ascribe a
+measured runtime. IBM z/VM documents HX (Halt
+Execution) as an immediate command that
+abends the running program and returns to CMS,
+including clearing FILEDEF definitions.
+The supplied text is consistent with an HX
+interruption, but doesn't explain the reason.
+M190's `GITPSK.EXEC` uses `PIPE CMS GITPSKM WALK
+... | STEM o.`, buffering native diagnostic
+output until the process finishes. Thus lack
+of visible preflight lines does NOT prove those
+lines were never generated. Could have been
+slow/stuck in CMS runtime indexed `fseek`
+or otherwise still executing when interrupted.
+No new evidence of corrupt G data. Preserve
+`M173NET STAGE G`, `M174NET INDEX G`, and
+target-verified M185/M188; never reimport
+or reindex to troubleshoot.
+
+Follow-on **M191** branch
+`m191-cms-seek-probe-20261011` creates
+independent native `src/GITPRBM.C`
+and distinct CMS wrapper `src/GITPRB.EXEC`.
+The wrapper directly invokes `GITPRBM PROBE
+FIRST|MID|LAST` (no output-buffering PIPE),
+prints prompt `M191 DIRECT CMS SEEK PROBE BEGIN`,
+sets only read-only STGIN/IDXIN FILEDEFs and
+clears owned definitions after normal returns.
+PROBE reads/checks original index, maps by
+physical stage record number, then probes
+exactly one indexed offset (stage object 1,
+middle, or last) and requires `fseek`,
+`ftell` exact match and a header num/type/
+size/OID exact match. It prints/flushed:
+`M191 INDEX READY`; `M191 SEEK BEGIN`;
+`M191 SEEK RETURNED`; and PASS or FAIL.
+No 3,864,799-line full stage scan, no Git tree
+walk and no writes. A probe failing/stalling
+is isolated to index/stdio text seek behavior
+or that header, not evidence against the
+previous two-pass readers.
+Strict C89 host `tests/test-m191-cms-seek-probe.py`
+checks all three offsets, mismatched/corrupted
+offset fail-closed, unchanged stage/index
+hashes, distinct wrapper/native names, no
+PIPE buffering and 80-column CMS source.
+Full native CI run `38169142620` succeeded.
+Runbook `docs/M191_CMS_SEEK_PROBE.md`.
+
+NEXT, only when the Mac/CMS operator is ready,
+from `ibm-sandbox/src`:
+```sh
+git pull
+./cms-upload.sh GITPRBM.C GITPRB.EXEC
+```
+CMS MAINT safe preflight, compile new module:
+```text
+QUERY DISK G
+STATE M173NET STAGE G
+STATE M174NET INDEX G
+QUERY FILEDEF
+STATE GITPRBM C A
+CMSCLNK GITPRBM PLAIN
+STATE GITPRBM MODULE A
+```
+Then **only FIRST**:
+```text
+GITPRB G FIRST
+QUERY FILEDEF
+```
+If FIRST completes correctly, MID and LAST
+are separate short commands `GITPRB G MID`,
+`GITPRB G LAST` with QUERY FILEDEF after.
+No full M190 WALK repeat for seek diagnosis.
+If `M191 SEEK BEGIN` prints without
+`M191 SEEK RETURNED`, note which offset
+and investigate CMS/PDPCLIB stream seek
+semantics. User may choose to HX if the
+program is stuck, but that is NOT a PASS.
+Do not modify protected G inputs or write-link
+PMAINT 0141 to fix a C I/O API issue.
+
+Latest proven functional target reader M188:
+208.27s elapsed / 205.04s CPU, 8 trees,
+272 authenticated blobs, 280 verified
+objects, 7736 unique index, two full stage
+scans of 3864799 physical records each,
+zero seeks. M185 real PASS 209.97s elapsed.
+Both must remain unchanged.

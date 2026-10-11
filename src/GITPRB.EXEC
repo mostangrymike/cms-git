@@ -1,0 +1,89 @@
+/* M191: isolated read-only direct record validator. */
+address cms
+parse upper arg datafm which extra
+if datafm='' | which='' | extra\='' then do
+ say 'Usage: GITPRB data-filemode FIRST|MID|LAST'
+ exit 4
+end
+if length(datafm)\=1 |,
+   verify(datafm,'BCDEFGHIJKLMNOPQRSTUVWXYZ')\=0 then do
+ say 'M191 FILEMODE INVALID'
+ exit 4
+end
+if which\='FIRST' & which\='MID' & which\='LAST' then do
+ say 'M191 EXPECT FIRST MID OR LAST'
+ exit 4
+end
+drop d.
+d.0=0
+'PIPE CMS QUERY DISK' datafm '| STEM d.'
+if rc\=0 then do
+ say 'M191 QUERY DISK FAILED'
+ exit 8
+end
+matched=0
+do i=1 to d.0
+ if word(d.i,3)=datafm & word(d.i,7)='4096' then,
+   matched=matched+1
+end
+if matched\=1 then do
+ say 'M191 DATA DISK NOT ACCESSED 4K' datafm
+ exit 8
+end
+'STATE M173NET STAGE' datafm
+if rc\=0 then do
+ say 'M191 STAGE MISSING' datafm
+ exit 8
+end
+'STATE M174NET INDEX' datafm
+if rc\=0 then do
+ say 'M191 INDEX MISSING' datafm
+ exit 8
+end
+'STATE GITPRBM MODULE A'
+if rc\=0 then do
+ say 'M191 MODULE MISSING'
+ exit 8
+end
+
+/* An existing caller FILEDEF is never overwritten or cleared. */
+drop f.
+f.0=0
+'PIPE CMS QUERY FILEDEF | STEM f.'
+if rc\=0 then do
+ say 'M191 FILEDEF QUERY FAILED'
+ exit 8
+end
+do i=1 to f.0
+ dd=translate(word(f.i,1))
+ if dd='STGIN' | dd='IDXIN' then do
+  say 'M191 DD ALREADY DEFINED' dd
+  exit 8
+ end
+end
+'FILEDEF STGIN DISK M173NET STAGE' datafm
+if rc\=0 then do
+ say 'M191 STGIN FILEDEF FAILED'
+ exit 8
+end
+'FILEDEF IDXIN DISK M174NET INDEX' datafm
+if rc\=0 then do
+ 'FILEDEF STGIN CLEAR'
+ say 'M191 IDXIN FILEDEF FAILED'
+ exit 8
+end
+
+/* Direct native MODULE call: no PIPE/STEM output buffering. */
+say 'M191 DIRECT CMS SEEK PROBE BEGIN' which
+'GITPRBM PROBE' which
+workrc=rc
+'FILEDEF IDXIN CLEAR'
+idxrc=rc
+'FILEDEF STGIN CLEAR'
+stgrc=rc
+if workrc\=0 | idxrc\=0 | stgrc\=0 then do
+ say 'M191 CMS SEEK PROBE FAIL RC' workrc idxrc stgrc
+ exit 8
+end
+say 'M191 CMS SEEK PROBE GATE PASS' datafm which
+exit 0
