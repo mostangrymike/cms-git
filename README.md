@@ -1,5 +1,27 @@
 # IBM Sandbox
 
+## M181 name-collision correction (October 11, 2026)
+
+On real z/VM 6.3 CMS, the first M181 build of
+`GITPHX MODULE A` succeeded, but the `GITPHX EXEC`
+wrapper's internal `PIPE CMS GITPHX WALK` dispatched
+back into the EXEC. Nested EXEC interpreted `WALK`
+as a filemode, producing `M181 FILEMODE INVALID`
+and wrapper RC 8 before the native tree scan began.
+The protected G stage/index remained intact and
+`QUERY FILEDEF` was empty before and after.
+
+The corrected split is **`GITPHX EXEC`** (wrapper)
+calling **`GITPHXM MODULE`** (native C89 reader), built
+from new `GITPHXM.C`. No erase/rebuild/reformat or
+change to proven modules. Host CI explicitly guards
+against module/EXEC name collisions. **Real CMS native
+M181 closure is still pending.** Exact corrected
+upload/compile commands: `docs/M181_HEX_LOOKUP.md`.
+
+---
+
+
 ## M181 isolated selective-SHA hex validation experiment (host CI)
 
 The real z/VM 6.3 M180 test proved single-pass functionality,
