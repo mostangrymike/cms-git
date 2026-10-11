@@ -1,5 +1,80 @@
 # M190 — one validated stage scan, then indexed reachable-blob seeks
 
+## October 11, 2026 — M191 real CMS FIRST and MID PASS; slow seeks
+
+The operator compiled `GITPRBM MODULE` successfully with
+`CMSCLNK GITPRBM PLAIN`, assembler XF DONE,
+no flagged statements, `Ready; T=2.63/2.74`
+at 14:58:54. Two **actual CMS** independent
+`GITPRB G` read-only indexed header probes passed:
+
+```text
+GITPRB G FIRST
+M191 DIRECT CMS SEEK PROBE BEGIN FIRST
+M191 INDEX READY 7736 UNIQUE 7736
+M191 PROBE FIRST RECORD 1 OFFSET 0
+M191 SEEK BEGIN FIRST
+M191 SEEK RETURNED FIRST
+M191 SEEK HEADER PASS FIRST RECORD 1
+M191 READ ONLY SEEK PROBE PASS
+M191 CMS SEEK PROBE GATE PASS G FIRST
+Ready; T=0.63/0.64 14:59:02
+
+GITPRB G MID
+M191 DIRECT CMS SEEK PROBE BEGIN MID
+M191 INDEX READY 7736 UNIQUE 7736
+M191 PROBE MID RECORD 3868 OFFSET 127843709
+M191 SEEK BEGIN MID
+M191 SEEK RETURNED MID
+M191 SEEK HEADER PASS MID RECORD 3868
+M191 READ ONLY SEEK PROBE PASS
+M191 CMS SEEK PROBE GATE PASS G MID
+Ready; T=25.12/25.82 14:59:51
+```
+
+**Conclusion:** CMS accepted both `fseek` calls and
+returned the exact indexed object-header identity.
+But the MID invocation took **25.12s CPU and
+25.82s elapsed**, compared with **0.63s CPU,
+0.64s elapsed** for FIRST. This is consistent
+with expensive, position-dependent text-stream
+repositioning. Two timings alone do **not**
+establish asymptotic complexity or per-seek cost,
+and the elapsed figures include initial index
+reading and all wrapper overhead. Do NOT run
+full M190 `GITPSK G ...` with 272 seeks on
+the assumption that random access is cheap.
+M190 had earlier been interrupted with HX and
+has **never** emitted a complete target PASS.
+
+The supplied transcript includes **no post-run
+`QUERY FILEDEF`** after either probe. One
+standalone `QUERY FILEDEF` would check hygiene.
+`GITPRB G LAST` has **not** been run; do not
+claim it passed, and no need to attempt it
+while investigating record-oriented alternatives.
+
+IBM z/VM documents a separate CMS record-I/O
+interface: FSREAD supports an absolute RECNO
+on CMS files; a future new, isolated assembler
+adapter may use the native record number rather
+than expensive C text `fseek` on encoded
+stream positions. This approach is **not yet
+implemented or target-validated**. First,
+host-test a mapping from index object numbers
+and sizes to physical CMS record numbers, then
+confirm the target file format and record count
+without writing any G data.
+
+Proven working two-scan baseline remains M188:
+**205.04s CPU, 208.27s elapsed**; M185 real
+elapsed **209.97s**. Preserve all working
+modules, GIT600, M173NET STAGE G, M174NET
+INDEX G. No formatting, rebuilding, importing,
+or write-linking overlapping PMAINT 0141.
+
+---
+
 ## Observed Linux host result (not z/VM evidence)
 
 The first successful full native staging CI run
