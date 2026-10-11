@@ -11373,3 +11373,62 @@ capture CMS CPU/elapsed vs M185 206.72/209.97s.
 See docs/M188_FAST_EOL.md. M189 optional separate
 runbook docs/M189_EIGHTWAY.md, host regression
 not a reason to prefer it.
+
+
+## 2026-10-11 12:48 CDT — M188 TARGET-PROVEN, 208.27s elapsed
+
+Latest user real CMS 6.3 MAINT transcript verifies M188
+positive path. Preflight: `QUERY DISK G` =
+`GIT600 600 G R/W 1600 3390 4096`, 2 original
+files, 62,526 blocks used/225,474 free. Both
+`STATE M173NET STAGE G` and `STATE M174NET INDEX G`
+passed. Pre-run `QUERY FILEDEF` said
+`No user defined FILEDEF in effect`.
+`STATE GITPH8M C A` PASS,
+`CMSCLNK GITPH8M PLAIN` assembler XF DONE,
+no statements flagged, native MODULE built,
+T=2.17/2.27.
+
+`GITPH8 G CCB18BEC067E7886D70B82EF138EE56A8B899A61`
+printed root exactly, 8 TREES, 272 BLOBS,
+0 GITLINKS, 279 ENTRIES, 280 VERIFIED,
+MAX OBJECT 393767, RESIDENT PEAK 6546851,
+INDEX TOTAL 7736 UNIQUE 7736,
+M188 FORWARD SCANS 2 RECORDS 15472 SEEKS 0,
+M188 AUTHENTICATED BLOBS 272,
+M188 STAGE LINES PASS1 3864799 PASS2 3864799,
+CPU phases INDEX/TREE_SCAN/GRAPH/BLOB_SCAN UNAVAILABLE,
+M188 FAST EOL VALIDATOR PASS,
+M188 TREE CLOSURE PASS,
+M188 VERIFIED FAST TREE TARGET GATE PASS
+CCB18BEC067E7886D70B82EF138EE56A8B899A61 G.
+Native wrapper RC0 at 12:48:26, T=205.04/208.27.
+
+Previous real target M185 CPU 206.72s,
+elapsed 209.97s. M188 saves 1.68s CPU,
+1.70s elapsed (0.81%) on ONE run. Tiny
+difference, likely within routine CMS timing
+variation. Do not assert consistent throughput
+ranking without repeated mainframe samples.
+Both M185 and M188 have matching positive-path
+closure and are target-proven; M188 is smallest
+recorded elapsed 208.27s. M181 target elapsed 298.38s.
+
+**M188 post-run QUERY FILEDEF missing** from transcript.
+Pre-run clean FILEDEF proven only. One separate
+`QUERY FILEDEF` check is sufficient; expensive
+full tree rerun not needed for DD hygiene.
+**Preserve** GITPH8 EXEC A, GITPH8M MODULE A,
+GITPH5 EXEC A/GITPH5M MODULE A, all previous
+good native versions, protected `GIT600`,
+`M173NET STAGE G` and `M174NET INDEX G`.
+Never erase/format/reimport/reindex, or
+write-link physically overlapping PMAINT 0141.
+
+M189 host C89 correctness suite passed but
+on same Linux host fixture M189 0.0427s
+vs M188 0.0407s median; M189 has NOT been
+run on real CMS. Do not use host times as CMS proof.
+User preference: **do not pause**, continue
+independent GitHub CI work, isolate any new
+native module by a new distinct EXEC/MODULE name.
