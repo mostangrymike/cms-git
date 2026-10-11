@@ -11548,3 +11548,19 @@ Measure elapsed against proven M188 208.27s,
 no broad claims from one run. No reimport/reindex,
 ERASE/FORMAT, M185/M188 MODULE overwrite, G
 stage/index write or overlapping PMAINT 0141 link.
+
+
+M190 ADDENDUM — early unsupported-seek detection:
+Before the expensive complete stage scan, M190 now
+performs `seekpreflight()` on first, midpoint and
+last native index offsets, using read-only `fopen`,
+`fseek`, `ftell`, exact OBJ header reparse.
+Success prints `M190 SEEK PREFLIGHT PASS 3`
+(on G's 7736 unique records). Any mismatch/unsupported
+text repositioning yields RC8 immediately. These
+3 setup seeks are separate from the expected
+272 reached-blob readback seeks, and stage-line
+accounting excludes preflight. CMS wrapper requires
+this preflight PASS and one full scan/272 readbacks.
+Host parity and scale tests now require preflight
+marker. Actual IBM CMS C seek support remains UNKNOWN.
