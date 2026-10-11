@@ -1,4 +1,4 @@
-/* M181: isolated fast read-only native stage tree verification. */
+/* M181: GITPHX EXEC calls distinct GITPHXM MODULE. */
 address cms
 parse upper arg datafm oid extra
 oid=translate(strip(oid))
@@ -42,7 +42,7 @@ if rc\=0 then do
  say 'M181 INDEX MISSING' datafm
  exit 8
 end
-'STATE GITPHX MODULE A'
+'STATE GITPHXM MODULE A'
 if rc\=0 then do
  say 'M181 MODULE MISSING'
  exit 8
@@ -77,7 +77,7 @@ end
 
 drop o.
 o.0=0
-'PIPE CMS GITPHX WALK' oid '| STEM o.'
+'PIPE CMS GITPHXM WALK' oid '| STEM o.'
 workrc=rc
 'FILEDEF IDXIN CLEAR'
 idxrc=rc
