@@ -10784,3 +10784,99 @@ before/after. Capture numeric Ready CPU/elapsed,
 compare with M181 real 294.57s CPU/298.38s
 elapsed. No rerun of expensive M173/M174,
 no reformat, no G data writes, preserve M181.
+
+
+## 2026-10-11 — M183 independent skipped-record optimization host PASS
+
+User instruction: **"do not pause."** Do maximum safe work
+on GitHub without waiting for a new CMS transcript. All
+IBM mainframe tests requiring target execution must still
+be labeled pending, not claimed passed.
+
+Real z/VM 6.3 performance baseline remains M181
+`GITPHX EXEC` / `GITPHXM MODULE`, CPU 294.57s,
+elapsed 298.38s; 8 trees, 272 blobs, 279 entries,
+280 verified, 7736 index unique, 2 sequential scans
+of 3,864,799 stage text records each, zero seeks,
+272 authenticated reached blobs. M181 successful
+post-run `QUERY FILEDEF` was not supplied. M182
+`GITPH2 EXEC` / `GITPH2M MODULE` was merged in
+PR #156 and passed host CI. **M182 has NOT been
+reported run on actual z/VM 6.3**. No assertion
+about M182's performance is justified.
+
+Rather than pause, developed NEW isolated M183 from
+the **target-proven M181 native source** (not M182),
+in branch `m183-skip-body-length-check-20261011`.
+The new C89 `src/GITPH3M.C` retains all original
+M181 tree/blob SHA1, index, mode/type, depth, cycle,
+resident 64MB cap, fail-closed, read-only, and
+2 full scan rules. Changes ONLY the hot `skipbody`:
+`linein_len` shares the trimmed line length already
+computed by original linein, removing the SECOND
+`strlen` on each skipped record. It also checks
+four hex characters per loop iteration with the
+same 256-byte native ASCII/EBCDIC character table.
+Each record still has an exact required length,
+all hex characters are checked (including trailing
+groups) and 0-byte bodies require an empty record.
+The original `linein()` delegates to
+`linein_len(f,line,cap,0)` so other code sees
+unchanged behavior. Stage lines counted as before.
+
+New `src/GITPH3.EXEC` is safe explicitly
+non-A 4KB G wrapper with distinct native
+`GITPH3M MODULE` (avoids M181 self-recursion).
+Uses same protected `M173NET STAGE G` and
+`M174NET INDEX G`, no caller FILEDEF overwrite,
+clears only owned STGIN/IDXIN and demands exact
+native/pass counters before returning RC0.
+No protected file written or rewritten.
+Host `tests/test-m183-skip-len.py` covers strict
+C89 `-Wall -Wextra -Werror`, M178 closure parity,
+SHA corruption, invalid skipped chars, short/long
+record lengths, trailing spaces on disposable
+temporary fixture, lowercase acceptance, malformed
+root/index, source line-width checks and identical
+stage/index input. CI workflow watches new files.
+The fixture initially failed a second disposable
+INDEX BUILD because IDXOUT already existed; we
+corrected test setup by unlinking that ephemeral
+output only inside tempfile. **Latest native-stage
+CI run 38151100445 passed**. No CMS test yet.
+
+M183 runbook `docs/M183_SKIP_LENGTH.md` gives
+exact safe target check after branch PR/merge:
+Mac in ibm-sandbox/src:
+```sh
+git pull
+./cms-upload.sh GITPH3M.C GITPH3.EXEC
+```
+CMS MAINT:
+```text
+QUERY DISK G
+STATE M173NET STAGE G
+STATE M174NET INDEX G
+QUERY FILEDEF
+STATE GITPH3M C A
+CMSCLNK GITPH3M PLAIN
+STATE GITPH3M MODULE A
+GITPH3 G CCB18BEC067E7886D70B82EF138EE56A8B899A61
+QUERY FILEDEF
+```
+Require 8 trees,272 blobs,279 entries,280 objects,
+7736 index unique,2 scans,15472 object header
+visits,3864799 stage text lines each,0 seeks,
+272 authenticated reachable blobs and all three
+`M183 UNROLLED HEX VALIDATOR PASS`,
+`M183 TREE CLOSURE PASS`,
+`M183 VERIFIED FAST TREE TARGET GATE PASS`
+plus cleanup of owned DDs. Compare elapsed with
+M181 298.38s. M183 performance may improve,
+match or regress. No repeated import/index build,
+ERASE, FORMAT or overlapping PMAINT0141 write link.
+Do not touch previously proven modules or G files.
+
+On further user prompts, **continue independent
+GitHub host-level coding and CI rather than pausing**
+merely because M182/M183 need real CMS benchmarks.

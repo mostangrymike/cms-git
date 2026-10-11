@@ -1,5 +1,33 @@
 # IBM Sandbox
 
+## M183 — isolated four-way skipped-record hex validation (host CI)
+
+The latest **real CMS** native performance baseline is M181:
+`GITPHX EXEC` -> `GITPHXM MODULE`, 298.38s elapsed,
+294.57s CPU, with 8 trees, 272 SHA-authenticated
+reachable blobs, 280 verified objects and two
+3,864,799-line sequential stage scans. M181 remains
+unchanged and target-proven. No post-run FILEDEF
+was included in its successful run transcript.
+
+M182 (two-digit hex lookup) is host-proven **only**;
+its actual z/VM execution time remains unknown.
+M183 is another **independent** host-tested candidate
+using new `GITPH3M.C` and `GITPH3.EXEC`. It forks
+the target-proven M181 reader (not unverified M182),
+reuses the original computed trimmed record length
+rather than calling `strlen` twice, and validates
+four hex characters at a time using M181's small
+native lookup table. All indexes, SHA1 verification,
+two-scan count and skipped-byte validation remain.
+No original module, disk, stage or index changes.
+**No CMS speedup is claimed** for M183.
+See `docs/M183_SKIP_LENGTH.md` for host scope and
+safe conditional native commands.
+
+---
+
+
 ## M181 real CMS pass; isolated M182 native pair-hex candidate
 
 October 11, 2026: the fixed separate `GITPHX EXEC`
