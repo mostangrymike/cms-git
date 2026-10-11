@@ -431,6 +431,42 @@ done:
  return ok;
 }
 
+/* Before the expensive scan, probe three indexed text offsets. */
+/* This checks that dd:STGIN supports fseek/ftell on this runtime. */
+static int seekpreflight(void) {
+ FILE *f;
+ struct idxent *e;
+ unsigned char oid[20];
+ char line[128];
+ unsigned long samples[3],i,n,size,checked=0;
+ int type,ok=0;
+ samples[0]=0;
+ samples[1]=ixunique/2;
+ samples[2]=ixunique-1;
+ f=fopen("dd:STGIN","r");
+ if(!f) {
+  perror("STGIN");
+  return 0;
+ }
+ for(i=0;i<3;i++) {
+  if(i&&samples[i]==samples[i-1]) continue;
+  e=ix+samples[i];
+  if(fseek(f,e->offset,SEEK_SET)!=0||
+     ftell(f)!=e->offset||
+     !linein(f,line,sizeof line)||
+     !parse_header(line,&n,&type,&size,oid)||
+     n!=e->num||type!=e->type||size!=e->size||
+     memcmp(oid,e->oid,20)!=0) goto done;
+  checked++;
+ }
+ ok=1;
+done:
+ if(fclose(f)!=0) ok=0;
+ if(ok) printf("M190 SEEK PREFLIGHT PASS %lu\n",checked);
+ else puts("M190 SEEK PREFLIGHT FAIL");
+ return ok;
+}
+
 /* All records were validated by scan(1). Reopen read-only and */
 /* seek only to reachable blob offsets from the checked index. */
 static unsigned long stage_seeks;
@@ -624,7 +660,7 @@ static int run_walk(const char *text) {
   puts("TREE CLOSURE ROOT NOT TREE");
   goto done;
  }
- if(!scan(1)) goto done;
+ if(!seekpreflight()||!scan(1)) goto done;
  t2=clock();
  for(i=0;i<ixunique;i++) {
   if(ix[i].type==2&&!ix[i].selected) {
