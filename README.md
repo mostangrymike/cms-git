@@ -1,5 +1,26 @@
 # IBM Sandbox
 
+## M188 isolated native EOL fast path (host proven only)
+
+M185 is confirmed on real z/VM 6.3: CPU 206.72s,
+elapsed **209.97s**, exact authenticated
+8-tree/272-blob/280-object closure, 7736 unique
+index objects and two 3864799-record stage scans.
+
+New `GITPH8M.C` / distinct `GITPH8.EXEC` adds
+bounded LF, CRLF and NUL suffix fast paths while
+retaining M185's full fallback, selected SHA1
+authentication, strict skipped-hex rules and
+read-only stage/index. GitHub native C89 CI passed,
+including differential malformed suffix/SHA tests.
+Linux fixture medians: M188 0.0735s versus M185
+0.0766s (seven rounds), **host-only evidence**.
+Actual M188 CMS performance is unmeasured.
+See `docs/M188_FAST_EOL.md` for safe instructions.
+
+---
+
+
 ## M185 real CMS performance milestone — 209.97 seconds
 
 On October 11, 2026, isolated M185 `GITPH5 EXEC` and

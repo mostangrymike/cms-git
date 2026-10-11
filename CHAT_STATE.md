@@ -11254,3 +11254,45 @@ write-link overlapping PMAINT0141 fullpack.
 **Continue coding without pause** on host and GitHub,
 new standalone module names only, until actual CMS
 validation is needed for a new native benchmark.
+
+## 2026-10-11 — M185 real CMS PASS; M188 host-only EOL experiment
+
+M185 actual target compiled and returned RC0: GITPH5/GITPH5M
+root CCB18BEC067E7886D70B82EF138EE56A8B899A61,
+8 trees, 272 blobs, 279 entries, 280 verified,
+7736/7736 index, zero seeks, two 3864799-line scans,
+CPU 206.72s/elapsed 209.97s. M181 elapsed 298.38s;
+M185 saves 88.41s (29.6%). No post-run QUERY FILEDEF
+supplied. The result was merged in PR #162.
+Never modify known-good M185 or the G stage/index.
+
+M188 independent files src/GITPH8M.C and src/GITPH8.EXEC:
+M185 selective two-pass SHA/index/graph checking retained,
+adds LF/NUL, CRLF/NUL and NUL no-suffix fast paths
+after verifying all hex, with original full bounded
+suffix validator on uncommon lines. The wrapper calls
+distinct MODULE GITPH8M, no self-recursion. New
+tests/test-m188-fast-eol.py checks strict C89,
+M185 positive/negative suffix and SHA parity.
+tests/bench-m188-fast-eol.py compares the five
+native readers on same 15.36MB skipped-blob fixture;
+requires identical reached closure, two scans,
+and unchanged stage/index hashes. Host CI PASS run
+38155760171; Linux seven-run medians M185 0.0766s,
+M188 0.0735s. **M188 still NOT CMS-tested**.
+Full runbook docs/M188_FAST_EOL.md.
+
+After merge, Mac in ibm-sandbox/src:
+git pull
+./cms-upload.sh GITPH8M.C GITPH8.EXEC
+CMS preflight: QUERY DISK G; STATE M173NET STAGE G;
+STATE M174NET INDEX G; QUERY FILEDEF; STATE GITPH8M C A;
+CMSCLNK GITPH8M PLAIN; STATE GITPH8M MODULE A.
+Run GITPH8 G CCB18BEC067E7886D70B82EF138EE56A8B899A61;
+then QUERY FILEDEF. Require exact 8/272/279/280
+closure, 7736 index, two scans, zero seeks and
+M188 FAST EOL VALIDATOR PASS / TREE CLOSURE PASS /
+VERIFIED FAST TREE TARGET GATE PASS.
+Compare target performance to M185 209.97s elapsed.
+No reimport/reindex, ERASE/FORMAT, overwriting proven
+modules or PMAINT 0141 overlapping write link.
