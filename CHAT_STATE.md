@@ -12063,3 +12063,77 @@ variable-record lengths plus SHA/OID object verification.
 No original G stage/index write, no old-module replace,
 no M190 272-seek experiment, no GIT600 reformat,
 no PMAINT0141 overlapping write-link.
+
+
+## 2026-10-11 15:45 — M193 THIRD REAL CMS FSREAD PASS / COMPLETE
+
+Actual z/VM 6.3:
+```text
+GITFSP G LAST
+M193 DIRECT FSREAD G1 PROBE BEGIN LAST
+M193 FSREAD BEGIN LAST RECNO 3864789
+M193 FSREAD RETURNED
+M193 RECORD HEADER PASS
+M193 READ ONLY FSREAD PROBE PASS
+M193 CMS FSREAD GATE PASS G LAST
+Ready; T=0.01/0.01 15:45:07
+```
+FIRST/MID/LAST are all **REAL CMS TARGET PASS**:
+original protected G stage record numbers
+1/1969357/3864789 have exact matching object prefixes
+OBJ 1 / OBJ 3868 / OBJ 7736.
+Elapsed 0.01s in each individual target command; single
+runs only, no extrapolated full reader benchmark.
+Still no post-probe QUERY FILEDEF output.
+M193 is COMPLETE at the three HEADER sample positions.
+Full Git tree closure remains M188 REAL CMS PASS at
+205.04s CPU / 208.27s elapsed; 280 authenticated
+objects and 272 blobs, 8 trees, 2 scans and zero seeks.
+
+## M194 — separate read-only FIRST BODY RECORD probe (HOST gate)
+
+Goal: validate the next adjacent CMS variable record using
+the same already-proven absolute FSREAD interface, without
+risking a premature full-reader replacement. New files:
+`src/GITFRB.ASSEMBLE`, `src/GITFRP.EXEC`,
+`tests/test-m194-fsread-body.py`,
+`docs/M194_FSREAD_BODY.md`. M194 will read the verified
+header at RECNO 1/1969357/3864789 and then its first
+body at RECNO 2/1969358/3864790; reject missing/malformed
+headers, lengths outside 0..64, odd body hex lengths,
+invalid EBCDIC hex, and close failures. Only RC0 passes.
+No full object/body reconstruction or OID hashing yet.
+Exact target behavior must be proven independently on CMS
+after Linux CI. This is an isolated exploratory subgate.
+No changes to original G stage/index, M185/M188/M193 or
+overlapping PMAINT0141 fullpack.
+
+NEXT AFTER CI GREEN/MERGE, on Mac in ibm-sandbox/src:
+```sh
+git pull
+./cms-upload.sh GITFRB.ASSEMBLE GITFRP.EXEC
+```
+CMS MAINT preflight/build:
+```text
+QUERY DISK G
+STATE M173NET STAGE G
+STATE M174NET INDEX G
+QUERY FILEDEF
+GLOBAL MACLIB OSMACRO DMSGPI PDPCLIB
+ASSEMBLE GITFRB
+GLOBAL TXTLIB PDPCLIB
+LOAD GITFRB (NOAUTO NOMAP
+GENMOD GITFRB
+STATE GITFRB MODULE A
+```
+Only if no statements flagged, first real target read:
+```text
+GITFRP G FIRST
+QUERY FILEDEF
+```
+Record target CPU/elapsed and full console markers.
+Run MID and LAST separately **only if** FIRST and
+each prior probe pass. Never run M190 272 C text seeks,
+format/erase GIT600, reindex/import original stage,
+replace existing proven modules, or enable write
+access to overlapping PMAINT0141.

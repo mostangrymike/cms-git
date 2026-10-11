@@ -1,6 +1,38 @@
 # M193 — Native CMS FSREAD by record number
 
-## October 11, 2026 — REAL z/VM 6.3 FIRST and MID PASS
+## October 11, 2026 15:45 — FINAL M193 LAST REAL CMS PASS
+
+Operator's separate and third actual CMS probe:
+
+```text
+GITFSP G LAST
+M193 DIRECT FSREAD G1 PROBE BEGIN LAST
+M193 FSREAD BEGIN LAST RECNO 3864789
+M193 FSREAD RETURNED
+M193 RECORD HEADER PASS
+M193 READ ONLY FSREAD PROBE PASS
+M193 CMS FSREAD GATE PASS G LAST
+Ready; T=0.01/0.01 15:45:07
+```
+
+**FIRST, MID, and LAST have ALL passed on actual z/VM 6.3 CMS:**
+header RECNO 1, 1,969,357, and 3,864,789, with matching
+indexed `OBJ 1 `, `OBJ 3868 `, and `OBJ 7736 ` prefixes.
+Each individual run reported 0.01s CPU/elapsed.
+
+M193 is COMPLETE for three **single-record header** probes.
+Full body content, SHA-1/OID authentication, closure performance
+and post-run `QUERY FILEDEF` are not established. The prior
+M188 authenticated two-scan full closure remains the proven
+208.27s elapsed baseline.
+
+Next, isolated M194 adds a separate assembler/wrapper to read
+an object's first hex body record as well as its header. See
+`docs/M194_FSREAD_BODY.md`. No M193 reassembly or rerun is needed.
+
+---
+
+## Historical 15:37 checkpoint — REAL FIRST and MID PASS
 
 **Target-proven at FIRST and MID (one record per invocation).**
 Actual CMS `ASSEMBLE GITFSRD` produced no flagged statements,

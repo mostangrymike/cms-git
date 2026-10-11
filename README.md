@@ -1,57 +1,57 @@
 # IBM Sandbox
 
-## M193 native CMS FSREAD FIRST and MID — real target PASS
+## M194 — first read-only CMS body record (HOST-ONLY; CMS NEXT)
 
-October 11, 2026: real z/VM 6.3 CMS assembled/linked `GITFSRD`
-with no flagged assembler statements. `GITFSP G FIRST` read record 1
-and passed the exact `OBJ 1 ` header check in 0.01s elapsed.
+M193 FIRST, MID and LAST **all passed on real z/VM 6.3**,
+each in a reported 0.01s elapsed. M194 starts a new,
+isolated native FSREAD two-record probe rather than replacing
+the proven full-object/tree reader. New `GITFRB.ASSEMBLE` and
+`GITFRP.EXEC` read one exact-indexed header, then its
+adjacent first body record (RECNO+1), validating variable
+record length 0..64, even hex width and EBCDIC hex bytes.
+They never write to G or change the original stage/index.
 
-The **separate** `GITFSP G MID` target invocation also passed:
+Host static/model gates cannot prove IBM FSREAD on CMS.
+**After M194 CI/merge, the next real target gate is FIRST only:**
+
+```sh
+git pull
+./cms-upload.sh GITFRB.ASSEMBLE GITFRP.EXEC
+```
+
+On CMS, run the preflight/build in
+`docs/M194_FSREAD_BODY.md` and then
+`GITFRP G FIRST` followed by `QUERY FILEDEF`.
+Do not run MID/LAST until FIRST succeeds. M194 is **not**
+complete-object SHA/OID validation; M188 remains the
+208.27-second authenticated full-tree baseline.
+
+---
+
+## M193 native CMS FSREAD FIRST, MID and LAST — REAL TARGET PASS
+
+October 11, 2026: the actual `GITFSP G LAST`
+probe passed on real CMS and returned:
+
 ```text
-M193 DIRECT FSREAD G1 PROBE BEGIN MID
-M193 FSREAD BEGIN MID RECNO 1969357
+M193 DIRECT FSREAD G1 PROBE BEGIN LAST
+M193 FSREAD BEGIN LAST RECNO 3864789
 M193 FSREAD RETURNED
 M193 RECORD HEADER PASS
 M193 READ ONLY FSREAD PROBE PASS
-M193 CMS FSREAD GATE PASS G MID
-Ready; T=0.01/0.01 15:37:38
+M193 CMS FSREAD GATE PASS G LAST
+Ready; T=0.01/0.01 15:45:07
 ```
 
-This establishes correct and fast **single-record** CMS FSREAD access
-at two widely separated positions in the actual RECFM V, LRECL64,
-3,864,799-record `M173NET STAGE G1` file. The MID elapsed
-0.01s is compared with the earlier **25.82s** C text-stream
-`fseek` MID probe; timer resolution and one-off execution
-make this a feasibility result, not a full-reader speed benchmark.
-
-M192 computed and checked 7,736 unique indexed objects and all
-3,864,799 physical stage records (0.61s elapsed); M188 remains
-the **208.27s** real-CMS full SHA-authenticated tree closure baseline.
-Neither FIRST nor MID verifies an entire Git blob.
-
-**Next safe CMS validation (already-installed module; no upload):**
-```text
-GITFSP G LAST
-QUERY FILEDEF
-```
-Require `RECNO 3864789`, exact `OBJ 7736 ` header PASS,
-and wrapper `CMS FSREAD GATE PASS G LAST`. Record actual
-CPU/elapsed and FILEDEF output. LAST is not yet target-proven,
-and a post-probe FILEDEF listing is not in the evidence supplied.
-If LAST passes, the next milestone is an **isolated** read-only
-index-to-record-number FSREAD adapter with multi-record reads
-and full object SHA/OID verification, *not* an unverified
-replacement of M188.
-
-Protect `M173NET STAGE G`, `M174NET INDEX G`, GIT600,
-existing M185/M188/M193 modules, and the overlapping PMAINT
-0141 device. No reimport, reindex, erase, format, write link,
-or M190 272-seek walk.
-
-Full transcript, design and rollback constraints:
-`docs/M193_FSREAD_PROBE.md`.
+FIRST (RECNO 1), MID (1,969,357) and LAST
+(3,864,789) have all passed with identical
+0.01s reported elapsed times. The three single-record
+header checks establish real CMS random-record
+feasibility, not a full-object hashing speedup.
+No post-M193 `QUERY FILEDEF` transcript was supplied.
 
 ---
+
 
 
 
