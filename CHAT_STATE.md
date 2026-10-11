@@ -11296,3 +11296,80 @@ VERIFIED FAST TREE TARGET GATE PASS.
 Compare target performance to M185 209.97s elapsed.
 No reimport/reindex, ERASE/FORMAT, overwriting proven
 modules or PMAINT 0141 overlapping write link.
+
+
+## 2026-10-11 — M189 eight-way hex micro-optimization host negative
+
+User instructed "do not pause"; M188 was
+implemented/host-CI-proven and merged via PR #163
+at main commit `62dba5428457221eeb74d8b29c60ac8581fb735d`.
+M188 uses isolated `GITPH8M.C` and
+`GITPH8.EXEC`, fast LF/CRLF/empty suffix after
+strict per-hex validation, with original M185
+bounded fallback. The full native-stage CI PASS
+included strict C89, M185 differential
+LF/CRLF/invalid-suffix tests, SHA/index
+negatives and Linux host parity.
+M188 Linux median 0.0735s vs M185 0.0766s
+on one 15.36MB fixture, **HOST only**. M188
+has NOT yet been run on real CMS.
+
+M189 in branch `m189-eightway-native-hex-check-20261011`
+copies M188 to new `src/GITPH9M.C` and
+`src/GITPH9.EXEC`, distinct native/EXEC
+stems. Only hot skipline validhex loop changes:
+eight native hex characters verified with
+bitwise-AND lookup entries and one group
+branch. Remaining hex and all suffix handling,
+all SHA-selected bytes, G index mapping,
+2 scans/zero seeks, 64MiB cap, name/mode/type/
+cycle/depth and wrapper FILEDEF cleanup
+remain identical. `tests/test-m189-eightway.py`
+adds all-eight-position skipped hex invalid
+checks, M185 differential records and strict
+C89. `tests/bench-m189-eightway.py` compares
+six readers with rotating seven host rounds
+on unchanged 15.36MB skipped blob fixture.
+CI run `38156179675` PASS:
+```text
+M181 HOST MEDIAN 0.0607s
+M182 HOST MEDIAN 0.0516s
+M183 HOST MEDIAN 0.0456s
+M185 HOST MEDIAN 0.0411s
+M188 HOST MEDIAN 0.0407s
+M189 HOST MEDIAN 0.0427s
+M189 PARITY AND READ-ONLY BENCHMARK PASS
+```
+M189 was **slower than M188 by ~4.9% on
+one Linux host sample**, so is a documented
+negative host optimization. Do not claim
+real mainframe regression/improvement.
+Keep M188 as higher priority new CMS test,
+and preserve target-proven M185.
+
+M185 actual z/VM 6.3 PASS: 8 trees,272 blobs,
+279 entries,280 verified,7736 unique index,
+2 scans of 3864799 records each,zero seeks,
+CPU **206.72s**, elapsed **209.97s**.
+No post-run QUERY FILEDEF in M185 success.
+Do not rewrite any target-proven source,
+permanent G stage/index or write-link
+overlapping PMAINT 0141.
+
+After merged M188, native next Mac commands:
+`git pull`; `./cms-upload.sh GITPH8M.C GITPH8.EXEC`.
+CMS MAINT safe preflight/compile:
+`QUERY DISK G`; `STATE M173NET STAGE G`;
+`STATE M174NET INDEX G`; `QUERY FILEDEF`;
+`STATE GITPH8M C A`; `CMSCLNK GITPH8M PLAIN`;
+`STATE GITPH8M MODULE A`.
+After success:
+`GITPH8 G CCB18BEC067E7886D70B82EF138EE56A8B899A61`;
+`QUERY FILEDEF`. Require identical closure/counts,
+`M188 FAST EOL VALIDATOR PASS`,
+`M188 TREE CLOSURE PASS`,
+`M188 VERIFIED FAST TREE TARGET GATE PASS`;
+capture CMS CPU/elapsed vs M185 206.72/209.97s.
+See docs/M188_FAST_EOL.md. M189 optional separate
+runbook docs/M189_EIGHTWAY.md, host regression
+not a reason to prefer it.
