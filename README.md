@@ -1,5 +1,55 @@
 # IBM Sandbox
 
+## M196 — verified index-selected object record plan (HOST-ONLY)
+
+M196 introduces new, separate `GITRP6M.C` and
+`GITRP6.EXEC`. Unlike the sample-only M192,
+this strict C89 reader validates all 7,736 unique
+indexed object numbers and OIDs, enforces increasing
+physical offsets, reconciles the original 3,864,799
+stage records, then prints the selected object's
+actual indexed Git type/size/OID and absolute CMS
+header/body/last record positions. It never opens
+the stage file or changes original G data.
+
+**After green host CI and merge, the next M196 CMS
+gate is index-only:**
+
+Mac `ibm-sandbox/src`:
+
+```sh
+git pull
+./cms-upload.sh GITRP6M.C GITRP6.EXEC
+```
+
+CMS MAINT:
+
+```text
+QUERY DISK G
+STATE M173NET STAGE G
+STATE M174NET INDEX G
+QUERY FILEDEF
+CMSCLNK GITRP6M PLAIN
+STATE GITRP6M MODULE A
+GITRP6 G 7736 10
+QUERY FILEDEF
+```
+
+This must print exact original-LAST record geometry:
+HEADER 3864789, BODY 3864790, LAST 3864799,
+COUNT 10, plus original index OID/type/size and
+a model PASS. All target results remain pending.
+
+**M195 has not yet been executed on real CMS.**
+Its independent full-body probe must be validated
+separately; a successful M196 index-only model
+cannot substitute for M195 or a Git SHA-1 check.
+The full authenticated M188 two-scan closure
+remains the proven 208.27s elapsed baseline.
+See `docs/M196_INDEX_OBJECT_PLAN.md`.
+
+---
+
 ## M195 — bounded complete LAST body (HOST-ONLY; CMS NEXT)
 
 October 11, 2026: M194 assembled successfully on actual
