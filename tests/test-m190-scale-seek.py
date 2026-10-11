@@ -142,6 +142,7 @@ with tempfile.TemporaryDirectory(prefix="m187-") as temp:
             assert ("M190 STAGE LINES FULL %d READBACK " % records) \
                 in result.stdout
             assert "M190 SELECTIVE SEEK VALIDATOR PASS" in result.stdout
+            assert "M190 SEEK PREFLIGHT PASS 3" in result.stdout
         else:
             assert (name + " FORWARD SCANS 2 RECORDS 15472 SEEKS 0") \
                 in result.stdout
