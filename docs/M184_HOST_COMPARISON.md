@@ -70,6 +70,33 @@ The host benchmark is integrated in
 `M184 PARITY AND READ-ONLY BENCHMARK PASS`
 when all correctness assertions hold.
 
+## Recorded host observation (GitHub Actions)
+
+The stricter 15,360,000-byte fixture (480,007 native
+stage text records per scan), seven measured rotating
+repetitions and one warmup, completed full native-stage
+CI success in [run 38151637954](https://github.com/
+mostangrymike/ibm-sandbox/actions/runs/38151637954).
+
+```text
+M184 FIXTURE: 15360000 bytes unrelated blob, 480007 stage lines
+M181 HOST MEDIAN 0.1197s MIN 0.1181s MAX 0.1292s
+M182 HOST MEDIAN 0.1010s MIN 0.0982s MAX 0.1198s
+M183 HOST MEDIAN 0.0913s MIN 0.0887s MAX 0.0954s
+M184 HOST TIMINGS ARE OBSERVATIONAL ONLY; NOT z/VM DATA
+M184 PARITY AND READ-ONLY BENCHMARK PASS
+```
+
+The median ordering on this *Linux host* fixture is
+M183, then M182, then M181 (fastest to slowest).
+The entire test uses locally cached files and
+sub-second native processes. **These are NOT z/VM
+CMS performance results, nor a guarantee of target
+ranking or a reason to replace M181.** The mainframe
+C runtime, I/O, and EBCDIC behavior may differ.
+
+---
+
 ## Next safe target decision
 
 - Preserve the real CMS M181 reader as the reference.
