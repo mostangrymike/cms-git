@@ -1,5 +1,51 @@
 # IBM Sandbox
 
+## M192 real CMS PASS; M193 native FSREAD header probe
+
+M192 compiled and passed **on actual z/VM 6.3 CMS**.
+The protected `M173NET STAGE G1` is RECFM V,
+LRECL 64, **3,864,799 records** occupying 62,189
+CMS blocks. With 7,736 unique index objects, the
+index-only model calculated exactly the same record
+total, including these physical header locations:
+
+| Object | CMS RECNO | C stream offset |
+|---|---:|---:|
+| 1 | 1 | 0 |
+| 3868 | 1,969,357 | 127,843,709 |
+| 7736 | 3,864,789 | 250,858,746 |
+
+M192 returned all native/wrapper PASS markers in
+**0.61s elapsed**. This proves the record ordinal
+arithmetic against real stage metadata without
+reading any stage content. It does not prove
+random CMS record-read performance.
+
+M193 now adds a separate `GITFSRD.ASSEMBLE`
+module with direct `FSREAD` (FORM=E,
+RECFM=V, BSIZE=64, NOREC=1) to probe **one
+M192-verified header** by absolute CMS RECNO.
+Its distinct wrapper `GITFSP.EXEC` dispatches
+FIRST, MID, or LAST directly to the native
+MODULE, with console output and no PIPE/STEM
+buffering. An exact `OBJ` prefix check and
+`FSCLOSE` must succeed before a native PASS.
+All input is read-only and the original G
+files are never changed.
+
+Strict host static guardrails and the record
+arithmetic fixture passed, but IBM CMS macro
+assembly/execution remains **unverified**.
+The safe first target trial is `GITFSP G FIRST`
+after a clean standalone native assembly;
+see `docs/M193_FSREAD_PROBE.md`. The
+working M188 two-scan reader remains the
+208.27-second real CMS baseline. Do not run
+the 272-seek M190 experiment.
+
+---
+
+
 ## M192 — index-only physical CMS record-number plan
 
 M191's actual FIRST and MID probes passed, but

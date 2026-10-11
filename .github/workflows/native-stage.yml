@@ -106,6 +106,10 @@ on:
       - 'src/GITPSKM.C'
       - 'src/GITPRBM.C'
       - 'src/GITRCNM.C'
+      - 'src/GITFSRD.ASSEMBLE'
+      - 'src/GITFSP.EXEC'
+      - 'tests/test-m193-fsread-guard.py'
+      - 'docs/M193_FSREAD_PROBE.md'
       - 'src/GITRCN.EXEC'
       - 'tests/test-m192-record-plan.py'
       - 'docs/M192_RECORD_NUMBER_PLAN.md'
@@ -284,6 +288,10 @@ on:
       - 'src/GITPSKM.C'
       - 'src/GITPRBM.C'
       - 'src/GITRCNM.C'
+      - 'src/GITFSRD.ASSEMBLE'
+      - 'src/GITFSP.EXEC'
+      - 'tests/test-m193-fsread-guard.py'
+      - 'docs/M193_FSREAD_PROBE.md'
       - 'src/GITRCN.EXEC'
       - 'tests/test-m192-record-plan.py'
       - 'docs/M192_RECORD_NUMBER_PLAN.md'
@@ -441,6 +449,8 @@ jobs:
         run: python3 tests/test-m191-cms-seek-probe.py
       - name: Check M192 index-only CMS record-number arithmetic
         run: python3 tests/test-m192-record-plan.py
+      - name: Check M193 assembler FSREAD static and record model safety
+        run: python3 tests/test-m193-fsread-guard.py
       - name: Check M190 7736-object selective seek closure
         run: python3 tests/test-m190-scale-seek.py
       - name: Compare M190 indexed seek vs M188 two-pass host
