@@ -10671,3 +10671,116 @@ Comparison reference M179 elapsed **459.44s**.
 Do not run `CMSCLNK GITPHX`, ERASE an old module,
 reimport/format/rebuild stage/index or use the
 overlapping PMAINT0141 fullpack for writes.
+
+
+## 2026-10-11 10:06 CDT — M181 REAL CMS NATIVE PASS; M182 HOST NEXT
+
+User provided actual successful z/VM 6.3 MAINT output after
+fixing M181 name collision. `STATE GITPHXM C A` RC0,
+`CMSCLNK GITPHXM PLAIN`: `ASSEMBLER (XF) DONE`,
+no flagged statements, `built GITPHXM MODULE mode
+PLAIN`, CPU 2.19s, elapsed 2.29s.
+`GITPHX G CCB18BEC067E7886D70B82EF138EE56A8B899A61`
+success with:
+```text
+TREE CLOSURE ROOT CCB18BEC067E7886D70B82EF138EE56A8B899A61
+TREE CLOSURE TREES 8 BLOBS 272 GITLINKS 0
+TREE CLOSURE ENTRIES 279 VERIFIED 280
+TREE CLOSURE MAX OBJECT 393767 RESIDENT PEAK 6546851
+TREE CLOSURE INDEX TOTAL 7736 UNIQUE 7736
+M181 FORWARD SCANS 2 RECORDS 15472 SEEKS 0
+M181 AUTHENTICATED BLOBS 272
+M181 STAGE LINES PASS1 3864799 PASS2 3864799
+M181 CPU INDEX UNAVAILABLE
+M181 CPU TREE_SCAN UNAVAILABLE
+M181 CPU GRAPH UNAVAILABLE
+M181 CPU BLOB_SCAN UNAVAILABLE
+M181 HEX LOOKUP VALIDATOR PASS
+M181 TREE CLOSURE PASS
+M181 VERIFIED FAST TREE TARGET GATE PASS CCB18BEC067E7886D70B82EF138EE56A8B899A61 G
+```
+Ready RC0 with `T=294.57/298.38` at 10:06:35.
+M181 elapsed **298.38s** vs M179 **459.44s**
+= **161.06s saved, 35.1% shorter**, while
+same two scans, 3,864,799 physical text records
+per scan, 272 reached blobs and 280 objects
+authenticated. M180 single-scan had been 708.52s.
+This is a substantial but single-sample improvement.
+**No post-run QUERY FILEDEF included** in successful
+M181 transcript. Earlier failed M181 wrapper
+did show no user FILEDEF before/after, but
+does not replace this success-path independent check.
+A single `QUERY FILEDEF` (no repeat tree scan)
+closes the outstanding hygiene verification.
+
+**Preserve M181 proven native pair**:
+`GITPHX EXEC A` and `GITPHXM MODULE A`.
+Keep prior M173NET STAGE G, M174NET INDEX G,
+M171NET PACK/META A, GIT600 contents, previous
+M176–M180 modules. Never write-link physically
+overlapping PMAINT 0141.
+
+M182 is a NEW isolated C89 experiment. `src/GITPH2M.C`
+is based on the now real-CMS-proven `GITPHXM.C`;
+it changes only the `skipbody` hexadecimal
+validation hot loop from 256-entry character lookup
+to 65,536-entry native-code TWO-character lookup.
+Valid pairs are exactly those both of whose
+characters are hex digits 0-9,A-F,a-f. Each
+skipped record remains length-checked and each
+hex character validated; selected bodies retain
+full original byte decode, tree/blob SHA1,
+index/mapping/EOF/graph/cycle/depth checks.
+Two forward scans and selective SHA (272 reached)
+remain unchanged. +64 KiB static pair table;
+this is not speed-proven on z/VM 6.3.
+
+Safe new `src/GITPH2.EXEC` wrapper is distinct
+from native `GITPH2M MODULE A`; avoids M181
+EXEC/module recursion. Existing FILEDEF ownership,
+explicit non-A 4KB G, stage/index existence,
+root/count, two-scan zero-seek, authenticated
+blob and native PASS crosschecks preserved.
+Host regression `tests/test-m182-hex-pair.py`
+compiles strict `gcc -std=c89 -Wall -Wextra -Werror`,
+compares M178/native counts/OIDs, tests lowercase
+skipped body, invalid FIRST and SECOND nibble,
+reached blob corruption, root input, truncated
+index; guards EXEC/MODULE different stem and
+ensures original inputs unchanged. CI workflow
+updated; target runbook `docs/M182_HEX_PAIR.md`.
+**M182 NOT YET TARGET-PROVEN** and may regress.
+
+NEXT, only after host CI passes and M182 PR merged.
+Mac from ibm-sandbox/src:
+```sh
+git pull
+./cms-upload.sh GITPH2M.C GITPH2.EXEC
+```
+CMS MAINT safe preflight/build, verify G protected:
+```text
+QUERY DISK G
+STATE M173NET STAGE G
+STATE M174NET INDEX G
+QUERY FILEDEF
+STATE GITPH2M C A
+CMSCLNK GITPH2M PLAIN
+STATE GITPH2M MODULE A
+```
+Only on successful C build and no conflicting DDs:
+```text
+GITPH2 G CCB18BEC067E7886D70B82EF138EE56A8B899A61
+QUERY FILEDEF
+```
+Require M182 HEX PAIR VALIDATOR PASS,
+M182 TREE CLOSURE PASS and
+M182 VERIFIED FAST TREE TARGET GATE PASS;
+8 trees, 272 blobs, 279 entries, 280 objects
+verified, index7736/7736, zero seeks,
+2 scans and 15472 header visits,
+3864799 physical stage text lines per pass,
+272 authenticated reachable blobs, clean FILEDEF
+before/after. Capture numeric Ready CPU/elapsed,
+compare with M181 real 294.57s CPU/298.38s
+elapsed. No rerun of expensive M173/M174,
+no reformat, no G data writes, preserve M181.
