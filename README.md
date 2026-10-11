@@ -1,5 +1,46 @@
 # IBM Sandbox
 
+## M192 — index-only physical CMS record-number plan
+
+M191's actual FIRST and MID probes passed, but
+MID at C text-stream offset 127,843,709 took
+**25.82s elapsed**, compared with FIRST's
+**0.64s**. Thus the full 272-seek M190 walk
+remains an inappropriate next performance test.
+
+IBM CMS `FSREAD` supports accessing a file
+by its *one-based physical record number*.
+New independent `src/GITRCNM.C` and
+`src/GITRCN.EXEC` test whether those
+record positions can be calculated directly
+from the existing Git stage index sizes:
+one object header plus one 64-hex-character
+record per 32 decoded bytes (one empty body
+record when the object has size zero).
+
+M192 **only reads the index**, never scans or
+seeks the 3,864,799-record stage. It prints
+physical header record ordinals for first,
+middle and last object and checks the
+predicted total against the actual observed
+3,864,799 records. The model is fail-closed
+on mismatches or invalid index structures.
+Strict C89 host CI generates 7,736 distinct
+synthetic objects and tests exact line
+positions, malformed index rejection and
+unchanged source hashes.
+
+This is a **record-layout model**, not yet a
+CMS FSREAD adapter or native tree reader.
+No target runtime improvement is claimed.
+See `docs/M192_RECORD_NUMBER_PLAN.md`.
+M188 remains the proven 208.27-second
+two-scan reader; original G files and
+existing modules are unchanged.
+
+---
+
+
 ## M191 actual CMS indexed seek evidence
 
 M191 FIRST and MID read-only header probes both

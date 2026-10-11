@@ -1,0 +1,61 @@
+/* M192: read-only index-to-CMS-record ordinal model. */
+address cms
+parse upper arg datafm expected extra
+if datafm='' | expected='' | extra\='' then do
+ say 'Usage: GITRCN data-filemode expected-stage-records'
+ exit 4
+end
+if length(datafm)\=1 |,
+   verify(datafm,'BCDEFGHIJKLMNOPQRSTUVWXYZ')\=0 then do
+ say 'M192 FILEMODE INVALID'
+ exit 4
+end
+if datatype(expected,'W')\=1 | expected<1 then do
+ say 'M192 EXPECTED RECORD COUNT INVALID'
+ exit 4
+end
+drop d.
+d.0=0
+'PIPE CMS QUERY DISK' datafm '| STEM d.'
+if rc\=0 then exit 8
+matched=0
+do i=1 to d.0
+ if word(d.i,3)=datafm & word(d.i,7)='4096' then,
+    matched=matched+1
+end
+if matched\=1 then do
+ say 'M192 DATA DISK NOT ACCESSED 4K' datafm
+ exit 8
+end
+'STATE M173NET STAGE' datafm
+if rc\=0 then exit 8
+'STATE M174NET INDEX' datafm
+if rc\=0 then exit 8
+'STATE GITRCNM MODULE A'
+if rc\=0 then exit 8
+drop f.
+f.0=0
+'PIPE CMS QUERY FILEDEF | STEM f.'
+if rc\=0 then exit 8
+do i=1 to f.0
+ if translate(word(f.i,1))='IDXIN' then do
+  say 'M192 IDXIN ALREADY DEFINED'
+  exit 8
+ end
+end
+'FILEDEF IDXIN DISK M174NET INDEX' datafm
+if rc\=0 then do
+ say 'M192 INDEX FILEDEF FAILED'
+ exit 8
+end
+say 'M192 DIRECT RECORD MODEL BEGIN'
+'GITRCNM PLAN' expected
+workrc=rc
+'FILEDEF IDXIN CLEAR'
+clearrc=rc
+if workrc\=0 | clearrc\=0 then do
+ say 'M192 RECORD MODEL GATE FAIL' workrc clearrc
+ exit 8
+end
+say 'M192 RECORD MODEL GATE PASS' datafm expected
+exit 0

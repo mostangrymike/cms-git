@@ -11746,3 +11746,108 @@ INDEX G. No formatting, rebuilding, importing,
 or write-linking overlapping PMAINT 0141.
 
 ---
+
+
+## 2026-10-11 — M192 host-only index-to-CMS-record plan
+
+M191 **real CMS** probe results recorded and merged
+in PR #168, main commit
+`3e97af6089be1879f8e544d2fb38bd39164aa25f`.
+FIRST record 1 at saved C byte offset 0
+passed, CPU0.63s/elapsed0.64s. MID record
+3868 at saved C byte offset 127843709
+also passed, CPU25.12s/elapsed25.82s.
+Both had complete native and wrapper PASS
+but no post-run QUERY FILEDEF transcript.
+The 25.82s result makes full M190 272
+text-fseek readbacks potentially prohibitive.
+M190 remains unverified on target after earlier
+HX interruption; do not repeat expensive walk.
+LAST seek was NOT checked. Proven target
+baseline M188 CPU205.04s elapsed208.27s,
+2 sequential scans 3864799 text lines each,
+zero seeks, 8 trees/272 blobs/279 entries/
+280 verified/7736 unique indexed objects.
+M185 positive path elapsed209.97s.
+
+IBM CMS FSREAD supports absolute, one-based
+logical record RECNO (separate record-oriented
+API), so explored a safer record-ordinal
+mapping before writing any CMS assembler.
+M192 isolated source: `src/GITRCNM.C` and
+distinct wrapper `src/GITRCN.EXEC`.
+It reads **only** the protected index
+`M174NET INDEX G` with fopen read-mode,
+validates PIDX1/PEND1, every unique sorted
+SHA1/OID and physical object-number mapping.
+A stage OBJ header consumes 1 physical
+record; a positive-size blob/tree body of
+size n consumes ceil(n/32) records, while
+zero-size consumes one empty record. Model
+header RECNO in 1-based CMS numbering
+by prefix sums, print first/mid/last
+record ordinals and compare predicted
+total to expected `3864799`; mismatch
+returns RC8 without PASS. It NEVER opens
+or scans `M173NET STAGE G`, never seeks
+or writes it, never modifies index.
+The wrapper checks G 4KB, stage/index
+exist, module A, caller IDXIN conflict,
+binds only temporary IDXIN, invokes native
+direct and clears only owned IDXIN.
+The model DOES NOT authenticate stage
+content or implement FSREAD; any actual
+CMS record API adapter must be new and
+target-tested, including proper RECFM.
+
+Host `tests/test-m192-record-plan.py` builds
+7736 DISTINCT synthetic native Git objects
+including one zero-length object, record
+sizes crossing 32/64 hex boundaries;
+creates disposable index with existing
+GITPIDX, strict GCC C89 compiles model,
+checks calculated first/mid/last RECNO
+against actual stage line count and
+index size, rejects wrong expected count,
+invalid SHA1/index/duplicate numbers,
+preserves SHA256 of stage and index.
+A first fixture accidentally generated
+multiple identical zero-length blobs,
+making index UNIQUE<7736; M192 correctly
+failed closed. Fixture was fixed to
+include only one zero-size object and
+unique 4-byte object identifiers for all
+other body data. This is not a CMS failure.
+CI native-stage hook added, full run
+38170921725 M192 test PASS. See
+`docs/M192_RECORD_NUMBER_PLAN.md`.
+
+After PR merge, Mac in ibm-sandbox/src:
+```sh
+git pull
+./cms-upload.sh GITRCNM.C GITRCN.EXEC
+```
+CMS MAINT cheap preflight/build:
+```text
+QUERY DISK G
+STATE M173NET STAGE G
+STATE M174NET INDEX G
+QUERY FILEDEF
+LISTFILE M173NET STAGE G (ALLOC
+STATE GITRCNM C A
+CMSCLNK GITRCNM PLAIN
+STATE GITRCNM MODULE A
+```
+Then, only on valid preflight/build:
+```text
+GITRCN G 3864799
+QUERY FILEDEF
+```
+Expected M192 INDEX TOTAL 7736 UNIQUE 7736,
+first/mid/last predicted header RECNO,
+M192 STAGE MODEL RECORDS 3864799 EXPECTED
+3864799, M192 READ ONLY RECORD PLAN PASS
+and wrapper gate PASS. If model disagrees,
+stop experiment and keep proven M188.
+No M190 full walk, format, erase, import,
+index rebuild or PMAINT 0141 write link.
