@@ -1,5 +1,22 @@
 # IBM Sandbox
 
+## M185 real CMS performance milestone — 209.97 seconds
+
+On October 11, 2026, isolated M185 `GITPH5 EXEC` and
+`GITPH5M MODULE` **compiled and passed on actual z/VM 6.3**.
+The exact authenticated closure remained 8 trees, 272 blobs,
+279 entries, 280 verified objects and 7,736 unique indexed
+objects. Both full scans read 3,864,799 CMS stage text records,
+with no seeks. Real CPU **206.72s**, elapsed **209.97s**,
+vs M181 real elapsed 298.38s: **88.41s/29.6% faster**.
+M185 now replaces M181 as the *measured performance baseline*,
+without overwriting any earlier module. A successful post-walk
+`QUERY FILEDEF` has not yet been supplied. Target transcript
+and bounds: `docs/M185_DIRECT_SKIP.md`.
+
+---
+
+
 ## M187 — synthetic 7,736-object native index/closure parity
 
 Without waiting for further z/VM 6.3 results,
