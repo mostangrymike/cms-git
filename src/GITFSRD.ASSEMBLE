@@ -19,18 +19,18 @@ GITFSRD  CSECT
          B     BADSEL
 TRYFIRST CLC   SELECT(5),=C'FIRST'
          BNE   BADSEL
-         L     5,=F'1'
          LINEWRT DATA=(FBEG,L'FBEG)
+         L     5,=F'1'
          B     DOFSREAD
 TRYMID   CLC   SELECT(3),=C'MID'
          BNE   BADSEL
-         L     5,=F'1969357'
          LINEWRT DATA=(MBEG,L'MBEG)
+         L     5,=F'1969357'
          B     DOFSREAD
 TRYLAST  CLC   SELECT(4),=C'LAST'
          BNE   BADSEL
-         L     5,=F'3864789'
          LINEWRT DATA=(LBEG,L'LBEG)
+         L     5,=F'3864789'
 DOFSREAD XC    RECBUF(64),RECBUF
 * FSREAD: extended RECNO supports positions > 65535.
 * A single variable record is at most 64 bytes on this G file.
@@ -38,6 +38,7 @@ DOFSREAD XC    RECBUF(64),RECBUF
                RECFM=V,RECNO=(5),NOREC=1,FORM=E,ERROR=RDERR
          ST    0,READLEN
          LINEWRT DATA=(RETURNED,L'RETURNED)
+         L     0,READLEN
          CLI   SELECT,C'F'
          BE    CHECKF
          CLI   SELECT,C'M'
