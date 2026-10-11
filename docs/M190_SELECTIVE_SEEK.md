@@ -1,5 +1,44 @@
 # M190 — one validated stage scan, then indexed reachable-blob seeks
 
+## Observed Linux host result (not z/VM evidence)
+
+The first successful full native staging CI run
+[38166026873](https://github.com/mostangrymike/ibm-sandbox/actions/runs/38166026873)
+compiled all native readers as strict C89 and verified:
+- M190 one complete first scan, reachable-only SHA
+  readback by indexed seeks, and no skipped-index writes;
+- synthetic **7736 unique indexed Git objects** with
+  exactly 8 trees, 272 blobs, 279 entries and 280
+  authenticated reached objects;
+- an unrelated valid-hex blob mutation accepted by
+  both schemes, invalid hex in skipped data rejected,
+  reached blob SHA corruption rejected, truncated
+  stage rejected;
+- matching root and byte-identical stage/index after
+  the disposable fixture is restored.
+
+The seven-run Linux host comparison on a
+15,360,000-byte unrelated blob printed:
+
+```text
+M190 FIXTURE: 15360000 bytes unrelated blob, 480007 stage lines
+M188 HOST MEDIAN 0.0719s MIN 0.0713s MAX 0.0807s
+M190 HOST MEDIAN 0.0369s MIN 0.0363s MAX 0.0432s
+M190 HOST TIMINGS ARE OBSERVATIONAL ONLY; NOT z/VM DATA
+M190 PARITY AND READ-ONLY BENCHMARK PASS
+```
+
+The M190 host median was about **48.7% lower**
+than M188 on this workload. That is consistent
+with avoiding a complete second file scan,
+but says nothing definitive about z/VM's support
+or performance for `fseek` on `dd:STGIN`.
+**Do not promise native speedup or functionality**
+until one real, read-only CMS target execution.
+
+---
+
+
 ## Target baseline and status
 
 The actual z/VM 6.3 MAINT native stage and index are
