@@ -76,7 +76,16 @@ scan with indexed random-access readback:
    traverse the requested tree graph and mark only
    actually reachable blobs. Preserve all original
    name, mode, depth, cycle, count and memory limits.
-3. Reopen `dd:STGIN` **read-only**, and for each
+3. Before that full scan, perform a lightweight **read-only
+   preflight**: seek to the first, middle and last
+   indexed offsets, require `ftell` equality and
+   exact header number/type/size/OID match. On
+   failure, exit RC8 immediately, without paying
+   for a 3,864,799-line scan. The preflight reports
+   `M190 SEEK PREFLIGHT PASS 3` on the live
+   7,736-object index; these three setup probes
+   are **not** counted as reachable blob readbacks.
+4. Reopen `dd:STGIN` **read-only**, and for each
    reached blob use its **first-pass verified** native
    `ftell` offset from the original sorted index.
    Perform `fseek(offset, SEEK_SET)`, require
@@ -87,12 +96,12 @@ scan with indexed random-access readback:
    against the indexed object OID. Count successful
    blob authentications. A seek or validation
    failure returns RC8 without a PASS marker.
-4. No other blob is trusted as reached; unrelated
+5. No other blob is trusted as reached; unrelated
    blobs were still syntactically checked in pass 1.
    Both the source stage and index are never opened
    for writing. Total readback seeks = actual number
    of reached blobs (272 on current G closure).
-5. Require complete authenticated closure, release
+6. Require complete authenticated closure, release
    temporary buffers and close handles on all paths.
 
 On the operator's current dataset, expected native
@@ -102,6 +111,7 @@ repositioning**:
 TREE CLOSURE TREES 8 BLOBS 272 GITLINKS 0
 TREE CLOSURE ENTRIES 279 VERIFIED 280
 TREE CLOSURE INDEX TOTAL 7736 UNIQUE 7736
+M190 SEEK PREFLIGHT PASS 3
 M190 FORWARD SCANS 1 RECORDS 7736 SEEKS 272
 M190 AUTHENTICATED BLOBS 272
 M190 STAGE LINES FULL 3864799 READBACK <variable>
