@@ -11851,3 +11851,108 @@ and wrapper gate PASS. If model disagrees,
 stop experiment and keep proven M188.
 No M190 full walk, format, erase, import,
 index rebuild or PMAINT 0141 write link.
+
+
+## 2026-10-11 15:16 — M192 REAL CMS PASS; M193 FSREAD macro candidate
+
+User supplied real CMS output:
+```text
+LISTFILE M173NET STAGE G (ALLOC
+M173NET STAGE G1 V 64 3864799 62189
+CMSCLNK GITRCNM PLAIN
+ASSEMBLER (XF) DONE
+NO STATEMENTS FLAGGED IN THIS ASSEMBLY
+CMSCLNK: built GITRCNM MODULE mode PLAIN
+GITRCN G 3864799
+M192 DIRECT RECORD MODEL BEGIN
+M192 INDEX TOTAL 7736 UNIQUE 7736
+M192 RECORD 1 RECNO 1 OFFSET 0
+M192 RECORD 3868 RECNO 1969357 OFFSET 127843709
+M192 RECORD 7736 RECNO 3864789 OFFSET 250858746
+M192 STAGE MODEL RECORDS 3864799 EXPECTED 3864799
+M192 READ ONLY RECORD PLAN PASS
+M192 RECORD MODEL GATE PASS G 3864799
+Ready; T=0.60/0.61 15:16:28
+```
+M192 compiled/ran successfully on real z/VM 6.3.
+This confirms the entire 3,864,799 physical
+variable-record stage count is exactly derived
+from indexed size_i by header(1)+
+max(1,ceil(size_i/32)) each, and establishes
+one-based absolute record numbers for first,
+middle and last stage OBJ headers. Stage
+RECFM V, LRECL 64, 62,189 CMS blocks.
+Still no stage content read by M192.
+M191 real C text fseek FIRST 0.64s and MID
+25.82s; the 272-seek M190 WALK must NOT
+be rerun for performance. Native verified
+fast baseline M188 remains 208.27s elapsed,
+205.04s CPU, two full stage scans/zero seeks.
+Keep M185/M188 and original G data intact.
+
+M193 branch `m193-native-fsread-cms-probe-20261011`
+implements new isolated `src/GITFSRD.ASSEMBLE`
+and distinct `src/GITFSP.EXEC`, targeting a
+**single native CMS FSREAD by absolute record
+number** instead of the expensive C stdio
+text fseek. Uses FSREAD `'M173NET STAGE G1'`,
+RECFM=V, BSIZE=64, NOREC=1,
+RECNO=(5), FORM=E, ERROR=RDERR. Known
+records hard-coded: FIRST 1, MID 1969357,
+LAST 3864789. Native LINERD reads only
+FIRST/MID/LAST selector on CMS STACK,
+returns console markers via LINEWRT
+before/after FSREAD, requires exact `OBJ 1 `,
+`OBJ 3868 ` or `OBJ 7736 ` prefix,
+calls FSCLOSE, returns RC0 only after all
+checks. Direct REXX EXEC invokes `GITFSRD`,
+no PIPE/STEM buffering, and refuses anything
+except filemode G and known selectors.
+IBM documents FORM=E for >65535 records
+and implicit FSREAD read-only open. No
+FSWRITE, FSERASE, FORMAT, stage/index
+modification or old-module replacement.
+`tests/test-m193-fsread-guard.py` checks
+fixed-column macro continuations, static
+read-only policy, wrapper routing, and
+7736-unique synthetic record-model
+arithmetic. **Linux cannot assemble IBM
+FSREAD**, so target assembly and run remain
+unverified pending CMS result. Runbook
+`docs/M193_FSREAD_PROBE.md`.
+
+After merging M193, Mac ibm-sandbox/src:
+```sh
+git pull
+./cms-upload.sh GITFSRD.ASSEMBLE GITFSP.EXEC
+```
+CMS preflight:
+```text
+QUERY DISK G
+STATE M173NET STAGE G
+STATE M174NET INDEX G
+LISTFILE M173NET STAGE G (ALLOC
+QUERY FILEDEF
+GLOBAL MACLIB OSMACRO DMSGPI PDPCLIB
+ASSEMBLE GITFSRD
+```
+Only on no statements flagged:
+```text
+GLOBAL TXTLIB PDPCLIB
+LOAD GITFSRD (NOAUTO NOMAP
+GENMOD GITFSRD
+STATE GITFSRD MODULE A
+GITFSP G FIRST
+QUERY FILEDEF
+```
+Require native M193 FSREAD BEGIN FIRST,
+FSREAD RETURNED, RECORD HEADER PASS,
+READ ONLY FSREAD PROBE PASS, wrapper
+CMS FSREAD GATE PASS G FIRST. MID
+is separate next optional test if FIRST
+succeeds; LAST deferred. If ASSEMBLE
+fails, edit only isolated M193 on GitHub
+after reviewing exact statement flags,
+do not alter G or old modules. No
+M190 full walk, no ERASE/FORMAT/reimport/
+reindex, no overlapping PMAINT0141 write-link.
