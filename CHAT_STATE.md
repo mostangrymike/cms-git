@@ -12231,3 +12231,68 @@ Never modify original G stage/index, replace proven
 M185/M188/M193/M194 modules, reimport/reindex/FORMAT
 GIT600, write-link overlapping PMAINT0141, or run
 the 272-seek M190 experiment.
+
+
+## 2026-10-11 — M196 selected-object index-to-CMS-record plan
+
+User instruction: MAXIMUM WORK PER TURN, continue without unnecessary
+pauses. Do not claim live CMS target checks that user has not supplied.
+
+Latest REAL CMS gate remains **M194 FIRST/MID/LAST PASS**
+with two native FSREADs per call; each observed 0.01s.
+M193 header-only three-way gate passed earlier. Native
+M195 ten-body-record LAST module was merged PR #174
+(commit e8026f87f37516b9102ee2326970d5e3107bf4a7),
+strict host model passed, **but no real M195 CMS output
+has been supplied yet**. M188 authenticated full closure
+208.27s elapsed continues as protected baseline.
+
+M196 isolates a further native C89 **index-only** model
+in new `src/GITRP6M.C` with different-stem REXX
+`src/GITRP6.EXEC`. It validates 7736 unique sorted OIDs,
+complete unique physical object numbers, types/sizes,
+strictly increasing indexed byte offsets by physical
+number, PIDX1/PEND1, complete stage count 3864799 and
+31-bit CMS extended RECNO bounds; computes arbitrary
+selected object one-based header, first body, last
+body and body-record count. The caller supplies a bounded
+max-body-record count 1..64. It emits indexed object
+type, size, stored OID and complete record plan only
+after validated metadata. Never opens STGIN, no fseek,
+no stage reads, no writes. REXX owns/clears IDXIN
+FILEDEF and calls the module directly, never through
+PIPE buffering. Host tests generate 7736 unique synthetic
+objects; test FIRST/MID/LAST record spans, exact OID,
+bad index/offset/number/total, SHA256 preservation,
+and strict gcc C89. No target claim yet.
+`docs/M196_INDEX_OBJECT_PLAN.md` is the runbook.
+GitHub Actions full host CI is required before merge.
+
+After green CI/merge, Mac `ibm-sandbox/src`:
+```sh
+git pull
+./cms-upload.sh GITRP6M.C GITRP6.EXEC
+```
+CMS MAINT:
+```text
+QUERY DISK G
+STATE M173NET STAGE G
+STATE M174NET INDEX G
+QUERY FILEDEF
+STATE GITRP6M C A
+CMSCLNK GITRP6M PLAIN
+STATE GITRP6M MODULE A
+GITRP6 G 7736 10
+QUERY FILEDEF
+```
+Expected record plan HEADER3864789, BODY3864790,
+LAST3864799, COUNT10 and stage model 3864799;
+type, exact size and OID unknown until real output.
+The M195 actual CMS LAST body gate must also be run
+independently. Next after M195+M196 target gates is
+isolated read-only FSREAD complete Git object OID/SHA1
+authentication and eventually tree performance parity.
+Never overwrite prior target-proven modules or touch
+protected original GIT600 files; no G-format/reimport,
+no overlapping PMAINT0141 write-link or M190 272-seek
+experiment.
