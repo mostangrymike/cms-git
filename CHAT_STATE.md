@@ -10592,3 +10592,82 @@ M179 `clock()` CPU phases unavailable on CMS, so those
 remain optional. M181 may NOT be faster—measure first.
 Avoid any destructive ops, repeat imports/index rebuild,
 or PMAINT 0141 write link overlapping persistent G.
+
+
+## 2026-10-11 09:48 CDT — M181 initial CMS DISPATCH FAIL; distinct MODULE fix
+
+Real z/VM 6.3 CMS/MAINT operator transcript:
+- `QUERY DISK G`: `GIT600 600 G R/W 1600 3390 4096`,
+  2 files, 62526 used blocks, 225474 free, 288000 total.
+- `STATE M173NET STAGE G`, `STATE M174NET INDEX G`
+  both success; `QUERY FILEDEF` at 09:47:36:
+  `No user defined FILEDEF in effect`.
+- `STATE GITPHX C A` success; `CMSCLNK GITPHX PLAIN`
+  success, assembler XF no flagged statements, 2.14s
+  elapsed; `STATE GITPHX MODULE A` success.
+- First `GITPHX G CCB18BEC067E7886D70B82EF138EE56A8B899A61`
+  printed `M181 FILEMODE INVALID`,
+  `M181 FAST TREE FAIL RC 4 0 0`; wrapper exit RC 8,
+  elapsed 0.01s at 09:48:03.
+- Final `QUERY FILEDEF` at 09:48:17 also
+  `No user defined FILEDEF in effect`. Data untouched.
+
+**ROOT CAUSE:** Initial `GITPHX EXEC A` and
+`GITPHX MODULE A` had the SAME basename.
+The outer `GITPHX G <root>` invoked the EXEC as
+intended, but its inner `PIPE CMS GITPHX WALK <root>`
+dispatched to that same EXEC. The nested invocation
+parsed `WALK` as the filemode and emitted
+`M181 FILEMODE INVALID` (RC4); outer wrapper cleared
+its own DDs and reported RC8. It never performed
+the native tree scan; **M181 runtime/correctness
+remain NOT target-proven.** No SHA/tree defect was
+found from this execution.
+
+**ISOLATED SOURCE FIX in GitHub:** Keep old
+`GITPHX EXEC` wrapper name and archive the
+previous `GITPHX C/MODULE` without erasure.
+Create `src/GITPHXM.C` with identical M181
+LUT validation / selective two-pass logic, compile
+as `GITPHXM MODULE A`. Patch
+`src/GITPHX.EXEC` to `STATE GITPHXM MODULE A`
+and `PIPE CMS GITPHXM WALK <root>` so the EXEC
+cannot recurse into itself. New host regression in
+`tests/test-m181-hex-lookup.py` compiles the new
+native source, checks wrapper/native stem mismatch,
+guards forbidden recursion and tests M178 parity,
+corrupt skipped/selected bytes, lowercase hex, bad
+root and truncated index. CI workflow watches
+`src/GITPHXM.C`. Detailed safety runbook
+`docs/M181_HEX_LOOKUP.md`; README updated.
+
+**Corrected next commands** after merging and host-CI
+PASS. Mac in `ibm-sandbox/src`:
+```sh
+git pull
+./cms-upload.sh GITPHXM.C GITPHX.EXEC
+```
+CMS MAINT no need to recheck full disk after previous
+confirmed state unless session changes. Safe commands:
+```text
+QUERY FILEDEF
+STATE M173NET STAGE G
+STATE M174NET INDEX G
+STATE GITPHXM C A
+CMSCLNK GITPHXM PLAIN
+STATE GITPHXM MODULE A
+GITPHX G CCB18BEC067E7886D70B82EF138EE56A8B899A61
+QUERY FILEDEF
+```
+Proceed to wrapper only if module compile succeeds,
+both original input files present and no conflicting
+STGIN/IDXIN user FILEDEFs. Require M181 terminal
+native/wrapper PASS and 8 trees, 272 blobs,
+279 entries, 280 verified, 7736/7736 indexed,
+2 scans, 15472 header visits, 272 reached
+authenticated blobs, zero seeks, stage text-line
+counts 3864799/pass and clean post FILEDEF.
+Comparison reference M179 elapsed **459.44s**.
+Do not run `CMSCLNK GITPHX`, ERASE an old module,
+reimport/format/rebuild stage/index or use the
+overlapping PMAINT0141 fullpack for writes.
