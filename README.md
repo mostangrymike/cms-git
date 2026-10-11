@@ -15,6 +15,13 @@ observational only and are **not CMS performance
 claims**; CI can fail for correctness or input
 mutation, never for a speed ranking.
 
+On the Linux GitHub CI runner, the seven-run
+medians on the 15.36MB skipped-blob host fixture were
+**M181 0.1197s, M182 0.1010s, M183 0.0913s**;
+all exact authenticated closure and unchanged-input
+checks passed. These timings are **not** z/VM speed
+claims or a replacement of target proof.
+
 M181 remains the fastest **real target measured**
 at **298.38 seconds** elapsed, CPU 294.57s.
 M182 and M183 have host integrity PASS but
