@@ -1,5 +1,65 @@
 # M181 — isolated hex lookup for skipped CMS stage records
 
+## October 11, 2026 — M181 ACTUAL CMS TARGET PASS
+
+**Successful retest after distinct MODULE name fix.**
+Operator's real z/VM 6.3 console proves
+`STATE GITPHXM C A` RC0 and
+`CMSCLNK GITPHXM PLAIN` clean:
+`ASSEMBLER (XF) DONE`, no statements flagged,
+`built GITPHXM MODULE mode PLAIN`, 2.29s elapsed.
+The corrected `GITPHX EXEC` calls the separate
+`GITPHXM MODULE` correctly.
+
+`GITPHX G CCB18BEC067E7886D70B82EF138EE56A8B899A61`
+returned RC0, CPU **294.57s**, elapsed **298.38s**,
+Ready at **10:06:35** October 11. Actual output:
+
+```text
+TREE CLOSURE ROOT CCB18BEC067E7886D70B82EF138EE56A8B899A61
+TREE CLOSURE TREES 8 BLOBS 272 GITLINKS 0
+TREE CLOSURE ENTRIES 279 VERIFIED 280
+TREE CLOSURE MAX OBJECT 393767 RESIDENT PEAK 6546851
+TREE CLOSURE INDEX TOTAL 7736 UNIQUE 7736
+M181 FORWARD SCANS 2 RECORDS 15472 SEEKS 0
+M181 AUTHENTICATED BLOBS 272
+M181 STAGE LINES PASS1 3864799 PASS2 3864799
+M181 CPU INDEX UNAVAILABLE
+M181 CPU TREE_SCAN UNAVAILABLE
+M181 CPU GRAPH UNAVAILABLE
+M181 CPU BLOB_SCAN UNAVAILABLE
+M181 HEX LOOKUP VALIDATOR PASS
+M181 TREE CLOSURE PASS
+M181 VERIFIED FAST TREE TARGET GATE PASS CCB18BEC067E7886D70B82EF138EE56A8B899A61 G
+```
+
+**Performance result:** vs real M179 elapsed **459.44s**
+and CPU 454.92s, M181 saves **161.06s elapsed**
+(approximately **35.1%**) using two identical forward
+stage scans and identical reached SHA authentication.
+This is a substantial single-run improvement,
+not a controlled statistical benchmark.
+M180 one-pass was slower at 708.52s.
+
+**Evidence limitation:** The successful M181 transcript
+did **not** include a post-run `QUERY FILEDEF`. The
+earlier name-collision failure did include clean
+FILEDEF before/after, but that does not establish
+cleanup for this later successful native run. A
+single inexpensive `QUERY FILEDEF` can close the
+remaining independent hygiene check; no repeated
+M181 tree scan is necessary.
+
+M181 **native positive-path verification is now
+target-proven** and must be preserved. No overwrite
+of the G disk, M173 stage, M174 index, older modules
+or the M181 working wrapper/module. Follow-on
+experiments are isolated, host CI-gated, and must
+be measured on CMS before claiming further speedup.
+
+---
+
+
 ## October 11, 2026 — M181 initial CMS invocation FAIL; name collision fixed
 
 **Operator's first M181 test did not enter native GITPHX.**
