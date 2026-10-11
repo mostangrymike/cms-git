@@ -1,5 +1,77 @@
 # M181 — isolated hex lookup for skipped CMS stage records
 
+## October 11, 2026 — M181 initial CMS invocation FAIL; name collision fixed
+
+**Operator's first M181 test did not enter native GITPHX.**
+On real CMS, `GIT600 600 G R/W` still had 4096-byte
+blocks, both protected G stage/index files were present,
+`QUERY FILEDEF` before was empty. `STATE GITPHX C A`
+and `CMSCLNK GITPHX PLAIN` passed (2.14s elapsed).
+However, `GITPHX G <root>` printed `M181 FILEMODE
+INVALID` followed by `M181 FAST TREE FAIL RC 4 0 0`,
+returning RC 8 in 0.01s. After-run `QUERY FILEDEF`
+also returned no user-defined definitions.
+
+**Root cause:** Initial M181 had both `GITPHX EXEC A`
+and `GITPHX MODULE A`. The EXEC's inner command
+`PIPE CMS GITPHX WALK <root>` invoked its own REXX
+wrapper again instead of the native module. `WALK`
+was parsed as a filemode by the nested wrapper, causing
+`FILEMODE INVALID`. This was wrapper dispatch failure,
+not SHA/tree-reader or stage/index validation failure.
+No full native tree scan occurred; there is no M181
+performance number from this attempt.
+
+**Isolated fix:** retain wrapper `src/GITPHX.EXEC`,
+create **distinct native module source**
+`src/GITPHXM.C` for `GITPHXM MODULE A` and update
+EXEC to check/call `STATE GITPHXM MODULE A` and
+`PIPE CMS GITPHXM WALK <root>`. The earlier
+`src/GITPHX.C` and already compiled `GITPHX MODULE A`
+can be left untouched; they must not be used as the
+dispatch path. The strict host regression now detects
+same-stem EXEC/MODULE collisions and compiles/runs
+the renamed native module. No previous good module
+or saved G stage/index needs changing.
+
+**Corrected next Mac transfer** from `ibm-sandbox/src`:
+
+```sh
+git pull
+./cms-upload.sh GITPHXM.C GITPHX.EXEC
+```
+
+**Corrected CMS MAINT preflight and compile:**
+
+```text
+QUERY FILEDEF
+STATE M173NET STAGE G
+STATE M174NET INDEX G
+STATE GITPHXM C A
+CMSCLNK GITPHXM PLAIN
+STATE GITPHXM MODULE A
+```
+
+Only if native compilation succeeds and the G inputs
+and FILEDEF state remain safe, **invoke the wrapper
+by its original name**:
+
+```text
+GITPHX G CCB18BEC067E7886D70B82EF138EE56A8B899A61
+QUERY FILEDEF
+```
+
+Success criteria remain exact 8 trees, 272 reached
+blobs, 279 entries, 280 verified, 7736 indexed unique,
+two scans and M181 lookup + native/wrapper PASS.
+Capture CMS elapsed/CPU against M179 459.44s; no
+speedup is presumed. Do not run `CMSCLNK GITPHX`
+again for this test, erase the old MODULE, reset
+any DATA disk, or repeat a large import/index build.
+
+---
+
+
 ## Motivation and target status
 
 Actual real z/VM 6.3 CMS output established M180
@@ -56,11 +128,11 @@ M181 is separate experimental code, not replacement.
 
 ## Conditional target test after host CI
 
-Mac from `ibm-sandbox/src`:
+Mac from `ibm-sandbox/src` (corrected native module stem):
 
 ```sh
 git pull
-./cms-upload.sh GITPHX.C GITPHX.EXEC
+./cms-upload.sh GITPHXM.C GITPHX.EXEC
 ```
 
 CMS MAINT preflight:
@@ -70,9 +142,9 @@ QUERY DISK G
 STATE M173NET STAGE G
 STATE M174NET INDEX G
 QUERY FILEDEF
-STATE GITPHX C A
-CMSCLNK GITPHX PLAIN
-STATE GITPHX MODULE A
+STATE GITPHXM C A
+CMSCLNK GITPHXM PLAIN
+STATE GITPHXM MODULE A
 ```
 
 Only proceed after clean 4KB G disk, both
