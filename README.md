@@ -1,5 +1,27 @@
 # IBM Sandbox
 
+## M186 — deterministic host-only skipped-record differential safety
+
+M186 adds `tests/test-m186-skip-differential.py`,
+a reproducible seeded (186) fault matrix that runs
+M181, M183 and M185 on **181 shared positive and
+negative** Git-format stage mutations. It rejects
+any new native reader that returns success when
+the original target-proven M181 reader rejects,
+or that produces a different authenticated closure.
+It verifies unchanged source index and restores
+the disposable stage. No new CMS code or protected
+G input is modified. Detailed test rules and
+limitations: `docs/M186_DIFFERENTIAL.md`.
+
+The latest real-CMS positive performance reference
+is **M181 298.38s elapsed** (294.57s CPU). M182,
+M183 and M185 have host proof only; their relative
+Linux host timings do **not** establish CMS speed.
+
+---
+
+
 ## M185 — direct skipped-record validation, host gated
 
 Continuing without waiting for M182/M183 CMS evidence,
