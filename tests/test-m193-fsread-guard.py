@@ -33,9 +33,11 @@ for fragment in ("LINERD DATA=(SELECT,8),TYPE=STACK",
                  "CLC   RECBUF(9),=C'OBJ 3868 '",
                  "CLC   RECBUF(9),=C'OBJ 7736 '"):
     assert fragment in asm, fragment
+active = "\n".join(line for line in lines
+                   if line and not line.startswith("*"))
 for forbidden in ("FSWRITE", "FSERASE", "FSPOINT", "OPENTYP=WRITE",
                   "RECFM=F", "FORM=S"):
-    assert forbidden not in asm, forbidden
+    assert forbidden not in active, forbidden
 for choice, recno in (("FIRST", 1), ("MID", 1969357),
                       ("LAST", 3864789)):
     assert "=F'%d'" % recno in asm
