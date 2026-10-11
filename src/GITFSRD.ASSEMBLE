@@ -1,0 +1,92 @@
+GITFSRD  CSECT
+         USING GITFSRD,12
+         LR    12,15
+         ST    14,RETADR
+*
+* M193: ONE read-only native CMS FSREAD on M173NET STAGE G1.
+* Record positions are validated by M192 native CMS:
+* FIRST=1, MID=1969357, LAST=3864789.
+* Never performs FSWRITE, FSERASE, or text-stream fseek.
+*
+         LINERD DATA=(SELECT,8),TYPE=STACK,CASE=MIXED,TRANS=NO,    X
+               PAD=BLANK,ERROR=BADSEL
+         C     0,=F'5'
+         BE    TRYFIRST
+         C     0,=F'3'
+         BE    TRYMID
+         C     0,=F'4'
+         BE    TRYLAST
+         B     BADSEL
+TRYFIRST CLC   SELECT(5),=C'FIRST'
+         BNE   BADSEL
+         L     5,=F'1'
+         LINEWRT DATA=(FBEG,L'FBEG)
+         B     DOFSREAD
+TRYMID   CLC   SELECT(3),=C'MID'
+         BNE   BADSEL
+         L     5,=F'1969357'
+         LINEWRT DATA=(MBEG,L'MBEG)
+         B     DOFSREAD
+TRYLAST  CLC   SELECT(4),=C'LAST'
+         BNE   BADSEL
+         L     5,=F'3864789'
+         LINEWRT DATA=(LBEG,L'LBEG)
+DOFSREAD XC    RECBUF(64),RECBUF
+* FSREAD: extended RECNO supports positions > 65535.
+* A single variable record is at most 64 bytes on this G file.
+         FSREAD 'M173NET STAGE G1',BUFFER=RECBUF,BSIZE=64,       X
+               RECFM=V,RECNO=(5),NOREC=1,FORM=E,ERROR=RDERR
+         ST    0,READLEN
+         LINEWRT DATA=(RETURNED,L'RETURNED)
+         CLI   SELECT,C'F'
+         BE    CHECKF
+         CLI   SELECT,C'M'
+         BE    CHECKM
+         C     0,=F'9'
+         BL    BADHDR
+         CLC   RECBUF(9),=C'OBJ 7736 '
+         BNE   BADHDR
+         B     GOODHDR
+CHECKF   C     0,=F'6'
+         BL    BADHDR
+         CLC   RECBUF(6),=C'OBJ 1 '
+         BNE   BADHDR
+         B     GOODHDR
+CHECKM   C     0,=F'9'
+         BL    BADHDR
+         CLC   RECBUF(9),=C'OBJ 3868 '
+         BNE   BADHDR
+GOODHDR  LINEWRT DATA=(HDRPASS,L'HDRPASS)
+         B     CLOSEOK
+BADHDR   LINEWRT DATA=(HDRFAIL,L'HDRFAIL)
+         B     CLOSEBAD
+RDERR    LINEWRT DATA=(READERR,L'READERR)
+         B     CLOSEBAD
+CLOSEOK  FSCLOSE 'M173NET STAGE G1',ERROR=CLERR
+         LINEWRT DATA=(PASSMSG,L'PASSMSG)
+         SR    15,15
+         B     RETURN
+CLOSEBAD FSCLOSE 'M173NET STAGE G1',ERROR=CLERR
+         B     BADRET
+CLERR    LINEWRT DATA=(CLOSERR,L'CLOSERR)
+         B     BADRET
+BADSEL   LINEWRT DATA=(SELERR,L'SELERR)
+BADRET   LA    15,8
+RETURN   L     14,RETADR
+         BR    14
+         LTORG
+RETADR   DS    F
+READLEN  DS    F
+SELECT   DS    CL8
+RECBUF   DS    CL64
+FBEG     DC    C'M193 FSREAD BEGIN FIRST RECNO 1'
+MBEG     DC    C'M193 FSREAD BEGIN MID RECNO 1969357'
+LBEG     DC    C'M193 FSREAD BEGIN LAST RECNO 3864789'
+RETURNED DC    C'M193 FSREAD RETURNED'
+HDRPASS  DC    C'M193 RECORD HEADER PASS'
+HDRFAIL  DC    C'M193 RECORD HEADER MISMATCH'
+READERR  DC    C'M193 FSREAD FAILED'
+CLOSERR  DC    C'M193 FSCLOSE FAILED'
+SELERR   DC    C'M193 EXPECT FIRST MID OR LAST'
+PASSMSG  DC    C'M193 READ ONLY FSREAD PROBE PASS'
+         END   GITFSRD
