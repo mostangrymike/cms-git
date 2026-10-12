@@ -12363,3 +12363,60 @@ No protected original G writes, reimport/reindex,
 GIT600 format/erase, overlapping PMAINT0141 write-link,
 replacement M185/M188/M193/M194/M195 modules, or
 full 272-seek M190 readback.
+
+
+## 2026-10-12 09:13 — M195 REAL CMS ASSEMBLER FAIL; SOURCE FIX
+
+User's actual CMS gate was:
+```text
+GLOBAL MACLIB OSMACRO DMSGPI PDPCLIB
+ASSEMBLE GITFL10
+ASSEMBLER (XF) DONE
+              223          B     EVENCHECK
+IFO236 ILLEGAL CHARACTER IN EXPRESSION NEAR OPERAND COLUMN 1
+              226 EVENCHECK LR    6,7
+IFO016 ILLEGAL OR INVALID NAME FIELD
+NUMBER OF STATEMENTS FLAGGED IN THIS ASSEMBLY =     2
+Ready(00008); T=0.13/0.15 09:13:01
+```
+Root cause: `EVENCHECK` 9-character assembler symbol;
+IBM CMS assembler permits maximum 8. Correct source
+changes branch to `B EVENCHK` and defines
+`EVENCHK  LR    6,7`, with aligned opcode.
+Original M195 still **NOT TARGET PROVEN**; user must
+reassemble corrected GITFL10 before LOAD/GENMOD.
+No target output from M196 or M197 yet.
+
+Regression gap addressed: host M195 guard previously
+checked only <=72 column text width and macro fragments,
+not assembler symbol widths. New test scans first-column
+labels of `GITFSRD.ASSEMBLE`, `GITFRB.ASSEMBLE`,
+`GITFL10.ASSEMBLE` and rejects >8-character labels or
+duplicate definitions. Retains ten-record full-body
+format and read-only model tests.
+
+After GitHub CI and corrective PR merge, Mac src:
+```sh
+git pull
+./cms-upload.sh GITFL10.ASSEMBLE
+```
+CMS MAINT:
+```text
+GLOBAL MACLIB OSMACRO DMSGPI PDPCLIB
+ASSEMBLE GITFL10
+```
+Only on NO STATEMENTS FLAGGED:
+```text
+GLOBAL TXTLIB PDPCLIB
+LOAD GITFL10 (NOAUTO NOMAP
+GENMOD GITFL10
+GITFLP G LAST
+QUERY FILEDEF
+```
+Record actual M195 native result/elapsed and FILEDEF.
+Stop and inspect any new assembler diagnostics. Once
+M195 passes, proceed independently to M196
+`GITRP6 G 7736 10` if `GITRP6M` has been built.
+Never write protected M173NET STAGE G or M174NET INDEX G,
+replace old target-proven modules, format GIT600,
+or write-link overlapping PMAINT 0141 fullpack.
