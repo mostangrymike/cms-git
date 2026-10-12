@@ -43,7 +43,7 @@ BODYLOOP XC    BODYBUF(64),BODYBUF
          B     EVENCHK
 LASTREC  LTR   7,7
          BZ    BADBODY
-EVENCHK LR    6,7
+EVENCHK  LR    6,7
          N     6,=F'1'
          BNZ   BADBODY
          L     4,BODYLEN
