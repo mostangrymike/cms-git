@@ -13463,3 +13463,118 @@ closure baseline 205.04s CPU/208.27 elapsed, no
 GIT600 stage reimport/reindex/format, original
 protected G writes, overlapping PMAINT0141 write-link,
 or M190 experimental 272-seek benchmark.
+
+
+## 2026-10-12 13:59 — M205 REAL CMS EIGHT-OBJECT SHA PASS
+
+User's z/VM 6.3 CMS transcript showed clean
+`CMSCLNK GITP25M PLAIN` compilation, CHECK-only
+`GITC25 G CHECK 64 8` PASS (0.65s elapsed)
+and full `GITC25 G RUN 64 8` PASS
+(CPU 0.88s, elapsed 1.04s, 13:59:29).
+
+Actual independent index plans / complete Git SHA:
+```text
+band obj type bytes hdr-record body OID
+1 5    1 285 13693   9 00577289AC473F405FB510795F6119A9B5A9845E
+2 969  3 1959 461624 62 4A676C837DC348799DCE22FC177B4FC886E5953C
+3 1935 1 259 923773  9 7BA8CDB666B6087E3733840AD979B788C5F37552
+4 2902 1 301 1324294 10 C2AE5C4E8976C6961B0FE37172D773A22B715808
+5 3869 3 1155 1969394 37 06DCD89E780A4B7463945802CF1E8299AAD21676
+6 4836 3 1339 2731825 42 772BC3543AA43A7105E77DC93723C4946EF813FF
+7 5803 2 807 2886646 26 0DF713FD715C955A3BA9DF94E376C1BF45BBE7EF
+8 6835 3 1938 3104693 61 1843ECBD12CFDAA23836D14B3E0913DB094B0A7E
+```
+
+For all 8 objects:
+- Full original stage native FSREAD and NEW-only A scratch
+  passed; M197 computed complete canonical Git SHA1 and
+  matched indexed OID; M199 full OID gate passed.
+- `M205 FULL SHA VERIFIED N obj`, subsequent
+  `M200 CLEANUP PASS SCRATCH`, and
+  `M205 SCRATCH CLEAN VERIFIED N obj` were present.
+- Terminal `M205 STRATIFIED FULL SHA CLEAN PASS 8`
+  returned RC0, CPU0.88s / elapsed1.04s.
+- Objects represented 3 commits, 4 blobs, 1 tree;
+  8,043 total decoded bytes. Stage header records range
+  13693 through 3104693, widely separated.
+- CMS MORE/paging output is interleaved, so rely on
+  complete terminal PASS; do not count interleaved
+  fragments as multiple runs.
+- Independent final `FILEDEF` and `STATE` commands
+  were NOT supplied. M205 did internally confirm
+  scratch absence after each object.
+- Protected `M173NET STAGE G1` / `M174NET INDEX G1`
+  and older native modules remain unchanged/read-only.
+- M205 is REAL CMS TARGET PASS for **8 sampled objects**,
+  not a complete reachable Git closure. M188's prior
+  280-object authenticated closure baseline remains
+  205.04 CPU / 208.27 elapsed.
+
+## M206 — larger stratified batches (2..32), HOST ONLY
+
+Independent `src/GITP26M.C` and `src/GITC26.EXEC`
+based on real-target-proven M205 but with 32 bounded
+ordinal samples max instead of 8; original code left
+unchanged. One complete 7736-entry PIDX1 validation
+and physical 3864799-record reconciliation; one
+eligible 1..2048-byte nonempty Git object (<=64
+body records) per nonoverlapping index ordinal
+band. All sample bands must have an eligible
+object before any P201 output; no incomplete
+batch partial success. Wrapper verifies ordinal
+band, physical record geometry, size/type/OID,
+caller filedefs, 4K original G, original protected
+stage/index and scratch absence. CHECK mode
+creates no scratch. RUN invokes original-stage
+native M199 FSREAD + M197 complete SHA1 for each,
+then M200 exact A cleanup only after SHA PASS.
+On failure, diagnostic scratch is preserved;
+no automatic retry or overwrite.
+
+Host regression `tests/test-m206-stratified-32.py`
+compiles C89 planner, PIDX1 builder, M197 SHA1;
+full synthetic 7736 object index; validates
+2/3/8/16/32 strata and full independent SHA1;
+tests bad stage record count and an entirely
+ineligible 32-band region without any P201
+success emission. The original M205 module and
+all target-proven prior modules remain unchanged.
+M206 has NOT been run on actual CMS.
+
+NEXT after M206 CI + merge: Mac
+```sh
+git pull
+./cms-upload.sh GITP26M.C GITC26.EXEC
+```
+CMS preflight FILEDEF, QUERY DISK G (4K),
+STATE M173NET STAGE G, M174NET INDEX G,
+GITR199 DATA A and GITVRAW DATA A (both
+MUST be absent). Compile
+`CMSCLNK GITP26M PLAIN`.
+First target CHECK-only:
+```text
+GITC26 G CHECK 64 16
+FILEDEF
+STATE GITR199 DATA A
+```
+Must report 16 real index bands and their
+actual OIDs, terminal M206 STRATIFIED INDEX
+PLANS PASS 16 and M206 SAMPLE CHECK NO SCRATCH
+PASS 16; no A scratch exists after CHECK.
+Only then:
+```text
+GITC26 G RUN 64 16
+FILEDEF
+STATE GITR199 DATA A
+```
+Require all 16 canonical SHA/OID comparisons,
+16 scratch clean confirmations, terminal M206
+STRATIFIED FULL SHA CLEAN PASS 16.
+After target-proven 16, optionally test
+`GITC26 G CHECK 64 32`, and only on CHECK
+success/no scratch `GITC26 G RUN 64 32`.
+Do not infer unobserved OIDs, sample sizes or
+batch timings. No original G writes, reindex,
+format GIT600, write-link overlapping
+PMAINT0141 or repeat M190 seek experiment.
