@@ -12420,3 +12420,101 @@ M195 passes, proceed independently to M196
 Never write protected M173NET STAGE G or M174NET INDEX G,
 replace old target-proven modules, format GIT600,
 or write-link overlapping PMAINT 0141 fullpack.
+
+
+## 2026-10-12 09:22 — M195 CORRECTED REAL CMS TEN-RECORD PASS
+
+User submitted actual z/VM 6.3 CMS output:
+```text
+GLOBAL MACLIB OSMACRO DMSGPI PDPCLIB
+ASSEMBLE GITFL10
+ASSEMBLER (XF) DONE
+NO STATEMENTS FLAGGED IN THIS ASSEMBLY
+Ready; T=0.13/0.15 09:22:41
+GLOBAL TXTLIB PDPCLIB
+LOAD GITFL10 (NOAUTO NOMAP
+GENMOD GITFL10
+GITFLP G LAST
+M195 DIRECT LAST COMPLETE BODY PROBE BEGIN
+M195 LAST FSREAD COMPLETE BODY BEGIN
+M195 LAST HEADER RETURNED
+M195 LAST HEADER PASS
+M195 LAST TEN BODY READS BEGIN
+M195 LAST TEN BODY RECORDS HEX PASS
+M195 READ ONLY COMPLETE BODY RECORDS PASS
+M195 COMPLETE BODY GATE PASS G LAST
+Ready; T=0.01/0.01 09:22:59
+```
+**M195 is now REAL CMS TARGET PASS**: final object 7736
+header RECNO3864789 and ten body records to RECNO3864799
+were independently FSREAD and EBCDIC hex/length validated,
+with first 9 body records exactly 64, last even 2..64,
+289..320 decoded bytes. Does NOT prove complete SHA1/OID.
+No post-run QUERY FILEDEF transcript was supplied.
+M193 and M194 previously target-proven. M196/197 have
+not been proven live on CMS yet.
+
+## M198 — NEW-only A scratch + M197 full-object SHA bridge
+
+M198 introduces independent `src/GITBX8.ASSEMBLE`,
+`src/GITB8.EXEC`, `tests/test-m198-fsread-scratch.py`
+and `docs/M198_FSREAD_SHA_BRIDGE.md`. The first adapter
+is SEALED TO LAST object 7736, not arbitrary object yet.
+Native code reads and validates all 11 records of original
+M173NET STAGE G1 *in memory*, storing each actual CMS
+variable length in a parallel array, and FSCLOSEs the
+original stage BEFORE any scratch writes. Only if
+all records/hex/size bounds pass does it call CMS
+`FSOPEN OPENTYP=NEW FORM=E` on `GITVRAW DATA A1`.
+IBM documents that NEW refuses overwrite; it writes
+exactly eleven variable records with actual lengths,
+FSCLOSEs scratch, RC0 only on success. Never writes G.
+If read/partial write fails, RC8 and possibly an
+untrusted partial scratch left on A; no auto ERASE.
+
+New GITB8 REXX checks G 4K, protected stage/index
+present, native GITBX8 and GITVO7M modules and
+GITVO7 EXEC, refuses existing `GITVRAW DATA A`
+or caller OBJIN FILEDEF. The only accepted operation:
+`GITB8 G LAST <real-index-40-hex-oid>`.
+Requires M196 actual CMS GITRP6 7736 10 to give
+the exact expected OID first. Invokes assembler
+directly (no PIPE buffered native output), checks
+scratch then calls `GITVO7 7736 OID`. M197 full
+canonical Git SHA1/OID verification must pass before
+M198 wrapper declares full authenticated PASS.
+Host strict C89 M197 and synthetic 289..320-byte
+record copies/tested OIDs are meaningful but NOT
+equivalent to real CMS FSREAD/FSWRITE operation.
+No M198 target run has occurred yet.
+
+NEXT immediate CMS M196 gate (if files transferred),
+check 4K G and protected stage/index/clean FILEDEF,
+build `CMSCLNK GITRP6M PLAIN`, then
+`GITRP6 G 7736 10`, `QUERY FILEDEF`.
+Require original exact geometry HEADER 3864789,
+BODY 3864790, LAST 3864799, COUNT 10 and print
+actual indexed type/size/OID; don't invent OID.
+After M198 CI/merge and M196 real PASS, Mac:
+```sh
+git pull
+./cms-upload.sh GITBX8.ASSEMBLE GITB8.EXEC
+```
+CMS assembler and M197 build are independent:
+```text
+CMSCLNK GITVO7M PLAIN
+GLOBAL MACLIB OSMACRO DMSGPI PDPCLIB
+ASSEMBLE GITBX8
+GLOBAL TXTLIB PDPCLIB
+LOAD GITBX8 (NOAUTO NOMAP
+GENMOD GITBX8
+```
+Only on clean compilation, original G preflight,
+and absent GITVRAW DATA A, execute exactly
+`GITB8 G LAST <actual-oid-from-M196>`, followed
+by `QUERY FILEDEF` and `LISTFILE GITVRAW DATA A (ALLOC`.
+Never erase scratch automatically, or overwrite/format
+original GIT600 stage/index or target-proven older modules.
+Never write-link overlapping PMAINT0141 or rerun M190
+272-seek experiment. M188 remains authenticated
+full closure baseline 205.04s CPU / 208.27s elapsed.
