@@ -13139,3 +13139,96 @@ scratch cleanup PASS each, then terminal M202
 TWO OBJECT FULL SHA CLEAN PASS 3868 7736.
 No M202 target proof yet. Keep original protected
 G source/index, active modules and M188 baseline.
+
+
+## 2026-10-12 13:18 — M202 REAL CMS TWO OBJECT SHA/CLEAN PASS
+
+User's z/VM 6.3 transcript (terminal output interleaved
+because a MORE prompt, but complete success markers):
+
+```text
+GITC22 G 3868 7736 64 CHECK
+M201 INDEX PLAN TUPLE ACCEPTED 3868 1969357 36 3 1148
+M201 INDEX EXPECTED OID 8AF5E45B1B905F781D0BFB8A547049494B8D07A2
+M201 INDEX ONLY CHECK PASS G 3868
+M201 INDEX PLAN TUPLE ACCEPTED 7736 3864789 10 2 291
+M201 INDEX EXPECTED OID 9069E154EB145C25D8E1A8D31F72252C53E6684A
+M201 INDEX ONLY CHECK PASS G 7736
+M202 TWO OBJECT INDEX PREFLIGHT PASS 3868 7736
+M202 TWO OBJECT CHECK ONLY PASS
+Ready; T=1.26/1.28 13:17:04
+FILEDEF
+DMSFLD324I No user defined FILEDEFs in effect
+STATE GITR199 DATA A
+DMSSTT002E File GITR199 DATA A not found
+GITC22 G 3868 7736 64 RUN
+M202 TWO OBJECT INDEX PREFLIGHT PASS 3868 7736
+M197 OBJECT 3868 TYPE 3 SIZE 1148 BODY RECORDS 36
+M197 VERIFIED OID 8AF5E45B1B905F781D0BFB8A547049494B8D07A2
+M197 READ ONLY FULL OBJECT SHA1 PASS
+M201 INDEX AUTOMATED FULL SHA PASS G 3868
+M202 FULL OBJECT SHA VERIFIED 3868
+M200 CLEANUP PASS SCRATCH
+M202 SCRATCH CLEAN VERIFIED 3868
+M197 OBJECT 7736 TYPE 2 SIZE 291 BODY RECORDS 10
+M197 VERIFIED OID 9069E154EB145C25D8E1A8D31F72252C53E6684A
+M197 READ ONLY FULL OBJECT SHA1 PASS
+M201 INDEX AUTOMATED FULL SHA PASS G 7736
+M202 FULL OBJECT SHA VERIFIED 7736
+M200 CLEANUP PASS SCRATCH
+M202 SCRATCH CLEAN VERIFIED 7736
+M202 TWO OBJECT FULL SHA CLEAN PASS 3868 7736
+Ready; T=2.59/2.67 13:18:06
+```
+
+**M202 now REAL CMS TARGET PASS**: CHECK validated both
+index plans, no scratch, 1.28s elapsed; RUN authenticated
+2 distinct objects and cleaned each successful disposable
+A scratch, full elapsed 2.67s (CPU 2.59s). Both M197
+complete canonical SHA1s matched independent index OIDs.
+Original G M173NET STAGE G1 and M174NET INDEX G1
+remained read-only. Text around MORE... TACOTICO appears
+interleaved; do not count it as multiple independent runs.
+The final FILEDEF and STATE commands after full RUN were
+not included, although M202 internally confirmed scratch
+removal twice and earlier FILEDEF was empty.
+
+## M203 NEW bounded batch of 2..8 distinct objects (HOST ONLY)
+
+Separate `src/GITC23.EXEC`, host tests and
+`docs/M203_BATCH_AUTH.md`. It validates 2..8 distinct
+index object numbers 1..7736, body-record limit 1..64,
+and requires CHECK or RUN mode. It preflights ALL chosen
+objects through target-proven `GITP21 G N limit CHECK`
+before any scratch writes; any CHECK failure stops with
+no scratch creation. RUN then authenticates each object
+with full M201/M199/M197 canonical Git SHA1, invokes
+target-proven M200 GITCLN SCRATCH only after the SHA
+PASS, confirms scratch absence before next object,
+and stops preserving scratch on SHA or cleanup failure.
+No original protected G writes, wildcard erasure or
+changes to target-proven modules. It is HOST TESTED;
+no M203 real CMS execution has occurred yet.
+
+Next after host CI/PR merge, Mac from ibm-sandbox/src:
+```sh
+git pull
+./cms-upload.sh GITC23.EXEC
+```
+CMS MAINT preflight `FILEDEF`, `STATE GITR199 DATA A`
+and `STATE GITVRAW DATA A` (both must be ABSENT).
+Then first `GITC23 G CHECK 64 3868 7736` and
+`FILEDEF`, `STATE GITR199 DATA A`. Only when
+CHECK succeeds and scratch remains absent, run
+`GITC23 G RUN 64 3868 7736` followed by FILEDEF
+and scratch STATE. Expect separate full Git SHA PASS
+for each object, separate M200 cleanup PASS,
+terminal `M203 BOUNDED FULL SHA CLEAN PASS 2`.
+On failure STOP and preserve console/scratch.
+For a third object, first check its exact record limits
+with GITP21 CHECK; never guess type, size or OID.
+
+M188 complete authenticated 280-object closure baseline
+205.04s CPU / 208.27s elapsed remains preserved. Never
+format/reindex GIT600, mutate M173NET STAGE or M174NET
+INDEX, write-link PMAINT0141, or rerun M190 seek test.
