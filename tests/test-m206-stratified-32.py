@@ -145,7 +145,7 @@ with tempfile.TemporaryDirectory(prefix="m205-") as name:
                 fields[4]="2100"
                 line=" ".join(fields)
         mutated.append(line)
-    (d/"dd:IDXIN").write_text("\\n".join(mutated)+"\\n")
+    (d/"dd:IDXIN").write_text("\n".join(mutated)+"\n")
     rejected=planner("SAMPLE",len(rows)+larger,64,32)
     assert rejected.returncode==8,(rejected.stdout,rejected.stderr)
     assert "M206 NO ELIGIBLE OBJECT IN BAND" in rejected.stdout
