@@ -1,5 +1,33 @@
 # IBM Sandbox
 
+## M202 z/VM PASS; M203 bounded batch
+
+October 12, 2026: real z/VM M202 CHECK passed for objects
+3868 and 7736 without scratch creation (1.28s elapsed).
+Its full RUN independently SHA-authenticated both the
+1148-byte blob and 291-byte tree using M201/M199/M197,
+cleaning the disposable A scratch after each success.
+Terminal gate: M202 TWO OBJECT FULL SHA CLEAN PASS 3868 7736,
+Ready CPU 2.59s / elapsed 2.67s at 13:18:06.
+
+M202 is real-CMS-proven. Final FILEDEF and STATE commands
+after the full RUN were not included in the operator trace.
+
+M203 adds separate GITC23.EXEC for 2 through 8 distinct
+object numbers, all CHECKs before any SHA, followed by full
+M201/M199/M197 authentication and M200 cleanup after each
+success. On any failure it stops and preserves scratch.
+M203 is host-only until independently validated on CMS.
+No original G files or prior modules are modified.
+
+Mac from ibm-sandbox/src: git pull, then upload GITC23.EXEC.
+CMS test: FILEDEF, confirm no scratch, then
+`GITC23 G CHECK 64 3868 7736`.
+Only on CHECK pass, `GITC23 G RUN 64 3868 7736`.
+See docs/M203_BATCH_AUTH.md for complete instructions.
+
+---
+
 ## M201 real CMS authenticated index-to-object PASS; M202 dual-object gate
 
 **October 12, 2026:** M201 compiled without errors on real
