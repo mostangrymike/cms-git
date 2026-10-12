@@ -144,7 +144,7 @@ CMS MAINT preflight and build (no edits to G or M195):
 QUERY DISK G
 STATE M173NET STAGE G
 STATE M174NET INDEX G
-QUERY FILEDEF
+FILEDEF
 STATE GITRP6M C A
 CMSCLNK GITRP6M PLAIN
 STATE GITRP6M MODULE A
@@ -155,7 +155,7 @@ assembler statements, plan the LAST object first:
 
 ```text
 GITRP6 G 7736 10
-QUERY FILEDEF
+FILEDEF
 ```
 
 Expected *shape* of native output, not guessed size/OID:
