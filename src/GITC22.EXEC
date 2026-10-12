@@ -1,0 +1,109 @@
+/* M202: exactly two different index-selected SHA objects. */
+/* Clean A scratch ONLY AFTER full canonical SHA success. */
+address cms
+parse upper arg fm one two limit mode extra
+if fm\='G' | extra\='' then do
+ say 'Usage: GITC22 G obj1 obj2 max-body CHECK or RUN'
+ exit 4
+end
+if mode\='CHECK' & mode\='RUN' then exit 4
+if datatype(one,'W')\=1 | datatype(two,'W')\=1 then exit 4
+if datatype(limit,'W')\=1 then exit 4
+if one<1 | one>7736 | two<1 | two>7736 then exit 4
+if one=two | limit<1 | limit>64 then exit 4
+'STATE GITP21 EXEC A'
+if rc\=0 then exit 8
+'STATE GITP21M MODULE A'
+if rc\=0 then exit 8
+'STATE GITB9 EXEC A'
+if rc\=0 then exit 8
+'STATE GITBX9 MODULE A'
+if rc\=0 then exit 8
+'STATE GITVO7M MODULE A'
+if rc\=0 then exit 8
+'STATE GITCLN EXEC A'
+if rc\=0 then exit 8
+'STATE GITVRAW DATA A'
+if rc\=28 then do
+ say 'M202 OLD M198 SCRATCH EXISTS - REFUSE CLEANUP'
+ exit 8
+end
+'STATE GITR199 DATA A'
+if rc\=28 then do
+ say 'M202 OLD M199 SCRATCH EXISTS - REFUSE OVERWRITE'
+ exit 8
+end
+drop f.
+f.0=0
+'PIPE CMS FILEDEF | STEM f.'
+if rc\=0 then exit 8
+do i=1 to f.0
+ name=word(translate(f.i),1)
+ if name='OBJIN' | name='IDXIN' then do
+  say 'M202 FILEDEF CONFLICT'
+  exit 8
+ end
+end
+say 'M202 TWO OBJECT INDEX PREFLIGHT BEGIN'
+'GITP21 G' one limit 'CHECK'
+check1=rc
+if check1\=0 then do
+ say 'M202 FIRST INDEX PREFLIGHT FAIL RC' check1
+ exit 8
+end
+'GITP21 G' two limit 'CHECK'
+check2=rc
+if check2\=0 then do
+ say 'M202 SECOND INDEX PREFLIGHT FAIL RC' check2
+ exit 8
+end
+say 'M202 TWO OBJECT INDEX PREFLIGHT PASS' one two
+if mode='CHECK' then do
+ say 'M202 TWO OBJECT CHECK ONLY PASS'
+ exit 0
+end
+say 'M202 FIRST OBJECT AUTH BEGIN' one
+call runone one,limit
+if result\=0 then do
+ say 'M202 FIRST OBJECT OR CLEANUP FAIL RC' result
+ exit 8
+end
+say 'M202 SECOND OBJECT AUTH BEGIN' two
+call runone two,limit
+if result\=0 then do
+ say 'M202 SECOND OBJECT OR CLEANUP FAIL RC' result
+ exit 8
+end
+say 'M202 TWO OBJECT FULL SHA CLEAN PASS' one two
+exit 0
+
+runone: procedure
+ address cms
+ parse arg obj,lim
+ 'STATE GITR199 DATA A'
+ if rc\=28 then do
+  say 'M202 SCRATCH COLLISION OR STATE FAILURE'
+  return 8
+ end
+ 'GITP21 G' obj lim
+ objrc=rc
+ if objrc\=0 then do
+  say 'M202 SHA FAIL; SCRATCH PRESERVED' obj objrc
+  return 8
+ end
+ say 'M202 FULL OBJECT SHA VERIFIED' obj
+ /* GITCLN deletes only 2 named A1 disposable files;
+    GITVRAW was confirmed absent before either iteration. */
+ 'GITCLN SCRATCH'
+ cleanrc=rc
+ if cleanrc\=0 then do
+  say 'M202 CLEANUP FAIL; STOP' obj cleanrc
+  return 8
+ end
+ 'STATE GITR199 DATA A'
+ if rc\=28 then do
+  say 'M202 SCRATCH NOT REMOVED'
+  return 8
+ end
+ say 'M202 SCRATCH CLEAN VERIFIED' obj
+ return 0

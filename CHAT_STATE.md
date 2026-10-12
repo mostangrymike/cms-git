@@ -13023,3 +13023,119 @@ scratch unchanged. No automatic or background
 CMS work, no protected G writes/reindex/reimport,
 no G format/ERASE, no PMAINT0141 write-link,
 no M190 272-seek experiment.
+
+
+## October 12, 2026, 13:07 — M201 REAL CMS INDEX-TO-FSREAD SHA PASS
+
+User provided real z/VM 6.3 CMS transcript:
+```text
+FILEDEF
+DMSFLD324I No user defined FILEDEFs in effect
+GITCLN SCRATCH
+M200 SKIP ABSENT GITVRAW DATA A1
+M200 ERASING EXACT GITR199 DATA A1
+M200 ERASED GITR199 DATA A1
+M200 CLEANUP PASS SCRATCH
+STATE GITR199 DATA A
+DMSSTT002E File GITR199 DATA A not found
+CMSCLNK GITP21M PLAIN
+ASSEMBLER (XF) DONE
+NO STATEMENTS FLAGGED IN THIS ASSEMBLY
+CMSCLNK: built GITP21M MODULE mode PLAIN
+GITP21 G 3868 64 CHECK
+M201 INDEX PLAN TUPLE ACCEPTED 3868 1969357 36 3 1148
+M201 INDEX EXPECTED OID 8AF5E45B1B905F781D0BFB8A547049494B8D07A2
+M201 INDEX ONLY CHECK PASS G 3868
+Ready; T=0.63/0.64 13:07:18
+FILEDEF
+DMSFLD324I No user defined FILEDEFs in effect
+STATE GITR199 DATA A
+DMSSTT002E File GITR199 DATA A not found
+GITP21 G 3868 64
+M201 INDEX PLAN TUPLE ACCEPTED 3868 1969357 36 3 1148
+M201 INDEX EXPECTED OID 8AF5E45B1B905F781D0BFB8A547049494B8D07A2
+M199 BOUNDED ORIGINAL STAGE READ PASS
+M199 NEW A SCRATCH TRANSFER PASS
+M197 OBJECT 3868 TYPE 3 SIZE 1148 BODY RECORDS 36
+M197 VERIFIED OID 8AF5E45B1B905F781D0BFB8A547049494B8D07A2
+M197 READ ONLY FULL OBJECT SHA1 PASS
+M199 PARAMETERIZED FULL OID PASS G 3868
+M201 INDEX AUTOMATED FULL SHA PASS G 3868
+Ready; T=0.67/0.68 13:07:44
+FILEDEF
+DMSFLD324I No user defined FILEDEFs in effect
+LISTFILE GITR199 DATA A (ALLOC
+```
+
+M201 NOW REAL-CMS TARGET PASS: native GITP21M
+strict C89 compiled under CMS, CMS PIPE captured
+one compact index tuple and safely closed IDXIN.
+CHECK mode did not create scratch and correctly
+validated object 3868 TYPE3 BLOB SIZE1148,
+HEAD RECNO1969357 COUNT36, expected indexed OID
+8AF5E45B1B905F781D0BFB8A547049494B8D07A2.
+Full mode used target-proven M199 direct original
+stage FSREAD into NEW-only A scratch, followed by
+target-proven M197 complete canonical Git SHA1.
+End-to-end M201 elapsed 0.68s for one object,
+not a full 280-object tree closure. User-defined
+FILEDEFs were absent after the run.
+The transcript ends at a LISTFILE invocation
+without its result; do not fabricate LISTFILE
+metadata for this particular M201 execution.
+A newly-created GITR199 DATA A1 scratch should
+be presumed present until explicit STATE/cleanup.
+Older original G M173NET STAGE and M174NET INDEX
+were read-only; M188 complete closure baseline
+205.04 CPU / 208.27 elapsed preserved.
+
+## M202 new bounded two-object automatic SHA and cleanup
+
+New distinct `src/GITC22.EXEC` and host test
+`tests/test-m202-dual-object-clean.py`, with CI
+and `docs/M202_DUAL_AUTH_CLEAN.md`. No edits to
+M201/M199/M197/M196 native target-proven modules.
+M202 requires **two different** object numbers
+1..7736, body record limit 1..64, and explicit
+mode CHECK or RUN. It refuses existing original
+M198 GITVRAW DATA A scratch or M199 GITR199
+DATA A scratch, caller IDXIN/OBJIN collision,
+or missing modules. It calls M201 CHECK for
+both objects first, fails without writes on
+any index plan error. CHECK mode returns without
+scratch creation. RUN mode calls M201 full
+canonical SHA for first object, then only on
+SHA PASS calls target-proven GITCLN SCRATCH.
+It verifies the NEW A scratch is removed before
+proceeding to second M201 full SHA and cleanup.
+On SHA failure or cleanup failure: STOP, retain
+untrusted scratch and do not retry automatically.
+Host regression tests check input bounds, exact
+ordering, cleanup after SHA, and negative-state
+fail-closed scenarios. M202 is HOST-ONLY pending
+actual CMS test, not a complete tree benchmark.
+
+NEXT: Mac src `git pull` and
+`./cms-upload.sh GITC22.EXEC` after PR merge.
+CMS MAINT first `FILEDEF`, check scratch state,
+use `GITCLN SCRATCH` to clean successful M201
+test object. Confirm GITVRAW and GITR199 DATA A
+absent. Then test:
+```text
+GITC22 G 3868 7736 64 CHECK
+FILEDEF
+STATE GITR199 DATA A
+```
+Only if CHECK fully passes with no scratch:
+```text
+GITC22 G 3868 7736 64 RUN
+FILEDEF
+STATE GITR199 DATA A
+```
+Expected full M201/M199/M197 SHA PASS for both
+3868 blob 1148/OID 8AF5E45B... and
+7736 tree 291/OID 9069E154..., plus M200
+scratch cleanup PASS each, then terminal M202
+TWO OBJECT FULL SHA CLEAN PASS 3868 7736.
+No M202 target proof yet. Keep original protected
+G source/index, active modules and M188 baseline.

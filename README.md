@@ -1,5 +1,58 @@
 # IBM Sandbox
 
+## M201 real CMS authenticated index-to-object PASS; M202 dual-object gate
+
+**October 12, 2026:** M201 compiled without errors on real
+z/VM 6.3, successfully captured a compact validated
+object record from native C via CMS PIPE, and passed
+`GITP21 G 3868 64 CHECK` with **no scratch file**.
+Its full `GITP21 G 3868 64` then automatically
+passed the M196-derived record/OID tuple to M199
+and authenticated the entire 1,148-byte blob with
+M197 canonical SHA1, elapsed **0.68 seconds**.
+Object 3868, OID:
+`8AF5E45B1B905F781D0BFB8A547049494B8D07A2`.
+Final FILEDEF: no user-defined definitions.
+The last `LISTFILE` command's completed output
+was not supplied.
+
+M202 adds `GITC22.EXEC` for **two distinct** automatically
+selected and SHA-authenticated objects. It requires
+both M201 CHECK modes to pass before starting any
+write-once A scratch. On full SHA PASS for each,
+it invokes target-proven `GITCLN SCRATCH` and
+verifies removal before advancing. Any failure
+stops without deleting an untrusted scratch.
+It refuses existing scratch files and does not
+alter previously proven readers or protected G files.
+
+**M202 is host-tested only** until actual z/VM
+`CHECK` and `RUN` results are provided.
+
+From Mac `ibm-sandbox/src` after merge:
+
+```sh
+git pull
+./cms-upload.sh GITC22.EXEC
+```
+
+On CMS, first check `FILEDEF`, and clean the
+successful M201 scratch using `GITCLN SCRATCH`.
+Then, only when both scratch files are absent:
+
+```text
+GITC22 G 3868 7736 64 CHECK
+FILEDEF
+GITC22 G 3868 7736 64 RUN
+FILEDEF
+```
+
+Never advance from a failed CHECK; preserve any scratch
+after SHA or cleanup failure. See
+`docs/M202_DUAL_AUTH_CLEAN.md`.
+
+---
+
 ## M199 second-object real CMS PASS; M201 automatic tuple (Oct 12)
 
 M199 is now authenticated on **two different native FSREAD
