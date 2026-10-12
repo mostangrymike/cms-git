@@ -12733,3 +12733,105 @@ preserve scratch and exact console. No reimport,
 reindex, format, erase, protected G write, replaced
 old module, overlapping PMAINT 0141 write-link
 or M190 272-seek experiment.
+
+
+## 2026-10-12 11:21 — M199 REAL CMS TARGET PASS; NEW CLEANUP RULE
+
+Actual user terminal:
+```text
+ASSEMBLE GITBX9
+ASSEMBLER (XF) DONE
+NO STATEMENTS FLAGGED IN THIS ASSEMBLY
+Ready; T=0.18/0.21 11:20:46
+LOAD GITBX9 (NOAUTO NOMAP
+GENMOD GITBX9
+GITB9 G 7736 3864789 10 9069E154EB145C25D8E1A8D31F72252C53E6684A
+DMSSTT002E File GITR199 DATA A not found
+M199 DIRECT NATIVE RECORD-BOUNDED READ BEGIN
+M199 PARAMETERIZED FSREAD SOURCE BEGIN
+M199 BOUNDED ORIGINAL STAGE READ PASS
+M199 NEW A SCRATCH TRANSFER PASS
+M199 FULL CANONICAL SHA1 VERIFY BEGIN
+M197 OBJECT 7736 TYPE 2 SIZE 291 BODY RECORDS 10
+M197 VERIFIED OID 9069E154EB145C25D8E1A8D31F72252C53E6684A
+M197 READ ONLY FULL OBJECT SHA1 PASS
+M199 PARAMETERIZED FULL OID PASS G 7736
+Ready; T=0.01/0.02 11:21:19
+LISTFILE GITR199 DATA A (ALLOC
+GITR199  DATA  A1 V 64 11 1
+Ready; T=0.01/0.01 11:21:29
+```
+
+M199 **REAL CMS TARGET PASS**, with read-only
+parameterized native FSREAD and full SHA-1/OID
+authentication of indexed 291-byte type-2 tree
+at header RECNO3864789, ten body records,
+expected OID 9069E154EB145C25D8E1A8D31F72252C53E6684A.
+One-object CPU 0.01s, elapsed 0.02s. Scratch
+GITR199 DATA A1 RECFM V LRECL64 11 records 1 block,
+created via NEW. No final FILEDEF listing was supplied.
+
+User corrected command guidance: typed `QUERY FILEDEF`
+is routed to CP querying whether userid FILEDEF is
+logged on, NOT an active CMS file-definition list.
+IBM docs confirm CMS command `FILEDEF` **with no
+operands** displays all current FILEDEFs; use that
+instead. M200 corrects the four REXX wrapper
+FILEDEF inspections from `PIPE CMS QUERY FILEDEF`
+to `PIPE CMS FILEDEF` and active runbook commands.
+
+NEW EXPLICIT USER RULE: **erase unneeded test files and
+executables as we go**, after successful verification.
+Preserve production/protected files and needed regression
+artifacts. Since M198/M199 are real target PASS,
+the two A1 disposable files GITVRAW DATA A1 and
+GITR199 DATA A1 can be retired after record proof.
+Superseded probe MODULE/TEXT/LISTING and EXEC
+files of M193-M195 and M198 may be erased from A1
+once cleanup preflight is correct. Do NOT erase any
+current M196 GITRP6M, M197 GITVO7M or M199 GITBX9
+modules, and do NOT erase original G stage or index.
+Keep assembler source files on A for rebuilds.
+
+New `src/GITCLN.EXEC` supplies two EXPLICIT
+whitelist A1-only cleanup modes:
+`GITCLN SCRATCH` for GITVRAW DATA A1 and
+GITR199 DATA A1, and `GITCLN RETIRED`
+for old M193/M194/M195/M198 probe MODULE/TEXT/
+LISTING and wrappers EXEC. For each, STATE exact
+A1, only ERASE if present, re-STATE confirm RC28;
+refuse unknown RC or any active DISK FILEDEF.
+No wildcard erase, no G path or automatic file
+deletion. Host tests verify whitelist and FILEDEF
+correction; **real CMS cleanup validation pending**.
+See docs/M200_CLEANUP.md.
+
+After host CI and merge, Mac from ibm-sandbox/src:
+```sh
+git pull
+./cms-upload.sh GITCLN.EXEC GITB9.EXEC GITRP6.EXEC
+```
+CMS MAINT (after full FILEDEF review):
+```text
+FILEDEF
+LISTFILE GITVRAW DATA A (ALLOC
+LISTFILE GITR199 DATA A (ALLOC
+GITCLN SCRATCH
+STATE GITVRAW DATA A
+STATE GITR199 DATA A
+FILEDEF
+GITCLN RETIRED
+FILEDEF
+```
+Do not run RETIRED if there are still regressions
+requiring the old probe files. Next validation is
+a DIFFERENT index-selected object, first obtain
+its exact M196 plan: `GITRP6 G 3868 64`, followed
+by `FILEDEF`. If size exceeds body record limit,
+select another object. Only then may M199 run on
+the exact verified record/OID tuple, with absent
+new GITR199 scratch confirmed. Read-only M188 full
+closure baseline remains 205.04s CPU / 208.27s elapsed.
+Never alter protected GIT600 original M173NET STAGE
+or M174NET INDEX, reimport/reindex, FORMAT G, write-link
+overlapping PMAINT0141, or run M190 272-seek walk.

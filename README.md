@@ -1,5 +1,67 @@
 # IBM Sandbox
 
+## M199 target PASS and M200 cleanup — October 12, 2026
+
+M199 is **REAL CMS TARGET PASS**. `GITBX9`
+assembled with no flagged statements, and
+`GITB9 G 7736 3864789 10
+9069E154EB145C25D8E1A8D31F72252C53E6684A`
+read the original indexed 291-byte tree through
+bounded native FSREAD, created a separate A1
+scratch, and independently passed M197 canonical
+Git SHA-1. The direct native/wrapper run took
+0.02s elapsed. `GITR199 DATA A1` was confirmed
+RECFM V, LRECL64, 11 records, 1 block. The older
+authenticated M198 scratch `GITVRAW DATA A1`
+also exists; both may now be retired after
+the checkpoint.
+
+**CMS FILEDEF correction:** to list active CMS
+file definitions, enter `FILEDEF` with **no operands**.
+The earlier advice `QUERY FILEDEF` was interpreted
+as a CP userid query in this session. M196–M199
+REXX wrappers now use `PIPE CMS FILEDEF | STEM`
+for their own collision checks, and runbooks use
+the standalone CMS `FILEDEF` command.
+
+M200 adds `GITCLN.EXEC`, an exact-name A1-only
+helper to clean successful disposable scratch
+files or separately retire superseded M193–M195/
+M198 probe executables. No wildcards, original
+G files, active M196/M197/M199 programs, or
+ASSEMBLE sources are deleted. Both cleanup
+modes must be invoked explicitly; the helper
+is host-tested but needs its first real CMS run.
+
+After green CI and merge, Mac `ibm-sandbox/src`:
+
+```sh
+git pull
+./cms-upload.sh GITCLN.EXEC GITB9.EXEC GITRP6.EXEC
+```
+
+CMS MAINT:
+
+```text
+FILEDEF
+GITCLN SCRATCH
+STATE GITVRAW DATA A
+STATE GITR199 DATA A
+FILEDEF
+GITCLN RETIRED
+FILEDEF
+```
+
+Run each mode only after inspecting the current
+FILEDEF state and the complete exact-name cleanup
+list in `docs/M200_CLEANUP.md`. Stop and
+investigate any cleanup failure. M199's next
+functional gate is an **independent second object**:
+`GITRP6 G 3868 64`; do not guess its
+record span, size, type or expected OID.
+
+---
+
 ## M198 REAL CMS PASS and M199 host-only next gate
 
 October 12, 2026: actual z/VM 6.3 M198 completed
