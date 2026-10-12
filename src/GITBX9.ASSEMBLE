@@ -8,7 +8,7 @@ GITBX9   CSECT
 * Read all records and close G before NEW-only A scratch writes.
 * SHA1 verification is always separate, via proved M197 MODULE.
 *
-         LINERD DATA=(INBUF,8),TYPE=STACK,CASE=MIXED,TRANS=NO,       X
+         LINERD DATA=(INBUF,8),TYPE=STACK,CASE=MIXED,TRANS=NO,         X
                PAD=BLANK,ERROR=BADARG
          BAL   10,PARSEDEC
          LTR   5,5
@@ -16,7 +16,7 @@ GITBX9   CSECT
          C     5,=F'3864799'
          BH    BADARG
          ST    5,HEADNO
-         LINERD DATA=(INBUF,8),TYPE=STACK,CASE=MIXED,TRANS=NO,       X
+         LINERD DATA=(INBUF,8),TYPE=STACK,CASE=MIXED,TRANS=NO,         X
                PAD=BLANK,ERROR=BADARG
          BAL   10,PARSEDEC
          LTR   5,5
