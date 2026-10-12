@@ -62,7 +62,16 @@ object number 7736 from caller-supplied absolute record
 geometry using native read-only FSREAD, a NEW-only A scratch
 and canonical M197 SHA-1 in 0.02s elapsed.
 
-M200 subsequently passed its real CMS cleanup gates:
+M200 subsequently passed its real CMS cleanup gates.
+The existing M199 reader has also now fully authenticated
+the separate **1,148-byte blob, object 3868**, with
+SHA-1 `8AF5E45B1B905F781D0BFB8A547049494B8D07A2`
+and a 37-record disposable A1 scratch. Before running
+M201, explicitly clean that known disposable scratch
+through M200's `GITCLN SCRATCH`, and check `FILEDEF`
+and `STATE GITR199 DATA A` afterward.
+
+Earlier cleanup evidence:
 
 - `FILEDEF` with no operands showed no user-defined definitions.
 - `GITCLN SCRATCH` deleted exactly `GITVRAW DATA A1` and
@@ -137,7 +146,16 @@ an 80-column CMS PIPE STEM record, unlike M196's
 longer full-offset console line. The new parser never
 opens the stage data and never writes the index.
 
-`src/GITP21.EXEC` accepts the shorter command:
+`src/GITP21.EXEC` provides two modes. Start with the
+read-only index-capture **CHECK** gate, which does not invoke
+M199 or create scratch:
+
+```text
+GITP21 G 3868 64 CHECK
+```
+
+After CHECK succeeds on actual CMS, use the automatic
+complete-SHA mode:
 
 ```text
 GITP21 G 3868 64
@@ -208,7 +226,23 @@ STATE GITP21M MODULE A
 ```
 
 Only if compilation/link succeeds and the existing
-reader inputs remain protected:
+reader inputs remain protected, first test native
+module output capture without any FSREAD or scratch write:
+
+```text
+GITP21 G 3868 64 CHECK
+FILEDEF
+STATE GITR199 DATA A
+```
+
+The CHECK pass requires the one-line P201 tuple,
+M201's accepted index plan, and
+`M201 INDEX ONLY CHECK PASS G 3868`. Scratch must
+remain absent. If CHECK fails, **stop** and do not run
+the automatic native reader; retain the exact
+console output for diagnosis.
+
+Only if CHECK succeeds with the known M196 tuple:
 
 ```text
 GITP21 G 3868 64
