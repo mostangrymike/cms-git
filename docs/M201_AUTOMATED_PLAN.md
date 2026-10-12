@@ -1,5 +1,61 @@
 # M201 — Capture an index-derived record plan and invoke M199 automatically
 
+## October 12, 2026 — M201 CHECK and full automatic SHA: REAL CMS PASS
+
+Actual z/VM 6.3 results:
+
+```text
+CMSCLNK GITP21M PLAIN
+ASSEMBLER (XF) DONE
+NO STATEMENTS FLAGGED IN THIS ASSEMBLY
+CMSCLNK: built GITP21M MODULE mode PLAIN
+GITP21 G 3868 64 CHECK
+M201 INDEX PLAN TUPLE ACCEPTED 3868 1969357 36 3 1148
+M201 INDEX EXPECTED OID 8AF5E45B1B905F781D0BFB8A547049494B8D07A2
+M201 INDEX ONLY CHECK PASS G 3868
+Ready; T=0.63/0.64 13:07:18
+FILEDEF
+DMSFLD324I No user defined FILEDEFs in effect
+STATE GITR199 DATA A
+DMSSTT002E File GITR199 DATA A not found
+GITP21 G 3868 64
+M201 INDEX PLAN TUPLE ACCEPTED 3868 1969357 36 3 1148
+M201 INDEX EXPECTED OID 8AF5E45B1B905F781D0BFB8A547049494B8D07A2
+M199 BOUNDED ORIGINAL STAGE READ PASS
+M199 NEW A SCRATCH TRANSFER PASS
+M197 OBJECT 3868 TYPE 3 SIZE 1148 BODY RECORDS 36
+M197 VERIFIED OID 8AF5E45B1B905F781D0BFB8A547049494B8D07A2
+M197 READ ONLY FULL OBJECT SHA1 PASS
+M199 PARAMETERIZED FULL OID PASS G 3868
+M201 INDEX AUTOMATED FULL SHA PASS G 3868
+Ready; T=0.67/0.68 13:07:44
+FILEDEF
+DMSFLD324I No user defined FILEDEFs in effect
+```
+
+**M201 is now REAL CMS TARGET PASS.** CMS PIPE
+successfully captured exactly one compact P201 tuple
+from the native C index planner and closed IDXIN.
+The CHECK-only mode correctly created no scratch.
+Full mode passed the index tuple directly into
+M199 and independently authenticated the complete
+1,148-byte Git blob with M197 SHA-1.
+
+The original G stage and index remained read-only.
+The supplied log ended after a `LISTFILE GITR199
+DATA A (ALLOC` invocation without the completed
+listing, so do not claim post-run scratch metadata
+from that particular output.
+
+Next M202 uses this target-proven module twice
+with strict cleanup between successfully verified
+objects. See `docs/M202_DUAL_AUTH_CLEAN.md`.
+M201's 0.68-second full result is for one object;
+it does not replace the 208.27-second full-tree
+M188 baseline.
+
+---
+
 ## October 12, 2026 — SECOND M199 REAL CMS OID PASS
 
 The operator subsequently ran the M199 standalone bounded
