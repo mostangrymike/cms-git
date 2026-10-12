@@ -1,5 +1,38 @@
 # M199 — Parameterized, bounded CMS FSREAD with Git SHA-1
 
+## October 12, 2026 — Second M199 object: REAL CMS SHA PASS
+
+This is an additional, distinct object from the original
+291-byte tree. The user confirmed:
+
+```text
+GITB9 G 3868 1969357 36 8AF5E45B1B905F781D0BFB8A547049494B8D07A2
+M199 BOUNDED ORIGINAL STAGE READ PASS
+M199 NEW A SCRATCH TRANSFER PASS
+M197 OBJECT 3868 TYPE 3 SIZE 1148 BODY RECORDS 36
+M197 VERIFIED OID 8AF5E45B1B905F781D0BFB8A547049494B8D07A2
+M197 READ ONLY FULL OBJECT SHA1 PASS
+M199 PARAMETERIZED FULL OID PASS G 3868
+Ready; T=0.02/0.03 11:47:45
+FILEDEF
+DMSFLD324I No user defined FILEDEFs in effect
+LISTFILE GITR199 DATA A (ALLOC
+GITR199 DATA A1 V 64 37 1
+```
+
+**M199 now has real-CMS authenticated read evidence for
+both a 291-byte tree (object 7736) and a 1,148-byte
+blob (object 3868).** The latter used 37 scratch records,
+one block, and 0.03 seconds elapsed for this one object.
+No active user-defined FILEDEFs were present after
+the test. The user supplied this transcript twice;
+it is one observed execution, not two. The successful
+GITR199 DATA A1 scratch is disposable, eligible for
+exact-name cleanup with GITCLN SCRATCH after checkpoint.
+The stage and index remain read-only.
+
+---
+
 ## Baseline established October 12, 2026
 
 Real z/VM 6.3 M198 passed after native GITBX8 assembler and
