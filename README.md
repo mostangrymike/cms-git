@@ -1,5 +1,25 @@
 # IBM Sandbox
 
+## M198 REAL CMS PASS and M199 host-only next gate
+
+October 12, 2026: actual z/VM 6.3 M198 completed
+read-only FSREAD of the original 291-byte tree object
+7736 into NEW-only GITVRAW DATA A1 (11 variable records).
+The corrected M197 independently verified SHA1 OID
+`9069E154EB145C25D8E1A8D31F72252C53E6684A`.
+Native/wrapper PASS, elapsed 0.03 seconds. The
+disposable A file must be preserved; post-run
+QUERY FILEDEF output was not provided.
+
+M199 (GITBX9.ASSEMBLE / GITB9.EXEC) introduces
+bounded parameterized record numbers and count, with
+independent NEW-only GITR199 DATA A scratch and
+complete M197 SHA verification. It is host-only
+until independently assembled and run on real CMS.
+See docs/M199_BOUNDED_FSREAD.md.
+
+---
+ 
 ## M196 REAL CMS PASS + M197 EBCDIC Git SHA fix (Oct 12)
 
 At 10:10 on actual z/VM 6.3 CMS, newly built
