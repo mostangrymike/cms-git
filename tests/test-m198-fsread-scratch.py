@@ -151,7 +151,7 @@ with tempfile.TemporaryDirectory(prefix="m198-") as dn:
     lines=["OBJ 7736 2 291 "+expect]+data_records(data)
     assert len(lines)==11
     assert decode_last(lines[0],lines[1:])==data
-    original=b"\\n".join(row.encode("ascii") for row in lines)+b"\\n"
+    original=b"\n".join(row.encode("ascii") for row in lines)+b"\n"
     stage.write_bytes(original)
     assert not scratch.exists()
     scratch.write_bytes(original)
