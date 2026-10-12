@@ -13,6 +13,24 @@ code = "\n".join(line for line in ASM.splitlines()
                  if line and not line.startswith("*"))
 assert max(len(x) for x in ASM.splitlines()) <= 72
 assert max(len(x) for x in REX.splitlines()) <= 80
+# CMS HLASM symbols are limited to 8 characters in columns 1-8.
+# A longer symbol may pass Linux text-only tests but fails ASSEMBLE XF.
+for source in ("GITFSRD.ASSEMBLE", "GITFRB.ASSEMBLE",
+               "GITFL10.ASSEMBLE"):
+    symbols = []
+    for lineno, line in enumerate(
+            (ROOT / "src" / source).read_text().splitlines(), 1):
+        if not line or line.startswith("*") or line[0].isspace():
+            continue
+        symbol = line.split()[0]
+        assert len(symbol) <= 8, (source, lineno, symbol)
+        assert line[len(symbol)].isspace(), (source, lineno, symbol)
+        symbols.append(symbol)
+    assert len(symbols) == len(set(symbols)), source
+assert "EVENCHECK" not in ASM
+assert "EVENCHK  LR    6,7" in ASM
+assert "B     EVENCHK" in ASM
+assert "EVENCHK" in symbols
 marks = [x for x in ASM.splitlines() if x.endswith("X")]
 assert len(marks) == 2 and all(len(x) == 72 for x in marks)
 assert code.count("FSREAD 'M173NET STAGE G1'") == 2
