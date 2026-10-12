@@ -143,6 +143,27 @@ with tempfile.TemporaryDirectory(prefix="m198-") as dn:
                 pass
             else:
                 raise AssertionError((n,badcase))
+    # M196 actual final object is TYPE 2 TREE / SIZE 291.
+    # This synthetic tree's OID is independent of the real-stage OID.
+    n=291
+    data=bytes((i*29+11)%256 for i in range(n))
+    expect=hashlib.sha1(b"tree 291"+bytes([0])+data).hexdigest().upper()
+    lines=["OBJ 7736 2 291 "+expect]+data_records(data)
+    assert len(lines)==11
+    assert decode_last(lines[0],lines[1:])==data
+    original=b"\n".join(row.encode("ascii") for row in lines)+b"\n"
+    stage.write_bytes(original)
+    assert not scratch.exists()
+    scratch.write_bytes(original)
+    result=subprocess.run(
+        [str(native),"VERIFY","7736",expect],
+        cwd=d,capture_output=True,text=True)
+    assert result.returncode==0,(result.stdout,result.stderr)
+    assert "M197 OBJECT 7736 TYPE 2 SIZE 291 BODY RECORDS 10" in result.stdout
+    assert "M197 VERIFIED OID "+expect in result.stdout
+    assert "M197 READ ONLY FULL OBJECT SHA1 PASS" in result.stdout
+    assert stage.read_bytes()==original
+    scratch.unlink()
 print("M198 SOURCE: NEW-ONLY A SCRATCH AND READ-ONLY G GUARDS PASS")
 print("M198 LAST TEN RECORDS HOST BODY/TYPE/OID SHA END TO END PASS")
 print("M198 NO IBM CMS FSREAD/FSWRITE ASSEMBLE OR TARGET CLAIM")

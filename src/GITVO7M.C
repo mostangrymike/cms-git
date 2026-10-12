@@ -83,20 +83,31 @@ static void sha_parts(const unsigned char *head,unsigned long hn,
  for(i=0;i<5;i++) for(j=0;j<4;j++)
   out[i*4+j]=(unsigned char)(sha[i]>>(24-j*8));
 }
-static const char *kind[5]={"","commit","tree","blob","tag"};
+/* Git canonical header MUST be ASCII even on EBCDIC CMS.
+ * Input file grammar remains native CMS text / EBCDIC.
+ * Never copy C string literal bytes into the Git SHA prefix.
+ */
+static const unsigned char git_type[5][7]={
+ {0},
+ {0x63,0x6f,0x6d,0x6d,0x69,0x74,0},
+ {0x74,0x72,0x65,0x65,0,0,0},
+ {0x62,0x6c,0x6f,0x62,0,0,0},
+ {0x74,0x61,0x67,0,0,0,0}
+};
 static int object_sha(int type,const unsigned char *body,
                       unsigned long n,unsigned char out[20]) {
  unsigned char head[32],reverse[16];
  unsigned long rem;
  int i=0,j=0;
- const char *name;
  if(type<1||type>4||n>MAXSIZE) return 0;
- name=kind[type];
- while(*name) head[i++]=(unsigned char)*name++;
+ while(git_type[type][i]) {
+  head[i]=git_type[type][i];
+  i++;
+ }
  head[i++]=0x20;
  rem=n;
  do {
-  reverse[j++]=(unsigned char)('0'+rem%10UL);
+  reverse[j++]=(unsigned char)(0x30UL+rem%10UL);
   rem/=10UL;
  } while(rem);
  while(j) head[i++]=reverse[--j];

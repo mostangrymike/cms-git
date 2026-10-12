@@ -1,5 +1,54 @@
 # M196 — Select a verified index object and compute its CMS record span
 
+## October 12, 2026 — REAL CMS M196 TARGET PASS
+
+User's actual z/VM 6.3 build and validation:
+
+```text
+CMSCLNK GITRP6M PLAIN
+ASSEMBLER (XF) DONE
+NO STATEMENTS FLAGGED IN THIS ASSEMBLY
+CMSCLNK: built GITRP6M MODULE mode PLAIN
+Ready; T=0.83/0.88 10:10:33
+GITRP6 G 7736 10
+M196 NATIVE INDEX OBJECT RECORD PLAN BEGIN
+M196 INDEX TOTAL 7736 UNIQUE 7736
+M196 OBJECT 7736 TYPE 2 SIZE 291 OID 9069E154EB145C25D8E1A8D31F72252C53E6684A OF
+M196 RECORDS HEADER 3864789 BODY 3864790 LAST 3864799 COUNT 10
+M196 STAGE MODEL RECORDS 3864799 EXPECTED 3864799
+M196 READ ONLY INDEX OBJECT PLAN PASS
+M196 INDEX OBJECT PLAN GATE PASS G 7736
+Ready; T=0.65/0.66 10:10:46
+```
+
+**M196 is REAL CMS TARGET PASS.** The selected final object
+is **TYPE 2 (tree), SIZE 291 bytes, OID
+`9069E154EB145C25D8E1A8D31F72252C53E6684A`**.
+Its ten body records span exactly 3,864,790–3,864,799,
+with nine complete 64-character hex records and a final
+6-character hex record (3 remaining decoded bytes).
+The OID is the **indexed expected Git identity**, not
+a freshly SHA-1-authenticated stage-body digest.
+
+The console line appears to truncate after `OF`,
+where the native program's longer byte-offset field
+would print. Do not infer a real indexed OFFSET number
+from that truncated line. Complete record geometry
+and both PASS markers are independently visible.
+The 0.66-second elapsed is one observation.
+No post-run `QUERY FILEDEF` is included.
+
+M195 previously passed its complete eleven-record FSREAD
+target gate at 09:22. Next is corrected M197 SHA core
+plus M198's independent, NEW-only A scratch adapter.
+**Critical EBCDIC caveat:** M197's original C source
+used native character literals for the canonical Git
+hash prefix. A source correction replaces that prefix
+with explicit ASCII bytes before attempting real CMS
+authentication. See `docs/M197_NATIVE_SHA.md`.
+
+---
+
 ## Scope and target evidence
 
 M193: FIRST, MID and LAST header FSREAD on real z/VM 6.3 CMS

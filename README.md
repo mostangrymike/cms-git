@@ -1,5 +1,67 @@
 # IBM Sandbox
 
+## M196 REAL CMS PASS + M197 EBCDIC Git SHA fix (Oct 12)
+
+At 10:10 on actual z/VM 6.3 CMS, newly built
+`GITRP6M MODULE` passed:
+`GITRP6 G 7736 10`. It validated **7,736 unique**
+indexed objects in **0.66s elapsed** and reported:
+
+```text
+M196 OBJECT 7736 TYPE 2 SIZE 291 OID 9069E154EB145C25D8E1A8D31F72252C53E6684A
+M196 RECORDS HEADER 3864789 BODY 3864790 LAST 3864799 COUNT 10
+M196 STAGE MODEL RECORDS 3864799 EXPECTED 3864799
+M196 READ ONLY INDEX OBJECT PLAN PASS
+M196 INDEX OBJECT PLAN GATE PASS G 7736
+```
+
+The actual console truncated the OFFSET suffix
+on the longer object line; the full 40-character OID
+is visible. Object 7736 is a **291-byte Git tree**;
+its tenth hexadecimal body record must contain
+exactly **6 hex characters**.
+
+M195's separate full eleven-record FSREAD also passed
+on actual CMS earlier at 09:22 (0.01s). These facts
+do **not** prove full SHA-1 verification of the stage.
+
+**Critical M197 correction before real CMS build:**
+canonical Git SHA-1 uses ASCII bytes `tree 291\0`,
+not native EBCDIC C string bytes. The original M197
+host-tested C code used native type literals and
+`'0'`-based digits, which would hash incorrectly on
+CMS. Corrected `src/GITVO7M.C` now constructs
+the canonical Git hash prefix with explicit ASCII
+type arrays, `0x20` space and `0x30` digits.
+Strict host regressions verify the actual raw bytes,
+including a 291-byte tree and M198 end-to-end
+disposable-file SHA-1 test.
+
+**Do not build or run old M197 code.** After this
+corrective PR passes CI and merges, update from GitHub:
+
+```sh
+git pull
+./cms-upload.sh GITVO7M.C
+```
+
+Then build the corrected `GITVO7M` and M198
+`GITBX8` separately on CMS, only after checking
+that disposable `GITVRAW DATA A` does not exist.
+The final SHA check uses the exact expected OID:
+
+```text
+GITB8 G LAST 9069E154EB145C25D8E1A8D31F72252C53E6684A
+```
+
+Do not execute this M198 command before clean
+assembler/compiler gates and absence of scratch.
+Original G stage/index remain protected and
+unchanged. See `docs/M197_NATIVE_SHA.md` and
+`docs/M198_FSREAD_SHA_BRIDGE.md` for safeguards.
+
+---
+
 ## M198 — read-only FSREAD into NEW A scratch + full SHA1 (HOST-ONLY)
 
 After a corrected clean `ASSEMBLE GITFL10` on real
