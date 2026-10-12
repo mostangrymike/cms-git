@@ -12835,3 +12835,78 @@ closure baseline remains 205.04s CPU / 208.27s elapsed.
 Never alter protected GIT600 original M173NET STAGE
 or M174NET INDEX, reimport/reindex, FORMAT G, write-link
 overlapping PMAINT0141, or run M190 272-seek walk.
+
+
+## 2026-10-12 11:47 — M199 SECOND DISTINCT REAL CMS AUTHENTICATED OBJECT
+
+Actual CMS output from user (presented twice, one execution):
+```text
+GITB9 G 3868 1969357 36 8AF5E45B1B905F781D0BFB8A547049494B8D07A2
+DMSSTT002E File GITR199 DATA A not found
+M199 DIRECT NATIVE RECORD-BOUNDED READ BEGIN
+M199 PARAMETERIZED FSREAD SOURCE BEGIN
+M199 BOUNDED ORIGINAL STAGE READ PASS
+M199 NEW A SCRATCH TRANSFER PASS
+M199 FULL CANONICAL SHA1 VERIFY BEGIN
+M197 OBJECT 3868 TYPE 3 SIZE 1148 BODY RECORDS 36
+M197 VERIFIED OID 8AF5E45B1B905F781D0BFB8A547049494B8D07A2
+M197 READ ONLY FULL OBJECT SHA1 PASS
+M199 PARAMETERIZED FULL OID PASS G 3868
+Ready; T=0.02/0.03 11:47:45
+FILEDEF
+DMSFLD324I No user defined FILEDEFs in effect
+LISTFILE GITR199 DATA A (ALLOC
+GITR199 DATA A1 V 64 37 1
+Ready; T=0.01/0.01 11:47:55
+```
+
+**M199 now real CMS target-proven against two different
+objects**, tree 7736 at 291 bytes and blob 3868 at 1148
+bytes, each with independently verified canonical Git
+SHA1 against the index OID. Second object header RECNO
+1969357, body records 1969358..1969393, COUNT36,
+full 37-record scratch on A, 1 4K block, native/wrapper
+0.02 CPU / 0.03 elapsed. No active user-defined FILEDEF.
+Original M173NET STAGE G and M174NET INDEX G protected
+and read-only.
+
+**Current cleanup requirement:** GITR199 DATA A1
+now exists again; exact-name GITCLN SCRATCH can retire it
+after the successful M199 gate. Never overwrite scratch
+with the same name. Superseded RETIRED probes previously
+deleted successfully in M200; no need to rerun RETIRED.
+
+M201 is a new, host-only index-to-SHA handoff. It reads
+only IDXIN, validates all 7736 objects, prints a compact
+single record P201 number header count type size OID
+and REXX captures it with CMS PIPE/STEM. The wrapper
+has a CHECK-only mode which MUST be target-validated
+first, without executing M199 or creating scratch:
+`GITP21 G 3868 64 CHECK`. Full mode subsequently
+calls target-proven GITB9 and M197 SHA. Linux host
+tests now pass, including a fix for periodic synthetic
+objects that originally caused duplicate index OIDs.
+**Do not claim M201 real CMS PASS** until the target
+PIPE capture and combined SHA result are supplied.
+After successful M200 scratch cleanup, Mac from src:
+```sh
+git pull
+./cms-upload.sh GITP21M.C GITP21.EXEC
+```
+On CMS, FILEDEF and protected G preflight; compile
+`CMSCLNK GITP21M PLAIN`. Test CHECK only first:
+```text
+GITP21 G 3868 64 CHECK
+FILEDEF
+```
+Require exactly the real tuple:
+P201 3868 1969357 36 3 1148
+8AF5E45B1B905F781D0BFB8A547049494B8D07A2.
+Only if CHECK succeeds, run `GITP21 G 3868 64`,
+capture M197 SHA and M201 full PASS, then cleanup
+disposable scratch via GITCLN SCRATCH for future tests.
+
+M188 full authenticated tree closure remains ~208.27s
+elapsed for 280 objects; never replace it before
+new reader parity. No write-link overlapping PMAINT 0141,
+GIT600 format/reimport/reindex or M190 272-seek loop.
