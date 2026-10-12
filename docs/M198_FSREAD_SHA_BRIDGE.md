@@ -1,5 +1,70 @@
 # M198 — Read-only FSREAD into NEW-only disposable A scratch, then SHA-1
 
+## October 12, 2026 — M196 real CMS PASS / verified expected OID
+
+Actual M196 `GITRP6 G 7736 10` completed in
+0.66 seconds elapsed, validating all 7,736 indexed
+objects and selecting:
+
+```text
+M196 OBJECT 7736 TYPE 2 SIZE 291 OID 9069E154EB145C25D8E1A8D31F72252C53E6684A
+M196 RECORDS HEADER 3864789 BODY 3864790 LAST 3864799 COUNT 10
+M196 STAGE MODEL RECORDS 3864799 EXPECTED 3864799
+M196 READ ONLY INDEX OBJECT PLAN PASS
+M196 INDEX OBJECT PLAN GATE PASS G 7736
+```
+
+The real console's longer object line was cut after
+the beginning of its OFFSET field, but the complete
+OID, type, size and expected record geometry appeared.
+The exact expected tree OID is:
+
+```text
+9069E154EB145C25D8E1A8D31F72252C53E6684A
+```
+
+Since size is **291**, the tenth body record must have
+exactly **6 hex characters**; M198 currently enforces a
+broader 289–320-byte bound but its M197 full-object
+digest and stored header must match the complete
+type-2 tree object to pass. It remains **host-only**
+until separately built and run on real CMS.
+
+### Critical prerequisite: M197 ASCII Git prefix on EBCDIC CMS
+
+The initial M197 C source built its canonical
+`tree 291\0` SHA-1 prefix using native C character
+literals; those are EBCDIC on CMS, not Git's required
+ASCII. A corrective M197 branch explicitly encodes
+Git type bytes, ASCII space 0x20 and decimal digit
+base 0x30 as numeric bytes. Its host tests exercise
+a 291-byte tree and verify no native-string hash
+prefix is reintroduced.
+
+**Do not run M198 with any old M197 MODULE.**
+After the fix is merged, use a fresh Mac `git pull`
+and re-upload the corrected `GITVO7M.C`, then
+`CMSCLNK GITVO7M PLAIN`. M198 is gated on that
+clean CMS build, its own clean `ASSEMBLE GITBX8`,
+no existing disposable scratch, and exact M196 OID.
+
+After all gates, the eventual real CMS invocation is:
+
+```text
+GITB8 G LAST 9069E154EB145C25D8E1A8D31F72252C53E6684A
+QUERY FILEDEF
+LISTFILE GITVRAW DATA A (ALLOC
+```
+
+The LAST probe may create exactly one scratch
+`GITVRAW DATA A` on the A minidisk; this is
+intentional and must never overwrite an existing file.
+On failure, leave any scratch untouched for diagnostics;
+do not rerun automatically. The original G stage
+and index must remain unmodified.
+
+---
+
 ## Verified upstream gates
 
 **October 12, 2026, 09:22 local CMS:** corrected
