@@ -1,0 +1,91 @@
+/* M201: automatically bind validated G index tuple to M199 SHA gate. */
+address cms
+parse upper arg fm obj limit extra
+if fm\='G' | extra\='' | obj='' | limit='' then do
+ say 'Usage: GITP21 G object-number max-body-records'
+ exit 4
+end
+if datatype(obj,'W')\=1 | datatype(limit,'W')\=1 then exit 4
+if obj<1 | obj>7736 | limit<1 | limit>64 then exit 4
+drop d.
+d.0=0
+'PIPE CMS QUERY DISK G | STEM d.'
+if rc\=0 then exit 8
+ok=0
+do i=1 to d.0
+ if word(d.i,3)='G' & word(d.i,7)='4096' then ok=ok+1
+end
+if ok\=1 then do
+ say 'M201 G DISK NOT ACCESSED 4K'
+ exit 8
+end
+'STATE M173NET STAGE G'
+if rc\=0 then exit 8
+'STATE M174NET INDEX G'
+if rc\=0 then exit 8
+'STATE GITP21M MODULE A'
+if rc\=0 then exit 8
+'STATE GITBX9 MODULE A'
+if rc\=0 then exit 8
+'STATE GITVO7M MODULE A'
+if rc\=0 then exit 8
+'STATE GITB9 EXEC A'
+if rc\=0 then exit 8
+'STATE GITR199 DATA A'
+if rc=0 then do
+ say 'M201 SCRATCH EXISTS - REFUSE OVERWRITE'
+ exit 8
+end
+if rc\=28 then exit 8
+drop f.
+f.0=0
+'PIPE CMS FILEDEF | STEM f.'
+if rc\=0 then exit 8
+do i=1 to f.0
+ if word(translate(f.i),1)='IDXIN' |,
+    word(translate(f.i),1)='OBJIN' then do
+  say 'M201 CALLER FILEDEF CONFLICT'
+  exit 8
+ end
+end
+'FILEDEF IDXIN DISK M174NET INDEX G'
+if rc\=0 then do
+ say 'M201 IDXIN BIND FAILED'
+ exit 8
+end
+drop p.
+p.0=0
+'PIPE CMS GITP21M PLAN 3864799' obj limit '| STEM p.'
+planrc=rc
+'FILEDEF IDXIN CLEAR'
+clearrc=rc
+if planrc\=0 | clearrc\=0 | p.0\=1 then do
+ say 'M201 PLAN CAPTURE FAILED' planrc clearrc p.0
+ exit 8
+end
+parse upper var p.1 tag pn hdr cnt typ size oid trailing
+if tag\='P201' | trailing\='' then exit 8
+if datatype(pn,'W')\=1 | datatype(hdr,'W')\=1 then exit 8
+if datatype(cnt,'W')\=1 | datatype(typ,'W')\=1 then exit 8
+if datatype(size,'W')\=1 then exit 8
+if pn\=obj | hdr<1 | hdr>3864799 then exit 8
+if cnt<1 | cnt>limit | hdr+cnt>3864799 then exit 8
+if typ<1 | typ>4 | size<1 | size>2048 then exit 8
+if cnt\=trunc((size+31)/32) then exit 8
+if length(oid)\=40 | verify(oid,'0123456789ABCDEF')\=0 then,
+ exit 8
+'STATE GITR199 DATA A'
+if rc\=28 then do
+ say 'M201 SCRATCH CREATED DURING PLAN - REFUSE'
+ exit 8
+end
+say 'M201 INDEX PLAN TUPLE ACCEPTED' pn hdr cnt typ size
+say 'M201 INDEX EXPECTED OID' oid
+'GITB9 G' pn hdr cnt oid
+runrc=rc
+if runrc\=0 then do
+ say 'M201 FULL OBJECT SHA GATE FAIL RC' runrc
+ exit 8
+end
+say 'M201 INDEX AUTOMATED FULL SHA PASS G' pn
+exit 0
