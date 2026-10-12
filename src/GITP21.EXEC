@@ -1,10 +1,11 @@
 /* M201: automatically bind validated G index tuple to M199 SHA gate. */
 address cms
-parse upper arg fm obj limit extra
+parse upper arg fm obj limit mode extra
 if fm\='G' | extra\='' | obj='' | limit='' then do
- say 'Usage: GITP21 G object-number max-body-records'
+ say 'Usage: GITP21 G object-number max-body-records [CHECK]'
  exit 4
 end
+if mode\='' & mode\='CHECK' then exit 4
 if datatype(obj,'W')\=1 | datatype(limit,'W')\=1 then exit 4
 if obj<1 | obj>7736 | limit<1 | limit>64 then exit 4
 drop d.
@@ -81,6 +82,10 @@ if rc\=28 then do
 end
 say 'M201 INDEX PLAN TUPLE ACCEPTED' pn hdr cnt typ size
 say 'M201 INDEX EXPECTED OID' oid
+if mode='CHECK' then do
+ say 'M201 INDEX ONLY CHECK PASS G' pn
+ exit 0
+end
 'GITB9 G' pn hdr cnt oid
 runrc=rc
 if runrc\=0 then do
