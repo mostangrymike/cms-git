@@ -1,5 +1,59 @@
 # M201 — Capture an index-derived record plan and invoke M199 automatically
 
+## October 12, 2026 — SECOND M199 REAL CMS OID PASS
+
+The operator subsequently ran the M199 standalone bounded
+reader against a **different indexed object**, with no
+recompile of the target-proven GITBX9 or GITVO7M modules:
+
+```text
+GITB9 G 3868 1969357 36 8AF5E45B1B905F781D0BFB8A547049494B8D07A2
+DMSSTT002E File GITR199 DATA A not found
+M199 DIRECT NATIVE RECORD-BOUNDED READ BEGIN
+M199 PARAMETERIZED FSREAD SOURCE BEGIN
+M199 BOUNDED ORIGINAL STAGE READ PASS
+M199 NEW A SCRATCH TRANSFER PASS
+M199 FULL CANONICAL SHA1 VERIFY BEGIN
+M197 OBJECT 3868 TYPE 3 SIZE 1148 BODY RECORDS 36
+M197 VERIFIED OID 8AF5E45B1B905F781D0BFB8A547049494B8D07A2
+M197 READ ONLY FULL OBJECT SHA1 PASS
+M199 PARAMETERIZED FULL OID PASS G 3868
+Ready; T=0.02/0.03 11:47:45
+FILEDEF
+DMSFLD324I No user defined FILEDEFs in effect
+LISTFILE GITR199 DATA A (ALLOC
+GITR199 DATA A1 V 64 37 1
+Ready; T=0.01/0.01 11:47:55
+```
+
+**M199 is now real-CMS-proven for two different objects:
+a 291-byte type-2 tree at record 3,864,789 and a
+1,148-byte type-3 blob at record 1,969,357.**
+Both independently matched their exact indexed Git SHA1.
+The new scratch `GITR199 DATA A1` contains exactly
+37 variable records, LRECL64, one 4K block.
+The correct standalone `FILEDEF` command reports no
+active definitions.
+
+Cleanup is still needed before running M201. The M200
+`GITCLN SCRATCH` command only deletes exact verified
+disposable A1 names; it will skip the previously removed
+GITVRAW and retire the new GITR199 file. Run it only
+after verifying FILEDEF is empty and preserving the
+successful console transcript, then confirm scratch absent.
+
+A host M201 test initially failed because generated
+objects repeated OIDs: the synthetic payload used a
+periodic byte sequence plus a periodic size. That
+fixture was corrected by prefixing each synthetic
+body with its unique physical object number; it is
+not evidence of a problem with the real indexed G data
+or the target-proven M199 native reader. The complete
+CI suite must pass before any M201 merge/target run.
+
+---
+
+
 ## Verified real-CMS prerequisite (October 12, 2026)
 
 M193–M199 have passed their specified real z/VM 6.3 CMS
