@@ -1,0 +1,83 @@
+/* M199: indexed operator-supplied bounded span to NEW A scratch. */
+/* Record numbers and expected OID MUST originate from M196. */
+address cms
+parse upper arg fm obj head count oid extra
+if fm\='G' | extra\='' then do
+ say 'Usage: GITB9 G object-number header-recno body-count 40-hex-oid'
+ exit 4
+end
+if datatype(obj,'W')\=1 | datatype(head,'W')\=1 then exit 4
+if datatype(count,'W')\=1 then exit 4
+if obj<1 | obj>7736 | head<1 | head>3864799 then exit 4
+if count<1 | count>64 | head+count>3864799 then exit 4
+if length(oid)\=40 | verify(oid,'0123456789ABCDEF')\=0 then exit 4
+drop d.
+d.0=0
+'PIPE CMS QUERY DISK G | STEM d.'
+if rc\=0 then exit 8
+ok=0
+do i=1 to d.0
+ if word(d.i,3)='G' & word(d.i,7)='4096' then ok=ok+1
+end
+if ok\=1 then do
+ say 'M199 G DISK NOT ACCESSED 4K'
+ exit 8
+end
+'STATE M173NET STAGE G'
+if rc\=0 then exit 8
+'STATE M174NET INDEX G'
+if rc\=0 then exit 8
+'STATE GITBX9 MODULE A'
+if rc\=0 then exit 8
+'STATE GITVO7M MODULE A'
+if rc\=0 then exit 8
+'STATE GITR199 DATA A'
+if rc=0 then do
+ say 'M199 SCRATCH EXISTS - REFUSE OVERWRITE'
+ exit 8
+end
+if rc\=28 then do
+ say 'M199 SCRATCH EXISTENCE UNKNOWN RC' rc
+ exit 8
+end
+drop f.
+f.0=0
+'PIPE CMS QUERY FILEDEF | STEM f.'
+if rc\=0 then exit 8
+do i=1 to f.0
+ if translate(word(f.i,1))='OBJIN' then do
+  say 'M199 CALLER OBJIN FILEDEF CONFLICT'
+  exit 8
+ end
+end
+say 'M199 DIRECT NATIVE RECORD-BOUNDED READ BEGIN'
+queue head
+queue count
+'GITBX9'
+readrc=rc
+if readrc\=0 then do
+ say 'M199 NATIVE STAGE GATE FAIL RC' readrc
+ say 'M199 LEAVE POSSIBLE PARTIAL SCRATCH UNCHANGED'
+ exit 8
+end
+'STATE GITR199 DATA A'
+if rc\=0 then do
+ say 'M199 SCRATCH NOT FOUND AFTER READ'
+ exit 8
+end
+'FILEDEF OBJIN DISK GITR199 DATA A'
+if rc\=0 then do
+ say 'M199 OBJIN FILEDEF FAILED'
+ exit 8
+end
+say 'M199 FULL CANONICAL SHA1 VERIFY BEGIN'
+'GITVO7M VERIFY' obj oid
+hashrc=rc
+'FILEDEF OBJIN CLEAR'
+clearrc=rc
+if hashrc\=0 | clearrc\=0 then do
+ say 'M199 AUTH GATE FAIL' hashrc clearrc
+ exit 8
+end
+say 'M199 PARAMETERIZED FULL OID PASS G' obj
+exit 0
