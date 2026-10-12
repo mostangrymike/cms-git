@@ -13335,3 +13335,131 @@ before actual target run. Preserve M188 complete
 authenticated 280-object closure 205.04 CPU /
 208.27 elapsed and do not reindex, format, mutate
 protected G, write-link PMAINT0141 or rerun M190.
+
+
+## October 12, 2026, 13:46 — M204 REAL CMS INDEX-ONCE SHA PASS
+
+Actual z/VM 6.3 CMS transcript:
+```text
+CMSCLNK GITP24M PLAIN
+ASSEMBLER (XF) DONE
+NO STATEMENTS FLAGGED IN THIS ASSEMBLY
+CMSCLNK: built GITP24M MODULE mode PLAIN
+Ready; T=0.96/1.03 13:45:53
+GITC24 G CHECK 64 3868 7736
+M204 INDEX TUPLE VERIFIED 1 3868 1969357 36 3 1148
+M204 EXPECTED OID 1 8AF5E45B1B905F781D0BFB8A547049494B8D07A2
+M204 INDEX TUPLE VERIFIED 2 7736 3864789 10 2 291
+M204 EXPECTED OID 2 9069E154EB145C25D8E1A8D31F72252C53E6684A
+M204 INDEX ONCE ALL PLANS PASS 2
+M204 CHECK ONLY NO SCRATCH PASS 2
+Ready; T=0.62/0.64 13:46:04
+GITC24 G RUN 64 3868 7736
+M204 INDEX ONCE ALL PLANS PASS 2
+M199 BOUNDED ORIGINAL STAGE READ PASS
+M197 OBJECT 3868 TYPE 3 SIZE 1148 BODY RECORDS 36
+M197 VERIFIED OID 8AF5E45B1B905F781D0BFB8A547049494B8D07A2
+M197 READ ONLY FULL OBJECT SHA1 PASS
+M199 PARAMETERIZED FULL OID PASS G 3868
+M204 FULL SHA VERIFIED 1 3868
+M200 CLEANUP PASS SCRATCH
+M204 SCRATCH CLEAN VERIFIED 1 3868
+M199 BOUNDED ORIGINAL STAGE READ PASS
+M197 OBJECT 7736 TYPE 2 SIZE 291 BODY RECORDS 10
+M197 VERIFIED OID 9069E154EB145C25D8E1A8D31F72252C53E6684A
+M197 READ ONLY FULL OBJECT SHA1 PASS
+M199 PARAMETERIZED FULL OID PASS G 7736
+M204 FULL SHA VERIFIED 2 7736
+M200 CLEANUP PASS SCRATCH
+M204 SCRATCH CLEAN VERIFIED 2 7736
+M204 ONE INDEX FULL SHA CLEAN PASS 2
+Ready; T=0.67/0.72 13:46:38
+```
+
+**M204 is now REAL CMS TARGET PASS** for two distinct
+objects with a single full PIDX1 index validation per
+batch, exact M199 native stage FSREAD and full M197
+canonical Git SHA1 matching the original index. Both
+A-scratch cleanups were confirmed by internal STATE.
+CHECK elapsed 0.64s, RUN elapsed 0.72s (CPU 0.67s).
+M203's equivalent two-object RUN was 2.67s elapsed.
+M204 measured 3.7x throughput speedup (~73% less elapsed)
+for precisely those two objects. This is NOT equivalent
+to M188's 280-object full closure 208.27s baseline.
+Independent final FILEDEF/STATE after RUN was not
+included, so do not invent that result. Original G stage
+and index remained protected, read-only.
+
+## M205 — automatic stratified 2..8-object index sampling
+
+New `src/GITP25M.C` strictly validates all 7,736
+original PIDX1 objects and reconstructs exactly
+3,864,799 stage records, once per batch. It divides
+object ordinals into 2..8 disjoint, nearly equal
+bands and chooses the first eligible nonempty Git
+object in each whose size 1..2048 bytes and body
+record count 1..64 fit limits. It rejects incomplete
+bands before emitting any P201 records. The sample
+broadens positional coverage across the original
+index without requiring operator-selected object
+numbers, header record offsets or SHA/OIDs.
+
+New `src/GITC25.EXEC` preflights original G 4K
+disk, stage/index, native planner and target-proven
+M199/M197/M200, refuses existing A scratch and
+caller IDXIN/OBJIN FILEDEF collisions. It captures
+one CMS PIPE batch, clears owned IDXIN and validates
+exact N lines, band membership, record/size/type
+geometry and OIDs before any FSREAD. CHECK mode is
+read-only and creates no scratch. RUN invokes
+target-proven GITB9 on each selected tuple, fully
+authenticates canonical Git SHA1 against original
+index, and cleans NEW-only A scratch with GITCLN
+after each successful SHA. Stop without cleanup
+on SHA failure; refuse to advance after cleanup
+failure. Preserves original G stage/index and
+all previously CMS-proven modules.
+
+Host regression `tests/test-m205-stratified-sample.py`
+builds 7736 unique synthetic Git objects, tests
+2/3/8 non-overlapping selected bands and complete
+canonical M197 SHA checks, strict C89 compilation,
+wrong count/no eligible band with no partial output,
+and read-only original input digests.
+**M205 is HOST ONLY until real CMS CHECK and RUN pass.**
+Stratified index samples are not the M188 full reachable
+tree closure, and do not prove history traversal.
+
+NEXT after M205 full CI/merge, Mac src:
+```sh
+git pull
+./cms-upload.sh GITP25M.C GITC25.EXEC
+```
+CMS MAINT first FILEDEF and STATE both
+GITVRAW/GITR199 DATA A (MUST be absent),
+QUERY DISK G / original stage and index, and
+build `CMSCLNK GITP25M PLAIN`. Only if compilation
+succeeds:
+```text
+GITC25 G CHECK 64 8
+FILEDEF
+STATE GITR199 DATA A
+```
+Expect eight actual OID/record tuples (unknown
+until measured), M205 STRATIFIED INDEX PLANS PASS 8
+and M205 SAMPLE CHECK NO SCRATCH PASS 8.
+Only after CHECK PASS and confirmed absent scratch:
+```text
+GITC25 G RUN 64 8
+FILEDEF
+STATE GITR199 DATA A
+```
+Require eight independently M197 SHA1-authenticated
+objects and exact A scratch cleanup after each,
+terminal M205 STRATIFIED FULL SHA CLEAN PASS 8.
+If anything fails, preserve error trace/scratch,
+no automatic retries. Keep M188 complete authenticated
+closure baseline 205.04s CPU/208.27 elapsed, no
+GIT600 stage reimport/reindex/format, original
+protected G writes, overlapping PMAINT0141 write-link,
+or M190 experimental 272-seek benchmark.
