@@ -99,9 +99,9 @@ This is a Git blob, 1,148 bytes, needing 36 body records
 and 56 hex characters in the final one. The visible console
 line clips at the offset suffix; don't invent that number.
 
-**M199's second-object authentication has NOT yet been
-provided**. It is the next immediate existing target
-gate and must be performed independently of M201:
+**M199's second-object authentication has now PASSED**,
+as independently documented above. The command that
+established the success was:
 
 ```text
 GITB9 G 3868 1969357 36 8AF5E45B1B905F781D0BFB8A547049494B8D07A2
@@ -109,9 +109,10 @@ FILEDEF
 LISTFILE GITR199 DATA A (ALLOC
 ```
 
-Only when the scratch is confirmed absent and the existing
-modules are healthy. On a failed or partial scratch,
-do not automatically rerun, overwrite or erase it.
+This run has already succeeded; it must not be
+repeated while the resulting scratch exists.
+On a failed or partial scratch, do not automatically
+rerun, overwrite or erase it.
 
 ## Why M201
 
