@@ -126,6 +126,9 @@ on:
       - 'src/GITBX9.ASSEMBLE'
       - 'src/GITB9.EXEC'
       - 'tests/test-m199-record-read.py'
+      - 'src/GITCLN.EXEC'
+      - 'tests/test-m200-filedef-cleanup.py'
+      - 'docs/M200_CLEANUP.md'
       - 'docs/M199_BOUNDED_FSREAD.md'
       - 'docs/M198_FSREAD_SHA_BRIDGE.md'
       - 'docs/M197_NATIVE_SHA.md'
@@ -332,6 +335,9 @@ on:
       - 'src/GITBX9.ASSEMBLE'
       - 'src/GITB9.EXEC'
       - 'tests/test-m199-record-read.py'
+      - 'src/GITCLN.EXEC'
+      - 'tests/test-m200-filedef-cleanup.py'
+      - 'docs/M200_CLEANUP.md'
       - 'docs/M199_BOUNDED_FSREAD.md'
       - 'docs/M198_FSREAD_SHA_BRIDGE.md'
       - 'docs/M197_NATIVE_SHA.md'
@@ -511,6 +517,8 @@ jobs:
         run: python3 tests/test-m198-fsread-scratch.py
       - name: Check M199 bounded parameterized FSREAD object reader
         run: python3 tests/test-m199-record-read.py
+      - name: Check M200 CMS FILEDEF and exact A1 cleanup
+        run: python3 tests/test-m200-filedef-cleanup.py
       - name: Check M190 7736-object selective seek closure
         run: python3 tests/test-m190-scale-seek.py
       - name: Compare M190 indexed seek vs M188 two-pass host
