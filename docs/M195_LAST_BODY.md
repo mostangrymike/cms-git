@@ -1,5 +1,67 @@
 # M195 — Complete ten-record LAST body through native FSREAD
 
+## October 12, 2026 — REAL CMS ASSEMBLY RC8 / FIXED SOURCE
+
+Actual CMS operator output:
+
+```text
+ASSEMBLE GITFL10
+ASSEMBLER (XF) DONE
+              223          B     EVENCHECK
+IFO236 ILLEGAL CHARACTER IN EXPRESSION NEAR OPERAND COLUMN 1
+              226 EVENCHECK LR    6,7
+IFO016 ILLEGAL OR INVALID NAME FIELD
+NUMBER OF STATEMENTS FLAGGED IN THIS ASSEMBLY =     2
+Ready(00008); T=0.13/0.15 09:13:01
+```
+
+Root cause: label `EVENCHECK` was 9 characters long; CMS XF
+assembler symbols must fit columns 1–8. The source was corrected
+to the 7-character `EVENCHK` in the branch and its two references:
+
+```text
+         B     EVENCHK
+EVENCHK  LR    6,7
+```
+
+A host regression guard now checks **all assembler labels** in
+M193, M194 and M195 for the eight-character ceiling, in addition
+to the original 72-column and record-body validations.
+The initial GitHub host checks did **not** catch this XF syntax
+error. The real M195 runtime remains **not verified** until a
+clean reassembly and a successful target invocation.
+
+From Mac `ibm-sandbox/src`, after fixing branch is merged:
+
+```sh
+git pull
+./cms-upload.sh GITFL10.ASSEMBLE
+```
+
+CMS MAINT: reassemble corrected source **before** any LOAD or
+GENMOD. Do not use failed-assembly TEXT or any earlier module:
+
+```text
+GLOBAL MACLIB OSMACRO DMSGPI PDPCLIB
+ASSEMBLE GITFL10
+```
+
+Only if assembler reports **NO STATEMENTS FLAGGED**:
+
+```text
+GLOBAL TXTLIB PDPCLIB
+LOAD GITFL10 (NOAUTO NOMAP
+GENMOD GITFL10
+GITFLP G LAST
+QUERY FILEDEF
+```
+
+No second upload of `GITFLP.EXEC` is necessary if it was
+already installed. Do not run M196 as a substitute for this
+target gate; capture actual Ready CPU/elapsed and FILEDEF.
+
+---
+
 ## Real CMS evidence establishing the bounded range
 
 October 11, 2026 at 16:01–16:04 local CMS time:
