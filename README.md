@@ -1,5 +1,77 @@
 # IBM Sandbox
 
+## M205 real CMS eight-object SHA PASS; M206 32-band expansion
+
+On October 12, 2026, M205 successfully compiled on
+z/VM 6.3 and passed CHECK (0.65s elapsed) and full
+RUN (1.04s elapsed) across eight separate PIDX1
+object-ordinal regions. All eight objects passed
+original-stage native FSREAD and full canonical
+Git SHA-1, with exact A1 disposable scratch cleanup
+after each. Terminal:
+`M205 STRATIFIED FULL SHA CLEAN PASS 8`.
+
+The authenticated objects were Git index ordinals
+**5, 969, 1935, 2902, 3869, 4836, 5803, and 6835**:
+three commits, four blobs and one tree; 8,043 decoded
+bytes overall. All eight expected OIDs and physical
+record coordinates are preserved in
+`docs/M206_STRATIFIED_32.md` and `CHAT_STATE.md`.
+The original protected G stage/index remained read-only.
+No final independent FILEDEF listing was supplied.
+
+M206 introduces standalone `GITP26M.C` and
+`GITC26.EXEC` to expand the same deterministic
+one-index stratified authentication from 2..8 to
+**2..32 disjoint index bands**. Every object remains
+restricted to 1..2048 decoded bytes and 1..64 native
+body records; the planner rejects an ineligible
+band before emitting any P201 success record.
+CHECK never creates scratch. RUN independently
+SHA-1 authenticates every selected object with
+existing M199/M197 and cleans new A scratch
+**only after each hash passes**. Failure preserves
+diagnostic scratch and stops. Prior modules unchanged.
+
+M206 has strict C89 host tests for 2/3/8/16/32
+samples and a negative case where an entire
+sample band is ineligible. **M206 is not yet
+real CMS target validated**; see
+`docs/M206_STRATIFIED_32.md`.
+
+After CI and merge from Mac `ibm-sandbox/src`:
+
+```sh
+git pull
+./cms-upload.sh GITP26M.C GITC26.EXEC
+```
+
+On CMS, verify original G files, absent scratch
+and empty FILEDEF; build `CMSCLNK GITP26M PLAIN`.
+Begin with the 16-band CHECK gate:
+
+```text
+GITC26 G CHECK 64 16
+FILEDEF
+STATE GITR199 DATA A
+```
+
+Only after CHECK succeeds, 16 plan OIDs are verified,
+and scratch is absent, run:
+
+```text
+GITC26 G RUN 64 16
+FILEDEF
+STATE GITR199 DATA A
+```
+
+When the 16-band run is real-CMS-proven, test
+32-band CHECK before a corresponding 32-band RUN.
+All proven M188/M193–M205 functionality and original
+stage/index remain protected.
+
+---
+
 ## M204 REAL CMS PASS; M205 stratified eight-object SHA gate
 
 On October 12, 2026, actual z/VM 6.3 CMS
