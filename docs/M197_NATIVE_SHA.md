@@ -1,5 +1,52 @@
 # M197: Canonical Git object SHA-1 from disposable input
 
+## October 12, 2026 — EBCDIC portability correction
+
+The first M197 C89 SHA core was tested on ASCII Linux,
+but its Git prefix construction used native C string
+literals (`"tree"`, `"blob"`, etc.) and native digit
+arithmetic (`'0'+digit`). On z/VM CMS, native C text
+is EBCDIC, while the canonical Git SHA-1 prefix
+**must be ASCII bytes**, including the type, space,
+decimal digits and final NUL. Without correction, a
+perfectly valid binary body would yield a wrong Git
+OID on the real CMS.
+
+The new `GITVO7M.C` uses fixed numeric ASCII byte
+arrays for each Git type and ASCII numeric constants
+`0x20` for space and `0x30` for decimal digits.
+The input staging text parser still uses the native
+execution character set for EBCDIC `OBJ`, decimal
+header fields and hex digits. Only the canonical
+bytes entering SHA-1 are explicitly ASCII.
+
+Host `tests/test-m197-native-object-sha.py` now
+verifies every raw Git type-byte array against ASCII,
+requires explicit numeric delimiter/digit bytes,
+checks that native C type strings cannot reappear in
+the SHA header constructor, and adds a **291-byte
+type-2 tree** SHA vector, corresponding to the actual
+M196 CMS target object's type and length. The real
+M196 expected OID is
+`9069E154EB145C25D8E1A8D31F72252C53E6684A`.
+A passing host fixture does not claim that actual
+stage payload is authenticated.
+
+**Do not compile or use an older M197 module** built
+from the pre-correction M197 C source. Re-upload the
+updated `GITVO7M.C` from main after correction CI
+and merge, rebuild `CMSCLNK GITVO7M PLAIN`, and
+then test through the distinct M198 read-only native
+FSREAD-to-NEW-scratch bridge, using the exact indexed
+OID above. No original G file is written.
+
+M195 complete body and M196 index plan both PASSED
+on actual z/VM 6.3 CMS on October 12. M198 is still
+host-only until direct IBM macro assembly/runtime
+and independent M197 SHA result succeed on CMS.
+
+---
+
 ## Purpose
 
 M197 introduces a stand-alone strict-C89 verification core,
