@@ -42,8 +42,8 @@ f.0=0
 'PIPE CMS FILEDEF | STEM f.'
 if rc\=0 then exit 8
 do i=1 to f.0
- if word(translate(f.i),1)='IDXIN' |,
-    word(translate(f.i),1)='OBJIN' then do
+ name=word(translate(f.i),1)
+ if name='IDXIN' | name='OBJIN' then do
   say 'M201 CALLER FILEDEF CONFLICT'
   exit 8
  end
