@@ -21,7 +21,7 @@ assert max(map(len, rex.splitlines())) <= 80
 import re
 hexblock = src.split("static const unsigned char git_type[5][7]=",1)[1]
 hexblock = hexblock.split("};",1)[0]
-rows = re.findall(r"\\{([^{}]+)\\}", hexblock)
+rows = re.findall(r"\{([^{}]+)\}", hexblock)
 assert len(rows) == 5, rows
 actual = [bytes(int(token.strip(),0) for token in row.split(",")
                 if token.strip()) for row in rows]
