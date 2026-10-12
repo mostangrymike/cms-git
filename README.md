@@ -1,5 +1,55 @@
 # IBM Sandbox
 
+## M199 second-object real CMS PASS; M201 automatic tuple (Oct 12)
+
+M199 is now authenticated on **two different native FSREAD
+objects**: tree 7736 (291 bytes, 0.03 seconds elapsed)
+and blob 3868 (1,148 bytes, 0.03 seconds elapsed).
+The latter returned SHA-1
+`8AF5E45B1B905F781D0BFB8A547049494B8D07A2`
+matching the M196 index; 36 body records, plus the
+header, were copied into `GITR199 DATA A1`.
+No user FILEDEFs remained.
+
+M200's two cleanup modes already passed real CMS;
+the old probes and scratch files were deleted. The
+**latest** M199 second-object run recreated
+`GITR199 DATA A1` (37 records, one block).
+Clean this exact disposable scratch using
+`GITCLN SCRATCH` before the next write-once test.
+
+M201 adds the isolated read-only `GITP21M.C` and
+`GITP21.EXEC` to extract the record coordinates
+and expected OID automatically from the validated
+index before invoking the existing M199 SHA path.
+It has a no-scratch `CHECK` mode to validate CMS
+PIPE/STEM capture before any native FSREAD write.
+
+After host CI/merge, Mac `ibm-sandbox/src`:
+
+```sh
+git pull
+./cms-upload.sh GITP21M.C GITP21.EXEC
+```
+
+CMS MAINT, after `GITCLN SCRATCH`, `FILEDEF`,
+and G disk read-only checks:
+
+```text
+CMSCLNK GITP21M PLAIN
+STATE GITP21M MODULE A
+GITP21 G 3868 64 CHECK
+FILEDEF
+```
+
+Only once CHECK validates the exact 3868 index
+tuple, invoke `GITP21 G 3868 64`, then inspect
+complete M197 SHA PASS and output scratch metadata.
+**M201 is host-tested, not yet real-CMS proven.**
+See `docs/M201_AUTOMATED_PLAN.md`.
+
+---
+
 ## M199 second real-CMS SHA PASS; M201 indexed automation (Oct 12)
 
 M199 authenticated **another independent object**
