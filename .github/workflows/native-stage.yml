@@ -131,6 +131,9 @@ on:
       - 'src/GITP21M.C'
       - 'src/GITP21.EXEC'
       - 'tests/test-m201-plan-export.py'
+      - 'src/GITC22.EXEC'
+      - 'tests/test-m202-dual-object-clean.py'
+      - 'docs/M202_DUAL_AUTH_CLEAN.md'
       - 'docs/M201_AUTOMATED_PLAN.md'
       - 'docs/M200_CLEANUP.md'
       - 'docs/M199_BOUNDED_FSREAD.md'
@@ -344,6 +347,9 @@ on:
       - 'src/GITP21M.C'
       - 'src/GITP21.EXEC'
       - 'tests/test-m201-plan-export.py'
+      - 'src/GITC22.EXEC'
+      - 'tests/test-m202-dual-object-clean.py'
+      - 'docs/M202_DUAL_AUTH_CLEAN.md'
       - 'docs/M201_AUTOMATED_PLAN.md'
       - 'docs/M200_CLEANUP.md'
       - 'docs/M199_BOUNDED_FSREAD.md'
@@ -529,6 +535,8 @@ jobs:
         run: python3 tests/test-m200-filedef-cleanup.py
       - name: Check M201 compact native index-to-SHA plan
         run: python3 tests/test-m201-plan-export.py
+      - name: Check M202 dual object full SHA and exact scratch cleanup
+        run: python3 tests/test-m202-dual-object-clean.py
       - name: Check M190 7736-object selective seek closure
         run: python3 tests/test-m190-scale-seek.py
       - name: Compare M190 indexed seek vs M188 two-pass host
