@@ -12518,3 +12518,121 @@ original GIT600 stage/index or target-proven older modules.
 Never write-link overlapping PMAINT0141 or rerun M190
 272-seek experiment. M188 remains authenticated
 full closure baseline 205.04s CPU / 208.27s elapsed.
+
+
+## 2026-10-12 10:10 — M196 REAL CMS TARGET PASS; M197 SHA PREFIX FIX
+
+Operator's actual CMS transcript:
+```text
+CMSCLNK GITRP6M PLAIN
+ASSEMBLER (XF) DONE
+NO STATEMENTS FLAGGED IN THIS ASSEMBLY
+CMSCLNK: built GITRP6M MODULE mode PLAIN
+Ready; T=0.83/0.88 10:10:33
+GITRP6 G 7736 10
+M196 NATIVE INDEX OBJECT RECORD PLAN BEGIN
+M196 INDEX TOTAL 7736 UNIQUE 7736
+M196 OBJECT 7736 TYPE 2 SIZE 291 OID 9069E154EB145C25D8E1A8D31F72252C53E6684A OF
+M196 RECORDS HEADER 3864789 BODY 3864790 LAST 3864799 COUNT 10
+M196 STAGE MODEL RECORDS 3864799 EXPECTED 3864799
+M196 READ ONLY INDEX OBJECT PLAN PASS
+M196 INDEX OBJECT PLAN GATE PASS G 7736
+Ready; T=0.65/0.66 10:10:46
+```
+
+**M196 is REAL CMS TARGET PASS.** Exact final indexed
+object 7736: TYPE2 TREE, SIZE291 decoded bytes,
+OID `9069E154EB145C25D8E1A8D31F72252C53E6684A`.
+Ten body records span RECNO3864790..3864799; first 9
+body records are 64 hex chars, last must be 6 hex
+chars. Header RECNO3864789. All 7736 index objects
+and original 3864799 stage record count reconcile.
+Native elapsed 0.66s (single run). The actual long
+object line clipped after `OF` before its OFFSET
+number: do not assume that unprinted offset. No
+post-run QUERY FILEDEF transcript supplied. Earlier
+M195 complete 11-record original stage FSREAD was
+target PASS with 0.01s elapsed; independently this
+does not prove stage SHA-1 or the 291-byte content.
+
+**Urgent M197 EBCDIC portability correction**, identified
+before live CMS M197 assembly: initial GITVO7M.C
+constructed canonical Git SHA prefix from native
+C strings `"commit"/"tree"/"blob"/"tag"` and
+native `'0'+digit`. On z/VM CMS these native bytes
+are EBCDIC; Git hashes must use ASCII canonical
+type-name bytes, 0x20 space, 0x30 ASCII digits,
+and 0x00 separator. Therefore old M197 would
+compute INVALID Git OID on the real CMS despite
+passing ASCII-host synthetic tests. Fix source
+`src/GITVO7M.C` uses explicit numeric ASCII byte
+arrays (pattern already proven in older native
+readers), 0x20, 0x30UL. Input text parsing still
+uses native EBCDIC. Added static regression for
+exact ASCII Git type byte arrays and C89 SHA1
+verification for 291-byte type2 tree. Added M198
+end-to-end synthetic 291-byte tree object SHA1,
+including exact expected record count 10.
+The GitHub native host CI passed after fixing
+test-only escaped regex/newline fixture issues.
+The corrected M197 module is NOT real-CMS built
+or target-proven until new `git pull`, transfer,
+CMSCLNK, and M198 actual SHA gate.
+
+M198 source GITBX8 / GITB8 from PR178 already
+merged (31242176007d182d08e9d11476f22f49fb8e9ef8),
+host-proven but **not yet target-assembled/executed**.
+Its new A scratch file `GITVRAW DATA A1` is only
+created with FSOPEN OPENTYP=NEW after G stage
+FSREAD completed and source FSCLOSE. On failure,
+partial scratch might remain and must NOT be erased
+automatically. The wrapper refuses any existing
+scratch and caller OBJIN FILEDEF and invokes
+M197 full Git SHA1 using expected indexed OID.
+Original G stage/index remain read-only. M188
+full authenticated closure remains 205.04s CPU /
+208.27s elapsed.
+
+NEXT AFTER MERGING M197 ASCII FIX, Mac src:
+```sh
+git pull
+./cms-upload.sh GITVO7M.C GITBX8.ASSEMBLE GITB8.EXEC
+```
+The original M196 index and expected OID are known;
+no need to rerun it. CMS MAINT read-only preflight:
+```text
+QUERY DISK G
+STATE M173NET STAGE G
+STATE M174NET INDEX G
+QUERY FILEDEF
+STATE GITVRAW DATA A
+STATE GITVO7M C A
+STATE GITBX8 ASSEMBLE A
+```
+If scratch exists, STOP with no overwrite or ERASE.
+If absent and G 4096/dataset preflight clean:
+```text
+CMSCLNK GITVO7M PLAIN
+GLOBAL MACLIB OSMACRO DMSGPI PDPCLIB
+ASSEMBLE GITBX8
+```
+Only on clean CMSCLNK and assembler no flagged
+statements:
+```text
+GLOBAL TXTLIB PDPCLIB
+LOAD GITBX8 (NOAUTO NOMAP
+GENMOD GITBX8
+STATE GITBX8 MODULE A
+STATE GITVO7M MODULE A
+GITB8 G LAST 9069E154EB145C25D8E1A8D31F72252C53E6684A
+QUERY FILEDEF
+LISTFILE GITVRAW DATA A (ALLOC
+```
+On M198 failure, STOP and do not rerun or delete
+untrusted partial A scratch; report exact error.
+Only real CMS M198 + M197 full SHA success establishes
+the authenticated actual 291-byte Git tree object.
+Protected GIT600 original stage/index and all prior
+target-proven modules must remain untouched; no
+reimport/reindex, G format/erase, PMAINT0141
+overlapping write-link, or M190 272-seek benchmark.
