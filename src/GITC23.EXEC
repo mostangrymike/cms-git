@@ -1,0 +1,107 @@
+/* M203: bounded batch of 2..8 independent full Git SHA objects. */
+/* No write to G. Clean only AFTER each verified object's SHA. */
+address cms
+parse upper arg fm mode limit members
+if fm\='G' | (mode\='CHECK' & mode\='RUN') then do
+ say 'Usage: GITC23 G CHECK|RUN max-body obj1 obj2 ... obj8'
+ exit 4
+end
+if datatype(limit,'W')\=1 then exit 4
+if limit<1 | limit>64 then exit 4
+count=words(members)
+if count<2 | count>8 then do
+ say 'M203 REQUIRES 2 THROUGH 8 DISTINCT OBJECTS'
+ exit 4
+end
+drop objs.
+do i=1 to count
+ objs.i=word(members,i)
+ if datatype(objs.i,'W')\=1 then exit 4
+ if objs.i<1 | objs.i>7736 then exit 4
+ do j=1 to i-1
+  if objs.i=objs.j then do
+   say 'M203 DUPLICATE OBJECT' objs.i
+   exit 4
+  end
+ end
+end
+'STATE GITP21 EXEC A'
+if rc\=0 then exit 8
+'STATE GITP21M MODULE A'
+if rc\=0 then exit 8
+'STATE GITB9 EXEC A'
+if rc\=0 then exit 8
+'STATE GITBX9 MODULE A'
+if rc\=0 then exit 8
+'STATE GITVO7M MODULE A'
+if rc\=0 then exit 8
+'STATE GITCLN EXEC A'
+if rc\=0 then exit 8
+'STATE GITVRAW DATA A'
+if rc\=28 then do
+ say 'M203 OLD SCRATCH EXISTS OR STATE UNKNOWN'
+ exit 8
+end
+'STATE GITR199 DATA A'
+if rc\=28 then do
+ say 'M203 CURRENT SCRATCH EXISTS OR STATE UNKNOWN'
+ exit 8
+end
+drop defs.
+defs.0=0
+'PIPE CMS FILEDEF | STEM defs.'
+if rc\=0 then exit 8
+do i=1 to defs.0
+ name=word(translate(defs.i),1)
+ if name='IDXIN' | name='OBJIN' then do
+  say 'M203 CALLER FILEDEF CONFLICT'
+  exit 8
+ end
+end
+say 'M203 BOUNDED INDEX PREFLIGHT BEGIN' count
+do i=1 to count
+ say 'M203 INDEX CHECK BEGIN' i objs.i
+ 'GITP21 G' objs.i limit 'CHECK'
+ c=rc
+ if c\=0 then do
+  say 'M203 INDEX PREFLIGHT FAIL' i objs.i c
+  exit 8
+ end
+ say 'M203 INDEX CHECK PASS' i objs.i
+end
+say 'M203 ALL INDEX CHECKS PASS' count
+if mode='CHECK' then do
+ say 'M203 CHECK ONLY NO SCRATCH PASS' count
+ exit 0
+end
+do i=1 to count
+ obj=objs.i
+ say 'M203 FULL OBJECT SHA BEGIN' i obj
+ 'STATE GITR199 DATA A'
+ if rc\=28 then do
+  say 'M203 SCRATCH COLLISION BEFORE OBJECT' obj
+  exit 8
+ end
+ 'GITP21 G' obj limit
+ s=rc
+ if s\=0 then do
+  say 'M203 SHA GATE FAIL SCRATCH PRESERVED' i obj s
+  exit 8
+ end
+ say 'M203 FULL OBJECT SHA VERIFIED' i obj
+ /* GITCLN is exact A1 whitelist. Old GITVRAW is absent. */
+ 'GITCLN SCRATCH'
+ c=rc
+ if c\=0 then do
+  say 'M203 CLEANUP FAILED STOP' i obj c
+  exit 8
+ end
+ 'STATE GITR199 DATA A'
+ if rc\=28 then do
+  say 'M203 SCRATCH REMOVAL NOT VERIFIED' obj
+  exit 8
+ end
+ say 'M203 CLEAN VERIFIED' i obj
+end
+say 'M203 BOUNDED FULL SHA CLEAN PASS' count
+exit 0
