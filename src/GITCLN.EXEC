@@ -1,0 +1,84 @@
+/* M200 explicit, A1-only cleanup of superseded test artifacts. */
+/* Original protected G files and active M196/M197/M199 NEVER touched. */
+address cms
+parse upper arg mode extra
+if extra\='' | (mode\='SCRATCH' & mode\='RETIRED') then do
+ say 'Usage: GITCLN SCRATCH or GITCLN RETIRED'
+ exit 4
+end
+'QUERY DISK A'
+if rc\=0 then do
+ say 'M200 A DISK PRECHECK FAILED'
+ exit 8
+end
+/* Fail closed if CMS user disk filedefs are still active. */
+drop defs.
+defs.0=0
+'PIPE CMS FILEDEF | STEM defs.'
+if rc\=0 then do
+ say 'M200 FILEDEF INSPECTION FAILED'
+ exit 8
+end
+do i=1 to defs.0
+ rec=translate(strip(defs.i))
+ if word(rec,2)='DISK' then do
+  say 'M200 FILEDEF DISK STILL ACTIVE - REFUSE CLEANUP'
+  say rec
+  exit 8
+ end
+end
+if mode='SCRATCH' then do
+ say 'M200 CLEANING ONLY TWO VERIFIED DISPOSABLE A1 FILES'
+ call cleaner 'GITVRAW','DATA'
+ call cleaner 'GITR199','DATA'
+end
+else do
+ say 'M200 RETIRING SUPERSEDED M193-M195/M198 A1 PROBES'
+ call cleaner 'GITFSRD','MODULE'
+ call cleaner 'GITFSP','EXEC'
+ call cleaner 'GITFRB','MODULE'
+ call cleaner 'GITFRP','EXEC'
+ call cleaner 'GITFL10','MODULE'
+ call cleaner 'GITFLP','EXEC'
+ call cleaner 'GITBX8','MODULE'
+ call cleaner 'GITB8','EXEC'
+ call cleaner 'GITFSRD','TEXT'
+ call cleaner 'GITFRB','TEXT'
+ call cleaner 'GITFL10','TEXT'
+ call cleaner 'GITBX8','TEXT'
+ call cleaner 'GITFSRD','LISTING'
+ call cleaner 'GITFRB','LISTING'
+ call cleaner 'GITFL10','LISTING'
+ call cleaner 'GITBX8','LISTING'
+end
+say 'M200 CLEANUP PASS' mode
+exit 0
+
+cleaner:
+ parse arg filename,filetype
+ if length(filename)>8 | length(filetype)>8 then exit 8
+ 'STATE' filename filetype 'A1'
+ checkrc=rc
+ if checkrc=28 then do
+  say 'M200 SKIP ABSENT' filename filetype 'A1'
+  return
+ end
+ if checkrc\=0 then do
+  say 'M200 STATE ERROR' filename filetype 'RC' checkrc
+  exit 8
+ end
+ say 'M200 ERASING EXACT' filename filetype 'A1'
+ 'ERASE' filename filetype 'A1'
+ delrc=rc
+ if delrc\=0 then do
+  say 'M200 ERASE FAILED' filename filetype 'RC' delrc
+  exit 8
+ end
+ 'STATE' filename filetype 'A1'
+ afterrc=rc
+ if afterrc\=28 then do
+  say 'M200 ERASE NOT CONFIRMED' filename filetype 'RC' afterrc
+  exit 8
+ end
+ say 'M200 ERASED' filename filetype 'A1'
+ return
