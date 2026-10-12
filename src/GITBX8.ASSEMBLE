@@ -1,0 +1,163 @@
+GITBX8   CSECT
+         USING GITBX8,12
+         LR    12,15
+         ST    14,RETADR
+*
+* M198: sealed LAST record-only FSREAD to NEW scratch A file.
+* Reads and validates all eleven records BEFORE creating scratch.
+* No writes or renames to original M173NET STAGE G1.
+* GITVRAW DATA A1 must not already exist; FSOPEN NEW enforces it.
+* M197 externally verifies canonical Git SHA1 of scratch output.
+*
+         LINEWRT DATA=(START,L'START)
+         XC    CURIDX,CURIDX
+         XC    TOTAL,TOTAL
+         L     6,=F'3864789'
+         ST    6,CURNO
+RDLOOP   L     6,CURIDX
+         C     6,=F'11'
+         BNL   ALLREAD
+         LA    4,RECSET
+         LR    7,6
+         SLL   7,6
+         AR    4,7
+         L     5,CURNO
+         FSREAD 'M173NET STAGE G1',BUFFER=(4),BSIZE=64,                X
+               RECFM=V,RECNO=(5),NOREC=1,FORM=E,ERROR=RDERR
+         ST    0,READLEN
+         LA    9,LENSET
+         L     7,CURIDX
+         SLL   7,2
+         AR    9,7
+         ST    0,0(9)
+         L     7,CURIDX
+         LTR   7,7
+         BNZ   BODYCHK
+         L     7,READLEN
+         C     7,=F'9'
+         BL    BADHDR
+         CLC   RECSET(9),=C'OBJ 7736 '
+         BNE   BADHDR
+         B     NEXTREC
+BODYCHK  L     7,READLEN
+         C     7,=F'64'
+         BH    BADBODY
+         L     6,CURIDX
+         C     6,=F'10'
+         BE    LASTREC
+         C     7,=F'64'
+         BNE   BADBODY
+         B     EVENCHK
+LASTREC  LTR   7,7
+         BZ    BADBODY
+EVENCHK  LR    6,7
+         N     6,=F'1'
+         BNZ   BADBODY
+         L     4,READLEN
+         SRL   4,1
+         A     4,TOTAL
+         ST    4,TOTAL
+         LA    6,RECSET
+         L     7,CURIDX
+         SLL   7,6
+         AR    6,7
+         L     7,READLEN
+CHECKCHR CLI   0(6),C'0'
+         BNL   DIGIT
+         CLI   0(6),C'A'
+         BNL   UPPER
+         CLI   0(6),C'a'
+         BL    BADBODY
+         CLI   0(6),C'f'
+         BNH   NEXTCHR
+         B     BADBODY
+UPPER    CLI   0(6),C'F'
+         BNH   NEXTCHR
+         B     BADBODY
+DIGIT    CLI   0(6),C'9'
+         BNH   NEXTCHR
+         B     BADBODY
+NEXTCHR  LA    6,1(6)
+         BCT   7,CHECKCHR
+NEXTREC  L     6,CURNO
+         LA    6,1(6)
+         ST    6,CURNO
+         L     6,CURIDX
+         LA    6,1(6)
+         ST    6,CURIDX
+         B     RDLOOP
+ALLREAD  L     4,TOTAL
+         C     4,=F'289'
+         BL    BADBODY
+         C     4,=F'320'
+         BH    BADBODY
+         FSCLOSE 'M173NET STAGE G1',ERROR=ICLERR
+         LINEWRT DATA=(RDOK,L'RDOK)
+*
+* NEW fails if scratch already exists, even if wrapper raced.
+* Only create on A1 after full input validation and input close.
+*
+         FSOPEN FSCB=OUTFSCB,OPENTYP=NEW,FORM=E,ERROR=OPENERR
+         XC    CURIDX,CURIDX
+WRLOOP   L     6,CURIDX
+         C     6,=F'11'
+         BNL   WRDONE
+         LA    4,RECSET
+         LR    7,6
+         SLL   7,6
+         AR    4,7
+         LA    9,LENSET
+         LR    7,6
+         SLL   7,2
+         AR    9,7
+         L     5,0(9)
+         FSWRITE FSCB=OUTFSCB,BUFFER=(4),BSIZE=(5),                    X
+               RECFM=V,FORM=E,ERROR=WRERR
+         L     6,CURIDX
+         LA    6,1(6)
+         ST    6,CURIDX
+         B     WRLOOP
+WRDONE   FSCLOSE FSCB=OUTFSCB,ERROR=OCLERR
+         LINEWRT DATA=(WROK,L'WROK)
+         SR    15,15
+         B     RETURN
+BADHDR   LINEWRT DATA=(HERR,L'HERR)
+         B     CLOSEIN
+BADBODY  LINEWRT DATA=(BERR,L'BERR)
+         B     CLOSEIN
+RDERR    LINEWRT DATA=(RERR,L'RERR)
+CLOSEIN  FSCLOSE 'M173NET STAGE G1',ERROR=ICLERR
+         B     BADRET
+ICLERR   LINEWRT DATA=(ICERR,L'ICERR)
+         B     BADRET
+OPENERR  LINEWRT DATA=(OPERR,L'OPERR)
+         B     BADRET
+WRERR    LINEWRT DATA=(WRFAIL,L'WRFAIL)
+         B     CLOSEOUT
+OCLERR   LINEWRT DATA=(OCERR,L'OCERR)
+         B     BADRET
+CLOSEOUT FSCLOSE FSCB=OUTFSCB,ERROR=OCLERR
+BADRET   LA    15,8
+RETURN   L     14,RETADR
+         BR    14
+         LTORG
+RETADR   DS    F
+CURIDX   DS    F
+CURNO    DS    F
+READLEN  DS    F
+TOTAL    DS    F
+LENSET   DS    11F
+RECSET   DS    CL704
+OUTFSCB  FSCB  'GITVRAW DATA A1',BUFFER=RECSET,BSIZE=64,RECFM=V,    X
+               FORM=E
+START    DC    C'M198 READ ONLY STAGE LAST OBJECT BEGIN'
+RDOK     DC    C'M198 LAST 11 STAGE RECORDS VERIFIED'
+WROK     DC    C'M198 NEW DISPOSABLE OBJECT WRITE PASS'
+HERR     DC    C'M198 STAGE HEADER INVALID'
+BERR     DC    C'M198 STAGE BODY INVALID'
+RERR     DC    C'M198 STAGE FSREAD FAILED'
+ICERR    DC    C'M198 STAGE FSCLOSE FAILED'
+OPERR    DC    C'M198 NEW SCRATCH OPEN FAILED'
+WRFAIL   DC    C'M198 SCRATCH WRITE FAILED'
+OCERR    DC    C'M198 SCRATCH CLOSE FAILED'
+         END   GITBX8
