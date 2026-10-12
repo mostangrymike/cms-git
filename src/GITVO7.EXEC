@@ -16,7 +16,7 @@ end
 if rc\=0 then exit 8
 drop f.
 f.0=0
-'PIPE CMS QUERY FILEDEF | STEM f.'
+'PIPE CMS FILEDEF | STEM f.'
 if rc\=0 then exit 8
 do i=1 to f.0
  if translate(word(f.i,1))='OBJIN' then do
