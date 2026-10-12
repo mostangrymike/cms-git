@@ -1,0 +1,219 @@
+GITBX9   CSECT
+         USING GITBX9,12
+         LR    12,15
+         ST    14,RETADR
+*
+* M199: bounded parameterized read-only original CMS FSREAD.
+* The REXX caller queues decimal HEADER RECNO and BODY COUNT.
+* Read all records and close G before NEW-only A scratch writes.
+* SHA1 verification is always separate, via proved M197 MODULE.
+*
+         LINERD DATA=(INBUF,8),TYPE=STACK,CASE=MIXED,TRANS=NO,         X
+               PAD=BLANK,ERROR=BADARG
+         BAL   10,PARSEDEC
+         LTR   5,5
+         BZ    BADARG
+         C     5,=F'3864799'
+         BH    BADARG
+         ST    5,HEADNO
+         LINERD DATA=(INBUF,8),TYPE=STACK,CASE=MIXED,TRANS=NO,         X
+               PAD=BLANK,ERROR=BADARG
+         BAL   10,PARSEDEC
+         LTR   5,5
+         BZ    BADARG
+         C     5,=F'64'
+         BH    BADARG
+         ST    5,BODYCNT
+         L     6,HEADNO
+         AR    6,5
+         C     6,=F'3864799'
+         BH    BADARG
+         LA    6,1(5)
+         ST    6,NRECS
+         LINEWRT DATA=(START,L'START)
+         XC    CURIDX,CURIDX
+         XC    TOTAL,TOTAL
+         L     6,HEADNO
+         ST    6,CURNO
+RDLOOP   L     6,CURIDX
+         C     6,NRECS
+         BNL   ALLREAD
+         LA    4,RECSET
+         LR    7,6
+         SLL   7,6
+         AR    4,7
+         L     5,CURNO
+         FSREAD 'M173NET STAGE G1',BUFFER=(4),BSIZE=64,                X
+               RECFM=V,RECNO=(5),NOREC=1,FORM=E,ERROR=RDERR
+         ST    0,READLEN
+         LA    9,LENSET
+         L     7,CURIDX
+         SLL   7,2
+         AR    9,7
+         ST    0,0(9)
+         L     7,CURIDX
+         LTR   7,7
+         BNZ   BODYCHK
+         L     7,READLEN
+         C     7,=F'9'
+         BL    BADHDR
+         C     7,=F'64'
+         BH    BADHDR
+         CLC   RECSET(4),=C'OBJ '
+         BNE   BADHDR
+         B     NEXTREC
+BODYCHK  L     7,READLEN
+         C     7,=F'64'
+         BH    BADBODY
+         L     6,CURIDX
+         C     6,BODYCNT
+         BE    LASTREC
+         C     7,=F'64'
+         BNE   BADBODY
+         B     EVENCHK
+LASTREC  LTR   7,7
+         BZ    BADBODY
+EVENCHK  LR    6,7
+         N     6,=F'1'
+         BNZ   BADBODY
+         L     4,READLEN
+         SRL   4,1
+         A     4,TOTAL
+         ST    4,TOTAL
+         LA    6,RECSET
+         L     7,CURIDX
+         SLL   7,6
+         AR    6,7
+         L     7,READLEN
+CHECKCHR CLI   0(6),C'0'
+         BNL   DIGIT
+         CLI   0(6),C'A'
+         BNL   UPPER
+         CLI   0(6),C'a'
+         BL    BADBODY
+         CLI   0(6),C'f'
+         BNH   NEXTCHR
+         B     BADBODY
+UPPER    CLI   0(6),C'F'
+         BNH   NEXTCHR
+         B     BADBODY
+DIGIT    CLI   0(6),C'9'
+         BNH   NEXTCHR
+         B     BADBODY
+NEXTCHR  LA    6,1(6)
+         BCT   7,CHECKCHR
+NEXTREC  L     6,CURNO
+         LA    6,1(6)
+         ST    6,CURNO
+         L     6,CURIDX
+         LA    6,1(6)
+         ST    6,CURIDX
+         B     RDLOOP
+ALLREAD  L     4,TOTAL
+         LTR   4,4
+         BZ    BADBODY
+         C     4,=F'2048'
+         BH    BADBODY
+         FSCLOSE 'M173NET STAGE G1',ERROR=ICLERR
+         LINEWRT DATA=(RDOK,L'RDOK)
+*
+* Original input is fully validated/closed before creating A scratch.
+* OPENTYP=NEW refuses an already existing GITR199 DATA A1.
+*
+         FSOPEN FSCB=OUTFSCB,OPENTYP=NEW,FORM=E,ERROR=OPENERR
+         XC    CURIDX,CURIDX
+WRLOOP   L     6,CURIDX
+         C     6,NRECS
+         BNL   WRDONE
+         LA    4,RECSET
+         LR    7,6
+         SLL   7,6
+         AR    4,7
+         LA    9,LENSET
+         LR    7,6
+         SLL   7,2
+         AR    9,7
+         L     5,0(9)
+         FSWRITE FSCB=OUTFSCB,BUFFER=(4),BSIZE=(5),                    X
+               RECFM=V,FORM=E,ERROR=WRERR
+         L     6,CURIDX
+         LA    6,1(6)
+         ST    6,CURIDX
+         B     WRLOOP
+WRDONE   FSCLOSE FSCB=OUTFSCB,ERROR=OCLERR
+         LINEWRT DATA=(WROK,L'WROK)
+         SR    15,15
+         B     RETURN
+*
+* Decimal parser: uses R0 returned LINERD length (1..8).
+* Native IBM EBCDIC digits range X'F0' through X'F9'.
+* 8 digits cannot overflow a signed 32-bit register.
+* R5 result; R10 link register; failure jumps BADARG.
+*
+PARSEDEC C     0,=F'1'
+         BL    BADARG
+         C     0,=F'8'
+         BH    BADARG
+         LR    8,0
+         LA    7,INBUF
+         SR    5,5
+PARSELP  SR    6,6
+         IC    6,0(7)
+         C     6,=F'240'
+         BL    BADARG
+         C     6,=F'249'
+         BH    BADARG
+         S     6,=F'240'
+         MH    5,=H'10'
+         AR    5,6
+         LA    7,1(7)
+         BCT   8,PARSELP
+         BR    10
+BADHDR   LINEWRT DATA=(HERR,L'HERR)
+         B     CLOSEIN
+BADBODY  LINEWRT DATA=(BERR,L'BERR)
+         B     CLOSEIN
+RDERR    LINEWRT DATA=(RERR,L'RERR)
+CLOSEIN  FSCLOSE 'M173NET STAGE G1',ERROR=ICLERR
+         B     BADRET
+ICLERR   LINEWRT DATA=(ICERR,L'ICERR)
+         B     BADRET
+BADARG   LINEWRT DATA=(AERR,L'AERR)
+         B     BADRET
+OPENERR  LINEWRT DATA=(OPERR,L'OPERR)
+         B     BADRET
+WRERR    LINEWRT DATA=(WRFAIL,L'WRFAIL)
+         B     CLOSEOUT
+OCLERR   LINEWRT DATA=(OCERR,L'OCERR)
+         B     BADRET
+CLOSEOUT FSCLOSE FSCB=OUTFSCB,ERROR=OCLERR
+BADRET   LA    15,8
+RETURN   L     14,RETADR
+         BR    14
+         LTORG
+RETADR   DS    F
+HEADNO   DS    F
+BODYCNT  DS    F
+NRECS    DS    F
+CURIDX   DS    F
+CURNO    DS    F
+READLEN  DS    F
+TOTAL    DS    F
+INBUF    DS    CL8
+LENSET   DS    65F
+OUTFSCB  FSCB  'GITR199 DATA A1',BUFFER=RECSET,BSIZE=64,RECFM=V,       X
+               FORM=E
+START    DC    C'M199 PARAMETERIZED FSREAD SOURCE BEGIN'
+RDOK     DC    C'M199 BOUNDED ORIGINAL STAGE READ PASS'
+WROK     DC    C'M199 NEW A SCRATCH TRANSFER PASS'
+AERR     DC    C'M199 DECIMAL OR RECORD BOUNDS INVALID'
+HERR     DC    C'M199 STAGE OBJECT HEADER INVALID'
+BERR     DC    C'M199 STAGE OBJECT BODY INVALID'
+RERR     DC    C'M199 ORIGINAL STAGE FSREAD FAILED'
+ICERR    DC    C'M199 ORIGINAL STAGE FSCLOSE FAILED'
+OPERR    DC    C'M199 NEW SCRATCH OPEN FAILED'
+WRFAIL   DC    C'M199 SCRATCH WRITE FAILED'
+OCERR    DC    C'M199 SCRATCH CLOSE FAILED'
+* Large storage kept at end, beyond base-relative constants.
+RECSET   DS    CL4160
+         END   GITBX9

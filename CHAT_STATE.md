@@ -12636,3 +12636,100 @@ Protected GIT600 original stage/index and all prior
 target-proven modules must remain untouched; no
 reimport/reindex, G format/erase, PMAINT0141
 overlapping write-link, or M190 272-seek benchmark.
+
+
+## 2026-10-12 10:28 — M198 FULL REAL CMS FSREAD + GIT SHA PASS
+
+User provided actual z/VM 6.3 CMS transcript:
+```text
+CMSCLNK GITVO7M PLAIN
+ASSEMBLER (XF) DONE
+NO STATEMENTS FLAGGED IN THIS ASSEMBLY
+CMSCLNK: built GITVO7M MODULE mode PLAIN
+ASSEMBLE GITBX8
+ASSEMBLER (XF) DONE
+NO STATEMENTS FLAGGED IN THIS ASSEMBLY
+LOAD GITBX8 (NOAUTO NOMAP
+GENMOD GITBX8
+GITB8 G LAST 9069E154EB145C25D8E1A8D31F72252C53E6684A
+DMSSTT002E File GITVRAW DATA A not found
+M198 SOURCE FSREAD TO NEW SCRATCH BEGIN
+M198 READ ONLY STAGE LAST OBJECT BEGIN
+M198 LAST 11 STAGE RECORDS VERIFIED
+M198 NEW DISPOSABLE OBJECT WRITE PASS
+M198 VERIFIED SHA1 CHECK BEGIN
+M197 DISPOSABLE FULL OBJECT VERIFICATION BEGIN
+M197 OBJECT 7736 TYPE 2 SIZE 291 BODY RECORDS 10
+M197 VERIFIED OID 9069E154EB145C25D8E1A8D31F72252C53E6684A
+M197 READ ONLY FULL OBJECT SHA1 PASS
+M197 DISPOSABLE FULL OBJECT GATE PASS
+M198 NATIVE FSREAD FULL OID GATE PASS G LAST
+Ready; T=0.02/0.03 10:28:57
+LISTFILE GITVRAW DATA A (ALLOC
+GITVRAW  DATA     A1 V 64 11 1
+Ready; T=0.01/0.01 10:29:05
+```
+
+**M197 and M198 NOW REAL CMS TARGET PASS**, with a
+complete canonical SHA1-verified 291-byte Git tree,
+not merely a hex record gate. GITVRAW DATA A1 was
+created NEW; 11 variable records, LRECL64, 1 block.
+Preserve this authenticated scratch unchanged.
+No post-probe QUERY FILEDEF output supplied.
+One object elapsed 0.03s is not a full tree benchmark.
+Protected original M173NET STAGE G1 and index G1
+were read-only; earlier M185/M188 remain baseline
+205.04 CPU / 208.27 elapsed full closure.
+
+## M199 — new parameterized bounded native FSREAD candidate
+
+Standalone new `src/GITBX9.ASSEMBLE`, `src/GITB9.EXEC`;
+new `tests/test-m199-record-read.py`,
+`docs/M199_BOUNDED_FSREAD.md` and CI guard.
+New module consumes decimal header one-based RECNO
+and 1..64 body-record count queued by wrapper via
+two `LINERD TYPE=STACK`; checks EBCDIC digits,
+8-char numeric limits and original stage upper bound
+3864799. Uses 65 private 64-byte record slots and
+65 returned lengths; enforces header OBJ prefix,
+non-final 64 hex records, even nonzero final hex,
+complete body 1..2048 bytes, and FSCLOSE G input
+before creating a **different** A scratch
+`GITR199 DATA A1` using FSOPEN OPENTYP=NEW.
+Never overwrites existing scratch, never writes G.
+Caller must use prior actual M196 index tuple of
+object number, header RECNO, body count, expected
+40-hex OID. The new wrapper binds only this scratch
+to OBJIN and invokes target-proven GITVO7M full Git
+OID hash; only hash PASS yields overall M199 PASS.
+No automatic scratch deletion; no support for
+zero-byte objects yet. M199 is HOST ONLY until
+actual CMS assembly, RUN, RC and FILEDEF gate.
+Host strict macro/label/continuation/decimal/sha
+tests passed on branch. M188 not changed.
+
+Next Mac transfer after green CI/PR merge, from src:
+```sh
+git pull
+./cms-upload.sh GITBX9.ASSEMBLE GITB9.EXEC
+```
+CMS safe preflight: QUERY DISK G, STATE original
+stage/index G, QUERY FILEDEF, STATE GITVRAW DATA A
+(expect existing), STATE GITR199 DATA A (MUST
+NOT EXIST), STATE GITVO7M MODULE A.
+Then assemble GITBX9 with GLOBAL MACLIB
+OSMACRO DMSGPI PDPCLIB. Only on no flagged
+statements, LOAD GITBX9 (NOAUTO NOMAP, GENMOD.
+First independent record-span trial:
+```text
+GITB9 G 7736 3864789 10 9069E154EB145C25D8E1A8D31F72252C53E6684A
+QUERY FILEDEF
+LISTFILE GITR199 DATA A (ALLOC
+```
+Require original source read PASS, new A scratch
+write PASS, M197 full SHA matching indexed OID
+and M199 wrapper PASS. If anything fails, stop,
+preserve scratch and exact console. No reimport,
+reindex, format, erase, protected G write, replaced
+old module, overlapping PMAINT 0141 write-link
+or M190 272-seek experiment.

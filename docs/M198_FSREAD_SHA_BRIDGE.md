@@ -1,5 +1,52 @@
 # M198 — Read-only FSREAD into NEW-only disposable A scratch, then SHA-1
 
+## October 12, 2026 — REAL CMS END-TO-END SHA PASS
+
+The corrected M197 SHA C MODULE assembled and linked
+successfully using `CMSCLNK GITVO7M PLAIN`. New
+`GITBX8` also assembled with no flagged statements,
+loaded and GENMOD'd. The full target transcript:
+
+```text
+GITB8 G LAST 9069E154EB145C25D8E1A8D31F72252C53E6684A
+DMSSTT002E File GITVRAW DATA A not found
+M198 SOURCE FSREAD TO NEW SCRATCH BEGIN
+M198 READ ONLY STAGE LAST OBJECT BEGIN
+M198 LAST 11 STAGE RECORDS VERIFIED
+M198 NEW DISPOSABLE OBJECT WRITE PASS
+M198 VERIFIED SHA1 CHECK BEGIN
+M197 DISPOSABLE FULL OBJECT VERIFICATION BEGIN
+M197 OBJECT 7736 TYPE 2 SIZE 291 BODY RECORDS 10
+M197 VERIFIED OID 9069E154EB145C25D8E1A8D31F72252C53E6684A
+M197 READ ONLY FULL OBJECT SHA1 PASS
+M197 DISPOSABLE FULL OBJECT GATE PASS
+M198 NATIVE FSREAD FULL OID GATE PASS G LAST
+Ready; T=0.02/0.03 10:28:57
+LISTFILE GITVRAW DATA A (ALLOC
+GITVRAW DATA A1 V 64 11 1
+Ready; T=0.01/0.01 10:29:05
+```
+
+M198 and M197 **ARE FULLY REAL CMS TARGET-PROVEN**
+for this 291-byte type-2 Git tree and its independent
+SHA1. Only the original G stage was read; an eleven
+variable-record one-block disposable A scratch was
+created using NEW-only semantics. The original G
+stage and index remain preserved. The combined
+runtime for this one object was 0.03 seconds; this
+does not prove full tree speed. The caller did not
+provide final `QUERY FILEDEF`; FILEDEF state is
+not independently established. Preserve the
+existing `GITVRAW DATA A1`; do not re-run M198.
+
+Next separate M199 broadens the adapter to accept
+bounded physical record numbers and count from
+the independently verified M196 object plan and
+creates **GITR199 DATA A1**, a different scratch
+file. See `docs/M199_BOUNDED_FSREAD.md`.
+
+---
+
 ## October 12, 2026 — M196 real CMS PASS / verified expected OID
 
 Actual M196 `GITRP6 G 7736 10` completed in
