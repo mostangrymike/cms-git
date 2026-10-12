@@ -16,7 +16,7 @@ SHA=(ROOT/"src/GITVO7M.C").read_text()
 L=ASM.splitlines()
 assert max(map(len,L))<=72
 assert max(map(len,EXEC.splitlines()))<=80
-continuations=[row for row in L if row.endswith("X")]
+continuations=[row for row in L if len(row)==72 and row[71]=="X"]
 assert len(continuations)==3, continuations
 assert all(len(row)==72 for row in continuations)
 labels=[]
