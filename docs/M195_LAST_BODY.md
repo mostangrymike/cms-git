@@ -1,5 +1,50 @@
 # M195 — Complete ten-record LAST body through native FSREAD
 
+## October 12, 2026 — CORRECTED M195 REAL CMS TARGET PASS
+
+The prior nine-character-label error was corrected,
+uploaded and actually reassembled successfully. The
+new real z/VM 6.3 transcript includes:
+
+```text
+ASSEMBLE GITFL10
+ASSEMBLER (XF) DONE
+NO STATEMENTS FLAGGED IN THIS ASSEMBLY
+Ready; T=0.13/0.15 09:22:41
+GLOBAL TXTLIB PDPCLIB
+LOAD GITFL10 (NOAUTO NOMAP
+GENMOD GITFL10
+GITFLP G LAST
+M195 DIRECT LAST COMPLETE BODY PROBE BEGIN
+M195 LAST FSREAD COMPLETE BODY BEGIN
+M195 LAST HEADER RETURNED
+M195 LAST HEADER PASS
+M195 LAST TEN BODY READS BEGIN
+M195 LAST TEN BODY RECORDS HEX PASS
+M195 READ ONLY COMPLETE BODY RECORDS PASS
+M195 COMPLETE BODY GATE PASS G LAST
+Ready; T=0.01/0.01 09:22:59
+```
+
+**M195 is REAL CMS TARGET PASS** for the complete
+physical header-plus-ten-body-record sequence of the
+final staged object. The 289–320 decoded byte length
+and hexadecimal content are validated. The original
+G stage/index were not changed by the M195 read-only
+module. This result does **not** calculate Git SHA1
+or compare the object's complete stored OID. The
+supplied transcript does not contain a post-run
+`QUERY FILEDEF`, so FILEDEF cleanup is not separately
+established.
+
+M196 (index-only object type/size/OID/record geometry)
+is the next independent CMS gate; after its target
+PASS and a native M197 module build, M198 can test a
+new read-only FSREAD-to-A-scratch bridge and complete
+SHA1 authentication. See `docs/M198_FSREAD_SHA_BRIDGE.md`.
+
+---
+
 ## October 12, 2026 — REAL CMS ASSEMBLY RC8 / FIXED SOURCE
 
 Actual CMS operator output:

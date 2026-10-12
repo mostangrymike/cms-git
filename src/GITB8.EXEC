@@ -1,0 +1,72 @@
+/* M198: one-run LAST FSREAD to NEW A-only scratch and M197 SHA1. */
+address cms
+parse upper arg fm which oid extra
+oid=translate(oid)
+if fm\='G' | which\='LAST' | extra\='' then do
+ say 'Usage: GITB8 G LAST expected-40-hex-oid'
+ exit 4
+end
+if length(oid)\=40 | verify(oid,'0123456789ABCDEF')\=0 then exit 4
+drop d.
+d.0=0
+'PIPE CMS QUERY DISK G | STEM d.'
+if rc\=0 then exit 8
+ok=0
+do i=1 to d.0
+ if word(d.i,3)='G' & word(d.i,7)='4096' then ok=ok+1
+end
+if ok\=1 then do
+ say 'M198 G DISK NOT ACCESSED 4K'
+ exit 8
+end
+'STATE M173NET STAGE G'
+if rc\=0 then exit 8
+'STATE M174NET INDEX G'
+if rc\=0 then exit 8
+'STATE GITBX8 MODULE A'
+if rc\=0 then exit 8
+'STATE GITVO7M MODULE A'
+if rc\=0 then exit 8
+'STATE GITVO7 EXEC A'
+if rc\=0 then exit 8
+'STATE GITVRAW DATA A'
+if rc=0 then do
+ say 'M198 GITVRAW DATA A EXISTS - REFUSE OVERWRITE'
+ exit 8
+end
+if rc\=28 then do
+ say 'M198 SCRATCH EXISTENCE CHECK UNKNOWN RC' rc
+ exit 8
+end
+drop f.
+f.0=0
+'PIPE CMS QUERY FILEDEF | STEM f.'
+if rc\=0 then exit 8
+do i=1 to f.0
+ if translate(word(f.i,1))='OBJIN' then do
+  say 'M198 CALLER OBJIN FILEDEF CONFLICT'
+  exit 8
+ end
+end
+say 'M198 SOURCE FSREAD TO NEW SCRATCH BEGIN'
+'GITBX8'
+readrc=rc
+if readrc\=0 then do
+ say 'M198 NATIVE SCRATCH GATE FAIL RC' readrc
+ say 'M198 DO NOT TRUST POSSIBLE PARTIAL SCRATCH'
+ exit 8
+end
+'STATE GITVRAW DATA A'
+if rc\=0 then do
+ say 'M198 NATIVE SCRATCH FILE ABSENT'
+ exit 8
+end
+say 'M198 VERIFIED SHA1 CHECK BEGIN'
+'GITVO7 7736' oid
+hashrc=rc
+if hashrc\=0 then do
+ say 'M198 FULL GIT SHA1 GATE FAIL RC' hashrc
+ exit 8
+end
+say 'M198 NATIVE FSREAD FULL OID GATE PASS G LAST'
+exit 0

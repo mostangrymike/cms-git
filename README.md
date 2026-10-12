@@ -1,5 +1,79 @@
 # IBM Sandbox
 
+## M198 — read-only FSREAD into NEW A scratch + full SHA1 (HOST-ONLY)
+
+After a corrected clean `ASSEMBLE GITFL10` on real
+z/VM 6.3 CMS, **M195 PASSED** at 09:22 on
+October 12, 2026: full header plus ten body
+records of final object 7736, valid hex/width,
+0.01s elapsed. SHA1 remains unverified; no
+post-run FILEDEF output was supplied.
+
+M198 adds separate `GITBX8.ASSEMBLE` and
+`GITB8.EXEC`. The assembler reads all eleven
+absolute CMS records of the last object into
+memory first, validates the exact body layout,
+and **closes original G stage before any output**.
+It then uses `FSOPEN OPENTYP=NEW` for
+`GITVRAW DATA A1`: unlike REPLACE, this
+refuses to overwrite an existing scratch.
+It writes only that new disposable A file,
+never the original stage or index.
+
+The wrapper requires the actual 40-hex last
+object OID from a successful M196 index plan,
+refuses a pre-existing scratch file, invokes
+native `GITBX8`, and requires the existing M197
+`GITVO7` complete SHA1/OID verification before
+reporting any full M198 PASS. On error it leaves
+scratch alone for inspection instead of blindly
+erasing it.
+
+**M198 is host-only pending real CMS assembly
+and runtime; do not run before M196 real CMS
+index plan PASS and M197 module build.**
+See `docs/M198_FSREAD_SHA_BRIDGE.md`.
+
+The next immediate CMS batch (if already
+uploaded) is **M196 only**:
+
+```text
+QUERY FILEDEF
+STATE GITRP6M C A
+CMSCLNK GITRP6M PLAIN
+STATE GITRP6M MODULE A
+GITRP6 G 7736 10
+QUERY FILEDEF
+```
+
+Retain the proven M188 complete authenticated
+closure baseline (205.04s CPU / 208.27s elapsed)
+and keep all original protected G files intact.
+
+---
+
+## M195 — real CMS complete LAST body PASS (Oct 12)
+
+Actual corrected target command produced:
+
+```text
+ASSEMBLE GITFL10
+ASSEMBLER (XF) DONE
+NO STATEMENTS FLAGGED IN THIS ASSEMBLY
+GITFLP G LAST
+M195 LAST HEADER PASS
+M195 LAST TEN BODY RECORDS HEX PASS
+M195 READ ONLY COMPLETE BODY RECORDS PASS
+M195 COMPLETE BODY GATE PASS G LAST
+Ready; T=0.01/0.01 09:22:59
+```
+
+M195 fully passed its stated header/body
+physical-record goal. It does not independently
+authenticate the Git OID. See `docs/M195_LAST_BODY.md`.
+
+---
+
 ## M195 assembly correction — October 12, 2026
 
 Actual CMS `ASSEMBLE GITFL10` returned **RC8** with
