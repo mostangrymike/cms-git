@@ -1,5 +1,59 @@
 # IBM Sandbox
 
+## M199 second real-CMS SHA PASS; M201 indexed automation (Oct 12)
+
+M199 authenticated **another independent object**
+on actual z/VM 6.3 CMS, without new assembler code:
+
+```text
+GITB9 G 3868 1969357 36 8AF5E45B1B905F781D0BFB8A547049494B8D07A2
+M199 BOUNDED ORIGINAL STAGE READ PASS
+M199 NEW A SCRATCH TRANSFER PASS
+M197 OBJECT 3868 TYPE 3 SIZE 1148 BODY RECORDS 36
+M197 VERIFIED OID 8AF5E45B1B905F781D0BFB8A547049494B8D07A2
+M197 READ ONLY FULL OBJECT SHA1 PASS
+M199 PARAMETERIZED FULL OID PASS G 3868
+Ready; T=0.02/0.03 11:47:45
+```
+
+The new verified `GITR199 DATA A1` has RECFM V,
+LRECL64, 37 records and one block. CMS `FILEDEF`
+afterward reported no user-defined definitions.
+M199 has now authenticated **two** widely
+separated physical objects: a 291-byte tree
+and this 1,148-byte blob.
+
+M201 is a new independent strict-C89 compact
+index planner `GITP21M` plus REXX orchestrator
+`GITP21`. It revalidates all 7,736 index
+objects and produces exactly one short
+index-derived object/record/count/type/size/OID
+line. This avoids copying the M196 output
+into M199 by hand. On success it delegates
+full SHA verification to the existing
+target-proven M199 reader.
+
+**M201 is still HOST-ONLY.** Because capturing
+C MODULE stdout through CMS PIPE is unverified,
+its first target gate is a `CHECK` mode that
+does NOT read G-stage records or create scratch:
+
+```text
+GITP21 G 3868 64 CHECK
+```
+
+Only after that safe capture test passes,
+use `GITP21 G 3868 64` for the automatic
+end-to-end SHA trial. The currently present
+verified `GITR199 DATA A1` should first be
+retired with the target-proven explicit
+`GITCLN SCRATCH` helper, after confirming
+the clean `FILEDEF` state. See
+`docs/M201_AUTOMATED_PLAN.md` for the
+full safe CMS runbook.
+
+---
+
 ## M199 target PASS and M200 cleanup — October 12, 2026
 
 M199 is **REAL CMS TARGET PASS**. `GITBX9`
