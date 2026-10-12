@@ -123,6 +123,10 @@ on:
       - 'src/GITBX8.ASSEMBLE'
       - 'src/GITB8.EXEC'
       - 'tests/test-m198-fsread-scratch.py'
+      - 'src/GITBX9.ASSEMBLE'
+      - 'src/GITB9.EXEC'
+      - 'tests/test-m199-record-read.py'
+      - 'docs/M199_BOUNDED_FSREAD.md'
       - 'docs/M198_FSREAD_SHA_BRIDGE.md'
       - 'docs/M197_NATIVE_SHA.md'
       - 'docs/M196_INDEX_OBJECT_PLAN.md'
@@ -325,6 +329,10 @@ on:
       - 'src/GITBX8.ASSEMBLE'
       - 'src/GITB8.EXEC'
       - 'tests/test-m198-fsread-scratch.py'
+      - 'src/GITBX9.ASSEMBLE'
+      - 'src/GITB9.EXEC'
+      - 'tests/test-m199-record-read.py'
+      - 'docs/M199_BOUNDED_FSREAD.md'
       - 'docs/M198_FSREAD_SHA_BRIDGE.md'
       - 'docs/M197_NATIVE_SHA.md'
       - 'docs/M196_INDEX_OBJECT_PLAN.md'
@@ -501,6 +509,8 @@ jobs:
         run: python3 tests/test-m197-native-object-sha.py
       - name: Check M198 NEW-only scratch FSREAD to Git SHA bridge
         run: python3 tests/test-m198-fsread-scratch.py
+      - name: Check M199 bounded parameterized FSREAD object reader
+        run: python3 tests/test-m199-record-read.py
       - name: Check M190 7736-object selective seek closure
         run: python3 tests/test-m190-scale-seek.py
       - name: Compare M190 indexed seek vs M188 two-pass host
