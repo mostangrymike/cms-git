@@ -73,8 +73,12 @@ with tempfile.TemporaryDirectory(prefix="m201-") as folder:
     for number in range(1,7737):
         size=(1148 if number==3868 else
               291 if number==7736 else
-              1+(number*17)%84)
-        body=bytes((number+i*19)%256 for i in range(size))
+              4+(number*17)%84)
+        # Every object carries a unique binary number prefix.
+        # Otherwise the old periodic fixture produced duplicate
+        # OIDs after the LCM of its length and byte-pattern cycles.
+        body=(number.to_bytes(4,"big")+
+              bytes((number+i*19)%256 for i in range(size-4)))
         plans[number]=(len(rows)+1,(size+31)//32,size,oid(body))
         rows.append("OBJ %d 3 %d %s"%(number,size,oid(body)))
         hx=body.hex().upper()
@@ -123,7 +127,7 @@ with tempfile.TemporaryDirectory(prefix="m201-") as folder:
     index.unlink()
     shutil.copy(wd/"dd:IDXOUT",index)
     assert hashlib.sha256(index.read_bytes()).hexdigest()==idxhash
-print("M201 7736-OBJECT INDEX PARITY AND COMPACT TU PLE PASS")
+print("M201 7736-OBJECT INDEX PARITY AND COMPACT TUPLE PASS")
 print("M201 FIRST MID LAST SHA/OID/RECORD COUNT HOST PASS")
 print("M201 FAIL-CLOSED BOUNDS/CORRUPTION AND READ-ONLY G PASS")
 print("M201 PIPE/STEM CMS CAPTURE AND FULL RUN NOT YET TARGET-TESTED")
