@@ -46,6 +46,16 @@ assert "C     4,=F'2048'" in code
 assert "CLC   RECSET(4),=C'OBJ '" in code
 assert "LENSET   DS    65F" in code
 assert "RECSET   DS    CL4160" in code
+# A 4,160-byte DS moves later labels beyond an S/370 12-bit
+# displacement from the single GITBX9 base register. Keep all
+# referenced constants, texts and FSCB before RECSET.
+huge=code.index("RECSET   DS    CL4160")
+assert code.index("OUTFSCB  FSCB")<huge
+assert code.index("START    DC")<huge
+assert code.index("OCERR    DC")<huge
+assert code.index("LENSET   DS    65F")<huge
+assert code.index("RECSET   DS    CL4160")<code.index(
+    "         END   GITBX9")
 assert "FSREAD 'M173NET STAGE G1',BUFFER=(4),BSIZE=64" in code
 assert "RECFM=V,RECNO=(5),NOREC=1,FORM=E" in code
 assert "FSCLOSE 'M173NET STAGE G1',ERROR=ICLERR" in code
