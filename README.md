@@ -1,5 +1,60 @@
 # IBM Sandbox
 
+## M203 real CMS PASS; M204 one-index batch optimization
+
+On October 12, 2026, actual z/VM 6.3 CMS completed
+M203 CHECK and RUN for objects 3868 and 7736.
+CHECK: 1.32s elapsed. RUN: 2.67s elapsed and
+both M197 canonical Git SHA-1 checks passed,
+with successful A1 scratch cleanup after each.
+Terminal: `M203 BOUNDED FULL SHA CLEAN PASS 2`.
+M203 is target-proven for **two selected objects**;
+batches of three through eight remain untested.
+No independent final FILEDEF/STATE results were supplied.
+
+M204 adds distinct `GITP24M.C` and `GITC24.EXEC`.
+It validates the complete original 7,736-object
+PIDX1 index **once** per batch instead of invoking
+M201 for every object twice. It emits one compact
+record/OID plan per selected object. Full RUN still
+uses the proven M199 direct CMS FSREAD and M197
+canonical SHA-1 verification for each and cleans
+only after each complete PASS. An index error or
+SHA failure stops without deleting diagnostic data.
+All original G files, earlier modules and the M188
+authenticated full-tree baseline remain unchanged.
+
+M204 is **host-tested only** until CMS compilation,
+CHECK, full SHA RUN and post-cleanup state pass.
+See `docs/M204_INDEX_ONCE_BATCH.md`. After merge:
+
+```sh
+git pull
+./cms-upload.sh GITP24M.C GITC24.EXEC
+```
+
+CMS first verify no scratch, then build
+`CMSCLNK GITP24M PLAIN`. Check only first:
+
+```text
+GITC24 G CHECK 64 3868 7736
+FILEDEF
+STATE GITR199 DATA A
+```
+
+Only on complete check pass and absent scratch:
+
+```text
+GITC24 G RUN 64 3868 7736
+FILEDEF
+STATE GITR199 DATA A
+```
+
+Compare actual elapsed with M203's 2.67s; do not
+assume a speedup before the real CMS result.
+
+---
+
 ## M202 z/VM PASS; M203 bounded batch
 
 October 12, 2026: real z/VM M202 CHECK passed for objects

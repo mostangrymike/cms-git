@@ -135,6 +135,10 @@ on:
       - 'tests/test-m202-dual-object-clean.py'
       - 'src/GITC23.EXEC'
       - 'tests/test-m203-bounded-batch.py'
+      - 'src/GITP24M.C'
+      - 'src/GITC24.EXEC'
+      - 'tests/test-m204-index-once-batch.py'
+      - 'docs/M204_INDEX_ONCE_BATCH.md'
       - 'docs/M203_BATCH_AUTH.md'
       - 'docs/M202_DUAL_AUTH_CLEAN.md'
       - 'docs/M201_AUTOMATED_PLAN.md'
@@ -354,6 +358,10 @@ on:
       - 'tests/test-m202-dual-object-clean.py'
       - 'src/GITC23.EXEC'
       - 'tests/test-m203-bounded-batch.py'
+      - 'src/GITP24M.C'
+      - 'src/GITC24.EXEC'
+      - 'tests/test-m204-index-once-batch.py'
+      - 'docs/M204_INDEX_ONCE_BATCH.md'
       - 'docs/M203_BATCH_AUTH.md'
       - 'docs/M202_DUAL_AUTH_CLEAN.md'
       - 'docs/M201_AUTOMATED_PLAN.md'
@@ -545,6 +553,8 @@ jobs:
         run: python3 tests/test-m202-dual-object-clean.py
       - name: Check M203 bounded batch Git SHA
         run: python3 tests/test-m203-bounded-batch.py
+      - name: Check M204 index-once batch
+        run: python3 tests/test-m204-index-once-batch.py
       - name: Check M190 7736-object selective seek closure
         run: python3 tests/test-m190-scale-seek.py
       - name: Compare M190 indexed seek vs M188 two-pass host

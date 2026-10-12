@@ -13232,3 +13232,106 @@ M188 complete authenticated 280-object closure baseline
 205.04s CPU / 208.27s elapsed remains preserved. Never
 format/reindex GIT600, mutate M173NET STAGE or M174NET
 INDEX, write-link PMAINT0141, or rerun M190 seek test.
+
+
+## 2026-10-12 13:31 — M203 REAL CMS BOUNDED BATCH PASS (2 OBJECTS)
+
+Operator submitted real z/VM CMS console output with some
+interleaving around terminal paging:
+```text
+GITC23 G CHECK 64 3868 7736
+M203 INDEX CHECK PASS 1 3868
+M203 INDEX CHECK PASS 2 7736
+M203 ALL INDEX CHECKS PASS 2
+M203 CHECK ONLY NO SCRATCH PASS 2
+Ready; T=1.29/1.32 13:30:33
+GITC23 G RUN 64 3868 7736
+M203 INDEX CHECK PASS 1 3868
+M203 INDEX CHECK PASS 2 7736
+M203 ALL INDEX CHECKS PASS 2
+M197 OBJECT 3868 TYPE 3 SIZE 1148 BODY RECORDS 36
+M197 VERIFIED OID 8AF5E45B1B905F781D0BFB8A547049494B8D07A2
+M197 READ ONLY FULL OBJECT SHA1 PASS
+M201 INDEX AUTOMATED FULL SHA PASS G 3868
+M203 FULL OBJECT SHA VERIFIED 1 3868
+M200 CLEANUP PASS SCRATCH
+M203 CLEAN VERIFIED 1 3868
+M197 OBJECT 7736 TYPE 2 SIZE 291 BODY RECORDS 10
+M197 VERIFIED OID 9069E154EB145C25D8E1A8D31F72252C53E6684A
+M197 READ ONLY FULL OBJECT SHA1 PASS
+M201 INDEX AUTOMATED FULL SHA PASS G 7736
+M203 FULL OBJECT SHA VERIFIED 2 7736
+M200 CLEANUP PASS SCRATCH
+M203 CLEAN VERIFIED 2 7736
+M203 BOUNDED FULL SHA CLEAN PASS 2
+Ready; T=2.58/2.67 13:31:15
+```
+
+M203 IS REAL CMS TARGET PASS FOR TWO distinct objects.
+M203 CHECK elapsed 1.32s; full two-object RUN elapsed
+2.67s with independently computed canonical SHA1
+matching original 7736-entry index for each. M200
+scratch cleanup succeeded after each, with M203
+internal STATE confirming absence. Because console
+output is interleaved, require actual PASS markers,
+rather than interpreting fragments as separate runs.
+Independent FILEDEF and STATE output after RUN
+were NOT provided. The 2..8 batch implementation is
+still target-unproven for more than two objects.
+G protected original stage/index were read-only.
+
+## M204 — ONE FULL PIDX1 INDEX VALIDATION PER BATCH (HOST ONLY)
+
+M203 CHECK and RUN call M201 repeatedly, recomputing
+the complete PIDX1 scan for each selected object.
+New isolated `src/GITP24M.C` performs one read-only
+validation of the complete original PIDX1 index,
+derives all record spans in one pass, checks 2..8
+selected object numbers and body bounds before
+printing any plans, then emits each compact P201
+record in the requested order. `src/GITC24.EXEC`
+checks original 4K G stage/index, active proven modules,
+A scratch absent and caller FILEDEF ownership;
+it binds only IDXIN for one PIPE C planner capture,
+clears IDXIN, validates exact count and every tuple,
+then CHECK mode returns without scratch creation.
+RUN mode invokes real-CMS-proven GITB9 for each
+object using prechecked tuple; independently complete
+M197 SHA1 is mandatory before the M200 exact A scratch
+cleanup. On mismatch or cleanup error, stop and
+retain any untrusted scratch. Separate host regression
+`tests/test-m204-index-once-batch.py` builds complete
+synthetic 7736-object index with strict C89 tests,
+checks 2/3/8-object plans, invalid bounds/corruption,
+no partial emitted success and original index immutability.
+No modification to any prior M196-M203 native/EXEC,
+M188 baseline, original stage or index. M204 is
+HOST-ONLY until real CMS target validation.
+
+NEXT after CI and merge: Mac src:
+```sh
+git pull
+./cms-upload.sh GITP24M.C GITC24.EXEC
+```
+CMS MAINT preflight FILEDEF and scratch state,
+build `CMSCLNK GITP24M PLAIN` (NO FLAGGED).
+CHECK only:
+```text
+GITC24 G CHECK 64 3868 7736
+FILEDEF
+STATE GITR199 DATA A
+```
+Expected exact tuples for 3868 (blob 1148/OID
+8AF5E45B... header1969357 body36) and 7736
+(tree291/OID9069E154... header3864789 body10);
+M204 INDEX ONCE ALL PLANS PASS 2 and M204 CHECK
+ONLY NO SCRATCH PASS 2. Only after CHECK success,
+`GITC24 G RUN 64 3868 7736`, followed by
+FILEDEF/STATE. Require separate full M197 SHA PASS,
+M204 FULL SHA VERIFIED and M204 SCRATCH CLEAN VERIFIED
+for both, terminal M204 ONE INDEX FULL SHA CLEAN PASS 2.
+Compare elapsed to M203 2.67s. Never claim speedup
+before actual target run. Preserve M188 complete
+authenticated 280-object closure 205.04 CPU /
+208.27 elapsed and do not reindex, format, mutate
+protected G, write-link PMAINT0141 or rerun M190.
