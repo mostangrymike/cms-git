@@ -1,5 +1,75 @@
 # IBM Sandbox
 
+## M204 REAL CMS PASS; M205 stratified eight-object SHA gate
+
+On October 12, 2026, actual z/VM 6.3 CMS
+successfully compiled `GITP24M` and validated the
+M204 one-index batch in CHECK mode (0.64s) and
+RUN mode (0.72s elapsed). Both originally
+indexed Git objects, 3868 (1148-byte blob)
+and 7736 (291-byte tree), passed complete M197
+canonical SHA-1; M200 cleanup passed after
+each object. Terminal result:
+`M204 ONE INDEX FULL SHA CLEAN PASS 2`.
+
+This is about **3.7 times faster than the same
+two objects under M203** (2.67s elapsed).
+It does not prove a faster complete reachable tree
+walk than the protected M188 208.27-second baseline.
+Final independent FILEDEF/STATE output after RUN
+was not supplied, although both M204 internal
+scratch cleanup checks passed.
+
+New M205 provides automatic, stratified selection
+across eight disjoint index regions rather than
+retesting only the same two already-known objects.
+`GITP25M.C` validates the original complete
+PIDX1 index once, then chooses one nonempty
+1–2048-byte object in each ordinal band whose
+body fits a user-specified 1–64 record bound.
+It never prints partial plans if a band has
+no eligible object.
+
+`GITC25.EXEC` validates every selected
+record span and OID before retrieving any stage
+data. RUN authenticates every new object with
+target-proven native M199 FSREAD and M197 SHA-1,
+then uses M200 cleanup **only after each success**.
+No original G data or proven modules are modified.
+
+**M205 is host-tested only pending real CMS**.
+See `docs/M205_STRATIFIED_AUTH.md`.
+
+After CI and merge, Mac `ibm-sandbox/src`:
+
+```sh
+git pull
+./cms-upload.sh GITP25M.C GITC25.EXEC
+```
+
+CMS: verify no scratch, compile
+`CMSCLNK GITP25M PLAIN`, then CHECK first:
+
+```text
+GITC25 G CHECK 64 8
+FILEDEF
+STATE GITR199 DATA A
+```
+
+Only on CHECK success and absent scratch:
+
+```text
+GITC25 G RUN 64 8
+FILEDEF
+STATE GITR199 DATA A
+```
+
+Require eight independent M197 SHA-1 PASS records,
+eight M205 post-SHA scratch cleanup confirmations,
+and terminal `M205 STRATIFIED FULL SHA CLEAN PASS 8`.
+
+---
+
 ## M203 real CMS PASS; M204 one-index batch optimization
 
 On October 12, 2026, actual z/VM 6.3 CMS completed
