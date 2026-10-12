@@ -15,6 +15,32 @@ src = NATIVE.read_text()
 rex = WRAPPER.read_text()
 assert max(map(len, src.splitlines())) <= 80
 assert max(map(len, rex.splitlines())) <= 80
+# Regression for CMS EBCDIC: the canonical bytes hashed by Git are
+# ASCII regardless of the compiler's execution character set.
+# Host SHA tests alone missed this when native literals were ASCII.
+import re
+hexblock = src.split("static const unsigned char git_type[5][7]=",1)[1]
+hexblock = hexblock.split("};",1)[0]
+rows = re.findall(r"\\{([^{}]+)\\}", hexblock)
+assert len(rows) == 5, rows
+actual = [bytes(int(token.strip(),0) for token in row.split(",")
+                if token.strip()) for row in rows]
+assert actual == [bytes([0]),
+                  b"commit"+bytes([0]),
+                  b"tree"+bytes([0,0,0]),
+                  b"blob"+bytes([0,0,0]),
+                  b"tag"+bytes([0,0,0,0])]
+fn = src.split("static int object_sha(",1)[1].split(
+     "static int nib(",1)[0]
+assert "head[i++]=0x20;" in fn
+assert "0x30UL+rem%10UL" in fn
+assert "head[i++]=0;" in fn
+assert "const char *name" not in fn
+assert "kind[type]" not in fn
+for name in ("commit","tree","blob","tag"):
+    ascii_head = (name+" 291").encode("ascii")+bytes([0])
+    native_head = (name+" 291").encode("cp037")+bytes([0])
+    assert ascii_head != native_head
 assert 'fopen("dd:OBJIN","r")' in src
 assert 'fopen("dd:STGIN"' not in src
 assert 'fopen("dd:IDXIN"' not in src
@@ -79,6 +105,7 @@ with tempfile.TemporaryDirectory(prefix="m197-") as dirname:
         (8, 1, "commit", b"tree " + b"a" * 40 + b"\n\nTest\n"),
         (9, 2, "tree", b"100644 foo\x00" + bytes(range(20))),
         (10, 4, "tag", b"object " + b"b" * 40 + b"\n"),
+        (11, 2, "tree", bytes((x*37)%256 for x in range(291))),
     ]
     for num, typ, kind, data in fixtures:
         lines = make_rows(num, typ, kind, data)
