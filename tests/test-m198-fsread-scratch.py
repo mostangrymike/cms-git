@@ -66,7 +66,7 @@ for part in (
     "M198 DO NOT TRUST POSSIBLE PARTIAL SCRATCH",
     "'GITBX8'", "'GITVO7 7736' oid",
     "M198 NATIVE FSREAD FULL OID GATE PASS G LAST",
-    "'PIPE CMS QUERY FILEDEF | STEM f.'",
+    "'PIPE CMS FILEDEF | STEM f.'",
 ):
     assert part in EXEC,part
 for forbidden in ("ERASE ", "FORMAT ", "FILEDEF STGIN",
