@@ -40,6 +40,8 @@ for needed in (
     "if cnt\\=trunc((size+31)/32) then exit 8",
     "'GITB9 G' pn hdr cnt oid",
     "M201 INDEX AUTOMATED FULL SHA PASS G",
+    "M201 INDEX ONLY CHECK PASS G",
+    "if mode='CHECK' then do",
     "M201 SCRATCH CREATED DURING PLAN - REFUSE"
 ):
     assert needed in wrap,needed
@@ -89,6 +91,10 @@ with tempfile.TemporaryDirectory(prefix="m201-") as folder:
     shutil.copy(wd/"dd:IDXOUT",index)
     orig=hashlib.sha256(stage.read_bytes()).hexdigest()
     idxhash=hashlib.sha256(index.read_bytes()).hexdigest()
+    # The fixture must satisfy GitPIDX's unique OID requirement.
+    assert len(set(plan[3] for plan in plans.values()))==7736
+    assert wrap.index("if mode='CHECK' then do") < wrap.index(
+        "'GITB9 G' pn hdr cnt oid")
     for number in (1,3868,7736):
         expected_header,expected_count,size,sha=plans[number]
         result=call(planner,wd,"PLAN",len(rows),number,64)
