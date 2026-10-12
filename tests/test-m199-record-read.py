@@ -76,7 +76,7 @@ for token in (
     "'STATE GITR199 DATA A'", "'STATE GITBX9 MODULE A'",
     "'STATE GITVO7M MODULE A'", "'GITBX9'",
     "queue head", "queue count",
-    "'PIPE CMS QUERY FILEDEF | STEM f.'",
+    "'PIPE CMS FILEDEF | STEM f.'",
     "'FILEDEF OBJIN DISK GITR199 DATA A'",
     "'GITVO7M VERIFY' obj oid",
     "'FILEDEF OBJIN CLEAR'",
