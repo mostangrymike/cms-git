@@ -1,5 +1,53 @@
 # IBM Sandbox
 
+## M195 assembly correction — October 12, 2026
+
+Actual CMS `ASSEMBLE GITFL10` returned **RC8** with
+`IFO236` and `IFO016`: the label `EVENCHECK` was
+nine characters long, exceeding the eight-character
+IBM assembler symbol limit. **M195 has not passed
+CMS assembly or runtime validation.** The isolated
+source now uses seven-character `EVENCHK` at
+both the branch operand and label definition,
+with corrected opcode alignment.
+
+The updated `tests/test-m195-last-body.py`
+now checks all labels in M193/M194/M195 assembler
+sources, not merely 72-column source width.
+This closes the host-test gap that permitted
+the error into the earlier merged source.
+
+After the corrective PR merges, from Mac `src`:
+
+```sh
+git pull
+./cms-upload.sh GITFL10.ASSEMBLE
+```
+
+Then CMS MAINT:
+
+```text
+GLOBAL MACLIB OSMACRO DMSGPI PDPCLIB
+ASSEMBLE GITFL10
+```
+
+Only if **NO STATEMENTS FLAGGED**:
+
+```text
+GLOBAL TXTLIB PDPCLIB
+LOAD GITFL10 (NOAUTO NOMAP
+GENMOD GITFL10
+GITFLP G LAST
+QUERY FILEDEF
+```
+
+Preserve original G stage/index and prior
+proven CMS modules. Keep M196 target and M197
+integration gates distinct. See
+`docs/M195_LAST_BODY.md`.
+
+---
+
 ## M197 — full canonical Git object SHA1 core (HOST-ONLY)
 
 New separate `GITVO7M.C` validates a complete
