@@ -111,7 +111,7 @@ def valid(records,expected):
 with tempfile.TemporaryDirectory(prefix="m199-") as dn:
     d=Path(dn)
     native=d/"verify"
-    subprocess.run(["gcc","-std=c89","-Wall","-Wextra","-Werror",
+    subprocess.run(["gcc","-x","c","-std=c89","-Wall","-Wextra","-Werror",
                     str(root/"src/GITVO7M.C"),"-o",str(native)],
                    check=True)
     src=d/"readonly-stage"
