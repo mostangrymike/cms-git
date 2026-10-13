@@ -42,7 +42,6 @@ on:
       - 'src/M155CHK.EXEC'
       - 'tests/check-m155-compact.sh'
       - 'src/M156CHK.EXEC'
-      - 'tests/test-presence-history.py'
       - 'src/M157CHK.EXEC'
       - 'src/M158CHK.EXEC'
       - 'src/M159CHK.EXEC'
@@ -53,13 +52,11 @@ on:
       - 'src/GITIMP.EXEC'
       - 'src/GITWT.EXEC'
       - 'src/M164CHK.EXEC'
-      - 'tests/test-porcelain-model.py'
       - 'src/M165CHK.EXEC'
       - 'src/GITUPD.EXEC'
       - 'src/M166CHK.EXEC'
       - 'src/M167CHK.EXEC'
       - 'src/M168CHK.EXEC'
-      - 'tests/test-git-integration.py'
       - 'src/GITFETCH.EXEC'
       - 'src/M169CHK.EXEC'
       - 'src/GITPOST.EXEC'
@@ -235,7 +232,6 @@ on:
       - 'src/M155CHK.EXEC'
       - 'tests/check-m155-compact.sh'
       - 'src/M156CHK.EXEC'
-      - 'tests/test-presence-history.py'
       - 'src/M157CHK.EXEC'
       - 'src/M158CHK.EXEC'
       - 'src/M159CHK.EXEC'
@@ -246,13 +242,11 @@ on:
       - 'src/GITIMP.EXEC'
       - 'src/GITWT.EXEC'
       - 'src/M164CHK.EXEC'
-      - 'tests/test-porcelain-model.py'
       - 'src/M165CHK.EXEC'
       - 'src/GITUPD.EXEC'
       - 'src/M166CHK.EXEC'
       - 'src/M167CHK.EXEC'
       - 'src/M168CHK.EXEC'
-      - 'tests/test-git-integration.py'
       - 'src/GITFETCH.EXEC'
       - 'src/M169CHK.EXEC'
       - 'src/GITPOST.EXEC'
@@ -411,37 +405,37 @@ jobs:
       - name: Check compact CMS target gate source
         run: sh tests/check-m155-compact.sh
       - name: Check M156 authenticated presence duration
-        run: python3 tests/test-presence-history.py M156
+        run: python3 tests/test-m203-bounded-batch.py PHIST M156
       - name: Check M157 authenticated current presence age
-        run: python3 tests/test-presence-history.py M157
+        run: python3 tests/test-m203-bounded-batch.py PHIST M157
       - name: Check M158 authenticated presence time
-        run: python3 tests/test-presence-history.py M158
+        run: python3 tests/test-m203-bounded-batch.py PHIST M158
       - name: Check M159 authenticated presence ratio
-        run: python3 tests/test-presence-history.py M159
+        run: python3 tests/test-m203-bounded-batch.py PHIST M159
       - name: Check M160 authenticated presence coverage
-        run: python3 tests/test-presence-history.py M160
+        run: python3 tests/test-m203-bounded-batch.py PHIST M160
       - name: Check M161 authenticated presence frontier
-        run: python3 tests/test-presence-history.py M161
+        run: python3 tests/test-m203-bounded-batch.py PHIST M161
       - name: Check M162 authenticated frontier distance
-        run: python3 tests/test-presence-history.py M162
+        run: python3 tests/test-m203-bounded-batch.py PHIST M162
       - name: Check M163 authenticated complete presence horizon
-        run: python3 tests/test-presence-history.py M163
+        run: python3 tests/test-m203-bounded-batch.py PHIST M163
       - name: Check M164 practical CMS worktree porcelain
-        run: python3 tests/test-porcelain-model.py M164
+        run: python3 tests/test-m203-bounded-batch.py PMODEL M164
       - name: Check M165 staged commit object
-        run: python3 tests/test-porcelain-model.py M165
+        run: python3 tests/test-m203-bounded-batch.py PMODEL M165
       - name: Check M166 modern REF2 compare-and-swap
-        run: python3 tests/test-porcelain-model.py M166
+        run: python3 tests/test-m203-bounded-batch.py PMODEL M166
       - name: Check M167 integrated commit to ref
-        run: python3 tests/test-porcelain-model.py M167
+        run: python3 tests/test-m203-bounded-batch.py PMODEL M167
       - name: Check M168 current branch reconciliation
-        run: python3 tests/test-git-integration.py M168
+        run: python3 tests/test-m203-bounded-batch.py GINTEG M168
       - name: Check M169 generalized fetch discovery
-        run: python3 tests/test-git-integration.py M169
+        run: python3 tests/test-m203-bounded-batch.py GINTEG M169
       - name: Check M170 dynamic upload pack POST
-        run: python3 tests/test-git-integration.py M170
+        run: python3 tests/test-m203-bounded-batch.py GINTEG M170
       - name: Check M171 generalized PACK store
-        run: python3 tests/test-git-integration.py M171
+        run: python3 tests/test-m203-bounded-batch.py GINTEG M171
       - name: Check M172 generalized PACK census
         run: python3 tests/test-m203-bounded-batch.py NDATA M172-MAIN
       - name: Check M173 generalized OFS PACK import
