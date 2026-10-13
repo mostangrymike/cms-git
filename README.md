@@ -2090,3 +2090,16 @@ backup copy of `GIT9CTX.EXEC`, but its active tracked source stays live.
 GitHub Actions recreates the six absent helper sources and verifies all
 seven archived entries exactly before running host regressions. These
 repository operations do not modify CMS A or G disks.
+
+
+## Preserved M6 protocol helper sources
+
+`archive/M6_PROTOCOL.json` now preserves complete original sources for
+`GITACK.EXEC`, `GITADV.EXEC`, and `GITZLIB.EXEC`. **These three files
+remain tracked in `src/`** while their caller dependencies are audited.
+CI checks exact archived-source parity and can restore missing copies.
+An archive backup does not establish that a CMS helper is unused; do
+not remove the live EXECs until their callers and target behavior are
+verified. To restore an absent copy from the Mac project root, run
+`python3 scripts/restore-cms-exec.py GITACK.EXEC`; this refuses to
+overwrite existing files.
