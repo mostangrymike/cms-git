@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Static fail-closed guards for optional destructive CMS A cleanup."""
+import json
 import re
 from pathlib import Path
 
@@ -27,8 +28,21 @@ M13NTEST M13POUT M13PREP M13PSTG M13SFAIL M13WALK
 oldtests = re.findall(r"f\.n='([A-Z0-9]+) EXEC'",src)
 assert len(oldtests) == len(expected_oldtests) == 29
 assert set(oldtests) == expected_oldtests
+archives = {}
+for path in sorted((root / "archive").glob("*_EXEC.json")):
+    data = json.loads(path.read_text())
+    assert data["format"] == "cms-exec-archive-v1"
+    for filename, source in data["files"].items():
+        assert filename not in archives,filename
+        assert filename.endswith(".EXEC") and 1 <= len(filename[:-5]) <= 8
+        assert isinstance(source,str) and source
+        archives[filename] = source
 for name in oldtests:
-    assert (root / "src" / (name + ".EXEC")).is_file(),name
+    filename = name + ".EXEC"
+    original = root / "src" / filename
+    assert original.is_file() or filename in archives,name
+    if original.is_file() and filename in archives:
+        assert original.read_text() == archives[filename],name
 assert "M13AAREF" not in oldtests and "M13ABREF" not in oldtests
 assert "(batch\\='LISTINGS' & batch\\='EXPERIMENTS' &," in src
 assert "batch\\='OLDTESTS'" in src
