@@ -5,21 +5,20 @@ Scans complete tracked src/, scripts/, tests/, and workflow source for
 literal command references. Reports references to archived names; does not
 assume a reference is a runtime dependency or automatically delete code.
 """
-import json
 import re
 import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-archives = {}
-for p in sorted((ROOT / "archive").glob("*.json")):
-    data = json.loads(p.read_text())
-    assert data["format"] == "cms-exec-archive-v1", p
-    for name, body in data["files"].items():
-        assert name not in archives, (p, name)
-        assert re.fullmatch(r"[A-Z0-9]{1,8}\.EXEC", name), name
-        assert isinstance(body, str) and body, name
-        archives[name] = body
+# Reuse the single archive loader and strict inventory contract used by CI.
+# Importing the tool does not invoke its write-capable main().
+import importlib.util
+archive_spec = importlib.util.spec_from_file_location(
+    "cms_archive_restore", ROOT / "scripts/restore-cms-exec.py")
+archive_tool = importlib.util.module_from_spec(archive_spec)
+archive_spec.loader.exec_module(archive_tool)
+archives = archive_tool.load()
+assert len(archives) == 99, ("ARCHIVE INVENTORY COUNT", len(archives))
 
 # A live CMS source that is also archived must not silently drift.
 # GIT9CTX remains a required live dependency of the production PACK walker.
