@@ -4,6 +4,7 @@
 Usage:
   python3 scripts/restore-cms-exec.py M9PCONS.EXEC
   python3 scripts/restore-cms-exec.py ALL
+  python3 scripts/restore-cms-exec.py MISSING
 """
 import json
 import re
@@ -30,8 +31,25 @@ def load():
 def main():
     if len(sys.argv) != 2:
         raise SystemExit("Usage: python3 scripts/restore-cms-exec.py NAME.EXEC|ALL|MISSING")
-    files = load()
     arg = sys.argv[1].upper()
+    # The archive inventory must remain complete. A deleted bundle must not
+    # silently turn its formerly restorable EXECs into missing coverage.
+    expected = {
+        "M3-M5_EXEC.json": 15,
+        "M6-M9_EXEC.json": 48,
+        "M10-M13_EXEC.json": 23,
+        "M9_WALKERS.json": 3,
+        "M6_PROTOCOL.json": 3,
+        "M9-M12_TRANSPORT.json": 7,
+    }
+    actual = {p.name for p in ARCHIVES.glob("*.json")}
+    if actual != set(expected):
+        raise SystemExit("Archive inventory mismatch: " + str(sorted(actual)))
+    for name, count in expected.items():
+        source = json.loads((ARCHIVES / name).read_text(encoding="utf-8"))
+        if source.get("format") != "cms-exec-archive-v1" or len(source["files"]) != count:
+            raise SystemExit("Archive count or format mismatch: " + name)
+    files = load()
     if arg == "MISSING":
         # Validate all existing files before creating any: fail closed on
         # source drift rather than masking changes with archive recovery.
