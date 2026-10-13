@@ -48,6 +48,25 @@ tracked_names = {p.decode() for p in tracked.split(b"\0") if p}
 for name in (*protected, "GIT9CTX.EXEC"):
     assert "src/" + name in tracked_names, ("LIVE SOURCE NOT TRACKED", name)
 print("LIVE PRODUCTION HELPER GIT TRACKING PASS")
+
+# Historical native wrappers are reproducible by the guarded generator.
+# Keep exactly one maintained source representation, not ten tracked copies.
+# The workflow regenerates these before the native host source checks.
+import importlib.util
+spec = importlib.util.spec_from_file_location(
+    "ph_restore", ROOT / "scripts/restore-ph-wrappers.py")
+generator = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(generator)
+generated = set(generator.SPECS) | set(generator.EXTRA_SPECS) | set(generator.SPECIAL_SPECS)
+assert len(generated) == 10, ("WRAPPER INVENTORY CHANGED", len(generated))
+for name in sorted(generated):
+    assert "src/" + name + ".EXEC" not in tracked_names, (
+        "DUPLICATE TRACKED GENERATED EXEC", name)
+    original = ROOT / "src" / (name + ".EXEC")
+    assert original.is_file(), ("MISSING GENERATED WRAPPER", name)
+    assert original.read_text() == generator.generate(name), (
+        "GENERATED WRAPPER DRIFT", name)
+print("TEN HISTORICAL WRAPPERS SINGLE SOURCE PASS")
 paths = [ROOT / p for p in sorted(tracked_names)]
 sources = [p for p in paths if p.suffix in
            (".EXEC", ".C", ".ASSEMBLE", ".sh", ".py", ".yml")
