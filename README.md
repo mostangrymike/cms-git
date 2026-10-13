@@ -1356,7 +1356,7 @@ No stage/index/PACK or older module changed.
 
 Without pausing for the pending M182/M183 real CMS
 measurements, M184 adds a **host-only comparative
-benchmark**, `tests/bench-m184-hex-selective.py`.
+benchmark**, `tests/bench-native-stage.py M184`.
 It strictly compiles all three native C89 readers
 M181, M182 and M183, builds a disposable canonical
 stage/index (15,360,000-byte unreachable blob),
