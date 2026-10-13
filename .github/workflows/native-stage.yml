@@ -28,15 +28,11 @@ on:
       - 'src/M155CHK.EXEC'
       - 'tests/check-m155-compact.sh'
       - 'src/M156CHK.EXEC'
-      - 'tests/test-m156-presence-duration.py'
+      - 'tests/test-presence-history.py'
       - 'src/M157CHK.EXEC'
-      - 'tests/test-m157-presence-age.py'
       - 'src/M158CHK.EXEC'
-      - 'tests/test-m158-presence-time.py'
       - 'src/M159CHK.EXEC'
-      - 'tests/test-m159-presence-ratio.py'
       - 'src/M160CHK.EXEC'
-      - 'tests/test-m160-presence-coverage.py'
       - 'src/M161CHK.EXEC'
       - 'tests/test-m161-presence-frontier.py'
       - 'src/M162CHK.EXEC'
@@ -256,15 +252,11 @@ on:
       - 'src/M155CHK.EXEC'
       - 'tests/check-m155-compact.sh'
       - 'src/M156CHK.EXEC'
-      - 'tests/test-m156-presence-duration.py'
+      - 'tests/test-presence-history.py'
       - 'src/M157CHK.EXEC'
-      - 'tests/test-m157-presence-age.py'
       - 'src/M158CHK.EXEC'
-      - 'tests/test-m158-presence-time.py'
       - 'src/M159CHK.EXEC'
-      - 'tests/test-m159-presence-ratio.py'
       - 'src/M160CHK.EXEC'
-      - 'tests/test-m160-presence-coverage.py'
       - 'src/M161CHK.EXEC'
       - 'tests/test-m161-presence-frontier.py'
       - 'src/M162CHK.EXEC'
@@ -476,15 +468,15 @@ jobs:
       - name: Check compact CMS target gate source
         run: sh tests/check-m155-compact.sh
       - name: Check M156 authenticated presence duration
-        run: python3 tests/test-m156-presence-duration.py
+        run: python3 tests/test-presence-history.py M156
       - name: Check M157 authenticated current presence age
-        run: python3 tests/test-m157-presence-age.py
+        run: python3 tests/test-presence-history.py M157
       - name: Check M158 authenticated presence time
-        run: python3 tests/test-m158-presence-time.py
+        run: python3 tests/test-presence-history.py M158
       - name: Check M159 authenticated presence ratio
-        run: python3 tests/test-m159-presence-ratio.py
+        run: python3 tests/test-presence-history.py M159
       - name: Check M160 authenticated presence coverage
-        run: python3 tests/test-m160-presence-coverage.py
+        run: python3 tests/test-presence-history.py M160
       - name: Check M161 authenticated presence frontier
         run: python3 tests/test-m161-presence-frontier.py
       - name: Check M162 authenticated frontier distance
