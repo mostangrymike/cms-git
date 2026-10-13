@@ -54,7 +54,7 @@ def audit():
     if len(files) != 99:
         raise RuntimeError("Archive count mismatch")
     tracked = subprocess.check_output(["git", "ls-files", "-z"], cwd=ROOT)
-    paths = {p.decode() for p in tracked.split(b"\\0") if p}
+    paths = {p.decode() for p in tracked.split(b"\0") if p}
     for name, source in files.items():
         live = ROOT / "src" / name
         if live.exists() and live.read_text(encoding="utf-8") != source:
