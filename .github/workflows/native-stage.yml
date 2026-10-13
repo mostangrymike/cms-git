@@ -439,6 +439,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Restore historical native tree wrappers
+        run: python3 scripts/restore-ph-wrappers.py ALL
       - name: Test CP-to-Hercules read-only minidisk correlation
         run: bash tests/test-map-cms-minidisk.sh
       - name: Test read-only Hercules config inventory
