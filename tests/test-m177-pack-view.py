@@ -9,7 +9,13 @@ import re
 
 root = Path(__file__).resolve().parents[1]
 src = (root / "src/GITPVIEW.EXEC").read_text()
-plan = (root / "docs/M177_READONLY_PACK_ACCESS_PLAN.md").read_text()
+archive = (root / "docs/M177-M178_HISTORY.md").read_text()
+def milestone_note(name):
+    heading = "## Original docs/" + name + "\n\n"
+    assert archive.count(heading) == 1, name
+    return archive.split(heading, 1)[1].split("\n---\n", 1)[0]
+
+plan = milestone_note("M177_READONLY_PACK_ACCESS_PLAN.md")
 
 assert len("GITPVIEW") <= 8
 assert max(map(len, src.splitlines())) <= 80
