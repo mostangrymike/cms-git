@@ -1,5 +1,66 @@
 # M206 — Stratified 16-/32-band SHA verification on z/VM CMS
 
+## October 13, 2026 — M206 16/32 real CMS targets PASS
+
+Real operator validation on IBM z/VM 6.3 / CMS:
+
+```text
+CMSCLNK GITP26M PLAIN
+ASSEMBLER (XF) DONE
+NO STATEMENTS FLAGGED IN THIS ASSEMBLY
+CMSCLNK: built GITP26M MODULE mode PLAIN
+GITC26 G CHECK 64 16
+M206 STRATIFIED INDEX PLANS PASS 16
+M206 SAMPLE CHECK NO SCRATCH PASS 16
+Ready; T=0.64/0.66 08:30:06
+GITC26 G RUN 64 16
+M206 STRATIFIED FULL SHA CLEAN PASS 16
+Ready; T=1.13/1.43 08:32:05
+GITC26 G CHECK 64 32
+M206 STRATIFIED INDEX PLANS PASS 32
+M206 SAMPLE CHECK NO SCRATCH PASS 32
+Ready; T=0.65/0.70 08:55:38
+GITC26 G RUN 64 32
+M206 SCRATCH CLEAN VERIFIED 32 7495
+M206 STRATIFIED FULL SHA CLEAN PASS 32
+Ready; T=1.42/2.06 08:56:27
+```
+
+**Both 16-object and 32-object CHECK/RUN gates are REAL CMS
+TARGET PASS**, including native M199 FSREAD, complete M197
+canonical Git SHA-1/OID comparisons and M200 exact A1 scratch
+cleanup. The 32-object result is the maximum currently
+implemented by the original M206. The 32-object operator trace
+supplied only the final PASS markers (not all individual lines);
+do not invent its intervening OIDs, types or record coordinates.
+The full 16-object trace was interleaved by 3270 paging but
+contained successful per-object hashes and cleanup.
+
+Performance from actual CMS READY CPU/elapsed:
+- 16-object CHECK: 0.64 / 0.66 seconds.
+- 16-object full RUN: 1.13 / 1.43 seconds.
+- 32-object CHECK: 0.65 / 0.70 seconds.
+- 32-object full RUN: 1.42 / 2.06 seconds.
+
+No new independent after-RUN `FILEDEF` or `STATE` was
+provided. Internal scratch absence verification was required
+for each successful object; the next operator preflight should
+still confirm the scratch files are absent. This demonstrates
+sampled authentication in 32 index regions, **not** an
+authenticated traversal of all reachable Git history. M188's
+280-object verified closure baseline (208.27 seconds elapsed)
+remains protected.
+
+**New user requirement:** edit the existing
+`src/GITP26M.C` and `src/GITC26.EXEC` in subsequent
+milestones instead of creating more `GITP27M`/`GITC27`
+files. Keep target-proven modules until safe replacement,
+using GitHub history for source rollback. An unmerged
+M207 prototype branch with new filenames is intentionally
+not deployed or merged.
+
+---
+
 ## October 12, 2026 — M205 real target PASS (8 indexed objects)
 
 Actual z/VM 6.3 CMS results:
