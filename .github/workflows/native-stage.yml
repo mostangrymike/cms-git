@@ -12,6 +12,7 @@ on:
       - 'src/ACLEAN.EXEC'
       - 'archive/M3-M5_EXEC.json'
       - 'archive/M6-M9_EXEC.json'
+      - 'archive/M10-M13_EXEC.json'
       - '.github/workflows/native-stage.yml'
       - 'scripts/restore-cms-exec.py'
       - 'tests/test-aclean-manifest.py'
@@ -226,6 +227,7 @@ on:
       - 'src/ACLEAN.EXEC'
       - 'archive/M3-M5_EXEC.json'
       - 'archive/M6-M9_EXEC.json'
+      - 'archive/M10-M13_EXEC.json'
       - '.github/workflows/native-stage.yml'
       - 'scripts/restore-cms-exec.py'
       - 'tests/test-aclean-manifest.py'
@@ -586,6 +588,9 @@ jobs:
           python3 scripts/restore-cms-exec.py M9PCONS.EXEC
           python3 -c 'import json,pathlib; a=json.loads(pathlib.Path("archive/M6-M9_EXEC.json").read_text()); assert len(a["files"])==48; assert pathlib.Path("src/M9PCONS.EXEC").read_text()==a["files"]["M9PCONS.EXEC"]; print("M9PCONS RESTORE INTEGRITY PASS")'
           rm src/M9PCONS.EXEC
+          python3 scripts/restore-cms-exec.py M10DREAL.EXEC
+          python3 -c 'import json,pathlib; a=json.loads(pathlib.Path("archive/M10-M13_EXEC.json").read_text()); assert len(a["files"])==23; assert pathlib.Path("src/M10DREAL.EXEC").read_text()==a["files"]["M10DREAL.EXEC"]; print("M10DREAL RESTORE INTEGRITY PASS")'
+          rm src/M10DREAL.EXEC
           python3 -c 'import json,pathlib; p=pathlib.Path("archive/M3-M5_EXEC.json"); a=json.loads(p.read_text()); assert a["format"]=="cms-exec-archive-v1"; assert len(a["files"])==15; assert all(n.endswith(".EXEC") and len(n[:-5])<=8 and len(v)>0 for n,v in a["files"].items()); print("M3-M5 LOSSLESS SOURCE ARCHIVE PASS",len(a["files"]))'
       - name: Compile and fuzz interrupted writes in native C89 selector
         run: python3 tests/test_native_selector.py
