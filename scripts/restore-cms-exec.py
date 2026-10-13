@@ -29,9 +29,24 @@ def load():
 
 def main():
     if len(sys.argv) != 2:
-        raise SystemExit("Usage: python3 scripts/restore-cms-exec.py NAME.EXEC|ALL")
+        raise SystemExit("Usage: python3 scripts/restore-cms-exec.py NAME.EXEC|ALL|MISSING")
     files = load()
     arg = sys.argv[1].upper()
+    if arg == "MISSING":
+        # Validate all existing files before creating any: fail closed on
+        # source drift rather than masking changes with archive recovery.
+        for name, source in sorted(files.items()):
+            dest = ROOT / "src" / name
+            if dest.exists() and dest.read_text(encoding="utf-8") != source:
+                raise SystemExit("Archive source drift: " + name)
+        selected = [n for n in sorted(files) if not (ROOT / "src" / n).exists()]
+        for name in selected:
+            dest = ROOT / "src" / name
+            with dest.open("x", encoding="utf-8", newline="") as fp:
+                fp.write(files[name])
+            print("Restored", dest.relative_to(ROOT))
+        print("ARCHIVE SOURCE PARITY PASS", len(files))
+        return
     selected = sorted(files) if arg == "ALL" else [arg]
     if not selected or any(name not in files for name in selected):
         raise SystemExit("Unknown archived EXEC name: " + arg)
