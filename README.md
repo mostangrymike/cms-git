@@ -1,5 +1,67 @@
 # IBM Sandbox
 
+## In-place source updates and A-disk cleanup (October 13, 2026)
+
+**New operating rule:** do not create a new milestone-numbered
+CMS C/EXEC/ASSEMBLE file merely to iterate a proven capability.
+After M206's remaining 32-band real-CMS gate, update the
+existing `GITP26M.C` and `GITC26.EXEC` in place.
+Build/validate the new version before replacing the
+proven module. Preserve rollback in GitHub history,
+not in dozens of identically purposed A-disk programs.
+
+The operator reports about **342 A-disk files**.
+The earlier exact-name `ACLEAN.EXEC` utility
+was extended IN PLACE with `PLAN RECENTGEN` and
+`APPLY RECENTGEN` for at most 20 known, reproducible
+ASSEMBLE/TEXT/LISTING build outputs associated
+with six C-native modules and the assembler GITBX9.
+PLAN is read-only. APPLY checks existence of
+each source and MODULE before a fully addressed
+A-only ERASE. No MODULE, EXEC, C, handwritten
+ASSEMBLE, PACK, STAGE, INDEX or G file is erased.
+Do not apply without reviewed PLAN and recovery
+safeguards; see `docs/CMS_A_CLEANUP.md`.
+
+M206 has **REAL CMS 16-object SHA1 and cleanup PASS**:
+`GITC26 G CHECK 64 16` 0.66s elapsed;
+`GITC26 G RUN 64 16` 1.43s elapsed,
+terminal `M206 STRATIFIED FULL SHA CLEAN PASS 16`.
+The complete native FSREAD, M197 canonical SHA1,
+and exact A scratch cleanup gates passed across
+sixteen separated index regions. Console output
+was heavily interleaved, and final independent
+FILEDEF/STATE was not supplied.
+
+M206's **32-object real CMS gate remains pending**;
+do not replace the current M206 module before it.
+The separate unmerged M207 scratch branch is not
+part of the canonical build and no M207 files
+should be uploaded.
+
+After merge, Mac `ibm-sandbox/src`:
+
+```sh
+git pull
+./cms-upload.sh ACLEAN.EXEC
+```
+
+CMS read-only cleanup assessment:
+
+```text
+FILEDEF
+QUERY DISK A
+ACLEAN PLAN RECENTGEN
+LISTFILE * * A (ALLOC
+```
+
+Capture the current exact A inventory. When reviewed
+and backed up, selected exact artifacts can be
+retired by explicit APPLY; no wildcard cleanup.
+Current G stage/index and full-tree baseline remain protected.
+
+---
+
 ## M205 real CMS eight-object SHA PASS; M206 32-band expansion
 
 On October 12, 2026, M205 successfully compiled on
