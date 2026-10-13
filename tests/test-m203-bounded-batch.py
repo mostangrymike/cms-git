@@ -48,7 +48,12 @@ ORIGINAL = {
 }
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2 or sys.argv[1] not in ORIGINAL:
+    if len(sys.argv) < 2 or sys.argv[1] not in ORIGINAL or (
+            (sys.argv[1] == "NDATA") != (len(sys.argv) == 3)):
+        raise SystemExit("Expected case name; NDATA also needs its original subcase")
         raise SystemExit("Usage: test-m203-bounded-batch.py NDATA|NTREE|ACLEAN|CATHEX|M173R|M173D|M173V|M173S|M177|M178|M179|M180|M181|M182|M183|M185|M186|M187|M188|M189|M190|M190S|M191|M192|M193|M194|M195|M196|M197|M198|M199|M200|M201|M202|M203|M204|M205|M206")
-    exec(compile(ORIGINAL[sys.argv[1]], __file__, "exec"),
+    case = sys.argv[1]
+    if case == "NDATA":
+        sys.argv = [__file__, sys.argv[2]]
+    exec(compile(ORIGINAL[case], __file__, "exec"),
          {"__file__": __file__, "__name__": "__main__"})
