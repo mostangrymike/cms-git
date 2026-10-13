@@ -15,7 +15,7 @@ CCTEST1 HELLO GITCABI GITCINF GITCPARS GITCPROB
 GITC2 GIT12Q M12ABEG M12BOPN M12TLS2 M12TLS3 M12TLS4
 """.split())
 historic = src.split("if batch=\'RECENTGEN\' then do",1)[0]
-declarations = re.findall(r"f\.n='([A-Z0-9]+) (LISTING|MODULE|TEXT)'",src)
+declarations = re.findall(r"f\.n='([A-Z0-9]+) (LISTING|MODULE|TEXT)'",historic)
 assert len(declarations) == 20 + 26
 expected_oldtests = set("""
 M9JSTRM M9JZLIB M9NSTRM M9O4096 M9PCHAIN M9PCONS M9PCTX
@@ -65,7 +65,7 @@ expected_builddeck = set("""
 GITCABI GITCINF GITCPARS GITCPROB GITC2
 GITREC GITCIDX GITCWALK GITSEL
 """.split())
-builddeck = re.findall(r"f\.n='([A-Z0-9]+) ASSEMBLE'",src)
+builddeck = re.findall(r"f\.n='([A-Z0-9]+) ASSEMBLE'",historic)
 assert len(builddeck) == len(expected_builddeck) == 9
 assert set(builddeck) == expected_builddeck
 assert "batch\='BUILDDECK'" in src
