@@ -5,7 +5,8 @@ address cms
 parse upper arg verb batch extra
 if extra\='' | (verb\='PLAN' & verb\='APPLY') |,
    (batch\='LISTINGS' & batch\='EXPERIMENTS' &,
-    batch\='OLDTESTS' & batch\='BUILDDECK') then do
+    batch\='OLDTESTS' & batch\='BUILDDECK' &,
+    batch\='RECENTGEN') then do
  say 'Usage: ACLEAN PLAN|APPLY batch-name'
  exit 4
 end
@@ -104,6 +105,31 @@ if batch='BUILDDECK' then do
  n=n+1; f.n='GITCWALK ASSEMBLE'
  n=n+1; f.n='GITSEL ASSEMBLE'
 end
+/* RECENTGEN: regenerated C build decks, TEXT and LISTING. */
+/* Keep C source, active MODULEs and handwritten ASSEMBLE. */
+if batch='RECENTGEN' then do
+ n=0
+ n=n+1; f.n='GITRP6M ASSEMBLE'
+ n=n+1; f.n='GITRP6M TEXT'
+ n=n+1; f.n='GITRP6M LISTING'
+ n=n+1; f.n='GITVO7M ASSEMBLE'
+ n=n+1; f.n='GITVO7M TEXT'
+ n=n+1; f.n='GITVO7M LISTING'
+ n=n+1; f.n='GITP21M ASSEMBLE'
+ n=n+1; f.n='GITP21M TEXT'
+ n=n+1; f.n='GITP21M LISTING'
+ n=n+1; f.n='GITP24M ASSEMBLE'
+ n=n+1; f.n='GITP24M TEXT'
+ n=n+1; f.n='GITP24M LISTING'
+ n=n+1; f.n='GITP25M ASSEMBLE'
+ n=n+1; f.n='GITP25M TEXT'
+ n=n+1; f.n='GITP25M LISTING'
+ n=n+1; f.n='GITP26M ASSEMBLE'
+ n=n+1; f.n='GITP26M TEXT'
+ n=n+1; f.n='GITP26M LISTING'
+ n=n+1; f.n='GITBX9 TEXT'
+ n=n+1; f.n='GITBX9 LISTING'
+end
 say 'ACLEAN' verb batch 'ITEMS' n
 selected=0
 removed=0
@@ -123,6 +149,20 @@ do i=1 to n
  selected=selected+1
  say 'ACLEAN FOUND' fn ft 'A'
  if verb='APPLY' then do
+  if batch='RECENTGEN' then do
+   if fn='GITBX9' then srcft='ASSEMBLE'
+   else srcft='C'
+   'STATE' fn srcft 'A'
+   if rc\=0 then do
+    say 'ACLEAN SOURCE NOT VERIFIED' fn srcft 'A RC' rc
+    exit 8
+   end
+   'STATE' fn 'MODULE A'
+   if rc\=0 then do
+    say 'ACLEAN MODULE NOT VERIFIED' fn 'RC' rc
+    exit 8
+   end
+  end
   'ERASE' fn ft 'A'
   if rc\=0 then do
    say 'ACLEAN ERASE FAILED' fn ft 'RC' rc
