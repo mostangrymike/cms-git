@@ -147,10 +147,8 @@ on:
       - 'docs/M194_FSREAD_BODY.md'
       - 'docs/M193_FSREAD_PROBE.md'
       - 'src/GITRCN.EXEC'
-      - 'tests/test-m192-record-plan.py'
       - 'docs/M192_RECORD_NUMBER_PLAN.md'
       - 'src/GITPRB.EXEC'
-      - 'tests/test-m191-cms-seek-probe.py'
       - 'docs/M191_CMS_SEEK_PROBE.md'
       - 'src/GITPSK.EXEC'
       - 'tests/test-m190-selective-seek.py'
@@ -363,10 +361,8 @@ on:
       - 'docs/M194_FSREAD_BODY.md'
       - 'docs/M193_FSREAD_PROBE.md'
       - 'src/GITRCN.EXEC'
-      - 'tests/test-m192-record-plan.py'
       - 'docs/M192_RECORD_NUMBER_PLAN.md'
       - 'src/GITPRB.EXEC'
-      - 'tests/test-m191-cms-seek-probe.py'
       - 'docs/M191_CMS_SEEK_PROBE.md'
       - 'src/GITPSK.EXEC'
       - 'tests/test-m190-selective-seek.py'
@@ -521,9 +517,9 @@ jobs:
       - name: Check M190 one-pass validated selective seek readback
         run: python3 tests/test-m190-selective-seek.py
       - name: Check M191 read-only direct indexed-seek CMS diagnostic
-        run: python3 tests/test-m191-cms-seek-probe.py
+        run: python3 tests/test-m203-bounded-batch.py M191
       - name: Check M192 index-only CMS record-number arithmetic
-        run: python3 tests/test-m192-record-plan.py
+        run: python3 tests/test-m203-bounded-batch.py M192
       - name: Check M193 assembler FSREAD static and record model safety
         run: python3 tests/test-m203-bounded-batch.py M193
       - name: Check M194 two-record FSREAD EBCDIC body safety
