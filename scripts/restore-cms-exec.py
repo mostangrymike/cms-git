@@ -30,21 +30,21 @@ def load():
     actual = {p.name for p in ARCHIVES.glob("*.json")}
     if actual != set(expected):
         raise SystemExit("Archive inventory mismatch: " + str(sorted(actual)))
-    for name, count in expected.items():
-        source = json.loads((ARCHIVES / name).read_text(encoding="utf-8"))
-        if source.get("format") != "cms-exec-archive-v1" or len(source["files"]) != count:
-            raise SystemExit("Archive count or format mismatch: " + name)
     files = {}
-    for path in sorted(ARCHIVES.glob("*.json")):
+    for name, count in sorted(expected.items()):
+        path = ARCHIVES / name
         archive = json.loads(path.read_text(encoding="utf-8"))
         if archive.get("format") != "cms-exec-archive-v1":
-            raise RuntimeError("Unknown format: " + str(path))
-        for name, source in archive["files"].items():
-            if not re.fullmatch(r"[A-Z0-9]{1,8}[.]EXEC", name):
-                raise RuntimeError("Invalid CMS filename: " + name)
-            if name in files or not isinstance(source, str) or not source:
-                raise RuntimeError("Duplicate or empty EXEC: " + name)
-            files[name] = source
+            raise RuntimeError("Unknown archive format: " + name)
+        entries = archive.get("files")
+        if not isinstance(entries, dict) or len(entries) != count:
+            raise RuntimeError("Archive count mismatch: " + name)
+        for filename, source in entries.items():
+            if not re.fullmatch(r"[A-Z0-9]{1,8}[.]EXEC", filename):
+                raise RuntimeError("Invalid CMS filename: " + filename)
+            if filename in files or not isinstance(source, str) or not source:
+                raise RuntimeError("Duplicate or empty EXEC: " + filename)
+            files[filename] = source
     return files
 
 
