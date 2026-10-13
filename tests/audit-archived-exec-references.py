@@ -32,6 +32,14 @@ assert required.is_file(), "Production GIT9CTX helper missing"
 assert "GIT9CTX" in (ROOT / "src/GITP9PWK.EXEC").read_text()
 print("LIVE ARCHIVED CMS SOURCE PARITY PASS")
 
+# Historical M6/M7 protocol sources are archived for recovery, not
+# automatically eligible for deletion: they may be called dynamically.
+protected = ("GITACK.EXEC", "GITADV.EXEC", "GITZLIB.EXEC")
+for name in protected:
+    assert name in archives, ("MISSING RECOVERY ARCHIVE", name)
+    assert (ROOT / "src" / name).is_file(), ("UNREVIEWED DELETION", name)
+print("LIVE M6 PROTOCOL HELPER RETENTION PASS")
+
 tracked = subprocess.check_output(["git", "ls-files", "-z"], cwd=ROOT)
 paths = [ROOT / p.decode() for p in tracked.split(b"\0") if p]
 sources = [p for p in paths if p.suffix in
