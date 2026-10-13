@@ -249,3 +249,16 @@ with tempfile.TemporaryDirectory() as temp:
     assert "M188 TREE CLOSURE PASS" not in truncated.stdout
 
 print("M188 FAST EOL SKIPPED RECORD HOST PARITY PASS")
+
+# Prevent drift between the five historical native-stage CMS wrappers.
+# The wrappers differ only in milestone ID, native module, and first comment.
+def normalized_wrapper(name, milestone):
+    text = (root / "src" / (name + ".EXEC")).read_text()
+    assert all(len(line) <= 80 for line in text.splitlines())
+    return text.replace(name, "GITPHX").replace(milestone, "M18X").split("\n", 1)[1]
+
+reference = normalized_wrapper("GITPH8", "M188")
+for wrapper, level in (("GITPH2", "M182"), ("GITPH3", "M183"),
+                       ("GITPH5", "M185"), ("GITPH9", "M189")):
+    assert normalized_wrapper(wrapper, level) == reference, wrapper
+print("M182/M183/M185/M188/M189 CMS WRAPPER PARITY PASS")
