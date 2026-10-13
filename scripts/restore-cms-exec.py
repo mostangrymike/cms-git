@@ -15,7 +15,7 @@ ARCHIVES = ROOT / "archive"
 
 def load():
     files = {}
-    for path in sorted(ARCHIVES.glob("*_EXEC.json")):
+    for path in sorted(ARCHIVES.glob("*.json")):
         archive = json.loads(path.read_text(encoding="utf-8"))
         if archive.get("format") != "cms-exec-archive-v1":
             raise RuntimeError("Unknown format: " + str(path))
