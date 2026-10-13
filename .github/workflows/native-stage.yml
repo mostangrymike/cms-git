@@ -158,7 +158,6 @@ on:
       - 'docs/M189_EIGHTWAY.md'
       - 'src/GITPH8.EXEC'
       - 'scripts/restore-ph-wrappers.py'
-      - 'tests/test-m188-fast-eol.py'
       - 'docs/M188_FAST_EOL.md'
       - 'src/GITPH5.EXEC'
       - 'tests/test-m185-direct-skip.py'
@@ -503,7 +502,7 @@ jobs:
       - name: Check lossless native tree wrapper generation
         run: python3 scripts/restore-ph-wrappers.py CHECK
       - name: Check M188 fast EOL differential skip reader
-        run: python3 tests/test-m188-fast-eol.py
+        run: python3 tests/test-m203-bounded-batch.py M188
       - name: Check M190 one-pass validated selective seek readback
         run: python3 tests/test-m203-bounded-batch.py M190
       - name: Check M191 read-only direct indexed-seek CMS diagnostic
