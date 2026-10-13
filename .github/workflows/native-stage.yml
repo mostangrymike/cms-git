@@ -136,13 +136,10 @@ on:
       - 'tests/test-m203-bounded-batch.py'
       - 'src/GITP24M.C'
       - 'src/GITC24.EXEC'
-      - 'tests/test-m204-index-once-batch.py'
       - 'src/GITP25M.C'
       - 'src/GITC25.EXEC'
-      - 'tests/test-m205-stratified-sample.py'
       - 'src/GITP26M.C'
       - 'src/GITC26.EXEC'
-      - 'tests/test-m206-stratified-32.py'
       - 'docs/M206_STRATIFIED_32.md'
       - 'docs/M205_STRATIFIED_AUTH.md'
       - 'docs/M204_INDEX_ONCE_BATCH.md'
@@ -572,11 +569,11 @@ jobs:
       - name: Check M203 bounded batch Git SHA
         run: python3 tests/test-m203-bounded-batch.py M203
       - name: Check M204 index-once batch
-        run: python3 tests/test-m204-index-once-batch.py
+        run: python3 tests/test-m203-bounded-batch.py M204
       - name: Check M205 sampled Git objects and full SHA1
-        run: python3 tests/test-m205-stratified-sample.py
+        run: python3 tests/test-m203-bounded-batch.py M205
       - name: Check M206 up to 32 independently SHA-authenticated bands
-        run: python3 tests/test-m206-stratified-32.py
+        run: python3 tests/test-m203-bounded-batch.py M206
       - name: Check M190 7736-object selective seek closure
         run: python3 tests/test-m190-scale-seek.py
       - name: Compare M190 indexed seek vs M188 two-pass host
