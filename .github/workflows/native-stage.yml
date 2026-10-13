@@ -110,10 +110,8 @@ on:
       - 'src/GITFSP.EXEC'
       - 'src/GITFRB.ASSEMBLE'
       - 'src/GITFRP.EXEC'
-      - 'tests/test-m194-fsread-body.py'
       - 'src/GITFL10.ASSEMBLE'
       - 'src/GITFLP.EXEC'
-      - 'tests/test-m195-last-body.py'
       - 'src/GITRP6M.C'
       - 'src/GITRP6.EXEC'
       - 'src/GITVO7M.C'
@@ -147,7 +145,6 @@ on:
       - 'docs/M196_INDEX_OBJECT_PLAN.md'
       - 'docs/M195_LAST_BODY.md'
       - 'docs/M194_FSREAD_BODY.md'
-      - 'tests/test-m193-fsread-guard.py'
       - 'docs/M193_FSREAD_PROBE.md'
       - 'src/GITRCN.EXEC'
       - 'tests/test-m192-record-plan.py'
@@ -329,10 +326,8 @@ on:
       - 'src/GITFSP.EXEC'
       - 'src/GITFRB.ASSEMBLE'
       - 'src/GITFRP.EXEC'
-      - 'tests/test-m194-fsread-body.py'
       - 'src/GITFL10.ASSEMBLE'
       - 'src/GITFLP.EXEC'
-      - 'tests/test-m195-last-body.py'
       - 'src/GITRP6M.C'
       - 'src/GITRP6.EXEC'
       - 'src/GITVO7M.C'
@@ -366,7 +361,6 @@ on:
       - 'docs/M196_INDEX_OBJECT_PLAN.md'
       - 'docs/M195_LAST_BODY.md'
       - 'docs/M194_FSREAD_BODY.md'
-      - 'tests/test-m193-fsread-guard.py'
       - 'docs/M193_FSREAD_PROBE.md'
       - 'src/GITRCN.EXEC'
       - 'tests/test-m192-record-plan.py'
@@ -531,11 +525,11 @@ jobs:
       - name: Check M192 index-only CMS record-number arithmetic
         run: python3 tests/test-m192-record-plan.py
       - name: Check M193 assembler FSREAD static and record model safety
-        run: python3 tests/test-m193-fsread-guard.py
+        run: python3 tests/test-m203-bounded-batch.py M193
       - name: Check M194 two-record FSREAD EBCDIC body safety
-        run: python3 tests/test-m194-fsread-body.py
+        run: python3 tests/test-m203-bounded-batch.py M194
       - name: Check M195 bounded LAST complete body reads
-        run: python3 tests/test-m195-last-body.py
+        run: python3 tests/test-m203-bounded-batch.py M195
       - name: Check M196 selected index object record plan
         run: python3 tests/test-m203-bounded-batch.py M196
       - name: Check M197 canonical full Git object SHA1 verifier
