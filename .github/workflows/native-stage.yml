@@ -449,6 +449,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Restore archived M9-M12 historical transport helpers
+        run: |
+          for n in G10DFIX GIT10BF GIT10PK GIT10UP GIT11HTP GIT12CHK; do
+            test -f "src/$n.EXEC" || python3 scripts/restore-cms-exec.py "$n.EXEC"
+          done
       - name: Check M9-M12 transport source archival parity
         run: |
           python3 -c 'import json,pathlib; a=json.loads(pathlib.Path("archive/M9-M12_TRANSPORT.json").read_text()); assert a["format"]=="cms-exec-archive-v1"; assert len(a["files"])==7; assert all((pathlib.Path("src")/n).read_text()==v for n,v in a["files"].items()); print("M9-M12 TRANSPORT EXACT SOURCE PASS",len(a["files"]))'
