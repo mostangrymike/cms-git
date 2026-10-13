@@ -13691,3 +13691,103 @@ success with absent scratch,
 `GITC26 G RUN 64 32`; record SHA and
 cleanup confirmations. Then reuse the SAME
 M206 source files for later milestones.
+
+
+## 2026-10-13 08:56 — M206 REAL CMS 32-OBJECT SHA PASS; cleanup census
+
+Latest user-provided CMS terminal output:
+```text
+QUERY DISK A
+MNT191 191 A R/W 175 3390 4096 342 files
+13206 blocks used, 18294 free, 31500 total
+ACLEAN PLAN RECENTGEN
+ACLEAN PLAN RECENTGEN ITEMS 20
+ACLEAN FOUND GITRP6M ASSEMBLE A
+ACLEAN FOUND GITRP6M TEXT A
+ACLEAN FOUND GITRP6M LISTING A
+ACLEAN FOUND GITVO7M ASSEMBLE A
+ACLEAN FOUND GITVO7M TEXT A
+ACLEAN FOUND GITVO7M LISTING A
+ACLEAN FOUND GITP21M ASSEMBLE A
+ACLEAN FOUND GITP21M TEXT A
+ACLEAN FOUND GITP21M LISTING A
+ACLEAN FOUND GITP24M ASSEMBLE A
+ACLEAN FOUND GITP24M TEXT A
+ACLEAN FOUND GITP24M LISTING A
+ACLEAN FOUND GITP25M ASSEMBLE A
+ACLEAN FOUND GITP25M TEXT A
+ACLEAN FOUND GITP25M LISTING A
+ACLEAN FOUND GITP26M ASSEMBLE A
+ACLEAN FOUND GITP26M TEXT A
+ACLEAN FOUND GITP26M LISTING A
+ACLEAN FOUND GITBX9 TEXT A
+ACLEAN FOUND GITBX9 LISTING A
+ACLEAN PLAN RECENTGEN FOUND 20 REMOVED 0
+ACLEAN PLAN LISTINGS FOUND 0 REMOVED 0
+ACLEAN PLAN EXPERIMENTS FOUND 0 REMOVED 0
+ACLEAN PLAN OLDTESTS FOUND 0 REMOVED 0
+ACLEAN PLAN BUILDDECK FOUND 0 REMOVED 0
+GITC26 G CHECK 64 32
+M206 STRATIFIED INDEX PLANS PASS 32
+M206 SAMPLE CHECK NO SCRATCH PASS 32
+Ready; T=0.65/0.70 08:55:38
+GITC26 G RUN 64 32
+M206 SCRATCH CLEAN VERIFIED 32 7495
+M206 STRATIFIED FULL SHA CLEAN PASS 32
+Ready; T=1.42/2.06 08:56:27
+```
+
+**M206 is now REAL CMS TARGET PASS for 16 AND 32 samples.**
+16 CHECK 0.66 seconds elapsed, 16 RUN 1.43 seconds.
+32 CHECK 0.70 seconds elapsed, 32 RUN 2.06 seconds.
+The full 32-object terminal PASS is actual operator
+evidence that the bounded index-once reader authenticated
+all 32 Git objects and cleaned disposable scratch
+after SHA verification; all intervening OIDs/types are
+not present in this excerpt, so do NOT invent them.
+This is NOT a complete reachable tree closure and
+does not replace M188's authenticated 280-object
+~208.27 second baseline. No independent final
+FILEDEF/STATE after 32 RUN; internal scratch clean
+PASS reported. Original protected M173NET STAGE G1
+and M174NET INDEX G1 remained read-only.
+
+**CMS A inventory audited:** 342 files, block size
+4096, 13206/31500 blocks used (42%), 18294 free.
+Existing ACLEAN PLAN RECENTGEN found exactly all 20
+whitelisted generated intermediates, removed ZERO.
+LISTINGS, EXPERIMENTS, OLDTESTS and BUILDDECK
+found zero. No actual deletion has been executed in
+submitted trace. If and only if the 20 exact files
+are safely erased, projection is 322 files; cannot
+claim actual blocks freed. User should first verify
+independent recoverable backup/snapshot due to prior
+A-disk TRKDE 4 deallocation-map incident, inspect
+LISTFILE * * A (ALLOC and ACLEAN PLAN outputs,
+then explicitly choose APPLY RECENTGEN. The
+existing ACLEAN protects source and active MODULE.
+Do not expand manifest absent full present-day A
+LISTFILE inventory; 322 projected remaining entries
+are not automatically obsolete.
+
+**New user development rule remains in force:** use
+existing canonical `src/GITP26M.C` and `src/GITC26.EXEC`
+rather than new numbered files for incremental
+milestones, with GitHub source history rollback and
+host/CMS validation before replacing working modules.
+Other existing components may be updated in place.
+An earlier unmerged M207-128 scratch branch built
+before this directive is superseded and must not
+be uploaded or merged as-is.
+
+Next: collect complete A inventory via
+`LISTFILE * * A (ALLOC`, choose further
+exact-name candidates only from that evidence;
+if backup verified and permitted, operator can run
+`ACLEAN APPLY RECENTGEN`, `QUERY DISK A`,
+`ACLEAN PLAN RECENTGEN`, `FILEDEF`.
+After successful cleanup, continue modifying
+stable reader code in place with guarded releases.
+Never reimport/reindex GIT600, format protected G,
+write-link overlapping PMAINT0141, or rerun
+M190 experimental 272-seek stage.

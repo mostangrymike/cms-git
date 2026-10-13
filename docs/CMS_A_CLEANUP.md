@@ -290,3 +290,66 @@ Do not add an unreviewed sweeping MODULE or EXEC
 manifest, especially while M206's 32-band test is
 pending. Existing opt-in batches retain their
 original semantics.
+
+## Actual CMS A-disk cleanup PLAN results — October 13, 2026
+
+The user ran the merged `ACLEAN.EXEC` on z/VM CMS.
+Actual A-disk inventory headline:
+
+```text
+QUERY DISK A
+MNT191 191 A R/W 175 3390 4096 342 files
+13206 blocks used (42%), 18294 blocks free, 31500 total
+```
+
+Exact manifest results (all PLAN operations read-only):
+
+| ACLEAN PLAN batch | Candidates found | Items considered |
+|---|---:|---:|
+| RECENTGEN | **20** | 20 |
+| LISTINGS | 0 | 20 |
+| EXPERIMENTS | 0 | 26 |
+| OLDTESTS | 0 | 29 |
+| BUILDDECK | 0 | 9 |
+
+**All twenty RECENTGEN generated artifacts are present.**
+They are the six sets of generated ASSEMBLE/TEXT/LISTING
+files for GITRP6M, GITVO7M, GITP21M, GITP24M, GITP25M,
+GITP26M, plus GITBX9 TEXT and LISTING. No source C,
+handwritten ASSEMBLE, EXEC, MODULE, stage, index or
+repository data is in that manifest. The prior four
+cleanup batches are exhausted and should not be rerun
+for savings.
+
+At most 20 fewer A-disk directory entries are therefore
+currently established: **342 → 322** if and only if
+`ACLEAN APPLY RECENTGEN` succeeds completely and no
+other files change. The actual block savings are unknown
+until CMS measures them; do not claim a recovered block
+count or completed deletion based on a PLAN.
+
+IMPORTANT: CMS A experienced a historical TRKDE 4
+deallocation-map problem. The safer sequence remains:
+verify a usable independent DASD snapshot/backup,
+review the full `LISTFILE * * A (ALLOC` inventory,
+confirm canonical .C / handwritten source and working
+MODULEs exist, then intentionally invoke
+`ACLEAN APPLY RECENTGEN` for exact items only.
+The utility independently refuses a present target
+whose source or MODULE is missing, but it does not
+provide a transactional rollback for a mid-batch failure.
+After APPLY, check `QUERY DISK A`, `FILEDEF`, and
+`ACLEAN PLAN RECENTGEN` again.
+
+**No APPLY output or full current A inventory is in the
+operator-provided transcript.** Do not mark anything
+deleted yet; do not widen the deletion manifest
+without examining that actual inventory.
+
+M206 also passed its **32-region CHECK and full SHA RUN**
+on the same date (0.70s CHECK, 2.06s full elapsed),
+so it is now appropriate to evolve the *existing*
+M206 source filenames after safe host/CMS checks, rather
+than generating another numbered source file for every
+milestone. Preserve GitHub rollback and active modules.
+

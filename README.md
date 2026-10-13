@@ -1,5 +1,66 @@
 # IBM Sandbox
 
+## M206 full 32-object CMS PASS and A-disk audit (October 13, 2026)
+
+**REAL z/VM 6.3 CMS PASS:** `GITC26 G CHECK 64 32`
+validated all 32 sampled-index plans, elapsed 0.70s;
+`GITC26 G RUN 64 32` independently authenticated
+32 Git objects using native read-only FSREAD and complete
+canonical SHA-1 and cleaned each successful A1 scratch.
+Final `M206 STRATIFIED FULL SHA CLEAN PASS 32`,
+CPU 1.42s / elapsed **2.06s**. M206 16-object
+CHECK/RUN had already passed (0.66/1.43s elapsed).
+The original G stage/index remain unchanged.
+These are sampled objects, not the M188 full tree closure.
+
+**CMS A disk reported 342 files**, 13,206/31,500
+4K blocks used, 18,294 free. The user ran the
+existing `ACLEAN PLAN` modes on CMS:
+
+```text
+RECENTGEN    FOUND 20  REMOVED 0
+LISTINGS     FOUND  0  REMOVED 0
+EXPERIMENTS  FOUND  0  REMOVED 0
+OLDTESTS     FOUND  0  REMOVED 0
+BUILDDECK    FOUND  0  REMOVED 0
+```
+
+Only 20 source-backed build intermediates are currently
+confirmed disposable. Their exact-name removal, **after
+backup/recoverability review**, can lower 342 to
+about 322 files; the block savings are not yet known.
+No CMS APPLY was performed and no file should be reported
+deleted based on PLAN alone. Full current `LISTFILE * *
+A (ALLOC` output is still needed to classify other files.
+
+The new user development rule is to **modify established
+source files in place** for future milestones rather than
+creating more M-numbered C/EXEC/ASSEMBLE files. The
+current stable reader sources are `GITP26M.C` and
+`GITC26.EXEC`. Preserve working MODULEs until new
+versions pass both host CI and real CMS; use GitHub
+history for rollback. A previously started M207
+numbered-file scratch branch remains unmerged and
+must not be deployed.
+
+See `docs/M206_STRATIFIED_32.md` and
+`docs/CMS_A_CLEANUP.md`. Next safe cleanup commands
+after a verified backup and intentional review are:
+
+```text
+ACLEAN APPLY RECENTGEN
+QUERY DISK A
+ACLEAN PLAN RECENTGEN
+FILEDEF
+```
+
+If a deletion fails, stop and inspect the exact file
+and disk integrity before attempting anything else.
+Avoid wildcards, G-disk writes and unnecessary
+rebuild artifacts.
+
+---
+
 ## In-place source updates and A-disk cleanup (October 13, 2026)
 
 **New operating rule:** do not create a new milestone-numbered
