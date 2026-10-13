@@ -443,9 +443,9 @@ jobs:
       - uses: actions/checkout@v4
       - name: Restore archived M9 experimental PACK walkers
         run: |
-          python3 scripts/restore-cms-exec.py GITP9KWK.EXEC
-          python3 scripts/restore-cms-exec.py GITP9LWK.EXEC
-          python3 scripts/restore-cms-exec.py GITP9MWK.EXEC
+          test -f src/GITP9KWK.EXEC || python3 scripts/restore-cms-exec.py GITP9KWK.EXEC
+          test -f src/GITP9LWK.EXEC || python3 scripts/restore-cms-exec.py GITP9LWK.EXEC
+          test -f src/GITP9MWK.EXEC || python3 scripts/restore-cms-exec.py GITP9MWK.EXEC
           python3 -c 'import json,pathlib; x=json.loads(pathlib.Path("archive/M9_WALKERS.json").read_text())["files"]; assert len(x)==3; assert all((pathlib.Path("src")/n).read_text()==v for n,v in x.items()); print("M9 WALKER LOSSLESS RESTORE PASS")'
       - name: Restore historical native tree wrappers
         run: python3 scripts/restore-ph-wrappers.py ALL
