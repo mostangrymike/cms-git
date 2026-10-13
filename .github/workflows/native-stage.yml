@@ -116,13 +116,10 @@ on:
       - 'tests/test-m195-last-body.py'
       - 'src/GITRP6M.C'
       - 'src/GITRP6.EXEC'
-      - 'tests/test-m196-index-object-plan.py'
       - 'src/GITVO7M.C'
       - 'src/GITVO7.EXEC'
-      - 'tests/test-m197-native-object-sha.py'
       - 'src/GITBX8.ASSEMBLE'
       - 'src/GITB8.EXEC'
-      - 'tests/test-m198-fsread-scratch.py'
       - 'src/GITBX9.ASSEMBLE'
       - 'src/GITB9.EXEC'
       - 'src/GITCLN.EXEC'
@@ -338,13 +335,10 @@ on:
       - 'tests/test-m195-last-body.py'
       - 'src/GITRP6M.C'
       - 'src/GITRP6.EXEC'
-      - 'tests/test-m196-index-object-plan.py'
       - 'src/GITVO7M.C'
       - 'src/GITVO7.EXEC'
-      - 'tests/test-m197-native-object-sha.py'
       - 'src/GITBX8.ASSEMBLE'
       - 'src/GITB8.EXEC'
-      - 'tests/test-m198-fsread-scratch.py'
       - 'src/GITBX9.ASSEMBLE'
       - 'src/GITB9.EXEC'
       - 'src/GITCLN.EXEC'
@@ -543,11 +537,11 @@ jobs:
       - name: Check M195 bounded LAST complete body reads
         run: python3 tests/test-m195-last-body.py
       - name: Check M196 selected index object record plan
-        run: python3 tests/test-m196-index-object-plan.py
+        run: python3 tests/test-m203-bounded-batch.py M196
       - name: Check M197 canonical full Git object SHA1 verifier
-        run: python3 tests/test-m197-native-object-sha.py
+        run: python3 tests/test-m203-bounded-batch.py M197
       - name: Check M198 NEW-only scratch FSREAD to Git SHA bridge
-        run: python3 tests/test-m198-fsread-scratch.py
+        run: python3 tests/test-m203-bounded-batch.py M198
       - name: Check M199 bounded parameterized FSREAD object reader
         run: python3 tests/test-m203-bounded-batch.py M199
       - name: Check M200 CMS FILEDEF and exact A1 cleanup
