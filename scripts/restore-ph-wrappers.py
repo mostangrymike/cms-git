@@ -72,7 +72,8 @@ def main():
         print("PH WRAPPER GENERATION PARITY PASS")
         return
     if arg == "ALL":
-        names = sorted(all_specs)
+        names = [name for name in sorted(all_specs)
+                 if not (ROOT / "src" / (name + ".EXEC")).exists()]
     elif arg.endswith(".EXEC") and arg[:-5] in all_specs:
         names = [arg[:-5]]
     else:
