@@ -28,7 +28,6 @@ on:
       - '.github/workflows/native-stage.yml'
       - 'scripts/restore-cms-exec.py'
       - 'tests/test-aclean-manifest.py'
-      - 'tests/audit-archived-exec-references.py'
       - 'docs/CMS_A_CLEANUP.md'
       - 'docs/BUILD.md'
       - 'tests/check-cmsclnk-source.sh'
@@ -608,7 +607,7 @@ jobs:
       - name: Guard CMS storage mode for live PACK artifacts
         run: python3 tests/test-m173-data-minidisk.py
       - name: Audit archived CMS EXEC references without modifying sources
-        run: python3 tests/audit-archived-exec-references.py
+        run: python3 scripts/restore-cms-exec.py AUDIT
       - name: Check CMS A cleanup exact allowlist
         run: python3 tests/test-aclean-manifest.py
       - name: Check combined compact M157 target gate
