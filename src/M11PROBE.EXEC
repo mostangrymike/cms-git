@@ -1,5 +1,0 @@
-/* M11 native REXX/SOCKETS availability probe. */
-address command
-say 'M11 RXSOCKET VERSION PROBE'
-say Socket('VERSION')
-exit
