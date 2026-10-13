@@ -1568,7 +1568,7 @@ code and G stage/index were not changed. **No comparative speedup
 has been established**, because the M177 TREE elapsed counter
 previously overflowed. The next step is independent measurement and
 bounded performance analysis, not any rebuild/reformat of the
-verified G stage/index. Details: `docs/M178_PACK_TREE_PERFORMANCE_PLAN.md`.
+verified G stage/index. Details: `docs/M177-M178_HISTORY.md`.
 
 ---
 
@@ -1622,7 +1622,7 @@ commit, root and parent and ended in
 elapsed 124.65 seconds. **M173–M177 positive-path CMS
 target gates are complete**. Next: isolated, non-mutating
 M178 tree-closure performance research.
-See `docs/M177_READONLY_PACK_ACCESS_PLAN.md`.
+See `docs/M177-M178_HISTORY.md`.
 Do not reformat G or overwrite `M173NET STAGE G`,
 `M174NET INDEX G`, original PACK A, or earlier
 sealed generations. An overlapping fullpack
