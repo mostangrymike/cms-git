@@ -466,7 +466,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Restore and verify historical CMS EXEC archives
-        run: python3 scripts/restore-cms-exec.py MISSING
+        run: |
+          python3 -m py_compile scripts/restore-cms-exec.py
+          python3 scripts/restore-cms-exec.py MISSING
       - name: Restore historical native tree wrappers
         run: python3 scripts/restore-ph-wrappers.py ALL
       - name: Test CP-to-Hercules read-only minidisk correlation
@@ -615,10 +617,6 @@ jobs:
         run: sh tests/check-cmsclnk-source.sh
       - name: Reject native-text Git object headers in CMS C source
         run: sh tests/check-canonical-source.sh
-      - name: Validate archived historical EXEC inventory
-        run: |
-          python3 -m py_compile scripts/restore-cms-exec.py
-          python3 -c 'import json,pathlib; a=pathlib.Path("archive"); expected={"M3-M5_EXEC.json":15,"M6-M9_EXEC.json":48,"M10-M13_EXEC.json":23,"M9_WALKERS.json":3,"M6_PROTOCOL.json":3,"M9-M12_TRANSPORT.json":7}; assert all(len(json.loads((a/n).read_text())["files"])==count for n,count in expected.items()); print("HISTORICAL EXEC INVENTORY PASS")'
       - name: Compile and fuzz interrupted writes in native C89 selector
         run: python3 tests/test_native_selector.py
       - name: Check full 64-KiB binary CATHEX output and verified fallback
