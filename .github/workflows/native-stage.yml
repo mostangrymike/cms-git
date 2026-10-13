@@ -366,7 +366,6 @@ on:
       - 'docs/M189_EIGHTWAY.md'
       - 'src/GITPH8.EXEC'
       - 'scripts/restore-ph-wrappers.py'
-      - 'tests/test-m188-fast-eol.py'
       - 'docs/M188_FAST_EOL.md'
       - 'src/GITPH5.EXEC'
       - 'tests/test-m185-direct-skip.py'
