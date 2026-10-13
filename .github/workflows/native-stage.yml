@@ -27,13 +27,11 @@ on:
       - 'archive/M10-M13_EXEC.json'
       - '.github/workflows/native-stage.yml'
       - 'scripts/restore-cms-exec.py'
-      - 'tests/test-aclean-manifest.py'
       - 'docs/CMS_A_CLEANUP.md'
       - 'docs/BUILD.md'
       - 'tests/check-cmsclnk-source.sh'
       - 'tests/native_stage_host.c'
       - 'tests/native_index_host.c'
-      - 'tests/test-native-cathex-large.py'
       - 'tests/test-native-tree.py'
       - 'tests/fixtures/first-commit-README.md'
       - 'src/GITRCHK.EXEC'
@@ -223,14 +221,12 @@ on:
       - 'archive/M10-M13_EXEC.json'
       - '.github/workflows/native-stage.yml'
       - 'scripts/restore-cms-exec.py'
-      - 'tests/test-aclean-manifest.py'
       - 'tests/audit-archived-exec-references.py'
       - 'docs/CMS_A_CLEANUP.md'
       - 'docs/BUILD.md'
       - 'tests/check-cmsclnk-source.sh'
       - 'tests/native_stage_host.c'
       - 'tests/native_index_host.c'
-      - 'tests/test-native-cathex-large.py'
       - 'tests/test-native-tree.py'
       - 'tests/fixtures/first-commit-README.md'
       - 'src/GITRCHK.EXEC'
@@ -545,7 +541,7 @@ jobs:
       - name: Audit archived CMS EXEC references without modifying sources
         run: python3 scripts/restore-cms-exec.py AUDIT
       - name: Check CMS A cleanup exact allowlist
-        run: python3 tests/test-aclean-manifest.py
+        run: python3 tests/test-m203-bounded-batch.py ACLEAN
       - name: Check combined compact M157 target gate
         run: sh tests/check-m157-gate.sh
       - name: Check neutral compiler EXEC source and F-disk setup
@@ -555,7 +551,7 @@ jobs:
       - name: Compile and fuzz interrupted writes in native C89 selector
         run: python3 tests/test_native_selector.py
       - name: Check full 64-KiB binary CATHEX output and verified fallback
-        run: python3 tests/test-native-cathex-large.py
+        run: python3 tests/test-m203-bounded-batch.py CATHEX
       - name: Verify complete binary Git tree parsing and recovery
         run: python3 tests/test-native-tree.py
       - name: Compile and test staging, OID index and native REF PACK on host
