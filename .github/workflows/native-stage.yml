@@ -32,7 +32,6 @@ on:
       - 'tests/check-cmsclnk-source.sh'
       - 'tests/native_stage_host.c'
       - 'tests/native_index_host.c'
-      - 'tests/test-native-tree.py'
       - 'tests/fixtures/first-commit-README.md'
       - 'src/GITRCHK.EXEC'
       - 'src/GITRUN.EXEC'
@@ -227,7 +226,6 @@ on:
       - 'tests/check-cmsclnk-source.sh'
       - 'tests/native_stage_host.c'
       - 'tests/native_index_host.c'
-      - 'tests/test-native-tree.py'
       - 'tests/fixtures/first-commit-README.md'
       - 'src/GITRCHK.EXEC'
       - 'src/GITRUN.EXEC'
@@ -553,6 +551,6 @@ jobs:
       - name: Check full 64-KiB binary CATHEX output and verified fallback
         run: python3 tests/test-m203-bounded-batch.py CATHEX
       - name: Verify complete binary Git tree parsing and recovery
-        run: python3 tests/test-native-tree.py
+        run: python3 tests/test-m203-bounded-batch.py NTREE
       - name: Compile and test staging, OID index and native REF PACK on host
         run: sh tests/run-native-stage-host.sh
