@@ -13881,3 +13881,10 @@ GITP26M.C and GITC26.EXEC in place for upcoming
 milestones; preserve proven binaries until
 host CI and target gates. M206 real-CMS 32-band
 sample SHA PASS / 2.06s remains protected.
+
+
+## 2026-10-13 09:27 CDT — A-disk cleanup and GitHub symmetry rule
+
+Operator completed read-only ACLEAN PLAN audits: RECENTGEN FOUND 20 REMOVED 0; PACKGEN FOUND 48 REMOVED 0; NETTRACE FOUND 11 REMOVED 0. Total 79 exact candidate A-disk files; no deletion has been reported. Console output from PACKGEN and NETTRACE was interleaved by paging, but both terminal summaries were present.
+
+NEW USER RULE: Whatever is intentionally cleaned from CMS A must also be reconciled with GitHub: remove the corresponding obsolete tracked repository artifacts when present. Never delete a retained source C, handwritten assembler, EXEC, active MODULE, protected Git data, or docs merely because generated A-disk ASSEMBLE/TEXT/LISTING were cleaned. Establish exact CMS-to-repository path correspondence and tracked status first. If no matching tracked file exists, record that fact; do not delete unrelated source to manufacture symmetry. Review archival/log retention for NETTRACE separately. Confirm recoverable A backup before CMS APPLY, then perform explicit reviewed cleanup and GitHub changes; do not claim any deletion until independently verified. Preserve GitHub history and guard builds/tests.
