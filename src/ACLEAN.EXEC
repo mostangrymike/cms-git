@@ -6,7 +6,8 @@ parse upper arg verb batch extra
 if extra\='' | (verb\='PLAN' & verb\='APPLY') |,
    (batch\='LISTINGS' & batch\='EXPERIMENTS' &,
     batch\='OLDTESTS' & batch\='BUILDDECK' &,
-    batch\='RECENTGEN') then do
+    batch\='RECENTGEN' & batch\='PACKGEN' &,
+    batch\='NETTRACE') then do
  say 'Usage: ACLEAN PLAN|APPLY batch-name'
  exit 4
 end
@@ -130,6 +131,75 @@ if batch='RECENTGEN' then do
  n=n+1; f.n='GITBX9 TEXT'
  n=n+1; f.n='GITBX9 LISTING'
 end
+/* PACKGEN: C-generated standalone build decks and byproducts. */
+/* Keep all source C, runnable MODULE, linked core, and data. */
+if batch='PACKGEN' then do
+ n=0
+ n=n+1; f.n='GITPCENS ASSEMBLE'
+ n=n+1; f.n='GITPCENS TEXT'
+ n=n+1; f.n='GITPCENS LISTING'
+ n=n+1; f.n='GITPCHK ASSEMBLE'
+ n=n+1; f.n='GITPCHK TEXT'
+ n=n+1; f.n='GITPCHK LISTING'
+ n=n+1; f.n='GITPIMP ASSEMBLE'
+ n=n+1; f.n='GITPIMP TEXT'
+ n=n+1; f.n='GITPIMP LISTING'
+ n=n+1; f.n='GITPIDX ASSEMBLE'
+ n=n+1; f.n='GITPIDX TEXT'
+ n=n+1; f.n='GITPIDX LISTING'
+ n=n+1; f.n='GITPCAT ASSEMBLE'
+ n=n+1; f.n='GITPCAT TEXT'
+ n=n+1; f.n='GITPCAT LISTING'
+ n=n+1; f.n='GITPTRE ASSEMBLE'
+ n=n+1; f.n='GITPTRE TEXT'
+ n=n+1; f.n='GITPTRE LISTING'
+ n=n+1; f.n='GITPFST ASSEMBLE'
+ n=n+1; f.n='GITPFST TEXT'
+ n=n+1; f.n='GITPFST LISTING'
+ n=n+1; f.n='GITPPRF ASSEMBLE'
+ n=n+1; f.n='GITPPRF TEXT'
+ n=n+1; f.n='GITPPRF LISTING'
+ n=n+1; f.n='GITPONE ASSEMBLE'
+ n=n+1; f.n='GITPONE TEXT'
+ n=n+1; f.n='GITPONE LISTING'
+ n=n+1; f.n='GITPHX ASSEMBLE'
+ n=n+1; f.n='GITPHX TEXT'
+ n=n+1; f.n='GITPHX LISTING'
+ n=n+1; f.n='GITPHXM ASSEMBLE'
+ n=n+1; f.n='GITPHXM TEXT'
+ n=n+1; f.n='GITPHXM LISTING'
+ n=n+1; f.n='GITPH5M ASSEMBLE'
+ n=n+1; f.n='GITPH5M TEXT'
+ n=n+1; f.n='GITPH5M LISTING'
+ n=n+1; f.n='GITPH8M ASSEMBLE'
+ n=n+1; f.n='GITPH8M TEXT'
+ n=n+1; f.n='GITPH8M LISTING'
+ n=n+1; f.n='GITPSKM ASSEMBLE'
+ n=n+1; f.n='GITPSKM TEXT'
+ n=n+1; f.n='GITPSKM LISTING'
+ n=n+1; f.n='GITPRBM ASSEMBLE'
+ n=n+1; f.n='GITPRBM TEXT'
+ n=n+1; f.n='GITPRBM LISTING'
+ n=n+1; f.n='GITRCNM ASSEMBLE'
+ n=n+1; f.n='GITRCNM TEXT'
+ n=n+1; f.n='GITRCNM LISTING'
+end
+/* NETTRACE: old SSL/TCP diagnostic OUTPUTS only, not source. */
+/* Preserve SSLPOOL service logs and live TCP/SSL configuration. */
+if batch='NETTRACE' then do
+ n=0
+ n=n+1; f.n='SSLDBG DATA'
+ n=n+1; f.n='SSLDB2 DATA'
+ n=n+1; f.n='SSLDB3 DATA'
+ n=n+1; f.n='SSLDB4 DATA'
+ n=n+1; f.n='SSLDB5 DATA'
+ n=n+1; f.n='SSL1LOG DATA'
+ n=n+1; f.n='SSL3TRC DATA'
+ n=n+1; f.n='TCPTRACE DATA'
+ n=n+1; f.n='TCPTRC2 DATA'
+ n=n+1; f.n='TCPTRC3 DATA'
+ n=n+1; f.n='M12TRACE TCPIP'
+end
 say 'ACLEAN' verb batch 'ITEMS' n
 selected=0
 removed=0
@@ -149,7 +219,7 @@ do i=1 to n
  selected=selected+1
  say 'ACLEAN FOUND' fn ft 'A'
  if verb='APPLY' then do
-  if batch='RECENTGEN' then do
+  if batch='RECENTGEN' | batch='PACKGEN' then do
    if fn='GITBX9' then srcft='ASSEMBLE'
    else srcft='C'
    'STATE' fn srcft 'A'

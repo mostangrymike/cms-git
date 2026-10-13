@@ -34,7 +34,7 @@ assert "(batch\\='LISTINGS' & batch\\='EXPERIMENTS' &," in src
 assert "batch\\='OLDTESTS'" in src
 
 recent_section = src.split("if batch='RECENTGEN' then do",1)[1]
-recent_section = recent_section.split("\nend\nsay 'ACLEAN'",1)[0]
+recent_section = recent_section.split("\nend\n",1)[0]
 recent_files = re.findall(
     r"f\.n='([A-Z0-9]+) (ASSEMBLE|TEXT|LISTING)'",
     recent_section)
@@ -60,6 +60,47 @@ assert "ACLEAN MODULE NOT VERIFIED" in src
 assert not any(t in {"EXEC","MODULE","C","PACK","STAGE",
                       "INDEX","SEEK","GEN","PTR","DATA"}
                for n,t in recent_files)
+
+# New named manifests: every target must be an exact known file.
+pack_section = src.split("if batch='PACKGEN' then do",1)[1]
+pack_section = pack_section.split("\nend\n",1)[0]
+pack_items = re.findall(
+    r"f\.n='([A-Z0-9]+) (ASSEMBLE|TEXT|LISTING)'",
+    pack_section)
+expected_pack_names = set("""GITPCENS GITPCHK GITPIMP GITPIDX GITPCAT GITPTRE GITPFST GITPPRF GITPONE GITPHX GITPHXM GITPH5M GITPH8M GITPSKM GITPRBM GITRCNM""".split())
+assert len(pack_items) == len(set(pack_items)) == 48
+assert set(pack_items) == {
+    (n,t) for n in expected_pack_names
+    for t in ("ASSEMBLE","TEXT","LISTING")
+}
+for name in expected_pack_names:
+    assert (root / "src" / (name+".C")).is_file(),name
+assert not any(n in expected_pack_names for n,t in recent_files)
+assert "batch\\='PACKGEN'" in src
+assert "batch='RECENTGEN' | batch='PACKGEN'" in src
+net_section = src.split("if batch='NETTRACE' then do",1)[1]
+net_section = net_section.split("\nend\n",1)[0]
+net_items = re.findall(
+    r"f\.n='([A-Z0-9]+) (DATA|TCPIP)'",
+    net_section)
+expected_net = {(n,"DATA") for n in "SSLDBG SSLDB2 SSLDB3 SSLDB4 SSLDB5 SSL1LOG SSL3TRC TCPTRACE TCPTRC2 TCPTRC3".split()}
+expected_net.add(("M12TRACE","TCPIP"))
+assert len(net_items) == len(set(net_items)) == 11
+assert set(net_items) == expected_net
+assert not any(n.startswith("SSLPOOL") for n,t in net_items)
+assert not any(n in ("SSLTEST","SSLTEST2","TLSQTEST") for n,t in net_items)
+assert not any(t in ("MODULE","EXEC","ASSEMBLE","TEXT","LISTING")
+               for n,t in net_items)
+assert "batch\\='NETTRACE'" in src
+assert "if batch='RECENTGEN' | batch='PACKGEN' then do" in src
+assert "'STATE' fn srcft 'A'" in src
+assert "'STATE' fn 'MODULE A'" in src
+assert "'ERASE' fn ft 'A'" in src
+# None of the new build cleanup entries touches data or active code.
+assert not any(t in ("C","EXEC","MODULE","PACK","STAGE","INDEX",
+                     "SEEK","GEN","PTR","REPO","DATA")
+               for n,t in pack_items)
+assert not set(pack_items).intersection(set(recent_files))
 
 expected_builddeck = set("""
 GITCABI GITCINF GITCPARS GITCPROB GITC2

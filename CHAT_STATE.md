@@ -13791,3 +13791,93 @@ stable reader code in place with guarded releases.
 Never reimport/reindex GIT600, format protected G,
 write-link overlapping PMAINT0141, or rerun
 M190 experimental 272-seek stage.
+
+
+## 2026-10-13 ~09:05 CDT — FULL CMS A INVENTORY AND EXPANDED CLEANUP
+
+User provided `LISTFILE * * A (ALLOC` for A disk
+(MNT191 191 A R/W 175 cyl, 4K blocks), ~342
+directory files, 13,206 used blocks and 18,294
+free. Many legacy CMS test C/ASSEMBLE, generated
+TEXT/LISTING, SSL/TCP diagnostics, 9.x–17x
+milestone files, and protected native Git data
+are still present. The earlier ACLEAN PLAN
+RECENTGEN confirmed 20 present, 0 removed;
+legacy LISTINGS/EXPERIMENTS/OLDTESTS/BUILDDECK
+all found 0.
+
+New update to **existing ACLEAN.EXEC**, not a new
+cleanup utility: `PACKGEN` exact manifest
+of 48 C-generated files, three each
+(ASSEMBLE/TEXT/LISTING) for
+GITPCENS, GITPCHK, GITPIMP, GITPIDX, GITPCAT,
+GITPTRE, GITPFST, GITPPRF, GITPONE, GITPHX,
+GITPHXM, GITPH5M, GITPH8M, GITPSKM,
+GITPRBM, GITRCNM. On APPLY, source C and
+same-name runnable MODULE on A must each
+STATE successfully before exact ERASE. Source C,
+active MODULE, EXEC, handwritten ASSEMBLE,
+G original stage/index, generations and
+selector pointers are never targeted.
+All 48 generated files appear in user listing
+and total 3,642 allocated 4K blocks by LISTFILE.
+
+`NETTRACE` exact 11 legacy SSL/TCP diagnostics:
+SSLDBG/SSLDB2/SSLDB3/SSLDB4/SSLDB5 DATA,
+SSL1LOG DATA, SSL3TRC DATA, TCPTRACE DATA,
+TCPTRC2 DATA, TCPTRC3 DATA and M12TRACE TCPIP.
+They occupy 106 allocated 4K blocks by the
+observed listing. NETTRACE is separate:
+do not APPLY until SSL/TCP services are no longer
+producing these traces, and the logs have been
+archived externally or expressly deemed unnecessary.
+Crucially preserve SSLPOOL $MSGLOG and PLANINFO,
+SSLTEST/SSLTEST2/TLSQTEST C source, active TCPIP
+services and configs. No SSL prefix wildcard.
+
+Combined confirmed from A LISTFILE:
+- RECENTGEN 20 files, 637 listed blocks.
+- PACKGEN 48 files, 3,642 listed blocks.
+- NETTRACE 11 files, 106 listed blocks.
+- 79 exact candidate files, 4,385 listed 4K blocks
+  (~17.1 MiB nominal allocation), possible
+  directory file count 342 -> 263 **ONLY if**
+  all three batches are explicitly backed up,
+  independently reviewed and successfully APPLYed.
+  None has been removed in supplied transcript.
+- Protected high-volume sources/data NOT deleted:
+  GITFIX/M15NEW STAGE INDEX SEEK GEN, original
+  M173NET/M174NET G, M171NET PACK/META,
+  GCCCMS VMARC, PROFILE, VMARC MODULE,
+  Git object cache GITOBJ and repository
+  selector/generation state. No broad older
+  C/EXEC/MODULE cleanup without impact audit.
+- Historical A-disk TRKDE 4 allocation issue requires
+  verified recoverable snapshot/backup first.
+  ACLEAN PLAN is read-only; APPLY exact and opt-in.
+
+Next after updated ACLEAN main merge:
+```sh
+git pull
+./cms-upload.sh ACLEAN.EXEC
+```
+Then CMS audit only:
+```text
+FILEDEF
+QUERY DISK A
+ACLEAN PLAN RECENTGEN
+ACLEAN PLAN PACKGEN
+ACLEAN PLAN NETTRACE
+```
+Capture actual FOUND counts; no immediate ERASE.
+After backup, first intentional RECENTGEN APPLY
+and measure QUERY DISK A; next PACKGEN APPLY after
+confirming required source/MODULEs; NETTRACE only
+if logs closed/archived and clearly expendable.
+Stop on errors; no automatic batch chaining.
+
+Development rule remains: modify existing
+GITP26M.C and GITC26.EXEC in place for upcoming
+milestones; preserve proven binaries until
+host CI and target gates. M206 real-CMS 32-band
+sample SHA PASS / 2.06s remains protected.

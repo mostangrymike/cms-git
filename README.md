@@ -1,5 +1,65 @@
 # IBM Sandbox
 
+## A-disk cleanup: full inventory reviewed, existing ACLEAN updated
+
+The October 13, 2026 full `LISTFILE * * A (ALLOC`
+inventory supports three explicit **opt-in** batches
+in the same existing `ACLEAN.EXEC` utility:
+
+| Exact manifest | Listed files | 4K blocks listed |
+|---|---:|---:|
+| RECENTGEN (previously verified) | 20 | 637 |
+| PACKGEN (16 legacy C-native build triples) | 48 | 3,642 |
+| NETTRACE (selected SSL/TCP diagnostic files) | 11 | 106 |
+| **Maximum if fully reviewed and erased** | **79** | **4,385** |
+
+The nominal file-count projection is **342 → 263**,
+and roughly 17.1 MiB of per-file allocation appears
+on the A-disk inventory. **No new deletion has
+occurred**, and actual free space must be measured,
+not inferred. `PACKGEN` deletes only C-generated
+ASSEMBLE/TEXT/LISTING when the matching source C and
+MODULE exist. `NETTRACE` covers exactly 11
+diagnostic outputs, not active SSLPOOL logs,
+SSL/TLS source, TCPIP service files or configurations.
+
+A prior CMS A TRKDE 4 disk allocation problem
+requires a verified backup/snapshot before APPLY.
+The SSL/TCP trace producers must be stopped and logs
+archived or deemed unneeded before NETTRACE APPLY.
+
+On Mac from `ibm-sandbox/src`, after merge:
+
+```sh
+git pull
+./cms-upload.sh ACLEAN.EXEC
+```
+
+On CMS, **read-only audit first**:
+
+```text
+FILEDEF
+QUERY DISK A
+ACLEAN PLAN RECENTGEN
+ACLEAN PLAN PACKGEN
+ACLEAN PLAN NETTRACE
+```
+
+For detailed limits, complete manifest names and
+separate opt-in APPLY/measurement instructions,
+see `docs/CMS_A_CLEANUP.md`.
+
+**Source-reuse rule stays mandatory:** update
+existing canonical `GITP26M.C` / `GITC26.EXEC`
+and other established sources, with GitHub rollback
+and real CMS validation. Do not add numbered
+programs for every milestone. M206's real-CMS
+32-object sample SHA PASS (2.06s elapsed) is
+the preserved baseline; it is not a complete
+280-object reachable history walk.
+
+---
+
 ## M206 full 32-object CMS PASS and A-disk audit (October 13, 2026)
 
 **REAL z/VM 6.3 CMS PASS:** `GITC26 G CHECK 64 32`
