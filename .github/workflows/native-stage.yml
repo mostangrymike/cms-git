@@ -10,6 +10,8 @@ on:
       - 'tests/check-canonical-source.sh'
       - 'src/CMSCLNK.EXEC'
       - 'src/ACLEAN.EXEC'
+      - 'archive/M3-M5_EXEC.json'
+      - 'scripts/restore-cms-exec.py'
       - 'tests/test-aclean-manifest.py'
       - 'docs/CMS_A_CLEANUP.md'
       - 'docs/BUILD.md'
@@ -220,6 +222,8 @@ on:
       - 'tests/check-canonical-source.sh'
       - 'src/CMSCLNK.EXEC'
       - 'src/ACLEAN.EXEC'
+      - 'archive/M3-M5_EXEC.json'
+      - 'scripts/restore-cms-exec.py'
       - 'tests/test-aclean-manifest.py'
       - 'docs/CMS_A_CLEANUP.md'
       - 'docs/BUILD.md'
@@ -569,6 +573,10 @@ jobs:
         run: sh tests/check-cmsclnk-source.sh
       - name: Reject native-text Git object headers in CMS C source
         run: sh tests/check-canonical-source.sh
+      - name: Validate archived M3-M5 CMS EXEC restore source
+        run: |
+          python3 -m py_compile scripts/restore-cms-exec.py
+          python3 -c 'import json,pathlib; p=pathlib.Path("archive/M3-M5_EXEC.json"); a=json.loads(p.read_text()); assert a["format"]=="cms-exec-archive-v1"; assert len(a["files"])==15; assert all(n.endswith(".EXEC") and len(n[:-5])<=8 and len(v)>0 for n,v in a["files"].items()); print("M3-M5 LOSSLESS SOURCE ARCHIVE PASS",len(a["files"]))'
       - name: Compile and fuzz interrupted writes in native C89 selector
         run: python3 tests/test_native_selector.py
       - name: Check full 64-KiB binary CATHEX output and verified fallback
