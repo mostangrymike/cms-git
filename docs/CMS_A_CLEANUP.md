@@ -353,3 +353,160 @@ M206 source filenames after safe host/CMS checks, rather
 than generating another numbered source file for every
 milestone. Preserve GitHub rollback and active modules.
 
+
+## Full A1 inventory review — legacy generated builds and SSL/TCP traces
+
+The operator supplied the full A-disk `LISTFILE * * A (ALLOC`
+inventory on October 13, 2026, after `QUERY DISK A` reported
+342 files, 13,206 used blocks, 18,294 free, block size 4096.
+The earlier `ACLEAN PLAN RECENTGEN` found all 20 original
+intermediates, with no removals. No APPLY result has been
+supplied for any batch.
+
+The inventory exposes **two additional separately gated
+cleanup groups**. Existing `ACLEAN.EXEC` and its existing
+host safety test were updated in place (not replaced).
+
+### PACKGEN — source-backed older standalone native build outputs
+
+`ACLEAN PLAN PACKGEN` examines exactly 48 files: the generated
+`ASSEMBLE`, `TEXT`, and `LISTING` for each of 16 programs:
+
+```text
+GITPCENS GITPCHK  GITPIMP  GITPIDX
+GITPCAT  GITPTRE  GITPFST  GITPPRF
+GITPONE  GITPHX   GITPHXM  GITPH5M
+GITPH8M  GITPSKM  GITPRBM  GITRCNM
+```
+
+For these programs, the complete 48 target files are
+visible in the supplied inventory, totaling **3,642
+allocated 4K blocks** by per-file LISTFILE metadata.
+This is a *nominal allocation tally*; it is not a
+claim that CMS has freed those blocks. APPLY must first
+verify each same-name `C A` source file and the
+corresponding `MODULE A` exist, then erase exactly
+the generated intermediate file. It does **not** target
+modules, C sources, shared linkage libraries, handwritten
+assembler, native G stage/index, verified generations
+or source rollback in GitHub.
+
+CAUTION: removing `TEXT` can require rebuilding it
+from retained C source if a later custom link depends
+on that intermediate. Review build workflows and
+backup recoverability before applying this group;
+PLAN alone is safe.
+
+### NETTRACE — old SSL/TCP diagnostics, not SSLPOOL
+
+`ACLEAN PLAN NETTRACE` examines exactly 11 existing
+A-disk diagnostic output files:
+
+```text
+SSLDBG DATA      SSLDB2 DATA      SSLDB3 DATA
+SSLDB4 DATA      SSLDB5 DATA      SSL1LOG DATA
+SSL3TRC DATA     TCPTRACE DATA    TCPTRC2 DATA
+TCPTRC3 DATA     M12TRACE TCPIP
+```
+
+Those 11 files are visible in the supplied inventory
+and account for **106 allocated 4K blocks** in the
+LISTFILE column. They contain diagnostic data rather
+than executable source; they may be relevant to an
+open TLS/TCP problem. Do not apply this group until
+current SSL/TCP trace collection is stopped and the
+logs have been archived externally or explicitly
+deemed unneeded.
+
+Explicitly **protected / excluded**:
+`SSLPOOL $MSGLOG A`, `SSLPOOL PLANINFO A`,
+`SSLTEST C A`, `SSLTEST2 C A`,
+`TLSQTEST C A`, `TCPMAINT` / TCPIP
+service records, and all other SSL-related files.
+No filename-prefix wildcard cleanup is permitted.
+
+### Combined potential, not completed deletions
+
+| Manifest | Exact candidates in supplied A inventory | Allocated blocks |
+|---|---:|---:|
+| RECENTGEN | 20 | 637 |
+| PACKGEN | 48 | 3,642 |
+| NETTRACE | 11 | 106 |
+| **Combined** | **79** | **4,385** |
+
+If all 79 files are independently reviewed, backed up,
+and successfully removed *with no new files created*,
+the nominal directory count would decline from **342 to
+263**. The allocation shown corresponds to approximately
+17.1 MiB. The actual CMS used/free block change must
+be measured after APPLY, and the historical TRKDE 4
+A-disk integrity incident makes a verified disk backup
+and conservative sequential deletion important. This
+is a projection, **not a report of completed work**.
+
+Many tempting large files **must not be cleaned based
+on filename/size alone**: `GITFIX STAGE/INDEX/SEEK/GEN`,
+`M15NEW STAGE/INDEX/SEEK/GEN`, selector pointers,
+`M171NET PACK`, `GCCCMS VMARC`, `PROFILE EXEC/XEDIT`,
+`VMARC MODULE`, repository GITOBJ/REPO objects and
+other protected data. In particular `GCCCMS VMARC`
+(821 blocks) is a toolchain/archive resource and is
+not an automatically disposable cache.
+
+### Safe operator plan (NO deletion)
+
+After pulling and uploading the changed existing
+`ACLEAN.EXEC`, run:
+
+```text
+FILEDEF
+QUERY DISK A
+ACLEAN PLAN RECENTGEN
+ACLEAN PLAN PACKGEN
+ACLEAN PLAN NETTRACE
+```
+
+These are all read-only. The historical LISTINGS,
+EXPERIMENTS, OLDTESTS and BUILDDECK categories already
+reported zero and do not need another run.
+
+Only after the reviewed PLAN, an actual independent
+backup/snapshot, and a deliberate decision to erase
+each class, use exact opt-in APPLY commands *one batch
+at a time*. For example, **do not combine the following
+into an automatic single script**:
+
+```text
+ACLEAN APPLY RECENTGEN
+QUERY DISK A
+ACLEAN PLAN RECENTGEN
+```
+
+```text
+ACLEAN APPLY PACKGEN
+QUERY DISK A
+ACLEAN PLAN PACKGEN
+```
+
+```text
+ACLEAN APPLY NETTRACE
+QUERY DISK A
+ACLEAN PLAN NETTRACE
+```
+
+The last NETTRACE APPLY additionally requires the TLS/TCP
+trace collection to be finished and those logs archived.
+Never use wildcard ERASE. Every newly produced MODULE
+and handwritten source must remain intact. Stop if
+an APPLY command reports anything other than the
+expected exact deletion count and clean return code.
+
+### Policy for future milestones
+
+Keep editing the proven canonical `GITP26M.C`,
+`GITC26.EXEC`, and existing helper sources in place.
+Host CI, GitHub commit history and target CMS validation
+are the source rollback mechanism; do not litter A with
+a new series of numbered binaries every milestone.
+The original 32-object M206 real-CMS gate has passed
+and remains the unmodified baseline.
