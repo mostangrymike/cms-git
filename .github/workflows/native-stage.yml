@@ -125,12 +125,9 @@ on:
       - 'tests/test-m198-fsread-scratch.py'
       - 'src/GITBX9.ASSEMBLE'
       - 'src/GITB9.EXEC'
-      - 'tests/test-m199-record-read.py'
       - 'src/GITCLN.EXEC'
-      - 'tests/test-m200-filedef-cleanup.py'
       - 'src/GITP21M.C'
       - 'src/GITP21.EXEC'
-      - 'tests/test-m201-plan-export.py'
       - 'src/GITC22.EXEC'
       - 'src/GITC23.EXEC'
       - 'tests/test-m203-bounded-batch.py'
@@ -350,12 +347,9 @@ on:
       - 'tests/test-m198-fsread-scratch.py'
       - 'src/GITBX9.ASSEMBLE'
       - 'src/GITB9.EXEC'
-      - 'tests/test-m199-record-read.py'
       - 'src/GITCLN.EXEC'
-      - 'tests/test-m200-filedef-cleanup.py'
       - 'src/GITP21M.C'
       - 'src/GITP21.EXEC'
-      - 'tests/test-m201-plan-export.py'
       - 'src/GITC22.EXEC'
       - 'src/GITC23.EXEC'
       - 'tests/test-m203-bounded-batch.py'
@@ -555,11 +549,11 @@ jobs:
       - name: Check M198 NEW-only scratch FSREAD to Git SHA bridge
         run: python3 tests/test-m198-fsread-scratch.py
       - name: Check M199 bounded parameterized FSREAD object reader
-        run: python3 tests/test-m199-record-read.py
+        run: python3 tests/test-m203-bounded-batch.py M199
       - name: Check M200 CMS FILEDEF and exact A1 cleanup
-        run: python3 tests/test-m200-filedef-cleanup.py
+        run: python3 tests/test-m203-bounded-batch.py M200
       - name: Check M201 compact native index-to-SHA plan
-        run: python3 tests/test-m201-plan-export.py
+        run: python3 tests/test-m203-bounded-batch.py M201
       - name: Check M202 dual object full SHA and exact scratch cleanup
         run: python3 tests/test-m203-bounded-batch.py M202
       - name: Check M203 bounded batch Git SHA
