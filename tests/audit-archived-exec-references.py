@@ -21,6 +21,17 @@ for p in sorted((ROOT / "archive").glob("*.json")):
         assert isinstance(body, str) and body, name
         archives[name] = body
 
+# A live CMS source that is also archived must not silently drift.
+# GIT9CTX remains a required live dependency of the production PACK walker.
+for name, original in sorted(archives.items()):
+    live = ROOT / "src" / name
+    if live.exists():
+        assert live.read_text() == original, ("ARCHIVE DRIFT", name)
+required = ROOT / "src/GIT9CTX.EXEC"
+assert required.is_file(), "Production GIT9CTX helper missing"
+assert "GIT9CTX" in (ROOT / "src/GITP9PWK.EXEC").read_text()
+print("LIVE ARCHIVED CMS SOURCE PARITY PASS")
+
 tracked = subprocess.check_output(["git", "ls-files", "-z"], cwd=ROOT)
 paths = [ROOT / p.decode() for p in tracked.split(b"\0") if p]
 sources = [p for p in paths if p.suffix in
