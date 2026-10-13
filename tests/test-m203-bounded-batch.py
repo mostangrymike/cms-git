@@ -51,7 +51,24 @@ ORIGINAL = {
     "M203": "#!/usr/bin/env python3\n\"\"\"M203: bounded 2..8-object CMS REXX verification order guard.\"\"\"\nfrom pathlib import Path\n\nROOT=Path(__file__).resolve().parents[1]\ncode=(ROOT/\"src/GITC23.EXEC\").read_text()\nassert max(map(len,code.splitlines()))<=80\ntokens=[\n \"parse upper arg fm mode limit members\",\n \"count=words(members)\",\n \"count<2 | count>8\",\n \"objs.i=word(members,i)\",\n \"objs.i<1 | objs.i>7736\",\n \"if objs.i=objs.j then do\",\n \"'STATE GITP21M MODULE A'\",\n \"'STATE GITBX9 MODULE A'\",\n \"'STATE GITVO7M MODULE A'\",\n \"'STATE GITVRAW DATA A'\",\n \"'STATE GITR199 DATA A'\",\n \"'PIPE CMS FILEDEF | STEM defs.'\",\n \"'GITP21 G' objs.i limit 'CHECK'\",\n \"M203 ALL INDEX CHECKS PASS\",\n \"M203 CHECK ONLY NO SCRATCH PASS\",\n \"'GITP21 G' obj limit\",\n \"M203 SHA GATE FAIL SCRATCH PRESERVED\",\n \"'GITCLN SCRATCH'\",\n \"M203 FULL OBJECT SHA VERIFIED\",\n \"M203 CLEAN VERIFIED\",\n \"M203 BOUNDED FULL SHA CLEAN PASS\"\n]\nfor token in tokens:\n    assert token in code,token\nassert code.count(\"'GITCLN SCRATCH'\")==1\nassert code.count(\"'GITP21 G' obj limit\")==1\nassert code.count(\"'GITP21 G' objs.i limit 'CHECK'\")==1\npre,post=code.split(\"if mode='CHECK' then do\",1)\nassert \"M203 ALL INDEX CHECKS PASS\" in pre\nassert post.index(\"'GITP21 G' obj limit\")<post.index(\n    \"'GITCLN SCRATCH'\")\nassert post.index(\"if s\\\\=0 then do\")<post.index(\n    \"'GITCLN SCRATCH'\")\nfor token in (\"M173NET\", \"M174NET\", \"GIT600\",\n              \"FSWRITE\", \"FSREAD\", \"OPENTYP=REPLACE\"):\n    assert token not in code,token\ndef valid(items):\n    if not 2<=len(items)<=8: return False\n    if any(not isinstance(x,int) or isinstance(x,bool) or\n           x<1 or x>7736 for x in items): return False\n    return len(set(items))==len(items)\nfor seq in ([3868,7736],[1,3868,7736],list(range(1,9))):\n    assert valid(seq)\nfor seq in ([1],list(range(1,10)),[1,1],[1,7737]):\n    assert not valid(seq)\ndef simulate(items,failcheck=-1,failsha=-1,failclean=-1,\n             checking=False):\n    if not valid(items):return \"BAD\",[],False\n    events=[]\n    scratch=False\n    for i,obj in enumerate(items):\n        events.append((\"CHECK\",obj))\n        if i==failcheck:return \"CHECK_FAIL\",events,scratch\n    if checking:return \"CHECK_PASS\",events,scratch\n    for i,obj in enumerate(items):\n        events.append((\"SHA\",obj))\n        scratch=True\n        if i==failsha:return \"SHA_FAIL\",events,scratch\n        events.append((\"CLEAN\",obj))\n        if i==failclean:return \"CLEAN_FAIL\",events,scratch\n        scratch=False\n    return \"PASS\",events,scratch\nfor seq in ([3868,7736],[1,3868,7736],list(range(1,9))):\n    a,e,s=simulate(seq)\n    assert a==\"PASS\" and not s\n    assert [x[0] for x in e[:len(seq)]]==[\"CHECK\"]*len(seq)\n    a,e,s=simulate(seq,checking=True)\n    assert a==\"CHECK_PASS\" and not s\n    assert len(e)==len(seq)\n    a,e,s=simulate(seq,failcheck=len(seq)-1)\n    assert a==\"CHECK_FAIL\" and not s\n    assert all(x[0]==\"CHECK\" for x in e)\n    a,e,s=simulate(seq,failsha=0)\n    assert a==\"SHA_FAIL\" and s and (\"CLEAN\",seq[0]) not in e\n    a,e,s=simulate(seq,failclean=0)\n    assert a==\"CLEAN_FAIL\" and s and (\"SHA\",seq[1]) not in e\nprint(\"M203 BOUNDED DISTINCT OBJECTS, PREFLIGHT AND SHA HOST PASS\")\nprint(\"M203 FAILED SHA/CLEANUP PRESERVES SCRATCH AND STOPS\")\nprint(\"M203 REAL CMS TARGET CHECK/RUN STILL PENDING\")\n"
 }
 
+def check_inventory():
+    """Compile every retained original test without executing target actions."""
+    import hashlib
+    if len(ORIGINAL) < 30:
+        raise RuntimeError("Unexpectedly small preserved host test inventory")
+    for name, source in sorted(ORIGINAL.items()):
+        if not source.startswith("#!/usr/bin/env python3"):
+            raise RuntimeError("Missing original Python header: " + name)
+        compile(source, __file__, "exec")
+        print("SOURCE COMPILE PASS", name,
+              hashlib.sha256(source.encode("utf-8")).hexdigest())
+    print("HISTORICAL HOST SOURCE INVENTORY PASS", len(ORIGINAL))
+
+
 if __name__ == "__main__":
+    if sys.argv[1:] == ["CHECK"]:
+        check_inventory()
+        raise SystemExit(0)
     if len(sys.argv) < 2 or sys.argv[1] not in ORIGINAL or (
             (sys.argv[1] in ("NDATA", "PHIST", "PMODEL", "GINTEG")) != (len(sys.argv) == 3)):
         raise SystemExit("Expected case name; NDATA also needs its original subcase")
