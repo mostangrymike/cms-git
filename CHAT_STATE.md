@@ -13968,3 +13968,8 @@ Archived byte-exact sources for currently tracked `GITACK.EXEC`, `GITADV.EXEC`, 
 ## 2026-10-13 — Archive/live source parity and production-helper guard
 
 Hardened `tests/audit-archived-exec-references.py` at commit 240524d03a23a3a33329c302b5e111b1785e0e31. Every archived CMS EXEC still present in src/ must now match its lossless archive exactly, or the test fails. The test additionally requires src/GIT9CTX.EXEC as a live file and a reference to GIT9CTX in production src/GITP9PWK.EXEC. Existing report-only reference inventory remains. Native GitHub CI run 38456119421 passed the newly hardened audit step; full workflow outcome must be independently checked before claiming whole-suite PASS. Repository remains 266 tracked files; no deletions, CMS A/G modifications or native MODULE changes. Preserve M188/M206 target-proven gates.
+
+
+## 2026-10-13 — M6 live-helper retention fail-closed CI success
+
+Prior full CI run 38456119421 completed SUCCESS. Hardened existing `tests/audit-archived-exec-references.py` at commit d6cd104df84f3a3411da881c36866be9991384cd to require archived GITACK, GITADV and GITZLIB sources remain present in live src, pending genuine comprehensive runtime dependency verification. Existing archive/live byte equality, GIT9CTX and production GITP9PWK reference checks stay in force. Post-change full GitHub Actions run 38458528622 completed SUCCESS. Repository remains at 266 tracked files; no target/CMS disk mutation or production deletion. This is a safety prerequisite, not proof helpers are unused. Continue safe consolidation without dropping live protocol functions.
