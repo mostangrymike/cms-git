@@ -2012,3 +2012,15 @@ Actual z/VM CMS `GITRUN M54` passed all protected original 1808-object, positive
 ## M55 native success and M56 one-snapshot seek-index optimization
 
 The real September 29 z/VM CMS M55 protected regression passed on the original 1808-object repository with CPU 619.93 / elapsed 635.48 seconds, compared with M54 923.83 seconds. M56 further reduces redundant work inside the one already fully verified read-only RUNBATCH by parsing its selected seek index once and reusing that exact 1808-entry in-memory snapshot for that batch only. Every standalone command still freshly reads its index and every object body is freshly reopened and hashed. Both separate complete original 1808-object audits, complete bounded root closures, current and fallback selector validation, expected negative RC4/8, dual-invalid fail closed, restoration and final protected-file checks remain mandatory. Full strict C89 CI passed https://github.com/mostangrymike/ibm-sandbox/actions/runs/36631835500 ; M56 is host-proven and awaits the real native CMS target test. Use the standard M56 GITRUN, transfer only GITREC.C and GITRUN.EXEC via current CMS_SCRIPT_PORT=3272 and refer to docs/CURRENT_STATE.md for the exact next steps.
+
+## Restoring historical CMS test EXEC source
+
+Older M3–M13 milestone-only test EXEC sources are preserved losslessly in `archive/M3-M5_EXEC.json`, `archive/M6-M9_EXEC.json` and `archive/M10-M13_EXEC.json` rather than occupying one tracked source file per test. This is *source packaging only*: working CMS programs, Git core sources, current M188/M206 behavior and target-proven modules are not changed. Git history also retains each original path. From the Mac checkout, run:
+
+```sh
+python3 scripts/restore-cms-exec.py M9PCONS.EXEC
+# or restore all archived historical test EXECs:
+python3 scripts/restore-cms-exec.py ALL
+```
+
+Restoration refuses to overwrite any pre-existing `src/NAME.EXEC`. To test on CMS after restoring a particular source, use the established `src`-directory upload script, e.g. `./cms-upload.sh M9PCONS.EXEC`; only then invoke the associated CMS test. The archives are not CMS files and should not be uploaded directly. Archive sources are checked for exact preservation, and restoration is exercised by GitHub CI. A successful GitHub host check does not replace a real CMS target test.
