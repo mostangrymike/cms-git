@@ -2054,3 +2054,22 @@ The generator refuses to overwrite any existing output. From the
 `./cms-upload.sh GITPH8.EXEC` workflow. Do not upload the Python
 generator itself to CMS. GitHub CI regenerates all ten before
 running the original source and native host regression gates.
+
+
+## Restore archived M9 PACK walker experiments
+
+The legacy M9 K/L/M experimental PACK walker EXEC sources are preserved
+byte-for-byte in `archive/M9_WALKERS.json`. The live `GITP9PWK.EXEC`
+production wrapper remains tracked and unchanged. From the Mac checkout:
+
+```sh
+python3 scripts/restore-cms-exec.py GITP9KWK.EXEC
+python3 scripts/restore-cms-exec.py GITP9LWK.EXEC
+python3 scripts/restore-cms-exec.py GITP9MWK.EXEC
+```
+
+Restoration refuses to overwrite existing sources. The GitHub Actions
+workflow restores all three historical entry points and verifies source
+identity before running host regression checks; these are not live CMS
+target revalidations. Only upload a restored wrapper when running its
+specific historical CMS experiment.
