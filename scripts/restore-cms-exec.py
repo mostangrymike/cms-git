@@ -15,23 +15,6 @@ ROOT = Path(__file__).resolve().parents[1]
 ARCHIVES = ROOT / "archive"
 
 def load():
-    files = {}
-    for path in sorted(ARCHIVES.glob("*.json")):
-        archive = json.loads(path.read_text(encoding="utf-8"))
-        if archive.get("format") != "cms-exec-archive-v1":
-            raise RuntimeError("Unknown format: " + str(path))
-        for name, source in archive["files"].items():
-            if not re.fullmatch(r"[A-Z0-9]{1,8}[.]EXEC", name):
-                raise RuntimeError("Invalid CMS filename: " + name)
-            if name in files or not isinstance(source, str) or not source:
-                raise RuntimeError("Duplicate or empty EXEC: " + name)
-            files[name] = source
-    return files
-
-def main():
-    if len(sys.argv) != 2:
-        raise SystemExit("Usage: python3 scripts/restore-cms-exec.py NAME.EXEC|ALL|MISSING")
-    arg = sys.argv[1].upper()
     # The archive inventory must remain complete. A deleted bundle must not
     # silently turn its formerly restorable EXECs into missing coverage.
     expected = {
@@ -49,6 +32,23 @@ def main():
         source = json.loads((ARCHIVES / name).read_text(encoding="utf-8"))
         if source.get("format") != "cms-exec-archive-v1" or len(source["files"]) != count:
             raise SystemExit("Archive count or format mismatch: " + name)
+    files = {}
+    for path in sorted(ARCHIVES.glob("*.json")):
+        archive = json.loads(path.read_text(encoding="utf-8"))
+        if archive.get("format") != "cms-exec-archive-v1":
+            raise RuntimeError("Unknown format: " + str(path))
+        for name, source in archive["files"].items():
+            if not re.fullmatch(r"[A-Z0-9]{1,8}[.]EXEC", name):
+                raise RuntimeError("Invalid CMS filename: " + name)
+            if name in files or not isinstance(source, str) or not source:
+                raise RuntimeError("Duplicate or empty EXEC: " + name)
+            files[name] = source
+    return files
+
+def main():
+    if len(sys.argv) != 2:
+        raise SystemExit("Usage: python3 scripts/restore-cms-exec.py NAME.EXEC|ALL|MISSING")
+    arg = sys.argv[1].upper()
     files = load()
     if arg == "MISSING":
         # Validate all existing files before creating any: fail closed on
