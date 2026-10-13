@@ -34,11 +34,8 @@ on:
       - 'src/M159CHK.EXEC'
       - 'src/M160CHK.EXEC'
       - 'src/M161CHK.EXEC'
-      - 'tests/test-m161-presence-frontier.py'
       - 'src/M162CHK.EXEC'
-      - 'tests/test-m162-presence-frontier-distance.py'
       - 'src/M163CHK.EXEC'
-      - 'tests/test-m163-presence-horizon.py'
       - 'src/GITIMP.EXEC'
       - 'src/GITWT.EXEC'
       - 'src/M164CHK.EXEC'
@@ -258,11 +255,8 @@ on:
       - 'src/M159CHK.EXEC'
       - 'src/M160CHK.EXEC'
       - 'src/M161CHK.EXEC'
-      - 'tests/test-m161-presence-frontier.py'
       - 'src/M162CHK.EXEC'
-      - 'tests/test-m162-presence-frontier-distance.py'
       - 'src/M163CHK.EXEC'
-      - 'tests/test-m163-presence-horizon.py'
       - 'src/GITIMP.EXEC'
       - 'src/GITWT.EXEC'
       - 'src/M164CHK.EXEC'
@@ -478,11 +472,11 @@ jobs:
       - name: Check M160 authenticated presence coverage
         run: python3 tests/test-presence-history.py M160
       - name: Check M161 authenticated presence frontier
-        run: python3 tests/test-m161-presence-frontier.py
+        run: python3 tests/test-presence-history.py M161
       - name: Check M162 authenticated frontier distance
-        run: python3 tests/test-m162-presence-frontier-distance.py
+        run: python3 tests/test-presence-history.py M162
       - name: Check M163 authenticated complete presence horizon
-        run: python3 tests/test-m163-presence-horizon.py
+        run: python3 tests/test-presence-history.py M163
       - name: Check M164 practical CMS worktree porcelain
         run: python3 tests/test-m164-worktree.py
       - name: Check M165 staged commit object
