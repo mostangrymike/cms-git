@@ -115,8 +115,6 @@ for note in (plan, state):
     assert "No user defined FILEDEF in effect" in note
     assert "B81D3CE7BAC08420BF7DB862E93F82FB3968DDC0" in note
     assert "8B7134918D12ED07D60E3CB28A1803EBCA7DB65B" in note
-assert "full M175CHK G PASS" in (
-    root / "docs/M178_PACK_TREE_PERFORMANCE_PLAN.md"
-).read_text()
+assert "full M175CHK G PASS" in milestone_note("M178_PACK_TREE_PERFORMANCE_PLAN.md")
 
 print("M177 READONLY G STAGE/INDEX VIEW SOURCE GUARD PASS")
