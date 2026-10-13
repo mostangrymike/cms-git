@@ -41,7 +41,14 @@ for name in protected:
 print("LIVE M6 PROTOCOL HELPER RETENTION PASS")
 
 tracked = subprocess.check_output(["git", "ls-files", "-z"], cwd=ROOT)
-paths = [ROOT / p.decode() for p in tracked.split(b"\0") if p]
+tracked_names = {p.decode() for p in tracked.split(b"\0") if p}
+# CI reconstructs historical EXEC files before this audit. An on-disk file
+# alone therefore cannot establish that a live production dependency remains
+# part of the canonical Git checkout. Keep these original sources tracked.
+for name in (*protected, "GIT9CTX.EXEC"):
+    assert "src/" + name in tracked_names, ("LIVE SOURCE NOT TRACKED", name)
+print("LIVE PRODUCTION HELPER GIT TRACKING PASS")
+paths = [ROOT / p for p in sorted(tracked_names)]
 sources = [p for p in paths if p.suffix in
            (".EXEC", ".C", ".ASSEMBLE", ".sh", ".py", ".yml")
            and "archive" not in p.parts]
