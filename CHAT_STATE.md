@@ -14039,3 +14039,5 @@ The current session extended the existing lossless source-string historical regr
 
 ## 2026-10-13: M186-M190 host test consolidation
 Five standalone Python host tests were merged losslessly into tests/test-m203-bounded-batch.py as M186, M187, M189, M190 and M190S. GitHub Actions retains distinct invocations. Deleted tests/test-m186-skip-differential.py, test-m187-live-scale.py, test-m189-eightway.py, test-m190-selective-seek.py and test-m190-scale-seek.py. Final deletion commit 88cdbd7d9e5bee3b69e3046535e8d5d10d4327d4. Twenty-one selector entries and workflow calls verified by GitHub source inspection. Estimated 245 tracked files versus original 425. Full CI unverified. No CMS runtime or protected disks changed.
+
+M188 host parity test was consolidated into tests/test-m203-bounded-batch.py (selector M188). The old standalone test was deleted at commit 527052729582b82c6a0f361a03f36149bb87e51e and the workflow repaired at a69d9ce0db23086f8254cf7ddfcf5295cd4e5f16. Estimated tracked files: 244. Full CI unverified; protected CMS sources and disks unchanged.
