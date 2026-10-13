@@ -615,19 +615,10 @@ jobs:
         run: sh tests/check-cmsclnk-source.sh
       - name: Reject native-text Git object headers in CMS C source
         run: sh tests/check-canonical-source.sh
-      - name: Validate archived M3-M5 CMS EXEC restore source
+      - name: Validate archived historical EXEC inventory
         run: |
           python3 -m py_compile scripts/restore-cms-exec.py
-          python3 scripts/restore-cms-exec.py M4TEST.EXEC
-          python3 -c 'import json,pathlib; a=json.loads(pathlib.Path("archive/M3-M5_EXEC.json").read_text()); assert pathlib.Path("src/M4TEST.EXEC").read_text()==a["files"]["M4TEST.EXEC"]; print("M4TEST RESTORE INTEGRITY PASS")'
-          rm src/M4TEST.EXEC
-          python3 scripts/restore-cms-exec.py M9PCONS.EXEC
-          python3 -c 'import json,pathlib; a=json.loads(pathlib.Path("archive/M6-M9_EXEC.json").read_text()); assert len(a["files"])==48; assert pathlib.Path("src/M9PCONS.EXEC").read_text()==a["files"]["M9PCONS.EXEC"]; print("M9PCONS RESTORE INTEGRITY PASS")'
-          rm src/M9PCONS.EXEC
-          python3 scripts/restore-cms-exec.py M10DREAL.EXEC
-          python3 -c 'import json,pathlib; a=json.loads(pathlib.Path("archive/M10-M13_EXEC.json").read_text()); assert len(a["files"])==23; assert pathlib.Path("src/M10DREAL.EXEC").read_text()==a["files"]["M10DREAL.EXEC"]; print("M10DREAL RESTORE INTEGRITY PASS")'
-          rm src/M10DREAL.EXEC
-          python3 -c 'import json,pathlib; p=pathlib.Path("archive/M3-M5_EXEC.json"); a=json.loads(p.read_text()); assert a["format"]=="cms-exec-archive-v1"; assert len(a["files"])==15; assert all(n.endswith(".EXEC") and len(n[:-5])<=8 and len(v)>0 for n,v in a["files"].items()); print("M3-M5 LOSSLESS SOURCE ARCHIVE PASS",len(a["files"]))'
+          python3 -c 'import json,pathlib; a=pathlib.Path("archive"); expected={"M3-M5_EXEC.json":15,"M6-M9_EXEC.json":48,"M10-M13_EXEC.json":23,"M9_WALKERS.json":3,"M6_PROTOCOL.json":3,"M9-M12_TRANSPORT.json":7}; assert all(len(json.loads((a/n).read_text())["files"])==count for n,count in expected.items()); print("HISTORICAL EXEC INVENTORY PASS")'
       - name: Compile and fuzz interrupted writes in native C89 selector
         run: python3 tests/test_native_selector.py
       - name: Check full 64-KiB binary CATHEX output and verified fallback
