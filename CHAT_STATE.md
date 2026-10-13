@@ -13578,3 +13578,116 @@ Do not infer unobserved OIDs, sample sizes or
 batch timings. No original G writes, reindex,
 format GIT600, write-link overlapping
 PMAINT0141 or repeat M190 seek experiment.
+
+
+## 2026-10-13 ~08:32 CDT — M206 REAL CMS 16-OBJECT SHA PASS
+
+Actual z/VM 6.3 console: clean `CMSCLNK GITP26M PLAIN`
+compile with no assembler statements flagged. `GITC26 G
+CHECK 64 16` authenticated index plans only, no
+scratch, Ready T=0.64/0.66 at 08:30:06. `GITC26 G
+RUN 64 16` completed all 16 full M199 FSREAD and
+M197 canonical Git SHA1 checks with an M200
+exact A scratch cleanup after each. Terminal:
+
+```text
+M206 STRATIFIED INDEX PLANS PASS 16
+M206 SAMPLE CHECK NO SCRATCH PASS 16
+M206 FULL SHA VERIFIED 1 5
+M206 FULL SHA VERIFIED 2 484
+M206 FULL SHA VERIFIED 3 969
+M206 FULL SHA VERIFIED 4 1451
+M206 FULL SHA VERIFIED 5 1935
+M206 FULL SHA VERIFIED 6 2419
+M206 FULL SHA VERIFIED 7 2902
+M206 FULL SHA VERIFIED 8 3386
+M206 FULL SHA VERIFIED 9 3869
+M206 FULL SHA VERIFIED 10 4352
+M206 FULL SHA VERIFIED 11 4836
+M206 FULL SHA VERIFIED 12 5322
+M206 FULL SHA VERIFIED 13 5803
+M206 FULL SHA VERIFIED 14 6288
+M206 FULL SHA VERIFIED 15 6835
+M206 FULL SHA VERIFIED 16 7253
+M206 SCRATCH CLEAN VERIFIED 16 7253
+M206 STRATIFIED FULL SHA CLEAN PASS 16
+Ready; T=1.13/1.43 08:32:05
+```
+
+The console is interleaved around terminal paging,
+but complete terminal PASS and independent M197
+SHA and per-object cleanup evidence are present.
+The selected objects are 5,484,969,1451,1935,
+2419,2902,3386,3869,4352,4836,5322,5803,
+6288,6835,7253, distributed across the 7,736
+original index entries. The full run took 1.43s
+elapsed, CHECK 0.66s elapsed; 16/16 authenticated.
+No independent final FILEDEF listing supplied.
+32-band M206 CHECK and RUN not yet tested.
+Original M173NET STAGE G1 / M174NET INDEX G1
+remain protected and were read-only.
+
+## New user directive — cleanup and source reuse
+
+The MAINT A disk has ~342 files; many milestone-specific
+C/EXEC/MODULE and intermediate ASSEMBLE/TEXT/LISTING
+files. User explicitly requests consolidation/deletion
+of unnecessary test files and **reusing existing source
+files across milestones** instead of minting new files.
+
+New default project rule: **edit canonical filenames
+in place** for incremental reader improvements,
+particularly `GITP26M.C` and `GITC26.EXEC` after
+the M206 32-band target proof. Modify current
+`GITBX9.ASSEMBLE`, `GITB9.EXEC`,
+`GITVO7M.C`, `GITCLN.EXEC`, and `ACLEAN.EXEC`
+as appropriate. Previous versions remain in GitHub
+commits/tags, not as proliferating numbered CMS files.
+Protect the current proven MODULE until the next
+code has completed host CI and actual CMS test gates.
+Create new filename only for genuinely new independent
+component not an incremental milestone.
+
+An unmerged experimental M207 branch made with
+GITP27M/GITC27 names before the user's new
+directive must NOT be deployed or merged; it is
+superseded by the in-place policy.
+
+Existing `src/ACLEAN.EXEC` was extended IN PLACE
+with `RECENTGEN` exact-name batch, at most 20
+generated ASSEMBLE/TEXT/LISTING intermediates
+associated with:
+GITRP6M, GITVO7M, GITP21M, GITP24M, GITP25M,
+GITP26M (3 each), plus GITBX9 TEXT/LISTING.
+Preserves every C source, handmade GITBX9
+ASSEMBLE, every EXEC and MODULE, stage/index,
+PACK, verified generation, selectors, G disk.
+Only APPLY deletes and requires both source
+and running MODULE to exist per found artifact.
+PLAN has no side effects. Host test updated
+within existing tests/test-aclean-manifest.py,
+not a new milestone test filename.
+Prior older LISTINGS/EXPERIMENTS/OLDTESTS/BUILDDECK
+cleanup manifests remain unchanged.
+
+Current A inventory not yet provided: do NOT
+claim all 20 candidates are present. Project
+had prior TRKDE 4 deallocation error on CMS A:
+prefer verified DASD backup/snapshot before
+intentional deletion. See docs/CMS_A_CLEANUP.md.
+Recommended CMS read-only commands after
+ACLEAN update/CI merge:
+```text
+FILEDEF
+QUERY DISK A
+ACLEAN PLAN RECENTGEN
+LISTFILE * * A (ALLOC
+```
+Only after reviewing exact inventory/plan and
+backup, consider `ACLEAN APPLY RECENTGEN`;
+no wildcard erase. For M206 32-band target gate:
+`GITC26 G CHECK 64 32`, and only on CHECK
+success with absent scratch,
+`GITC26 G RUN 64 32`; record SHA and
+cleanup confirmations. Then reuse the SAME
+M206 source files for later milestones.

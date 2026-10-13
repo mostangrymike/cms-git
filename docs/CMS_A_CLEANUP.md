@@ -162,3 +162,131 @@ Do not include wildcard targets or run the new batch
 without first inspecting PLAN. This only tidies A;
 a distinct large persistent minidisk is still required
 for the generalized live 7736-object stage.
+ 
+
+## October 13, 2026: reuse the existing code and cleanup infrastructure
+
+The A disk has been reported as approximately **342 files**; this
+is a recent user observation, not an itemized current CMS LISTFILE
+inventory. Do not assume which historical manifests have already
+been applied. The disk was approximately 343 files in the most
+recent M206 CMS run, and the snapshot / TRKDE 4 data-integrity
+caution above still applies.
+
+**New default development rule:** stop creating new version-numbered
+native program filenames every milestone. Continue editing and
+rebuilding the canonical files `GITP26M.C` and `GITC26.EXEC`
+for later stratified reader improvements; likewise continue using
+`GITBX9.ASSEMBLE`, `GITB9.EXEC`, `GITVO7M.C`, `GITCLN.EXEC`
+and `ACLEAN.EXEC` where appropriate. Preserve target-proven
+modules until replacement code has passed host CI, CMS build
+and all required target regression gates. GitHub commits and
+tags retain past source versions; never depend on old local
+compiler output for rollback. New filenames require a genuinely
+new standalone capability, not just the next milestone number.
+
+M206 has **real-CMS 16-object target PASS** as of October 13,
+2026; M206 32-object target CHECK/RUN is not yet proven.
+Preserve `GITP26M MODULE A`, `GITC26 EXEC A`, the canonical
+source on A, target-proven `GITBX9 MODULE A`,
+`GITB9 EXEC A`, `GITVO7M MODULE A`,
+`GITCLN EXEC A`, and the protected original G stage and
+index. Do not edit or replace the current M206 binaries
+until the separate 32-band target gate is complete.
+
+### ACLEAN RECENTGEN: 20 exact generated intermediates
+
+`ACLEAN.EXEC` was extended **in place** with a new
+`RECENTGEN` manifest. It considers the generated
+`ASSEMBLE`, `TEXT`, and `LISTING` files for precisely
+these six source-backed C programs:
+
+```text
+GITRP6M GITVO7M GITP21M GITP24M GITP25M GITP26M
+```
+
+It also considers the generated `GITBX9 TEXT A` and
+`GITBX9 LISTING A` from its assembler build. It
+**does not erase `GITBX9 ASSEMBLE A`**, which is
+hand-authored source.
+
+The cleanup finds files only by full `filename
+filetype A`, skipping absent files. It never uses
+wildcards and never touches MODULE, EXEC, C, PACK,
+STAGE, INDEX, SEEK, GEN, PTR, REPO, or any G-disk
+file. On APPLY, for each *present* RECENTGEN target
+it first requires that its `filename C A` source
+(`GITBX9 ASSEMBLE A` for GITBX9) **and its current
+filename MODULE A** exist; otherwise it stops without
+erasing that file. Only then does it issue the
+precisely addressed ERASE. The original A data and
+the protected G repository are unaffected.
+
+This batch is a **maximum of 20 candidates**, not a
+claim that twenty such files are currently present
+or that all twenty will be removed. The CMS
+`PLAN` report establishes the actual count and the
+post-APPLY disk count must be measured.
+
+Run `ACLEAN PLAN RECENTGEN` first. The safest time
+to APPLY is after a current DASD backup/snapshot
+and after the current M206 32-band CHECK/RUN
+has passed, or another deliberate safe checkpoint.
+Do not run APPLY merely because the file count is
+large. If there is any failure or ambiguity, keep
+the files and report the complete console output.
+
+### Operator commands and inventory
+
+From Mac `ibm-sandbox/src` after the updated
+existing ACLEAN source is merged to main:
+
+```sh
+git pull
+./cms-upload.sh ACLEAN.EXEC
+```
+
+On CMS, the following are read-only:
+
+```text
+FILEDEF
+QUERY DISK A
+LISTFILE * * A (ALLOC
+ACLEAN PLAN RECENTGEN
+ACLEAN PLAN LISTINGS
+ACLEAN PLAN EXPERIMENTS
+ACLEAN PLAN OLDTESTS
+ACLEAN PLAN BUILDDECK
+```
+
+The inventory should be captured **before** deleting
+anything else, preferably copied or archived outside
+the minidisk. Some old manifests may now report zero;
+do not treat them as newly available savings. An
+independent backup is recommended before applying.
+
+Only with a checked plan, verified recoverability and
+a separate intentional cleanup decision, apply the
+specific selected batch:
+
+```text
+ACLEAN APPLY RECENTGEN
+QUERY DISK A
+FILEDEF
+```
+
+`ACLEAN PLAN` cannot modify anything; `ACLEAN APPLY`
+will erase the exact matched files. Build intermediates
+can be regenerated from the retained `.C` sources
+using `CMSCLNK name PLAIN`. The handwritten GITBX9
+assembly can be rebuilt with the installed macro and
+text libraries, LOAD, and GENMOD as already validated.
+
+For further reductions, classify the actual A
+inventory by source-backed generated output,
+obsolete-but-recoverable historical MODULE/EXEC,
+unique diagnostics, and protected production/data.
+Do not add an unreviewed sweeping MODULE or EXEC
+manifest, especially while M206's 32-band test is
+pending. Existing opt-in batches retain their
+original semantics.

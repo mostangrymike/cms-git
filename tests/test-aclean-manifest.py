@@ -14,7 +14,8 @@ expected_experiments = set("""
 CCTEST1 HELLO GITCABI GITCINF GITCPARS GITCPROB
 GITC2 GIT12Q M12ABEG M12BOPN M12TLS2 M12TLS3 M12TLS4
 """.split())
-declarations = re.findall(r"f\.n='([A-Z0-9]+) (LISTING|MODULE|TEXT)'",src)
+historic = src.split("if batch=\'RECENTGEN\' then do",1)[0]
+declarations = re.findall(r"f\.n='([A-Z0-9]+) (LISTING|MODULE|TEXT)'",historic)
 assert len(declarations) == 20 + 26
 expected_oldtests = set("""
 M9JSTRM M9JZLIB M9NSTRM M9O4096 M9PCHAIN M9PCONS M9PCTX
@@ -31,11 +32,40 @@ for name in oldtests:
 assert "M13AAREF" not in oldtests and "M13ABREF" not in oldtests
 assert "(batch\\='LISTINGS' & batch\\='EXPERIMENTS' &," in src
 assert "batch\\='OLDTESTS'" in src
+
+recent_section = src.split("if batch='RECENTGEN' then do",1)[1]
+recent_section = recent_section.split("\nend\nsay 'ACLEAN'",1)[0]
+recent_files = re.findall(
+    r"f\.n='([A-Z0-9]+) (ASSEMBLE|TEXT|LISTING)'",
+    recent_section)
+assert len(recent_files) == len(set(recent_files)) == 20
+expected_recent_c = set("""
+GITRP6M GITVO7M GITP21M GITP24M GITP25M GITP26M
+""".split())
+assert set(recent_files) == (
+    {(n,t) for n in expected_recent_c
+     for t in ("ASSEMBLE","TEXT","LISTING")} |
+    {("GITBX9","TEXT"),("GITBX9","LISTING")}
+)
+for n in expected_recent_c:
+    assert (root / "src" / (n+".C")).exists(),n
+assert (root / "src/GITBX9.ASSEMBLE").exists()
+assert "batch\\='RECENTGEN'" in src
+assert "if fn='GITBX9' then srcft='ASSEMBLE'" in src
+assert "else srcft='C'" in src
+assert "'STATE' fn srcft 'A'" in src
+assert "'STATE' fn 'MODULE A'" in src
+assert "ACLEAN SOURCE NOT VERIFIED" in src
+assert "ACLEAN MODULE NOT VERIFIED" in src
+assert not any(t in {"EXEC","MODULE","C","PACK","STAGE",
+                      "INDEX","SEEK","GEN","PTR","DATA"}
+               for n,t in recent_files)
+
 expected_builddeck = set("""
 GITCABI GITCINF GITCPARS GITCPROB GITC2
 GITREC GITCIDX GITCWALK GITSEL
 """.split())
-builddeck = re.findall(r"f\.n='([A-Z0-9]+) ASSEMBLE'",src)
+builddeck = re.findall(r"f\.n='([A-Z0-9]+) ASSEMBLE'",historic)
 assert len(builddeck) == len(expected_builddeck) == 9
 assert set(builddeck) == expected_builddeck
 assert "batch\='BUILDDECK'" in src
