@@ -43,15 +43,23 @@ assert "'PIPE CMS GITPIDX BUILD CHECKED | STEM b.'" in m174
 assert "'FILEDEF IDXOUT CLEAR'" in m174
 
 
+def archived_milestone(milestone):
+    archive = (root / "docs" / "M171-M176_HISTORY.md").read_text()
+    heading = f"## Original docs/{milestone}.md\n\n"
+    assert archive.count(heading) == 1, milestone
+    body = archive.split(heading, 1)[1].split("\n---\n", 1)[0]
+    return body
+
+
 # The live milestone pages must describe the isolated G-disk contract.
 # Historical A-disk failures are retained only below explicit headings.
-m173 = (root / "docs" / "M173.md").read_text()
+m173 = archived_milestone("M173")
 current_m173 = m173.split("## Historical CMS attempt:", 1)[0]
 assert "M173CHK G" in current_m173
 assert "M173NET STAGE G" in current_m173
 assert "M173NET STAGE A" not in current_m173
 assert "retains any failed output" in current_m173
-m174 = (root / "docs" / "M174.md").read_text()
+m174 = archived_milestone("M174")
 current_m174 = m174.split("## Historical CMS output guard", 1)[0]
 assert "M174CHK G" in current_m174
 assert "M173NET STAGE G" in current_m174
@@ -59,7 +67,7 @@ assert "M174NET INDEX G" in current_m174
 assert "M174NET INDEX A" not in current_m174
 assert "retained for diagnosis" in current_m174
 for milestone in ("M175", "M176"):
-    spec = (root / "docs" / f"{milestone}.md").read_text()
+    spec = archived_milestone(milestone)
     assert f"{milestone}CHK G" in spec
     assert "M173NET STAGE G" in spec
     assert "M174NET INDEX G" in spec
