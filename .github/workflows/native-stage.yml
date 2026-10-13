@@ -69,7 +69,6 @@ on:
       - 'src/GITPCENS.C'
       - 'src/M172CHK.EXEC'
       - 'tests/m172_gitcapi_host.c'
-      - 'tests/test-native-data-history.py'
       - 'src/GITPIMP.C'
       - 'src/M173CHK.EXEC'
       - 'docs/M171-M176_HISTORY.md'
@@ -263,7 +262,6 @@ on:
       - 'src/GITPCENS.C'
       - 'src/M172CHK.EXEC'
       - 'tests/m172_gitcapi_host.c'
-      - 'tests/test-native-data-history.py'
       - 'src/GITPIMP.C'
       - 'src/M173CHK.EXEC'
       - 'docs/M171-M176_HISTORY.md'
@@ -445,15 +443,15 @@ jobs:
       - name: Check M171 generalized PACK store
         run: python3 tests/test-git-integration.py M171
       - name: Check M172 generalized PACK census
-        run: python3 tests/test-native-data-history.py M172-MAIN
+        run: python3 tests/test-m203-bounded-batch.py NDATA M172-MAIN
       - name: Check M173 generalized OFS PACK import
-        run: python3 tests/test-native-data-history.py M173-IMP
+        run: python3 tests/test-m203-bounded-batch.py NDATA M173-IMP
       - name: Check M174 generalized stage index
-        run: python3 tests/test-native-data-history.py M174-MAIN
+        run: python3 tests/test-m203-bounded-batch.py NDATA M174-MAIN
       - name: Check M175 verified generalized object access
-        run: python3 tests/test-native-data-history.py M175-MAIN
+        run: python3 tests/test-m203-bounded-batch.py NDATA M175-MAIN
       - name: Check M176 verified live tree closure
-        run: python3 tests/test-native-data-history.py M176-MAIN
+        run: python3 tests/test-m203-bounded-batch.py NDATA M176-MAIN
       - name: Check M177 safe explicit G stage index read-only view
         run: python3 tests/test-m203-bounded-batch.py M177
       - name: Check M178 forward-only C89 tree closure parity
@@ -531,7 +529,7 @@ jobs:
       - name: Check read-only VMUDQ 6.3 source and fixed record model
         run: python3 tests/test-m203-bounded-batch.py M173V
       - name: Check Gate 6 protected activation and rollback states
-        run: python3 tests/test-native-data-history.py M173-ACT
+        run: python3 tests/test-m203-bounded-batch.py NDATA M173-ACT
       - name: Guard M173 single-MDISK directory delta verifier
         run: python3 tests/test-m203-bounded-batch.py M173D
       - name: Guard CMS storage mode for live PACK artifacts
