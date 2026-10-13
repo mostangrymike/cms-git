@@ -55,32 +55,27 @@ on:
       - 'src/GITPCENS.C'
       - 'src/M172CHK.EXEC'
       - 'tests/m172_gitcapi_host.c'
-      - 'tests/test-m172-pack-census.py'
+      - 'tests/test-native-data-history.py'
       - 'src/GITPIMP.C'
       - 'src/M173CHK.EXEC'
       - 'docs/M171-M176_HISTORY.md'
       - 'src/M173DCHK.EXEC'
       - 'src/M173VQ.ASSEMBLE'
       - 'tests/test-m173-vmudq-source.py'
-      - 'tests/test-m173-activation-change-control.py'
       - 'docs/M173_ACTIVATION_CHANGE_CONTROL.md'
       - 'tests/test-m173-dir-delta.py'
       - 'docs/M173_DIRECTORY_CHANGE_PLAN.md'
       - 'docs/M173_PERSISTENT_DISK_RUNBOOK.md'
       - 'tests/test-m173-persistent-disk-runbook.py'
-      - 'tests/test-m173-pack-import.py'
       - 'docs/M173.md'
       - 'src/GITPIDX.C'
       - 'src/M174CHK.EXEC'
-      - 'tests/test-m174-stage-index.py'
       - 'docs/M174.md'
       - 'src/GITPCAT.C'
       - 'src/M175CHK.EXEC'
-      - 'tests/test-m175-pack-cat.py'
       - 'docs/M175.md'
       - 'src/GITPTRE.C'
       - 'src/M176CHK.EXEC'
-      - 'tests/test-m176-tree-closure.py'
       - 'tests/test-m177-pack-view.py'
       - 'src/GITPFST.C'
       - 'src/GITPPRF.C'
@@ -270,32 +265,27 @@ on:
       - 'src/GITPCENS.C'
       - 'src/M172CHK.EXEC'
       - 'tests/m172_gitcapi_host.c'
-      - 'tests/test-m172-pack-census.py'
+      - 'tests/test-native-data-history.py'
       - 'src/GITPIMP.C'
       - 'src/M173CHK.EXEC'
       - 'docs/M171-M176_HISTORY.md'
       - 'src/M173DCHK.EXEC'
       - 'src/M173VQ.ASSEMBLE'
       - 'tests/test-m173-vmudq-source.py'
-      - 'tests/test-m173-activation-change-control.py'
       - 'docs/M173_ACTIVATION_CHANGE_CONTROL.md'
       - 'tests/test-m173-dir-delta.py'
       - 'docs/M173_DIRECTORY_CHANGE_PLAN.md'
       - 'docs/M173_PERSISTENT_DISK_RUNBOOK.md'
       - 'tests/test-m173-persistent-disk-runbook.py'
-      - 'tests/test-m173-pack-import.py'
       - 'docs/M173.md'
       - 'src/GITPIDX.C'
       - 'src/M174CHK.EXEC'
-      - 'tests/test-m174-stage-index.py'
       - 'docs/M174.md'
       - 'src/GITPCAT.C'
       - 'src/M175CHK.EXEC'
-      - 'tests/test-m175-pack-cat.py'
       - 'docs/M175.md'
       - 'src/GITPTRE.C'
       - 'src/M176CHK.EXEC'
-      - 'tests/test-m176-tree-closure.py'
       - 'tests/test-m177-pack-view.py'
       - 'src/GITPFST.C'
       - 'src/GITPPRF.C'
@@ -482,15 +472,15 @@ jobs:
       - name: Check M171 generalized PACK store
         run: python3 tests/test-git-integration.py M171
       - name: Check M172 generalized PACK census
-        run: python3 tests/test-m172-pack-census.py
+        run: python3 tests/test-native-data-history.py M172-MAIN
       - name: Check M173 generalized OFS PACK import
-        run: python3 tests/test-m173-pack-import.py
+        run: python3 tests/test-native-data-history.py M173-IMP
       - name: Check M174 generalized stage index
-        run: python3 tests/test-m174-stage-index.py
+        run: python3 tests/test-native-data-history.py M174-MAIN
       - name: Check M175 verified generalized object access
-        run: python3 tests/test-m175-pack-cat.py
+        run: python3 tests/test-native-data-history.py M175-MAIN
       - name: Check M176 verified live tree closure
-        run: python3 tests/test-m176-tree-closure.py
+        run: python3 tests/test-native-data-history.py M176-MAIN
       - name: Check M177 safe explicit G stage index read-only view
         run: python3 tests/test-m177-pack-view.py
       - name: Check M178 forward-only C89 tree closure parity
@@ -566,7 +556,7 @@ jobs:
       - name: Check read-only VMUDQ 6.3 source and fixed record model
         run: python3 tests/test-m173-vmudq-source.py
       - name: Check Gate 6 protected activation and rollback states
-        run: python3 tests/test-m173-activation-change-control.py
+        run: python3 tests/test-native-data-history.py M173-ACT
       - name: Guard M173 single-MDISK directory delta verifier
         run: python3 tests/test-m173-dir-delta.py
       - name: Guard CMS storage mode for live PACK artifacts
