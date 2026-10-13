@@ -63,9 +63,9 @@ assert not any(t in {"EXEC","MODULE","C","PACK","STAGE",
 
 # New named manifests: every target must be an exact known file.
 pack_section = src.split("if batch='PACKGEN' then do",1)[1]
-pack_section = pack_section.split("\\nend\\n",1)[0]
+pack_section = pack_section.split("\nend\n",1)[0]
 pack_items = re.findall(
-    r"f\\.n='([A-Z0-9]+) (ASSEMBLE|TEXT|LISTING)'",
+    r"f\.n='([A-Z0-9]+) (ASSEMBLE|TEXT|LISTING)'",
     pack_section)
 expected_pack_names = set("""GITPCENS GITPCHK GITPIMP GITPIDX GITPCAT GITPTRE GITPFST GITPPRF GITPONE GITPHX GITPHXM GITPH5M GITPH8M GITPSKM GITPRBM GITRCNM""".split())
 assert len(pack_items) == len(set(pack_items)) == 48
@@ -79,9 +79,9 @@ assert not any(n in expected_pack_names for n,t in recent_files)
 assert "batch\\='PACKGEN'" in src
 assert "batch='RECENTGEN' | batch='PACKGEN'" in src
 net_section = src.split("if batch='NETTRACE' then do",1)[1]
-net_section = net_section.split("\\nend\\n",1)[0]
+net_section = net_section.split("\nend\n",1)[0]
 net_items = re.findall(
-    r"f\\.n='([A-Z0-9]+) (DATA|TCPIP)'",
+    r"f\.n='([A-Z0-9]+) (DATA|TCPIP)'",
     net_section)
 expected_net = {(n,"DATA") for n in "SSLDBG SSLDB2 SSLDB3 SSLDB4 SSLDB5 SSL1LOG SSL3TRC TCPTRACE TCPTRC2 TCPTRC3".split()}
 expected_net.add(("M12TRACE","TCPIP"))
