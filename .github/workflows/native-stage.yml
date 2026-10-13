@@ -81,7 +81,6 @@ on:
       - 'docs/M173_ACTIVATION_CHANGE_CONTROL.md'
       - 'docs/M173_DIRECTORY_CHANGE_PLAN.md'
       - 'docs/M173_PERSISTENT_DISK_RUNBOOK.md'
-      - 'tests/test-m173-persistent-disk-runbook.py'
       - 'docs/M173.md'
       - 'src/GITPIDX.C'
       - 'src/M174CHK.EXEC'
@@ -157,28 +156,21 @@ on:
       - 'scripts/restore-ph-wrappers.py'
       - 'docs/M188_FAST_EOL.md'
       - 'src/GITPH5.EXEC'
-      - 'tests/test-m185-direct-skip.py'
       - 'docs/M187_NATIVE_SCALE.md'
       - 'docs/M186_DIFFERENTIAL.md'
       - 'docs/M185_DIRECT_SKIP.md'
       - 'src/GITPH3.EXEC'
-      - 'tests/test-m183-skip-len.py'
       - 'docs/M184_HOST_COMPARISON.md'
       - 'docs/M183_SKIP_LENGTH.md'
       - 'src/GITPH2.EXEC'
-      - 'tests/test-m182-hex-pair.py'
       - 'docs/M182_HEX_PAIR.md'
       - 'src/GITPHX.EXEC'
-      - 'tests/test-m181-hex-lookup.py'
       - 'docs/M181_HEX_LOOKUP.md'
       - 'src/GITPONCE.EXEC'
-      - 'tests/test-m180-onepass-tree.py'
       - 'docs/M180_ONEPASS_TREE.md'
       - 'src/GITPPROF.EXEC'
-      - 'tests/test-m179-tree-phase.py'
       - 'docs/M179_TREE_PROFILE.md'
       - 'src/GITPFAST.EXEC'
-      - 'tests/test-m178-forward-tree.py'
       - 'src/GITPVIEW.EXEC'
       - 'docs/M177-M178_HISTORY.md'
       - 'docs/M176.md'
@@ -286,7 +278,6 @@ on:
       - 'docs/M173_ACTIVATION_CHANGE_CONTROL.md'
       - 'docs/M173_DIRECTORY_CHANGE_PLAN.md'
       - 'docs/M173_PERSISTENT_DISK_RUNBOOK.md'
-      - 'tests/test-m173-persistent-disk-runbook.py'
       - 'docs/M173.md'
       - 'src/GITPIDX.C'
       - 'src/M174CHK.EXEC'
@@ -362,28 +353,21 @@ on:
       - 'scripts/restore-ph-wrappers.py'
       - 'docs/M188_FAST_EOL.md'
       - 'src/GITPH5.EXEC'
-      - 'tests/test-m185-direct-skip.py'
       - 'docs/M187_NATIVE_SCALE.md'
       - 'docs/M186_DIFFERENTIAL.md'
       - 'docs/M185_DIRECT_SKIP.md'
       - 'src/GITPH3.EXEC'
-      - 'tests/test-m183-skip-len.py'
       - 'docs/M184_HOST_COMPARISON.md'
       - 'docs/M183_SKIP_LENGTH.md'
       - 'src/GITPH2.EXEC'
-      - 'tests/test-m182-hex-pair.py'
       - 'docs/M182_HEX_PAIR.md'
       - 'src/GITPHX.EXEC'
-      - 'tests/test-m181-hex-lookup.py'
       - 'docs/M181_HEX_LOOKUP.md'
       - 'src/GITPONCE.EXEC'
-      - 'tests/test-m180-onepass-tree.py'
       - 'docs/M180_ONEPASS_TREE.md'
       - 'src/GITPPROF.EXEC'
-      - 'tests/test-m179-tree-phase.py'
       - 'docs/M179_TREE_PROFILE.md'
       - 'src/GITPFAST.EXEC'
-      - 'tests/test-m178-forward-tree.py'
       - 'src/GITPVIEW.EXEC'
       - 'docs/M177-M178_HISTORY.md'
       - 'docs/M176.md'
@@ -479,19 +463,19 @@ jobs:
       - name: Check M177 safe explicit G stage index read-only view
         run: python3 tests/test-m203-bounded-batch.py M177
       - name: Check M178 forward-only C89 tree closure parity
-        run: python3 tests/test-m178-forward-tree.py
+        run: python3 tests/test-m203-bounded-batch.py M178
       - name: Check M179 read-only native phase profiling parity
-        run: python3 tests/test-m179-tree-phase.py
+        run: python3 tests/test-m203-bounded-batch.py M179
       - name: Check M180 one-pass authenticated tree parity
-        run: python3 tests/test-m180-onepass-tree.py
+        run: python3 tests/test-m203-bounded-batch.py M180
       - name: Check M181 hex LUT selective tree parity
-        run: python3 tests/test-m181-hex-lookup.py
+        run: python3 tests/test-m203-bounded-batch.py M181
       - name: Check M182 two-character hex LUT parity
-        run: python3 tests/test-m182-hex-pair.py
+        run: python3 tests/test-m203-bounded-batch.py M182
       - name: Check M183 skipped-body length/unroll parity
-        run: python3 tests/test-m183-skip-len.py
+        run: python3 tests/test-m203-bounded-batch.py M183
       - name: Check M185 direct skipped-record validation parity
-        run: python3 tests/test-m185-direct-skip.py
+        run: python3 tests/test-m203-bounded-batch.py M185
       - name: Check lossless native tree wrapper generation
         run: python3 scripts/restore-ph-wrappers.py CHECK
       - name: Check M188 fast EOL differential skip reader
@@ -549,7 +533,7 @@ jobs:
       - name: Compare M181 M182 M183 skipped-body host timings
         run: python3 tests/bench-native-stage.py M184
       - name: Cross-check permanent CMS data disk safety runbook
-        run: python3 tests/test-m173-persistent-disk-runbook.py
+        run: python3 tests/test-m203-bounded-batch.py M173R
       - name: Check read-only VMUDQ 6.3 source and fixed record model
         run: python3 tests/test-m203-bounded-batch.py M173V
       - name: Check Gate 6 protected activation and rollback states
