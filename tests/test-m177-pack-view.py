@@ -13,7 +13,7 @@ archive = (root / "docs/M177-M178_HISTORY.md").read_text()
 def milestone_note(name):
     heading = "## Original docs/" + name + "\n\n"
     assert archive.count(heading) == 1, name
-    return archive.split(heading, 1)[1].split("\n---\n", 1)[0]
+    return archive.split(heading, 1)[1].split("\n## Original docs/", 1)[0]
 
 plan = milestone_note("M177_READONLY_PACK_ACCESS_PLAN.md")
 
