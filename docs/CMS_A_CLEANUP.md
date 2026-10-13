@@ -510,3 +510,27 @@ are the source rollback mechanism; do not litter A with
 a new series of numbered binaries every milestone.
 The original 32-object M206 real-CMS gate has passed
 and remains the unmodified baseline.
+
+
+## October 13, 2026 — exact archived OLDTESTS manifest
+
+The repository now packages 86 obsolete standalone historical CMS test EXEC
+sources losslessly in three tracked JSON archives under `archive/`:
+`M3-M5_EXEC.json`, `M6-M9_EXEC.json`, and `M10-M13_EXEC.json`. The
+existing `scripts/restore-cms-exec.py` restores any needed original
+`NAME.EXEC` without overwriting an existing source; run it in the Mac
+checkout before `./cms-upload.sh NAME.EXEC`. Git history preserves the
+original individual files as a second recovery path. CI now verifies that
+the ACLEAN OLDTESTS exact-name whitelist matches the archived source
+inventory. This is a source repository consolidation, NOT proof that those
+86 files currently exist on CMS A.
+
+If A-disk cleanup of this historical test group is desired, run
+`ACLEAN PLAN OLDTESTS` first and compare the FOUND output to the intended
+archived names. Preserve working production commands, C/ASSEMBLE source,
+active MODULEs, verified generations and all G-disk data. Do not run
+`ACLEAN APPLY OLDTESTS` without independent recoverable A backup and
+explicit inspection of the exact PLAN output. No CMS deletion has been
+confirmed by this GitHub consolidation. The older zero-found OLDTESTS
+report predates this expanded whitelist and must not be interpreted as
+a current filesystem census.
