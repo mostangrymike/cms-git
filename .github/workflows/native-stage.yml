@@ -168,16 +168,16 @@ on:
       - 'src/GITPSK.EXEC'
       - 'tests/test-m190-selective-seek.py'
       - 'tests/test-m190-scale-seek.py'
-      - 'tests/bench-m190-selective-seek.py'
+      - 'tests/bench-native-stage.py'
       - 'docs/M190_SELECTIVE_SEEK.md'
       - 'src/GITPH9M.C'
       - 'src/GITPH9.EXEC'
       - 'tests/test-m189-eightway.py'
-      - 'tests/bench-m189-eightway.py'
+      - 'tests/bench-native-stage.py'
       - 'docs/M189_EIGHTWAY.md'
       - 'src/GITPH8.EXEC'
       - 'tests/test-m188-fast-eol.py'
-      - 'tests/bench-m188-fast-eol.py'
+      - 'tests/bench-native-stage.py'
       - 'docs/M188_FAST_EOL.md'
       - 'src/GITPH5.EXEC'
       - 'tests/test-m185-direct-skip.py'
@@ -185,11 +185,11 @@ on:
       - 'tests/test-m187-live-scale.py'
       - 'docs/M187_NATIVE_SCALE.md'
       - 'docs/M186_DIFFERENTIAL.md'
-      - 'tests/bench-m185-direct-skip.py'
+      - 'tests/bench-native-stage.py'
       - 'docs/M185_DIRECT_SKIP.md'
       - 'src/GITPH3.EXEC'
       - 'tests/test-m183-skip-len.py'
-      - 'tests/bench-m184-hex-selective.py'
+      - 'tests/bench-native-stage.py'
       - 'docs/M184_HOST_COMPARISON.md'
       - 'docs/M183_SKIP_LENGTH.md'
       - 'src/GITPH2.EXEC'
@@ -399,16 +399,16 @@ on:
       - 'src/GITPSK.EXEC'
       - 'tests/test-m190-selective-seek.py'
       - 'tests/test-m190-scale-seek.py'
-      - 'tests/bench-m190-selective-seek.py'
+      - 'tests/bench-native-stage.py'
       - 'docs/M190_SELECTIVE_SEEK.md'
       - 'src/GITPH9M.C'
       - 'src/GITPH9.EXEC'
       - 'tests/test-m189-eightway.py'
-      - 'tests/bench-m189-eightway.py'
+      - 'tests/bench-native-stage.py'
       - 'docs/M189_EIGHTWAY.md'
       - 'src/GITPH8.EXEC'
       - 'tests/test-m188-fast-eol.py'
-      - 'tests/bench-m188-fast-eol.py'
+      - 'tests/bench-native-stage.py'
       - 'docs/M188_FAST_EOL.md'
       - 'src/GITPH5.EXEC'
       - 'tests/test-m185-direct-skip.py'
@@ -416,11 +416,11 @@ on:
       - 'tests/test-m187-live-scale.py'
       - 'docs/M187_NATIVE_SCALE.md'
       - 'docs/M186_DIFFERENTIAL.md'
-      - 'tests/bench-m185-direct-skip.py'
+      - 'tests/bench-native-stage.py'
       - 'docs/M185_DIRECT_SKIP.md'
       - 'src/GITPH3.EXEC'
       - 'tests/test-m183-skip-len.py'
-      - 'tests/bench-m184-hex-selective.py'
+      - 'tests/bench-native-stage.py'
       - 'docs/M184_HOST_COMPARISON.md'
       - 'docs/M183_SKIP_LENGTH.md'
       - 'src/GITPH2.EXEC'
@@ -578,21 +578,21 @@ jobs:
       - name: Check M190 7736-object selective seek closure
         run: python3 tests/test-m190-scale-seek.py
       - name: Compare M190 indexed seek vs M188 two-pass host
-        run: python3 tests/bench-m190-selective-seek.py
+        run: python3 tests/bench-native-stage.py M190
       - name: Check M189 eight-way skipped-hex C89 parity
         run: python3 tests/test-m189-eightway.py
       - name: Compare M189 eight-way skipped-hex host readers
-        run: python3 tests/bench-m189-eightway.py
+        run: python3 tests/bench-native-stage.py M189
       - name: Compare M188 EOL fast path against M185 host
-        run: python3 tests/bench-m188-fast-eol.py
+        run: python3 tests/bench-native-stage.py M188
       - name: Check M186 randomized skipped-record differential parity
         run: python3 tests/test-m186-skip-differential.py
       - name: Check M187 synthetic 7736-object native closure
         run: python3 tests/test-m187-live-scale.py
       - name: Compare M181 M182 M183 M185 host skip readers
-        run: python3 tests/bench-m185-direct-skip.py
+        run: python3 tests/bench-native-stage.py M185
       - name: Compare M181 M182 M183 skipped-body host timings
-        run: python3 tests/bench-m184-hex-selective.py
+        run: python3 tests/bench-native-stage.py M184
       - name: Cross-check permanent CMS data disk safety runbook
         run: python3 tests/test-m173-persistent-disk-runbook.py
       - name: Check read-only VMUDQ 6.3 source and fixed record model
