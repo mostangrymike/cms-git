@@ -78,9 +78,7 @@ on:
       - 'docs/M171-M176_HISTORY.md'
       - 'src/M173DCHK.EXEC'
       - 'src/M173VQ.ASSEMBLE'
-      - 'tests/test-m173-vmudq-source.py'
       - 'docs/M173_ACTIVATION_CHANGE_CONTROL.md'
-      - 'tests/test-m173-dir-delta.py'
       - 'docs/M173_DIRECTORY_CHANGE_PLAN.md'
       - 'docs/M173_PERSISTENT_DISK_RUNBOOK.md'
       - 'tests/test-m173-persistent-disk-runbook.py'
@@ -285,9 +283,7 @@ on:
       - 'docs/M171-M176_HISTORY.md'
       - 'src/M173DCHK.EXEC'
       - 'src/M173VQ.ASSEMBLE'
-      - 'tests/test-m173-vmudq-source.py'
       - 'docs/M173_ACTIVATION_CHANGE_CONTROL.md'
-      - 'tests/test-m173-dir-delta.py'
       - 'docs/M173_DIRECTORY_CHANGE_PLAN.md'
       - 'docs/M173_PERSISTENT_DISK_RUNBOOK.md'
       - 'tests/test-m173-persistent-disk-runbook.py'
@@ -555,13 +551,13 @@ jobs:
       - name: Cross-check permanent CMS data disk safety runbook
         run: python3 tests/test-m173-persistent-disk-runbook.py
       - name: Check read-only VMUDQ 6.3 source and fixed record model
-        run: python3 tests/test-m173-vmudq-source.py
+        run: python3 tests/test-m203-bounded-batch.py M173V
       - name: Check Gate 6 protected activation and rollback states
         run: python3 tests/test-native-data-history.py M173-ACT
       - name: Guard M173 single-MDISK directory delta verifier
-        run: python3 tests/test-m173-dir-delta.py
+        run: python3 tests/test-m203-bounded-batch.py M173D
       - name: Guard CMS storage mode for live PACK artifacts
-        run: python3 tests/test-m173-data-minidisk.py
+        run: python3 tests/test-m203-bounded-batch.py M173S
       - name: Audit archived CMS EXEC references without modifying sources
         run: python3 scripts/restore-cms-exec.py AUDIT
       - name: Check CMS A cleanup exact allowlist
