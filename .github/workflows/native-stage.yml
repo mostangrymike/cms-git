@@ -39,14 +39,11 @@ on:
       - 'src/GITIMP.EXEC'
       - 'src/GITWT.EXEC'
       - 'src/M164CHK.EXEC'
-      - 'tests/test-m164-worktree.py'
+      - 'tests/test-porcelain-model.py'
       - 'src/M165CHK.EXEC'
-      - 'tests/test-m165-staged-commit.py'
       - 'src/GITUPD.EXEC'
       - 'src/M166CHK.EXEC'
-      - 'tests/test-m166-ref-cas.py'
       - 'src/M167CHK.EXEC'
-      - 'tests/test-m167-commit-ref.py'
       - 'src/M168CHK.EXEC'
       - 'tests/test-m168-current-commit.py'
       - 'src/GITFETCH.EXEC'
@@ -260,14 +257,11 @@ on:
       - 'src/GITIMP.EXEC'
       - 'src/GITWT.EXEC'
       - 'src/M164CHK.EXEC'
-      - 'tests/test-m164-worktree.py'
+      - 'tests/test-porcelain-model.py'
       - 'src/M165CHK.EXEC'
-      - 'tests/test-m165-staged-commit.py'
       - 'src/GITUPD.EXEC'
       - 'src/M166CHK.EXEC'
-      - 'tests/test-m166-ref-cas.py'
       - 'src/M167CHK.EXEC'
-      - 'tests/test-m167-commit-ref.py'
       - 'src/M168CHK.EXEC'
       - 'tests/test-m168-current-commit.py'
       - 'src/GITFETCH.EXEC'
@@ -478,13 +472,13 @@ jobs:
       - name: Check M163 authenticated complete presence horizon
         run: python3 tests/test-presence-history.py M163
       - name: Check M164 practical CMS worktree porcelain
-        run: python3 tests/test-m164-worktree.py
+        run: python3 tests/test-porcelain-model.py M164
       - name: Check M165 staged commit object
-        run: python3 tests/test-m165-staged-commit.py
+        run: python3 tests/test-porcelain-model.py M165
       - name: Check M166 modern REF2 compare-and-swap
-        run: python3 tests/test-m166-ref-cas.py
+        run: python3 tests/test-porcelain-model.py M166
       - name: Check M167 integrated commit to ref
-        run: python3 tests/test-m167-commit-ref.py
+        run: python3 tests/test-porcelain-model.py M167
       - name: Check M168 current branch reconciliation
         run: python3 tests/test-m168-current-commit.py
       - name: Check M169 generalized fetch discovery
