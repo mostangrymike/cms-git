@@ -2073,3 +2073,20 @@ workflow restores all three historical entry points and verifies source
 identity before running host regression checks; these are not live CMS
 target revalidations. Only upload a restored wrapper when running its
 specific historical CMS experiment.
+
+
+## Restore historical M9–M12 transport helpers
+
+Six milestone-only transport helper EXECs (`G10DFIX`, `GIT10BF`,
+`GIT10PK`, `GIT10UP`, `GIT11HTP`, `GIT12CHK`) are preserved
+byte-for-byte in `archive/M9-M12_TRANSPORT.json` rather than tracked
+individually in `src/`. Restore one from the Mac repository root with
+`python3 scripts/restore-cms-exec.py GIT10UP.EXEC`, then upload the
+restored file through the existing CMS transfer script if required.
+
+**Do not archive or delete `GIT9CTX.EXEC` from the working sources:**
+`GITP9PWK.EXEC` still references that helper. The archive also retains a
+backup copy of `GIT9CTX.EXEC`, but its active tracked source stays live.
+GitHub Actions recreates the six absent helper sources and verifies all
+seven archived entries exactly before running host regressions. These
+repository operations do not modify CMS A or G disks.
