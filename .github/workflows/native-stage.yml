@@ -186,7 +186,6 @@ on:
       - 'tests/test-offline-dasd-backup.sh'
       - 'src/GITSEL.C'
       - 'src/GITREC.C'
-      - 'tests/test_native_selector.py'
       - 'tests/native_selector_verify_host.c'
       - 'tests/run-native-stage-host.sh'
       - '.github/workflows/native-stage.yml'
@@ -376,7 +375,6 @@ on:
       - 'tests/test-offline-dasd-backup.sh'
       - 'src/GITSEL.C'
       - 'src/GITREC.C'
-      - 'tests/test_native_selector.py'
       - 'tests/native_selector_verify_host.c'
       - 'tests/run-native-stage-host.sh'
       - '.github/workflows/native-stage.yml'
@@ -539,7 +537,7 @@ jobs:
       - name: Reject native-text Git object headers in CMS C source
         run: sh tests/check-canonical-source.sh
       - name: Compile and fuzz interrupted writes in native C89 selector
-        run: python3 tests/test_native_selector.py
+        run: python3 tests/test-m203-bounded-batch.py SELECTOR
       - name: Check full 64-KiB binary CATHEX output and verified fallback
         run: python3 tests/test-m203-bounded-batch.py CATHEX
       - name: Verify complete binary Git tree parsing and recovery
