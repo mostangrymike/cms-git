@@ -20,7 +20,7 @@ def load():
         if archive.get("format") != "cms-exec-archive-v1":
             raise RuntimeError("Unknown format: " + str(path))
         for name, source in archive["files"].items():
-            if not re.fullmatch(r"[A-Z0-9]{1,8}\\.EXEC", name):
+            if not re.fullmatch(r"[A-Z0-9]{1,8}[.]EXEC", name):
                 raise RuntimeError("Invalid CMS filename: " + name)
             if name in files or not isinstance(source, str) or not source:
                 raise RuntimeError("Duplicate or empty EXEC: " + name)
