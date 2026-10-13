@@ -45,16 +45,13 @@ on:
       - 'src/M166CHK.EXEC'
       - 'src/M167CHK.EXEC'
       - 'src/M168CHK.EXEC'
-      - 'tests/test-m168-current-commit.py'
+      - 'tests/test-git-integration.py'
       - 'src/GITFETCH.EXEC'
       - 'src/M169CHK.EXEC'
-      - 'tests/test-m169-fetch-discovery.py'
       - 'src/GITPOST.EXEC'
       - 'src/M170CHK.EXEC'
-      - 'tests/test-m170-fetch-post.py'
       - 'src/GITPCHK.C'
       - 'src/M171CHK.EXEC'
-      - 'tests/test-m171-pack-store.py'
       - 'src/GITPCENS.C'
       - 'src/M172CHK.EXEC'
       - 'tests/m172_gitcapi_host.c'
@@ -263,16 +260,13 @@ on:
       - 'src/M166CHK.EXEC'
       - 'src/M167CHK.EXEC'
       - 'src/M168CHK.EXEC'
-      - 'tests/test-m168-current-commit.py'
+      - 'tests/test-git-integration.py'
       - 'src/GITFETCH.EXEC'
       - 'src/M169CHK.EXEC'
-      - 'tests/test-m169-fetch-discovery.py'
       - 'src/GITPOST.EXEC'
       - 'src/M170CHK.EXEC'
-      - 'tests/test-m170-fetch-post.py'
       - 'src/GITPCHK.C'
       - 'src/M171CHK.EXEC'
-      - 'tests/test-m171-pack-store.py'
       - 'src/GITPCENS.C'
       - 'src/M172CHK.EXEC'
       - 'tests/m172_gitcapi_host.c'
@@ -480,13 +474,13 @@ jobs:
       - name: Check M167 integrated commit to ref
         run: python3 tests/test-porcelain-model.py M167
       - name: Check M168 current branch reconciliation
-        run: python3 tests/test-m168-current-commit.py
+        run: python3 tests/test-git-integration.py M168
       - name: Check M169 generalized fetch discovery
-        run: python3 tests/test-m169-fetch-discovery.py
+        run: python3 tests/test-git-integration.py M169
       - name: Check M170 dynamic upload pack POST
-        run: python3 tests/test-m170-fetch-post.py
+        run: python3 tests/test-git-integration.py M170
       - name: Check M171 generalized PACK store
-        run: python3 tests/test-m171-pack-store.py
+        run: python3 tests/test-git-integration.py M171
       - name: Check M172 generalized PACK census
         run: python3 tests/test-m172-pack-census.py
       - name: Check M173 generalized OFS PACK import
