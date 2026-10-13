@@ -1084,7 +1084,7 @@ unchanged source hashes.
 This is a **record-layout model**, not yet a
 CMS FSREAD adapter or native tree reader.
 No target runtime improvement is claimed.
-See `docs/M192_RECORD_NUMBER_PLAN.md`.
+See `docs/M186-M192_HISTORY.md`.
 M188 remains the proven 208.27-second
 two-scan reader; original G files and
 existing modules are unchanged.
@@ -1104,7 +1104,7 @@ seeks. The full 272-seek M190 walk remains
 probe has not run. Investigating native CMS
 record-number FSREAD as a separate approach,
 first through read-only host mapping tests.
-See `docs/M191_CMS_SEEK_PROBE.md`.
+See `docs/M186-M192_HISTORY.md`.
 
 ---
 
@@ -1139,7 +1139,7 @@ temporary FILEDEFs, and never modifies G.
 After strict host CI, run `GITPRB G FIRST`
 first, then separately MID and LAST if
 safe. The full runbook is
-`docs/M191_CMS_SEEK_PROBE.md`. Do **not**
+`docs/M186-M192_HISTORY.md`. Do **not**
 repeat the full M190 walk merely to
 diagnose `fseek`. M185 and M188 stay
 target-proven, the latest M188 elapsed
@@ -1181,7 +1181,7 @@ vs **M188 0.0719s** on a disposable 15.36MB
 fixture. **Those are not z/VM results.** IBM
 CMS's C text stream seek behavior on `dd:STGIN`
 is unproven; test only as a separate reader,
-following `docs/M190_SELECTIVE_SEEK.md`.
+following `docs/M186-M192_HISTORY.md`.
 
 ---
 
@@ -1204,7 +1204,7 @@ claim without repeated samples. G was checked as a
 include post-run `QUERY FILEDEF`; final DD cleanup
 not independently proven. Original modules and G
 data remain preserved. Evidence:
-`docs/M188_FAST_EOL.md`.
+`docs/M186-M192_HISTORY.md`.
 
 ---
 
@@ -1227,7 +1227,7 @@ the fastest verified on z/VM at **209.97s**.
 Prioritize the isolated M188 CMS experiment
 ahead of M189. Full details and optional
 independent M189 runbook:
-`docs/M189_EIGHTWAY.md`.
+`docs/M186-M192_HISTORY.md`.
 
 ---
 
@@ -1248,7 +1248,7 @@ including differential malformed suffix/SHA tests.
 Linux fixture medians: M188 0.0735s versus M185
 0.0766s (seven rounds), **host-only evidence**.
 Actual M188 CMS performance is unmeasured.
-See `docs/M188_FAST_EOL.md` for safe instructions.
+See `docs/M186-M192_HISTORY.md` for safe instructions.
 
 ---
 
@@ -1265,7 +1265,7 @@ vs M181 real elapsed 298.38s: **88.41s/29.6% faster**.
 M185 now replaces M181 as the *measured performance baseline*,
 without overwriting any earlier module. A successful post-walk
 `QUERY FILEDEF` has not yet been supplied. Target transcript
-and bounds: `docs/M185_DIRECT_SKIP.md`.
+and bounds: `docs/M179-M185_HISTORY.md`.
 
 ---
 
@@ -1294,7 +1294,7 @@ This is host-only correctness evidence,
 **not M182/M183/M185 z/VM performance proof**.
 Latest real CMS elapsed benchmark remains
 M181 **298.38s**. No read or write to
-protected G data. See `docs/M187_NATIVE_SCALE.md`.
+protected G data. See `docs/M186-M192_HISTORY.md`.
 
 ---
 
@@ -1311,7 +1311,7 @@ or that produces a different authenticated closure.
 It verifies unchanged source index and restores
 the disposable stage. No new CMS code or protected
 G input is modified. Detailed test rules and
-limitations: `docs/M186_DIFFERENTIAL.md`.
+limitations: `docs/M186-M192_HISTORY.md`.
 
 The latest real-CMS positive performance reference
 is **M181 298.38s elapsed** (294.57s CPU). M182,
@@ -1345,7 +1345,7 @@ These are **host-only observational timings**;
 the last actual z/VM 6.3 result is M181
 **298.38s** elapsed (CPU 294.57s). M182,
 M183 and M185 are not target-proven; no real
-CMS speedup claimed. See `docs/M185_DIRECT_SKIP.md`
+CMS speedup claimed. See `docs/M179-M185_HISTORY.md`
 for isolated and nondestructive target commands.
 No stage/index/PACK or older module changed.
 
@@ -1380,7 +1380,7 @@ M182 and M183 have host integrity PASS but
 z/VM runtime remains unmeasured. No existing
 CMS module or `GIT600` persistent stage/index
 is changed by this purely host-based M184 task.
-Details: `docs/M184_HOST_COMPARISON.md`.
+Details: `docs/M179-M185_HISTORY.md`.
 
 ---
 
@@ -1407,7 +1407,7 @@ native lookup table. All indexes, SHA1 verification,
 two-scan count and skipped-byte validation remain.
 No original module, disk, stage or index changes.
 **No CMS speedup is claimed** for M183.
-See `docs/M183_SKIP_LENGTH.md` for host scope and
+See `docs/M179-M185_HISTORY.md` for host scope and
 safe conditional native commands.
 
 ---
@@ -1434,7 +1434,7 @@ M181's 256-entry one-character table. It retains
 the proven two-pass, selective-SHA and failure
 checks and is **not yet real-CMS target-proven**.
 It may be faster or slower. Exact read-only next
-commands: `docs/M182_HEX_PAIR.md`. Do not
+commands: `docs/M179-M185_HISTORY.md`. Do not
 reformat/reimport or touch permanent G inputs.
 
 ---
@@ -1457,7 +1457,7 @@ from new `GITPHXM.C`. No erase/rebuild/reformat or
 change to proven modules. Host CI explicitly guards
 against module/EXEC name collisions. **Real CMS native
 M181 closure is still pending.** Exact corrected
-upload/compile commands: `docs/M181_HEX_LOOKUP.md`.
+upload/compile commands: `docs/M179-M185_HISTORY.md`.
 
 ---
 
@@ -1468,7 +1468,7 @@ The real z/VM 6.3 M180 test proved single-pass functionality,
 but it ran **708.52s elapsed**, versus **459.44s** for M179.
 One-pass authentication SHA1-checked 2220 indexed blobs,
 instead of only 272 reachable blobs. M180's 249.08s
-slowdown is documented in `docs/M180_ONEPASS_TREE.md`.
+slowdown is documented in `docs/M179-M185_HISTORY.md`.
 The old G data and all earlier modules are preserved.
 
 M181 is a **separate C89 module** `GITPHX.C`, exposed via
@@ -1480,7 +1480,7 @@ still checked, with same SHA-authenticated root closure.
 Strict host C89 parity/corruption tests pass.
 **M181 is not yet CMS target-proven or speed-proven.**
 Use the conditional target runbook in
-`docs/M181_HEX_LOOKUP.md` without rewriting G.
+`docs/M179-M185_HISTORY.md` without rewriting G.
 
 ---
 
@@ -1498,7 +1498,7 @@ FILEDEF. Compared with M179 elapsed **459.44s**, M180
 is **249.08s (about 54.2%) slower**. M180 proves the
 one-pass algorithm is functional, not faster. Preserve
 M178/M179 selective two-pass readers and all G stage/index.
-See `docs/M180_ONEPASS_TREE.md`.
+See `docs/M179-M185_HISTORY.md`.
 
 ---
 
@@ -1513,7 +1513,7 @@ All four C89 `clock()` phases returned `UNAVAILABLE`.
 CPU 454.92s, elapsed **459.44s** (October 9, 2026);
 M178 had elapsed 460.66s. Neither result establishes
 a comparative speedup. M179's final FILEDEF postcheck
-has not been provided. Details: `docs/M179_TREE_PROFILE.md`.
+has not been provided. Details: `docs/M179-M185_HISTORY.md`.
 
 M180 is a **new, isolated, host-tested C89 experiment**
 (`GITPONE.C` and `GITPONCE.EXEC`), not yet proven
@@ -1526,7 +1526,7 @@ SHA1 computations for eliminating one complete stage
 read. The permanent G STAGE and INDEX and all proven
 M176/M177/M178/M179 modules remain unchanged.
 M180 may be faster or slower and is never a replacement
-without measurement. Runbook: `docs/M180_ONEPASS_TREE.md`.
+without measurement. Runbook: `docs/M179-M185_HISTORY.md`.
 
 ---
 
@@ -1541,7 +1541,7 @@ physical stage text-line counts for each full scan and
 four `clock()` CPU phases: index/map, tree scan, graph
 walk and blob scan. Its host parity/corruption tests pass.
 **It is not yet real-CMS target-proven and does not claim
-a speedup.** See `docs/M179_TREE_PROFILE.md` for the exact
+a speedup.** See `docs/M179-M185_HISTORY.md` for the exact
 two-file transfer and conditional target test. The known-good
 M173–M178 readers and verified G stage/index are untouched.
 
