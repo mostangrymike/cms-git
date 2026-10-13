@@ -93,7 +93,6 @@ on:
       - 'docs/M175.md'
       - 'src/GITPTRE.C'
       - 'src/M176CHK.EXEC'
-      - 'tests/test-m177-pack-view.py'
       - 'src/GITPFST.C'
       - 'src/GITPPRF.C'
       - 'src/GITPONE.C'
@@ -483,7 +482,7 @@ jobs:
       - name: Check M176 verified live tree closure
         run: python3 tests/test-native-data-history.py M176-MAIN
       - name: Check M177 safe explicit G stage index read-only view
-        run: python3 tests/test-m177-pack-view.py
+        run: python3 tests/test-m203-bounded-batch.py M177
       - name: Check M178 forward-only C89 tree closure parity
         run: python3 tests/test-m178-forward-tree.py
       - name: Check M179 read-only native phase profiling parity
