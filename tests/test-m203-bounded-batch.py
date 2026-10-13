@@ -1,87 +1,18 @@
 #!/usr/bin/env python3
-"""M203: bounded 2..8-object CMS REXX verification order guard."""
-from pathlib import Path
+"""Lossless selectable M202/M203 independent historical host regressions.
 
-ROOT=Path(__file__).resolve().parents[1]
-code=(ROOT/"src/GITC23.EXEC").read_text()
-assert max(map(len,code.splitlines()))<=80
-tokens=[
- "parse upper arg fm mode limit members",
- "count=words(members)",
- "count<2 | count>8",
- "objs.i=word(members,i)",
- "objs.i<1 | objs.i>7736",
- "if objs.i=objs.j then do",
- "'STATE GITP21M MODULE A'",
- "'STATE GITBX9 MODULE A'",
- "'STATE GITVO7M MODULE A'",
- "'STATE GITVRAW DATA A'",
- "'STATE GITR199 DATA A'",
- "'PIPE CMS FILEDEF | STEM defs.'",
- "'GITP21 G' objs.i limit 'CHECK'",
- "M203 ALL INDEX CHECKS PASS",
- "M203 CHECK ONLY NO SCRATCH PASS",
- "'GITP21 G' obj limit",
- "M203 SHA GATE FAIL SCRATCH PRESERVED",
- "'GITCLN SCRATCH'",
- "M203 FULL OBJECT SHA VERIFIED",
- "M203 CLEAN VERIFIED",
- "M203 BOUNDED FULL SHA CLEAN PASS"
-]
-for token in tokens:
-    assert token in code,token
-assert code.count("'GITCLN SCRATCH'")==1
-assert code.count("'GITP21 G' obj limit")==1
-assert code.count("'GITP21 G' objs.i limit 'CHECK'")==1
-pre,post=code.split("if mode='CHECK' then do",1)
-assert "M203 ALL INDEX CHECKS PASS" in pre
-assert post.index("'GITP21 G' obj limit")<post.index(
-    "'GITCLN SCRATCH'")
-assert post.index("if s\\=0 then do")<post.index(
-    "'GITCLN SCRATCH'")
-for token in ("M173NET", "M174NET", "GIT600",
-              "FSWRITE", "FSREAD", "OPENTYP=REPLACE"):
-    assert token not in code,token
-def valid(items):
-    if not 2<=len(items)<=8: return False
-    if any(not isinstance(x,int) or isinstance(x,bool) or
-           x<1 or x>7736 for x in items): return False
-    return len(set(items))==len(items)
-for seq in ([3868,7736],[1,3868,7736],list(range(1,9))):
-    assert valid(seq)
-for seq in ([1],list(range(1,10)),[1,1],[1,7737]):
-    assert not valid(seq)
-def simulate(items,failcheck=-1,failsha=-1,failclean=-1,
-             checking=False):
-    if not valid(items):return "BAD",[],False
-    events=[]
-    scratch=False
-    for i,obj in enumerate(items):
-        events.append(("CHECK",obj))
-        if i==failcheck:return "CHECK_FAIL",events,scratch
-    if checking:return "CHECK_PASS",events,scratch
-    for i,obj in enumerate(items):
-        events.append(("SHA",obj))
-        scratch=True
-        if i==failsha:return "SHA_FAIL",events,scratch
-        events.append(("CLEAN",obj))
-        if i==failclean:return "CLEAN_FAIL",events,scratch
-        scratch=False
-    return "PASS",events,scratch
-for seq in ([3868,7736],[1,3868,7736],list(range(1,9))):
-    a,e,s=simulate(seq)
-    assert a=="PASS" and not s
-    assert [x[0] for x in e[:len(seq)]]==["CHECK"]*len(seq)
-    a,e,s=simulate(seq,checking=True)
-    assert a=="CHECK_PASS" and not s
-    assert len(e)==len(seq)
-    a,e,s=simulate(seq,failcheck=len(seq)-1)
-    assert a=="CHECK_FAIL" and not s
-    assert all(x[0]=="CHECK" for x in e)
-    a,e,s=simulate(seq,failsha=0)
-    assert a=="SHA_FAIL" and s and ("CLEAN",seq[0]) not in e
-    a,e,s=simulate(seq,failclean=0)
-    assert a=="CLEAN_FAIL" and s and ("SHA",seq[1]) not in e
-print("M203 BOUNDED DISTINCT OBJECTS, PREFLIGHT AND SHA HOST PASS")
-print("M203 FAILED SHA/CLEANUP PRESERVES SCRATCH AND STOPS")
-print("M203 REAL CMS TARGET CHECK/RUN STILL PENDING")
+Usage: python3 tests/test-m203-bounded-batch.py M202|M203
+Each mode executes its exact original standalone test body.
+"""
+import sys
+
+ORIGINAL = {
+    "M202": "#!/usr/bin/env python3\n\"\"\"M202 host guard: strictly two distinct full SHA objects, cleanup after PASS.\n\nThe real CMS REXX execution remains a separate target-only gate.\n\"\"\"\nfrom pathlib import Path\nfrom dataclasses import dataclass\n\nROOT=Path(__file__).resolve().parents[1]\nrex=(ROOT/\"src/GITC22.EXEC\").read_text()\nassert max(map(len,rex.splitlines()))<=80\nfor token in (\n    \"parse upper arg fm one two limit mode extra\",\n    \"mode\\\\='CHECK' & mode\\\\='RUN'\",\n    \"one=two | limit<1 | limit>64\",\n    \"'STATE GITVRAW DATA A'\",\n    \"M202 OLD M198 SCRATCH EXISTS - REFUSE CLEANUP\",\n    \"'STATE GITR199 DATA A'\",\n    \"M202 OLD M199 SCRATCH EXISTS - REFUSE OVERWRITE\",\n    \"'PIPE CMS FILEDEF | STEM f.'\",\n    \"'GITP21 G' one limit 'CHECK'\",\n    \"'GITP21 G' two limit 'CHECK'\",\n    \"M202 TWO OBJECT INDEX PREFLIGHT PASS\",\n    \"if mode='CHECK' then do\",\n    \"M202 TWO OBJECT CHECK ONLY PASS\",\n    \"M202 TWO OBJECT FULL SHA CLEAN PASS\",\n    \"runone: procedure\",\n    \"'GITP21 G' obj lim\",\n    \"'GITCLN SCRATCH'\",\n    \"M202 SHA FAIL; SCRATCH PRESERVED\",\n    \"M202 SCRATCH CLEAN VERIFIED\",\n):\n    assert token in rex,token\nassert rex.count(\"'GITCLN SCRATCH'\")==1\nassert rex.count(\"'GITP21 G' obj lim\")==1\nassert rex.index(\"M202 TWO OBJECT CHECK ONLY PASS\")<rex.index(\n    \"M202 FIRST OBJECT AUTH BEGIN\")\nrunone=rex.split(\"runone: procedure\",1)[1]\nassert runone.index(\"'GITP21 G' obj lim\")<runone.index(\n    \"'GITCLN SCRATCH'\")\nassert runone.index(\"if objrc\\\\=0 then do\")<runone.index(\n    \"'GITCLN SCRATCH'\")\nassert runone.index(\"if cleanrc\\\\=0 then do\")<runone.index(\n    \"M202 SCRATCH CLEAN VERIFIED\")\nassert rex.index(\"'STATE GITVRAW DATA A'\")<rex.index(\n    \"'GITCLN SCRATCH'\")\nassert \"if rc\\\\=28 then do\" in rex\nfor forbidden in (\n    \"ERASE \", \"FORMAT \", \"FILEDEF * CLEAR\", \"FILEDEF STGIN\",\n    \"FSWRITE\", \"FSCLOSE\", \"GITBX8\", \"GITFL10\",\n    \"GITFSRD\", \"GITFRB\", \"DIRECTXA\", \"PMAINT\",\n    \"GITVRAW DATA A1\", \"M173NET STAGE\", \"M174NET INDEX\",\n    \"GIT600\", \"PIPE CMS GITP21\",\n):\n    assert forbidden not in rex,forbidden\n\n# Outcome-state model of the REXX sequence. Failing an object's\n# full digest MUST NOT erase its diagnostic scratch. A cleanup error\n# is also fatal and blocks any subsequent object's authentication.\n@dataclass\nclass Outcome:\n    statuses: list\n    log: list\n    scratch: bool\n\ndef model(one,two,checks,results,cleans,mode=\"RUN\"):\n    log=[]\n    scratch=False\n    if not 1<=one<=7736 or not 1<=two<=7736 or one==two:\n        return Outcome([\"INVALID\"],log,scratch)\n    log.extend([(\"CHECK\",one),(\"CHECK\",two)])\n    if not all(checks):\n        return Outcome([\"FAIL_PREFLIGHT\"],log,scratch)\n    if mode==\"CHECK\":\n        return Outcome([\"CHECK_ONLY_PASS\"],log,scratch)\n    for index,obj in enumerate((one,two)):\n        log.append((\"SHA\",obj))\n        scratch=True\n        if not results[index]:\n            return Outcome([\"SHA_FAIL\"],log,scratch)\n        log.append((\"CLEAN\",obj))\n        if not cleans[index]:\n            return Outcome([\"CLEAN_FAIL\"],log,scratch)\n        scratch=False\n    return Outcome([\"FULL_PASS\"],log,scratch)\n\nfirst,second=3868,7736\ncases=[\n  ((True,True),(True,True),(True,True),\n   [\"FULL_PASS\"],[(\"CHECK\",3868),(\"CHECK\",7736),\n                  (\"SHA\",3868),(\"CLEAN\",3868),\n                  (\"SHA\",7736),(\"CLEAN\",7736)],False),\n  ((False,True),(True,True),(True,True),\n   [\"FAIL_PREFLIGHT\"],[(\"CHECK\",3868),(\"CHECK\",7736)],False),\n  ((True,True),(False,True),(True,True),\n   [\"SHA_FAIL\"],[(\"CHECK\",3868),(\"CHECK\",7736),\n                 (\"SHA\",3868)],True),\n  ((True,True),(True,False),(True,True),\n   [\"SHA_FAIL\"],[(\"CHECK\",3868),(\"CHECK\",7736),\n                 (\"SHA\",3868),(\"CLEAN\",3868),\n                 (\"SHA\",7736)],True),\n  ((True,True),(True,True),(False,True),\n   [\"CLEAN_FAIL\"],[(\"CHECK\",3868),(\"CHECK\",7736),\n                   (\"SHA\",3868),(\"CLEAN\",3868)],True),\n]\nfor checks,shas,cleans,expect,events,remaining in cases:\n    got=model(first,second,checks,shas,cleans)\n    assert (got.statuses,got.log,got.scratch)==(\n        expect,events,remaining),got\ngot=model(first,second,(True,True),(False,False),(True,True),\n          mode=\"CHECK\")\nassert got.statuses==[\"CHECK_ONLY_PASS\"]\nassert all(ev[0]==\"CHECK\" for ev in got.log)\nassert not got.scratch\nassert model(3868,3868,(True,True),(True,True),\n             (True,True)).statuses==[\"INVALID\"]\nprint(\"M202 HOST TWO DISTINCT INDEX-SELECTED OBJECT GUARDS PASS\")\nprint(\"M202 FULL SHA THEN EXACT SCRATCH CLEANUP ORDER PASS\")\nprint(\"M202 FAILURE PRESERVES SCRATCH; CHECK MODE NO WRITES PASS\")\nprint(\"M202 NO REAL CMS TARGET RUN YET\")\n",
+    "M203": "#!/usr/bin/env python3\n\"\"\"M203: bounded 2..8-object CMS REXX verification order guard.\"\"\"\nfrom pathlib import Path\n\nROOT=Path(__file__).resolve().parents[1]\ncode=(ROOT/\"src/GITC23.EXEC\").read_text()\nassert max(map(len,code.splitlines()))<=80\ntokens=[\n \"parse upper arg fm mode limit members\",\n \"count=words(members)\",\n \"count<2 | count>8\",\n \"objs.i=word(members,i)\",\n \"objs.i<1 | objs.i>7736\",\n \"if objs.i=objs.j then do\",\n \"'STATE GITP21M MODULE A'\",\n \"'STATE GITBX9 MODULE A'\",\n \"'STATE GITVO7M MODULE A'\",\n \"'STATE GITVRAW DATA A'\",\n \"'STATE GITR199 DATA A'\",\n \"'PIPE CMS FILEDEF | STEM defs.'\",\n \"'GITP21 G' objs.i limit 'CHECK'\",\n \"M203 ALL INDEX CHECKS PASS\",\n \"M203 CHECK ONLY NO SCRATCH PASS\",\n \"'GITP21 G' obj limit\",\n \"M203 SHA GATE FAIL SCRATCH PRESERVED\",\n \"'GITCLN SCRATCH'\",\n \"M203 FULL OBJECT SHA VERIFIED\",\n \"M203 CLEAN VERIFIED\",\n \"M203 BOUNDED FULL SHA CLEAN PASS\"\n]\nfor token in tokens:\n    assert token in code,token\nassert code.count(\"'GITCLN SCRATCH'\")==1\nassert code.count(\"'GITP21 G' obj limit\")==1\nassert code.count(\"'GITP21 G' objs.i limit 'CHECK'\")==1\npre,post=code.split(\"if mode='CHECK' then do\",1)\nassert \"M203 ALL INDEX CHECKS PASS\" in pre\nassert post.index(\"'GITP21 G' obj limit\")<post.index(\n    \"'GITCLN SCRATCH'\")\nassert post.index(\"if s\\\\=0 then do\")<post.index(\n    \"'GITCLN SCRATCH'\")\nfor token in (\"M173NET\", \"M174NET\", \"GIT600\",\n              \"FSWRITE\", \"FSREAD\", \"OPENTYP=REPLACE\"):\n    assert token not in code,token\ndef valid(items):\n    if not 2<=len(items)<=8: return False\n    if any(not isinstance(x,int) or isinstance(x,bool) or\n           x<1 or x>7736 for x in items): return False\n    return len(set(items))==len(items)\nfor seq in ([3868,7736],[1,3868,7736],list(range(1,9))):\n    assert valid(seq)\nfor seq in ([1],list(range(1,10)),[1,1],[1,7737]):\n    assert not valid(seq)\ndef simulate(items,failcheck=-1,failsha=-1,failclean=-1,\n             checking=False):\n    if not valid(items):return \"BAD\",[],False\n    events=[]\n    scratch=False\n    for i,obj in enumerate(items):\n        events.append((\"CHECK\",obj))\n        if i==failcheck:return \"CHECK_FAIL\",events,scratch\n    if checking:return \"CHECK_PASS\",events,scratch\n    for i,obj in enumerate(items):\n        events.append((\"SHA\",obj))\n        scratch=True\n        if i==failsha:return \"SHA_FAIL\",events,scratch\n        events.append((\"CLEAN\",obj))\n        if i==failclean:return \"CLEAN_FAIL\",events,scratch\n        scratch=False\n    return \"PASS\",events,scratch\nfor seq in ([3868,7736],[1,3868,7736],list(range(1,9))):\n    a,e,s=simulate(seq)\n    assert a==\"PASS\" and not s\n    assert [x[0] for x in e[:len(seq)]]==[\"CHECK\"]*len(seq)\n    a,e,s=simulate(seq,checking=True)\n    assert a==\"CHECK_PASS\" and not s\n    assert len(e)==len(seq)\n    a,e,s=simulate(seq,failcheck=len(seq)-1)\n    assert a==\"CHECK_FAIL\" and not s\n    assert all(x[0]==\"CHECK\" for x in e)\n    a,e,s=simulate(seq,failsha=0)\n    assert a==\"SHA_FAIL\" and s and (\"CLEAN\",seq[0]) not in e\n    a,e,s=simulate(seq,failclean=0)\n    assert a==\"CLEAN_FAIL\" and s and (\"SHA\",seq[1]) not in e\nprint(\"M203 BOUNDED DISTINCT OBJECTS, PREFLIGHT AND SHA HOST PASS\")\nprint(\"M203 FAILED SHA/CLEANUP PRESERVES SCRATCH AND STOPS\")\nprint(\"M203 REAL CMS TARGET CHECK/RUN STILL PENDING\")\n"
+}
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2 or sys.argv[1] not in ORIGINAL:
+        raise SystemExit("Usage: test-m203-bounded-batch.py M202|M203")
+    exec(compile(ORIGINAL[sys.argv[1]], __file__, "exec"),
+         {"__file__": __file__, "__name__": "__main__"})
