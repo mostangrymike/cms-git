@@ -86,11 +86,18 @@ def main():
     all_specs.update(EXTRA_SPECS)
     all_specs.update(SPECIAL_SPECS)
     if arg == "CHECK":
+        # Even retired wrapper paths must remain exactly regenerable.
+        # CHECK is read-only: do not recreate missing CMS source files.
         for name in all_specs:
+            source = generate(name)
+            assert source and all(len(line) <= 80
+                                  for line in source.splitlines()), name
+            assert len(name) <= 8 and name.isalnum(), name
             target = ROOT / "src" / (name + ".EXEC")
             if target.exists():
-                assert target.read_text() == generate(name), name
-        print("PH WRAPPER GENERATION PARITY PASS")
+                assert target.read_text() == source, name
+        assert len(all_specs) == 10, "Historical wrapper inventory changed"
+        print("PH WRAPPER GENERATION PARITY PASS", len(all_specs))
         return
     if arg == "ALL":
         names = [name for name in sorted(all_specs)
