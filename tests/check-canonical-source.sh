@@ -30,6 +30,16 @@ assert valid(entries[0], entries[1])
 assert not valid(entries[0], entries[1][:-1]), "accepted missing PR path"
 assert not valid(entries[0] + [entries[0][0]], entries[1]), "accepted duplicate"
 assert not valid(entries[0], entries[1][::-1]), "accepted reversed paths"
+assert not valid(entries[0][1:], entries[1]), "accepted missing push path"
+assert not valid(entries[0], entries[1] + [entries[1][0]]), "accepted PR duplicate"
+assert not valid(
+    [p for p in entries[0] if p != '.github/workflows/native-stage.yml'],
+    [p for p in entries[1] if p != '.github/workflows/native-stage.yml']
+), "accepted unwatched workflow"
+assert not valid(
+    [p for p in entries[0] if p != 'tests/check-canonical-source.sh'],
+    [p for p in entries[1] if p != 'tests/check-canonical-source.sh']
+), "accepted unwatched guard"
 assert not valid([], []), "accepted empty triggers"
 print("CI PATH PARITY AND NEGATIVE FIXTURES PASS", len(entries[0]))
 PY
