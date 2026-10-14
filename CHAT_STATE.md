@@ -14429,3 +14429,9 @@ target verification.
 
 - Updated `scripts/restore-ph-wrappers.py` at `e3a29993583c6e513797b60af7115d0ba6b390a5` to create generated historical CMS EXECs with `open('x', encoding='utf-8', newline='')`, retaining the generated exact newline sequence across host operating systems and preserving exclusive no-overwrite behavior. Removed a redundant second name-loop binding; no generated source specifications were altered.
 - This is host-side restoration hardening only; no existing CMS program, target file or protected stage/index changed, and no CMS upload required. Fresh full CI success is not independently confirmed. Last verified full host run remains 38598877946. Baseline repository count remains estimated 181 until new recursive tree verification.
+
+
+## 2026-10-14 — Wrapper restoration read-back verification
+
+- Updated `scripts/restore-ph-wrappers.py` at commit `c64935076ce6624428d23c2bb06c4dfffc1d9c48`: after exclusive creation of each retired historical EXEC source with exact newline preservation, compare the file's raw bytes to the UTF-8 encoded canonical generator output before printing RESTORED success. Fail closed on any mismatch; retain existing source-drift preflight and non-overwrite behavior. A failure in later files can still leave earlier newly created files, so this is not transactional batch atomicity.
+- This is only host restoration tooling. Production M206 C/EXEC, protected CMS original stage/index, live MODULEs, A/G disks and DASD images remain unchanged. No CMS transfer needed. Last independently observed full host Actions pass is 38598877946, before the recent tooling changes; new full CI outcome not verified. Reported tracked-path count remains approximately 181, not a fresh recursive inventory.
