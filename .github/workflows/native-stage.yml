@@ -258,6 +258,8 @@ jobs:
         run: |
           python3 -m py_compile scripts/restore-cms-exec.py
           python3 scripts/restore-cms-exec.py MISSING
+      - name: Audit all historical wrapper specifications before regeneration
+        run: python3 scripts/restore-ph-wrappers.py CHECK
       - name: Restore historical native tree wrappers
         run: python3 scripts/restore-ph-wrappers.py ALL
       - name: Test CP-to-Hercules read-only minidisk correlation
