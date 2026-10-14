@@ -169,13 +169,26 @@ def consolidation_inventory():
     print("NOTE TOKEN CALLERS INCLUDE COMMENTS AND STRING LITERALS")
     print("NOTE DYNAMIC CMS CALLS, OPERATORS AND EXTERNAL MODULES MAY BE INVISIBLE")
     print("NOTE ZERO TOKEN CALLERS NEVER AUTHORIZES DELETION")
+    totals = {"MILESTONE": [0, 0], "GIT": [0, 0], "OTHER": [0, 0]}
+    unreferenced = 0
     for path in sources:
         relative = Path(path)
         stem = relative.stem.upper()
         family = ("MILESTONE" if re.fullmatch(r"M[0-9]+[A-Z0-9]*", stem)
                   else "GIT" if stem.startswith("GIT") else "OTHER")
+        size = (ROOT / path).stat().st_size
+        totals[family][0] += 1
+        totals[family][1] += size
+        unreferenced += not callers[path]
         print("SOURCE", path, "FAMILY", family, "TOKEN_CALLERS",
-              len(callers[path]), "SIZE_BYTES", (ROOT / path).stat().st_size)
+              len(callers[path]), "SIZE_BYTES", size)
+    for family in ("MILESTONE", "GIT", "OTHER"):
+        count, size = totals[family]
+        print("FAMILY", family, "FILES", count, "BYTES", size)
+    print("ZERO OBSERVED TOKEN CALLERS", unreferenced,
+          "NOT DELETION AUTHORIZATION")
+    if sum(values[0] for values in totals.values()) != len(sources):
+        raise RuntimeError("Source family accounting mismatch")
     print("CMS SOURCE INVENTORY COMPLETE", len(sources))
 
 def main():
