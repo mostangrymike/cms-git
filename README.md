@@ -2160,8 +2160,8 @@ The first full host CI run with the audit passed:
 ### M164–M170 documentation consolidation (2026-10-14)
 
 The complete contents of the former `docs/M164_PRACTICAL_PORCELAIN.md`,
-`docs/M165-M166_HISTORY.md`, and `docs/M167-M170_HISTORY.md` are retained
-in `docs/M165-M166_HISTORY.md`, in milestone order M164–M170. The original
+`docs/M179-M185_HISTORY.md`, and `docs/M167-M170_HISTORY.md` are retained
+in `docs/M179-M185_HISTORY.md`, in milestone order M164–M170. The original
 standalone document blobs remain recoverable from Git history. This reduces
 the repository to **203 tracked files** (222 fewer than its 425-file baseline).
 The merged document is included in the host workflow path filter.
