@@ -14152,3 +14152,63 @@ User requested a fresh project-state save for a new chat. Continue IBM z/VM CMS 
 - No `src/` file or CMS target data altered; original standalone documents
   remain accessible in Git history. Verify the latest workflow result before
   further production changes.
+
+## 2026-10-14 10:33 America/Chicago — handoff for next chat
+
+**Verified current GitHub main:** 198 tracked files, reduced by 227 (53.4%)
+from original 425, confirmed by recursive GitHub tree. Latest full GitHub
+Actions run **38589228751 PASS**, on commit
+`55a80b8a231bc618e5dbbd419fcd1800dc51bcc7`.
+This is file-count reduction, not equivalent reduction in bytes/complexity.
+
+### Latest verified consolidation
+- Complete original native Git design documents `docs/NATIVE_REF.md`,
+  `docs/NATIVE_STAGE.md`, `docs/NATIVE_INDEX.md`, and
+  `docs/NATIVE_RECOVERY_GATE.md` are preserved together (with original
+  source sections) inside retained `docs/NATIVE_REF.md`; three redundant
+  tracked files deleted.
+- Complete `docs/GENERATION_RECOVERY.md`,
+  `docs/INDEXED_EXTERNAL_REF.md`, and `docs/REF_RESOLUTION.md`
+  preserved together inside retained `docs/GENERATION_RECOVERY.md`; two
+  redundant files deleted.
+- Complete M164 through M170 history preserved inside
+  `docs/M165-M166_HISTORY.md`; removed original M164 porcelain and
+  M167–M170 separate history docs. Six original JSON bundles merged
+  into `archive/HISTORICAL_EXEC.json`, preserving 99 original historical
+  EXEC source texts, six source bundle identities/counts, and strict audit.
+- README links to removed design documents redirected to retained paths.
+  Both consolidated native design docs added to push/PR host CI path triggers.
+  Latest workflow passing confirms host regressions on this final layout.
+- Notable latest commits: `731d896f9a2c1b787511d2743df6496a192f3ddd`,
+  `00eb761cb9394e6c86f7d9c704c1fd799d12cae0`,
+  `25ecc7f47a5cfdb8806d0bafba0bcd2b9a0dfc80`,
+  `880445793beb7f5bd7b59d0fd6a3327790bcfdee`,
+  `9860fdcd11b555dd01c155f345b92e85cb3aa70c`,
+  `55a80b8a231bc618e5dbbd419fcd1800dc51bcc7`.
+
+### Safe continuation
+1. At start of new chat retrieve this GitHub `CHAT_STATE.md`, rules and
+   current repository state, confirm latest CI; continue directly. User
+   requests **maximum work per turn, no unnecessary pauses**, direct edits
+   and commits on GitHub `main`, smallest safe file count and no loss of
+   original functionality or source history.
+2. Further history/doc consolidation may eliminate safe paths, but preserve
+   complete original text/attribution in retained documents, repair links,
+   update CI triggers, and require green full host CI.
+3. All 159 tracked production `src/` files remain untouched by latest
+   rounds. `python3 scripts/restore-cms-exec.py LIVEDEPS` audits active
+   source dependencies read-only. Zero observed static caller is **not**
+   permission to remove runtime helper; require dependency and CMS target
+   evidence.
+4. Host CI retains independent M188 full tree closure, M206 32-band
+   SHA authentication, 42 historical Python cases, 5 benchmark cases,
+   REF PACK fixtures, shell safety modes, 99 EXEC archival restoration,
+   and ten regenerated native wrappers.
+5. Never mutate protected CMS A/G disks, G original 7736-object
+   stage/index, live target MODULEs or DASD images; no destructive
+   `ACLEAN APPLY` without explicit backup/safety authorization.
+   CMS uploads only when actual target verification is required. Host-only
+   documentation changes need no Mac transfer.
+
+**This checkpoint itself is a documentation update**, not new CMS
+target verification.
