@@ -14286,3 +14286,12 @@ target verification.
 - Actions run 38596918667 passed on first retained build merge. Latest full host workflow 38597034999 was still in progress when queried; verify final success before further deletion. Do not mistake an in-progress workflow for PASS. Original deleted documents still recoverable from Git history. No CMS transfer needed for these docs-only changes.
 
 - **FINAL GREEN:** GitHub Actions full host workflow 38597034999 completed SUCCESS on commit `d4bdc82226ab1dbcf266889e9f8480557877110e` for retained native documentation archive and existing source; later README and CHAT_STATE changes are docs-only. Current tracked count 185; not new CMS target validation.
+
+
+## 2026-10-14 — State and generation archive consolidation
+
+- At start, 185 tracked files and full host Actions run 38597034999 SUCCESS.
+- Preserved exact complete original `docs/STATUS.md` inside `docs/CURRENT_STATE.md` under original-file marker and updated README links. Refetched original/retained files and verified verbatim archive segment; removed old path at `fd4900b3754ccc33becea63870d591530af14262`.
+- Preserved exact complete original `docs/ACTIVE_GENERATION_DESIGN.md` inside `docs/GENERATION_RECOVERY.md` with original-file marker (including nested complete `docs/LIVE_PACK_STORAGE.md` archive). Replaced CI push and pull-request watched design path with retained recovery path; original archive segment refetched and exact match verified before removal `5fc98e36ae4bdf6a96a71d627179b339a9ed72d5`.
+- GitHub tree now **183 tracked files**, down 242 from 425 (56.9%). Original texts remain recoverable in retained documents and Git history. No `src/` production files, target MODULEs, G stage/index, protected CMS A/G data, or DASD files changed. Documentation-only; no CMS upload required.
+- Latest host full workflow `38597803148` was queued after final CI path update; `38597785249` was in progress after archived generation write. Do not claim new full host CI passing until completed. Prior green remains 38597034999. Verify new CI and repair any regression before more deletion.
