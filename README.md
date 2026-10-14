@@ -70,7 +70,7 @@ ACLEAN PLAN NETTRACE
 
 For detailed limits, complete manifest names and
 separate opt-in APPLY/measurement instructions,
-see `docs/CMS_A_CLEANUP.md`.
+see `docs/M173_PERSISTENT_DISK_RUNBOOK.md`.
 
 **Source-reuse rule stays mandatory:** update
 existing canonical `GITP26M.C` / `GITC26.EXEC`
@@ -127,7 +127,7 @@ numbered-file scratch branch remains unmerged and
 must not be deployed.
 
 See `docs/M201-M205_HISTORY.md` and
-`docs/CMS_A_CLEANUP.md`. Next safe cleanup commands
+`docs/M173_PERSISTENT_DISK_RUNBOOK.md`. Next safe cleanup commands
 after a verified backup and intentional review are:
 
 ```text
@@ -165,7 +165,7 @@ each source and MODULE before a fully addressed
 A-only ERASE. No MODULE, EXEC, C, handwritten
 ASSEMBLE, PACK, STAGE, INDEX or G file is erased.
 Do not apply without reviewed PLAN and recovery
-safeguards; see `docs/CMS_A_CLEANUP.md`.
+safeguards; see `docs/M173_PERSISTENT_DISK_RUNBOOK.md`.
 
 M206 has **REAL CMS 16-object SHA1 and cleanup PASS**:
 `GITC26 G CHECK 64 16` 0.66s elapsed;
