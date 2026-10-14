@@ -14454,3 +14454,9 @@ target verification.
 - `9039d13` collision guard successfully checkpointed at `0320e7c4dabe9df6fdb8a43f8b32123e8fe7ed84`.
 - Commit `4e1112b63459a2f234c1c22cb094c7a52c420ed0` replaced `assert`-dependent CHECK validation in `scripts/restore-ph-wrappers.py` with explicit `RuntimeError` checks for empty/overlength source, invalid CMS wrapper name, and byte-for-byte tracked source drift. These checks now remain active under `python -O`. Inventory count is independently checked before CHECK/ALL. No CMS program or generated source changes.
 - GitHub Actions page remained inaccessible; no new full host CI execution was verified. Last confirmed complete run stays 38598877946. No CMS transfer, protected stage/index or disk changes.
+
+
+## 2026-10-14 — Optimized-Python-safe generator width checks
+
+- Commit `6750e51713f9d0a40c4160ab52a5b5fb5a7be2bd` replaces both `assert`-only 80-column checks within the main `generate` function of `scripts/restore-ph-wrappers.py` with explicit RuntimeError paths. This ensures the CMS fixed-80-column source safeguard remains enforced under `python -O` for special and extra generated wrapper branches. The existing separate CHECK path already used explicit validation. No production source files or target disks changed.
+- Changes remain host-only; full end-to-end CI since the latest changes is not independently confirmed. Last verified full host green run 38598877946 predates the recent series. Historical repository count estimate 181 tracked files; no file additions/deletions this turn.
