@@ -28,14 +28,20 @@ def load():
         "M9-M12_TRANSPORT.json": 7,
     }
     actual = {p.name for p in ARCHIVES.glob("*.json")}
-    if actual != set(expected):
+    if actual != {"HISTORICAL_EXEC.json"}:
         raise SystemExit("Archive inventory mismatch: " + str(sorted(actual)))
+    collection = json.loads((ARCHIVES / "HISTORICAL_EXEC.json").read_text(
+        encoding="utf-8"))
+    if collection.get("format") != "cms-exec-archive-collection-v1":
+        raise RuntimeError("Unknown historical collection format")
+    bundles = collection.get("bundles")
+    if not isinstance(bundles, dict) or set(bundles) != set(expected):
+        raise RuntimeError("Historical archive bundle inventory mismatch")
     files = {}
     for name, count in sorted(expected.items()):
-        path = ARCHIVES / name
-        archive = json.loads(path.read_text(encoding="utf-8"))
-        if archive.get("format") != "cms-exec-archive-v1":
-            raise RuntimeError("Unknown archive format: " + name)
+        archive = bundles[name]
+        if not isinstance(archive, dict) or not isinstance(archive.get("description"), str):
+            raise RuntimeError("Historical archive metadata mismatch: " + name)
         entries = archive.get("files")
         if not isinstance(entries, dict) or len(entries) != count:
             raise RuntimeError("Archive count mismatch: " + name)
