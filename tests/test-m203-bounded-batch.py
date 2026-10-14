@@ -56,6 +56,9 @@ BENCH_SOURCE = "#!/usr/bin/env python3\n\"\"\"Historical read-only native stage 
 def check_inventory():
     """Compile every retained original test without executing target actions."""
     import hashlib
+    compile(BENCH_SOURCE, __file__, "exec")
+    print("BENCHMARK SOURCE COMPILE PASS",
+          hashlib.sha256(BENCH_SOURCE.encode("utf-8")).hexdigest())
     if len(ORIGINAL) != 42:
         raise RuntimeError("Unexpectedly small preserved host test inventory")
     for name, source in sorted(ORIGINAL.items()):
