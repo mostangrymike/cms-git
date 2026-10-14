@@ -113,7 +113,7 @@ def live_dependencies():
     escape static analysis. Zero observed callers is NOT proof of dead code.
     """
     tracked = subprocess.check_output(["git", "ls-files", "-z"], cwd=ROOT)
-    sources = sorted(p.decode() for p in tracked.split(b"\\0")
+    sources = sorted(p.decode() for p in tracked.split(b"\0")
                      if p.startswith(b"src/") and p.endswith(
                          (b".EXEC", b".C", b".ASSEMBLE", b".REPO", b".sh")))
     stems = {Path(name).stem.upper(): name for name in sources}
