@@ -14501,3 +14501,10 @@ target verification.
 
 - Expanded the committed read-only `scripts/restore-cms-exec.py LIVEPLAN` inventory at `6a0d49123671179295768beb98e0e5544fa25a22` to report file count and total bytes separately for GIT, milestone and other CMS source families, plus the number of files having zero observed lexical source callers. The output explicitly rejects treating zero token callers as permission to delete sources; it validates the source family count aggregate before completion.
 - Existing workflow already invokes `LIVEPLAN`; no additional CI step or production source edits. This provides more useful measurement for the next consolidation batch but no reduction in tracked path count yet. Full host CI outcome since the recent changes is still not independently verified; previously confirmed full green run remains 38598877946. Protected G 7736-object stage/index, CMS A/G disks, modules and DASD unchanged.
+
+
+## 2026-10-14 — Consolidated production dependency scanning
+
+- Commit `42edd69b7d03e18e819fda213a32aef8c2f7a7c4` refactors the host-only `scripts/restore-cms-exec.py` so `LIVEDEPS` and `LIVEPLAN` share one `scan_live_sources()` implementation for tracked source enumeration, CMS stem collision detection and lexical source callers. Replaced two independently maintained full scanning loops with one, reducing the script from 237 to 229 lines and preventing drift between host dependency/sizing audits.
+- Re-fetched committed source and confirmed new helper plus both callers, with Git `ls-files -z` correctly separated on NUL (`b"\\0"` in Python source) and no CMS target source edits. This is source-inspection validation only: full Python host audit and latest Actions success have not been independently verified. GitHub Actions public page cannot be fetched via web in this session. Last proven full host CI PASS remains run 38598877946.
+- No repository paths removed: prior 181-file baseline stands. Production CMS 7736-object protected G stage/index, modules, minidisks and DASD unaffected. CMS source deletion remains prohibited without stronger dependency and real-target evidence.
