@@ -180,7 +180,6 @@ on:
       - 'docs/M166.md'
       - 'docs/M165.md'
       - 'src/M157GATE.EXEC'
-      - 'tests/check-readonly-gitrchk.sh'
       - 'scripts/backup-offline-dasd.sh'
       - 'scripts/inspect-hercules-config.sh'
       - 'scripts/map-cms-minidisk.sh'
@@ -368,7 +367,6 @@ on:
       - 'docs/M166.md'
       - 'docs/M165.md'
       - 'src/M157GATE.EXEC'
-      - 'tests/check-readonly-gitrchk.sh'
       - 'scripts/backup-offline-dasd.sh'
       - 'scripts/inspect-hercules-config.sh'
       - 'scripts/map-cms-minidisk.sh'
@@ -396,7 +394,7 @@ jobs:
       - name: Test offline-only DASD backup safeguards
         run: bash tests/test-map-cms-minidisk.sh BACKUP
       - name: Enforce read-only CMS CATHEX gate and cleanup hold
-        run: sh tests/check-readonly-gitrchk.sh
+        run: sh tests/check-canonical-source.sh READONLY
       - name: Check verified modern REF2 read-only bridge
         run: sh tests/check-verified-ref.sh
       - name: Check compact CMS target gate source
