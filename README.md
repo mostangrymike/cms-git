@@ -126,7 +126,7 @@ history for rollback. A previously started M207
 numbered-file scratch branch remains unmerged and
 must not be deployed.
 
-See `docs/M206_STRATIFIED_32.md` and
+See `docs/M201-M205_HISTORY.md` and
 `docs/CMS_A_CLEANUP.md`. Next safe cleanup commands
 after a verified backup and intentional review are:
 
@@ -222,7 +222,7 @@ The authenticated objects were Git index ordinals
 three commits, four blobs and one tree; 8,043 decoded
 bytes overall. All eight expected OIDs and physical
 record coordinates are preserved in
-`docs/M206_STRATIFIED_32.md` and `CHAT_STATE.md`.
+`docs/M201-M205_HISTORY.md` and `CHAT_STATE.md`.
 The original protected G stage/index remained read-only.
 No final independent FILEDEF listing was supplied.
 
@@ -243,7 +243,7 @@ M206 has strict C89 host tests for 2/3/8/16/32
 samples and a negative case where an entire
 sample band is ineligible. **M206 is not yet
 real CMS target validated**; see
-`docs/M206_STRATIFIED_32.md`.
+`docs/M201-M205_HISTORY.md`.
 
 After CI and merge from Mac `ibm-sandbox/src`:
 
