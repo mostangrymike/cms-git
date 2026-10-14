@@ -77,7 +77,8 @@ def generate(name):
         return text
     milestone, comment = SPECS[name]
     text = comment + "\n" + TEMPLATE.replace("@@NAME@@", name).replace("@@MILESTONE@@", milestone)
-    assert all(len(line) <= 80 for line in text.splitlines())
+    if any(len(line) > 80 for line in text.splitlines()):
+        raise RuntimeError("Overlength generated CMS wrapper: " + name)
     return text
 
 def main():
