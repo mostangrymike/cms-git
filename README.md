@@ -2,8 +2,8 @@
 
 ## Consolidation status (2026-10-14, verified archive merge)
 
-GitHub `main` is canonical. The repository has **189 tracked files** after
-lossless consolidation from 425, a reduction of 236 tracked paths (55.5%).
+GitHub `main` is canonical. The repository has **187 tracked files** after
+lossless consolidation from 425, a reduction of 238 tracked paths (56.0%).
 This measures file count, **not** lines of code or executable complexity.
 The latest fully verified host CI commit is
 `1266b00ad64049f1156623c401713fcba9558cbe`, workflow run
