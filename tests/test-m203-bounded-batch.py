@@ -80,6 +80,7 @@ def check_inventory():
     compile(BENCH_SOURCE, __file__, "exec")
     print("BENCHMARK SOURCE COMPILE PASS",
           hashlib.sha256(BENCH_SOURCE.encode("utf-8")).hexdigest())
+    from pathlib import Path
     # Every archived test must still have a distinct CI command after
     # a consolidation; storing source without executing it is not enough.
     workflow = (Path(__file__).resolve().parents[1] /
