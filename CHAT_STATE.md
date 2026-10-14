@@ -14273,3 +14273,5 @@ target verification.
 - Exact original `docs/M155-M163_HISTORY.md` preserved inside `docs/M165-M166_HISTORY.md` under independent archival heading; original text checked exactly before deletion at `e49909b755c97c39e3990290094b88a361b38bf3`.
 - Current GitHub recursive-tree count **187 tracked files**, reduction 238 of 425 (56.0%). Original content is preserved inside retained documents and accessible through Git history. No CMS source, MODULE, target A/G disks, G 7736-object stage/index or DASD modified; no Mac/CMS transfer needed.
 - GitHub Actions workflow 38593874417 succeeded for first archive insertion; second full workflow 38593982215 was in progress when last queried. Verify this workflow's success before further deletion; if failed inspect job logs and repair. Maintained all independently executable host tests and existing CI document path filters.
+
+- **FINAL CI VERIFIED:** run `38593982215` completed SUCCESS on SHA `bdcf281ccf13cd972df420876ff1be5941c72d6e`, validating final 187-file merged source/doc layout. Following README and CHAT_STATE commits are documentation-only. No CMS target re-validation occurred.
