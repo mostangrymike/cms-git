@@ -2156,3 +2156,12 @@ operators, and CMS execution semantics require separate checks.
 The first full host CI run with the audit passed:
 [38587307751](https://github.com/mostangrymike/ibm-sandbox/actions/runs/38587307751)
 (commit `b01e2aab7bf9aaaad5855ed1272004bc4e67854a`).
+
+### M164–M170 documentation consolidation (2026-10-14)
+
+The complete contents of the former `docs/M164_PRACTICAL_PORCELAIN.md`,
+`docs/M165-M166_HISTORY.md`, and `docs/M167-M170_HISTORY.md` are retained
+in `docs/M165-M166_HISTORY.md`, in milestone order M164–M170. The original
+standalone document blobs remain recoverable from Git history. This reduces
+the repository to **203 tracked files** (222 fewer than its 425-file baseline).
+The merged document is included in the host workflow path filter.
