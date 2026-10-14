@@ -389,6 +389,10 @@ jobs:
         run: bash tests/check-canonical-source.sh BACKUP
       - name: Enforce read-only CMS CATHEX gate and cleanup hold
         run: sh tests/check-canonical-source.sh READONLY
+      - name: Reject unknown consolidated safety selectors
+        run: |
+          if sh tests/check-canonical-source.sh UNKNOWN; then exit 1; fi
+          if sh tests/check-canonical-source.sh MAP EXTRA; then exit 1; fi
       - name: Check verified modern REF2 read-only bridge
         run: sh tests/check-canonical-source.sh VREF
       - name: Check compact CMS target gate source
