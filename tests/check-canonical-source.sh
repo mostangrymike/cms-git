@@ -7,7 +7,7 @@ import re
 import sys
 
 source = pathlib.Path(sys.argv[1]).read_text()
-blocks = re.findall(r"(?m)^    paths:\\n((?:      - '[^']+'\\n)+)", source)
+blocks = re.findall(r"(?m)^    paths:\n((?:      - '[^']+'\n)+)", source)
 required = (
     'src/**', 'tests/**', 'scripts/**', 'docs/**', 'archive/**',
     '.github/workflows/native-stage.yml',
