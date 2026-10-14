@@ -1690,7 +1690,7 @@ Current GitHub uses an ECC Sectigo certificate chain that the old z/VM 6.3
 service level cannot currently validate/import with the installed crypto
 facilities, so it is no longer the practical blocker for GitHub transport.
 
-See `docs/NATIVE_REF.md`, `docs/STATUS.md`, and `CHAT_STATE.md`.
+See `docs/NATIVE_REF.md`, `docs/CURRENT_STATE.md`, and `CHAT_STATE.md`.
 
 ## Native PACK checkpoint: staging and index prototypes
 
@@ -1753,11 +1753,11 @@ its implementation and target-side tests demonstrate it.
 
 ## GCCCMS native C checkpoint (2026-09-26)
 
-The working GCCCMS toolchain now builds C plus the existing assembler inflater. `GITCAPI` adapts GCCCMS's argument-list calling convention to `GITNAPI`; `GITCLNK` builds the combined CMS module. `GITCINF` passed both a known-good `abc` zlib fixture (3 output bytes, 11 compressed bytes) and the first live PACK object (270 output bytes, 182 compressed bytes, next object at offset 196). The later `GITCWALK` 1,808-object inflation timing and remaining correctness work are recorded in `docs/STATUS.md`. C is the main native-engine implementation path; retain assembler where the existing inflater or CMS interfaces warrant it, and preserve the REXX walker as the correctness reference.
+The working GCCCMS toolchain now builds C plus the existing assembler inflater. `GITCAPI` adapts GCCCMS's argument-list calling convention to `GITNAPI`; `GITCLNK` builds the combined CMS module. `GITCINF` passed both a known-good `abc` zlib fixture (3 output bytes, 11 compressed bytes) and the first live PACK object (270 output bytes, 182 compressed bytes, next object at offset 196). The later `GITCWALK` 1,808-object inflation timing and remaining correctness work are recorded in `docs/CURRENT_STATE.md`. C is the main native-engine implementation path; retain assembler where the existing inflater or CMS interfaces warrant it, and preserve the REXX walker as the correctness reference.
 
 ## GCCCMS native C integration (2026-09-26)
 
-GCCCMS now builds a combined C and native assembler CMS module using GITCLNK, GITCAPI, and GITINFA. The adapter corrects GCCCMS argument-list calling convention. GITCINF passed the known abc fixture (3 output bytes, 11 consumed) and the first live PACK object (270 output bytes, 182 consumed; second object at offset 196). GITCWALK subsequently completed the 1,808-object inflation gate; see docs/STATUS.md for its measured time and the remaining delta, OID, checksum, and persistence work. Preserve the REXX implementation as the correctness reference.
+GCCCMS now builds a combined C and native assembler CMS module using GITCLNK, GITCAPI, and GITINFA. The adapter corrects GCCCMS argument-list calling convention. GITCINF passed the known abc fixture (3 output bytes, 11 consumed) and the first live PACK object (270 output bytes, 182 consumed; second object at offset 196). GITCWALK subsequently completed the 1,808-object inflation gate; see docs/CURRENT_STATE.md for its measured time and the remaining delta, OID, checksum, and persistence work. Preserve the REXX implementation as the correctness reference.
 
 ## GCCCMS build-tool rename
 
