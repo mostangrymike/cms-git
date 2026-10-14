@@ -72,7 +72,7 @@ for blob in abc abcd abcde; do
 done
 ${CC:-cc} -x c -std=c89 -O2 -Wall -Wextra \
     -o "$tmp/native_ref_pack_host" \
-    "$root/tests/native_ref_pack_host.c" -lz
+    -DREF_PACK_HOST "$root/tests/native_stage_host.c" -lz
 (
  cd "$tmp"
  cp REFPACK.PACK 'dd:PACKIN'
