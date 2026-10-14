@@ -52,7 +52,7 @@ for type in commit tree blob tag; do
  done
 done
 # Native full PACK integration (host zlib only, not CMS inflater).
-python3 "$root/tests/bench-native-stage.py" REFPACK "$tmp" > "$tmp/ref-fixtures.log"
+python3 "$root/tests/test-m203-bounded-batch.py" BENCH REFPACK "$tmp" > "$tmp/ref-fixtures.log"
 # Independently ask Git to index and reconstruct the same REF PACK.
 git init -q "$tmp/forwardrepo"
 git -C "$tmp/forwardrepo" index-pack --stdin < "$tmp/FCHAIN.bin" \
