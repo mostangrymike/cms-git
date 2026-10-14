@@ -1715,8 +1715,8 @@ placement and PLAIN linkage still require CMS validation.
 The separate GITCIDX AUDIT mode and experimental ftell/fseek
 seek index with direct SGET have passed host C89/CI regressions,
 including corrupt stage and truncated-index tests. The faster seek
-mode still needs real CMS validation. See docs/NATIVE_STAGE.md and
-docs/NATIVE_INDEX.md for the full record and next target gate.
+mode still needs real CMS validation. See docs/NATIVE_REF.md and
+docs/NATIVE_REF.md for the full record and next target gate.
 Native forward/external REF_DELTA resolution, safe committed storage
 generations, and reboot/restart proof remain outstanding. Issue #2
 remains open.
@@ -1877,7 +1877,7 @@ missing, duplicate and stale-data gates plus independent Git
 forward PACK interoperability. **These new modes still require
 actual CMS validation and are not yet a transactional object store.**
 The exact nondestructive target gates are in
-`docs/REF_RESOLUTION.md` and `docs/GENERATION_RECOVERY.md`.
+`docs/GENERATION_RECOVERY.md` and `docs/GENERATION_RECOVERY.md`.
 
 ## Real CMS forward/external REF and GEN2 passed
 
@@ -1893,7 +1893,7 @@ in about 21.6 seconds elapsed on CMS. The stage and indexes remained
 unchanged. GEN2 is a candidate completion proof, not atomic promotion
 or reboot recovery. Future work includes faster indexed external REF
 lookup, cross-logon/reboot durability tests and safe active-generation
-selection; see docs/REF_RESOLUTION.md and
+selection; see docs/GENERATION_RECOVERY.md and
  docs/GENERATION_RECOVERY.md.
 
 ## New optional fast external REF lookup
@@ -1909,7 +1909,7 @@ corrupted object, bad index cookie and truncated index passed:
 https://github.com/mostangrymike/ibm-sandbox/actions/runs/36283446044 .
 This new indexed path is NOT yet CMS-proven. The single-source
 upload and nondestructive CMS gate using the existing XREAL PACK,
-GITFIX STAGE and SEEK are in docs/INDEXED_EXTERNAL_REF.md.
+GITFIX STAGE and SEEK are in docs/GENERATION_RECOVERY.md.
 Cross-logon GEN2 GENCHECK is also still pending; existing same-session
 GENWRITE/GENCHECK already passed on CMS.
 
@@ -1934,7 +1934,7 @@ https://github.com/mostangrymike/ibm-sandbox/actions/runs/36330993480 .
 This is not yet compiled on CMS and performs no automatic active
 pointer writes. Real CMS compilation and a *read-only* selection
 test using protected GITFIX as the older generation and disposable
-SEL1 files are described in docs/NATIVE_RECOVERY_GATE.md. Existing
+SEL1 files are described in docs/NATIVE_REF.md. Existing
 GITFIX has already passed same-minidisk cross-logon GENCHECK;
 system reboot persistence and actual atomic promotion remain open.
 
@@ -2165,3 +2165,12 @@ in `docs/M165-M166_HISTORY.md`, in milestone order M164–M170. The original
 standalone document blobs remain recoverable from Git history. This reduces
 the repository to **203 tracked files** (222 fewer than its 425-file baseline).
 The merged document is included in the host workflow path filter.
+
+### Consolidated native architecture records (2026-10-14)
+
+The complete text of the previous native REF, stage, index, and recovery-gate
+records is collected in `docs/NATIVE_REF.md`. The original generation,
+indexed external-ref, and ref-resolution records are now collected in
+`docs/GENERATION_RECOVERY.md`. Original document paths remain recoverable
+from Git history. Links above now point to retained documents, rather than
+removed paths. This is documentation-only; no production CMS behavior changed.
