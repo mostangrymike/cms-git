@@ -14423,3 +14423,9 @@ target verification.
 
 - Hardened existing `scripts/restore-ph-wrappers.py` (commit `cf725542c77be7d60db166e65460f8141fb9dbed`) so its requested wrapper sources are generated and checked as a whole before writes, and each missing file is created with Python exclusive `open('x')`, refusing overwrite even if the destination appears between preflight and creation. The earlier ALL-mode canonical-source drift check and pre-/post-generation Actions CHECK steps remain in place. An OS error during a later write can still leave earlier newly created wrappers; do not describe this as an atomic all-or-nothing transaction.
 - No tracked source deletions, production CMS changes, or target/DASD modifications. File-count baseline remains 181 tracked files pending next independently confirmed tree count. Fresh full GitHub Actions success remains unverified; last observed completed green host run 38598877946 predates this guard. No CMS transfer required.
+
+
+## 2026-10-14 — Exact newline preservation in wrapper restoration
+
+- Updated `scripts/restore-ph-wrappers.py` at `e3a29993583c6e513797b60af7115d0ba6b390a5` to create generated historical CMS EXECs with `open('x', encoding='utf-8', newline='')`, retaining the generated exact newline sequence across host operating systems and preserving exclusive no-overwrite behavior. Removed a redundant second name-loop binding; no generated source specifications were altered.
+- This is host-side restoration hardening only; no existing CMS program, target file or protected stage/index changed, and no CMS upload required. Fresh full CI success is not independently confirmed. Last verified full host run remains 38598877946. Baseline repository count remains estimated 181 until new recursive tree verification.
