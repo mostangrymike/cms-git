@@ -105,13 +105,8 @@ def audit():
           "ARCHIVED", len(references), "REFERENCED")
 
 
-def live_dependencies():
-    """Conservative source-to-source reference inventory; never authorize deletion.
-
-    Token matching is intentionally broad: dynamic REXX command assembly,
-    XEDIT/CMS EXEC searches, generated wrappers and external operators can
-    escape static analysis. Zero observed callers is NOT proof of dead code.
-    """
+def scan_live_sources():
+    """Shared conservative lexical CMS source-reference scan."""
     tracked = subprocess.check_output(["git", "ls-files", "-z"], cwd=ROOT)
     sources = sorted(p.decode() for p in tracked.split(b"\0")
                      if p.startswith(b"src/") and p.endswith(
@@ -119,15 +114,27 @@ def live_dependencies():
     stems = {Path(name).stem.upper(): name for name in sources}
     if len(stems) != len(sources):
         raise RuntimeError("Ambiguous CMS source stem; cannot audit safely")
-    refpat = re.compile(r"(?<![A-Z0-9])(" +
-                        "|".join(re.escape(s) for s in sorted(
-                            stems, key=len, reverse=True)) + r")(?![A-Z0-9])")
+    pattern = re.compile(r"(?<![A-Z0-9])(" +
+                         "|".join(re.escape(s) for s in sorted(
+                             stems, key=len, reverse=True)) + r")(?![A-Z0-9])")
     callers = {stem: set() for stem in stems}
     for path in sources:
         for line in (ROOT / path).read_text(errors="replace").splitlines():
-            for match in refpat.finditer(line.upper()):
-                if stems[match.group(1)] != path:
-                    callers[match.group(1)].add(path)
+            for match in pattern.finditer(line.upper()):
+                stem = match.group(1)
+                if stems[stem] != path:
+                    callers[stem].add(path)
+    return sources, stems, callers
+
+
+def live_dependencies():
+    """Conservative source-to-source reference inventory; never authorize deletion.
+
+    Token matching is intentionally broad: dynamic REXX command assembly,
+    XEDIT/CMS EXEC searches, generated wrappers and external operators can
+    escape static analysis. Zero observed callers is NOT proof of dead code.
+    """
+    sources, stems, callers = scan_live_sources()
     # Hard protect known runtime helpers and the verified indexed/tree path.
     protected = ("GITACK", "GITADV", "GITZLIB", "GIT9CTX",
                  "GITP9PWK", "GITCWALK", "GITCIDX", "GITREC",
@@ -148,23 +155,8 @@ def live_dependencies():
 
 def consolidation_inventory():
     """Reproducible source inventory; zero callers never permits deletion."""
-    tracked = subprocess.check_output(["git", "ls-files", "-z"], cwd=ROOT)
-    sources = sorted(p.decode() for p in tracked.split(b"\0")
-                     if p.startswith(b"src/") and p.endswith(
-                         (b".EXEC", b".C", b".ASSEMBLE", b".REPO", b".sh")))
-    stems = {Path(name).stem.upper(): name for name in sources}
-    if len(stems) != len(sources):
-        raise RuntimeError("Ambiguous CMS source stem")
-    pattern = re.compile(r"(?<![A-Z0-9])(" +
-                         "|".join(re.escape(n) for n in sorted(
-                             stems, key=len, reverse=True)) + r")(?![A-Z0-9])")
-    callers = {name: set() for name in sources}
-    for path in sources:
-        for line in (ROOT / path).read_text(errors="replace").splitlines():
-            for match in pattern.finditer(line.upper()):
-                target = stems[match.group(1)]
-                if path != target:
-                    callers[target].add(path)
+    sources, stems, stem_callers = scan_live_sources()
+    callers = {path: stem_callers[Path(path).stem.upper()] for path in sources}
     print("CMS SOURCE CONSOLIDATION INVENTORY", len(sources))
     print("NOTE TOKEN CALLERS INCLUDE COMMENTS AND STRING LITERALS")
     print("NOTE DYNAMIC CMS CALLS, OPERATORS AND EXTERNAL MODULES MAY BE INVISIBLE")
