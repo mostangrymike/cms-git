@@ -54,7 +54,7 @@ ORIGINAL = {
 def check_inventory():
     """Compile every retained original test without executing target actions."""
     import hashlib
-    if len(ORIGINAL) < 30:
+    if len(ORIGINAL) != 41:
         raise RuntimeError("Unexpectedly small preserved host test inventory")
     for name, source in sorted(ORIGINAL.items()):
         if not source.startswith("#!/usr/bin/env python3"):
@@ -71,7 +71,6 @@ if __name__ == "__main__":
         raise SystemExit(0)
     if len(sys.argv) < 2 or sys.argv[1] not in ORIGINAL or (
             (sys.argv[1] in ("NDATA", "PHIST", "PMODEL", "GINTEG")) != (len(sys.argv) == 3)):
-        raise SystemExit("Expected case name; NDATA also needs its original subcase")
         raise SystemExit("Usage: test-m203-bounded-batch.py SELECTOR|PHIST|PMODEL|GINTEG|NDATA|NTREE|ACLEAN|CATHEX|M173R|M173D|M173V|M173S|M177|M178|M179|M180|M181|M182|M183|M185|M186|M187|M188|M189|M190|M190S|M191|M192|M193|M194|M195|M196|M197|M198|M199|M200|M201|M202|M203|M204|M205|M206")
     case = sys.argv[1]
     if case in ("NDATA", "PHIST", "PMODEL", "GINTEG"):
