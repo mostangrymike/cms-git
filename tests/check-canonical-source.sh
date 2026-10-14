@@ -7,40 +7,41 @@ import re
 import sys
 
 source = pathlib.Path(sys.argv[1]).read_text()
-blocks = re.findall(r"(?m)^    paths:\n((?:      - '[^']+'\n)+)", source)
+blocks = re.findall(r"(?m)^    paths:\\n((?:      - '[^']+'\\n)+)", source)
+required = (
+    'src/**', 'tests/**', 'scripts/**', 'docs/**', 'archive/**',
+    '.github/workflows/native-stage.yml',
+)
 assert len(blocks) == 2, "expected push and pull_request path lists"
 entries = []
 for block in blocks:
     paths = re.findall(r"(?m)^      - '([^']+)'$", block)
-    assert paths, "empty path watch"
-    assert len(paths) == len(set(paths)), "duplicate watched path"
+    if not paths or len(paths) != len(set(paths)):
+        raise RuntimeError("empty or duplicate watched paths")
     entries.append(paths)
-assert entries[0] == entries[1], "push/PR watched paths differ"
-assert '.github/workflows/native-stage.yml' in entries[0]
-assert 'tests/check-canonical-source.sh' in entries[0]
 
-# Exercise the safety checker with independent malformed trigger fixtures.
 def valid(left, right):
-    return (bool(left) and len(left) == len(set(left))
-            and len(right) == len(set(right)) and left == right
-            and '.github/workflows/native-stage.yml' in left
-            and 'tests/check-canonical-source.sh' in left)
+    return left == right and tuple(left) == required
 
+if not valid(*entries):
+    raise RuntimeError("CI source-area watch coverage or parity mismatch")
+
+# Negative cases must reject missing entries, duplicates, reordering,
+# untracked areas, and losing coverage from either event trigger.
 assert valid(entries[0], entries[1])
-assert not valid(entries[0], entries[1][:-1]), "accepted missing PR path"
-assert not valid(entries[0] + [entries[0][0]], entries[1]), "accepted duplicate"
-assert not valid(entries[0], entries[1][::-1]), "accepted reversed paths"
-assert not valid(entries[0][1:], entries[1]), "accepted missing push path"
-assert not valid(entries[0], entries[1] + [entries[1][0]]), "accepted PR duplicate"
-assert not valid(
-    [p for p in entries[0] if p != '.github/workflows/native-stage.yml'],
-    [p for p in entries[1] if p != '.github/workflows/native-stage.yml']
-), "accepted unwatched workflow"
-assert not valid(
-    [p for p in entries[0] if p != 'tests/check-canonical-source.sh'],
-    [p for p in entries[1] if p != 'tests/check-canonical-source.sh']
-), "accepted unwatched guard"
-assert not valid([], []), "accepted empty triggers"
+for bad in (
+    entries[0][:-1],
+    entries[0][1:],
+    entries[0] + [entries[0][0]],
+    entries[0][::-1],
+    entries[0] + ['unrelated/**'],
+    [],
+):
+    assert not valid(bad, entries[1]), "accepted altered push filters"
+    assert not valid(entries[0], bad), "accepted altered PR filters"
+for item in required:
+    reduced = [p for p in entries[0] if p != item]
+    assert not valid(reduced, reduced), "accepted missing required area"
 print("CI PATH PARITY AND NEGATIVE FIXTURES PASS", len(entries[0]))
 PY
     exit $?
