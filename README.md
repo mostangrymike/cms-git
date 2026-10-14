@@ -1,5 +1,27 @@
 # IBM Sandbox
 
+## Consolidation status (2026-10-14)
+
+GitHub `main` is canonical. The repository has **212 tracked files** after
+lossless consolidation from 425, a reduction of 213 tracked paths (50.1%).
+This measures file count, **not** lines of code or executable complexity.
+The last complete host CI success before this checkpoint was commit
+`23b3d554177d1eae69e62a141e4306a53ef7b2f7`, workflow run
+[38581585895](https://github.com/mostangrymike/ibm-sandbox/actions/runs/38581585895).
+The newer source/CI coverage-audit commit may require its own green run.
+
+The consolidated Python test runner is `tests/test-m203-bounded-batch.py`;
+the shell safety/native integration runner is `tests/check-canonical-source.sh`.
+Both preserve independently invoked historical gates. Exact original historical
+EXEC files are recoverable using `scripts/restore-cms-exec.py`, and ten
+native tree wrappers are regenerated using `scripts/restore-ph-wrappers.py`.
+Never delete active production helpers based solely on static reference misses.
+
+Protected CMS G stage/index (7,736 objects), proven M188 tree closure and
+M206 stratified SHA authentication, target MODULEs, and A/G disks are unchanged.
+A-disk cleanup is **PLAN-only** until explicit backup and target validation;
+no destructive `ACLEAN APPLY` is authorized by host CI.
+
 ## A-disk cleanup: full inventory reviewed, existing ACLEAN updated
 
 The October 13, 2026 full `LISTFILE * * A (ALLOC`
