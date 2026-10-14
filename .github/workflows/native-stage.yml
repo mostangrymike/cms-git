@@ -34,7 +34,6 @@ on:
       - 'scripts/restore-cms-exec.py'
       - 'docs/CMS_A_CLEANUP.md'
       - 'docs/BUILD.md'
-      - 'tests/check-cmsclnk-source.sh'
       - 'tests/native_stage_host.c'
       - 'tests/native_index_host.c'
       - 'tests/fixtures/first-commit-README.md'
@@ -223,7 +222,6 @@ on:
       - 'scripts/restore-cms-exec.py'
       - 'docs/CMS_A_CLEANUP.md'
       - 'docs/BUILD.md'
-      - 'tests/check-cmsclnk-source.sh'
       - 'tests/native_stage_host.c'
       - 'tests/native_index_host.c'
       - 'tests/fixtures/first-commit-README.md'
@@ -536,7 +534,7 @@ jobs:
       - name: Check combined compact M157 target gate
         run: sh tests/check-m155-compact.sh M157
       - name: Check neutral compiler EXEC source and F-disk setup
-        run: sh tests/check-cmsclnk-source.sh
+        run: sh tests/check-canonical-source.sh CMSCLNK
       - name: Reject native-text Git object headers in CMS C source
         run: sh tests/check-canonical-source.sh
       - name: Compile and fuzz interrupted writes in native C89 selector
