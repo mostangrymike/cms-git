@@ -14137,3 +14137,18 @@ User requested a fresh project-state save for a new chat. Continue IBM z/VM CMS 
   CI runs pending as of this entry.
 - Preserve all 159 tracked production `src/` items without a caller/target
   dependency review; do not run `ACLEAN APPLY` or modify CMS G/A disks.
+
+## 2026-10-14 native architecture documentation consolidation
+
+- Tracked files reduced from 205 to **198** (227 fewer than original 425).
+- Original full text of `docs/NATIVE_REF.md`, `docs/NATIVE_STAGE.md`,
+  `docs/NATIVE_INDEX.md`, and `docs/NATIVE_RECOVERY_GATE.md` now resides
+  in a single retained `docs/NATIVE_REF.md`, with original section markers.
+- Complete original `docs/GENERATION_RECOVERY.md`,
+  `docs/INDEXED_EXTERNAL_REF.md` and `docs/REF_RESOLUTION.md` is preserved
+  in retained `docs/GENERATION_RECOVERY.md`.
+- README links for the retired documents updated; GitHub Actions path
+  triggers now watch both retained archive documents for push and PR.
+- No `src/` file or CMS target data altered; original standalone documents
+  remain accessible in Git history. Verify the latest workflow result before
+  further production changes.
