@@ -4,6 +4,11 @@ on:
   push:
     paths:
       - 'src/GITCWALK.C'
+      - 'src/GITP9PWK.EXEC'
+      - 'src/GIT9CTX.EXEC'
+      - 'src/GITZLIB.EXEC'
+      - 'src/GITADV.EXEC'
+      - 'src/GITACK.EXEC'
       - 'tests/native_ref_pack_host.c'
       - 'tests/make-native-ref-pack.py'
       - 'src/GITCIDX.C'
@@ -188,10 +193,14 @@ on:
       - 'src/GITREC.C'
       - 'tests/native_selector_verify_host.c'
       - 'tests/run-native-stage-host.sh'
-      - '.github/workflows/native-stage.yml'
   pull_request:
     paths:
       - 'src/GITCWALK.C'
+      - 'src/GITP9PWK.EXEC'
+      - 'src/GIT9CTX.EXEC'
+      - 'src/GITZLIB.EXEC'
+      - 'src/GITADV.EXEC'
+      - 'src/GITACK.EXEC'
       - 'tests/native_ref_pack_host.c'
       - 'tests/make-native-ref-pack.py'
       - 'src/GITCIDX.C'
@@ -215,7 +224,6 @@ on:
       - 'archive/M10-M13_EXEC.json'
       - '.github/workflows/native-stage.yml'
       - 'scripts/restore-cms-exec.py'
-      - 'tests/audit-archived-exec-references.py'
       - 'docs/CMS_A_CLEANUP.md'
       - 'docs/BUILD.md'
       - 'tests/check-cmsclnk-source.sh'
@@ -377,7 +385,6 @@ on:
       - 'src/GITREC.C'
       - 'tests/native_selector_verify_host.c'
       - 'tests/run-native-stage-host.sh'
-      - '.github/workflows/native-stage.yml'
 
 jobs:
   staging:
