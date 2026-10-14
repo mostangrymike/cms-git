@@ -14441,3 +14441,9 @@ target verification.
 
 - Updated canonical historical wrapper restoration `scripts/restore-ph-wrappers.py` at commit `6f301a8fa149881857e23044aa8d493a73aad191`: existing-wrapper comparisons in read-only CHECK and before `ALL` restoration now use `read_bytes()` against canonical `source.encode('utf-8')`, rather than text reads that can normalize line endings. This closes an inconsistency with the already byte-exact post-write check, without changing generated EXEC specifications or production CMS programs.
 - All no-overwrite and exclusive-create safeguards remain. No new files or deletions. Latest full GitHub Actions run for this change remains unverified; previously confirmed complete host PASS run 38598877946 is older. Protected G stage/index, CMS modules, minidisks and DASD unchanged, no CMS transfer needed.
+
+
+## 2026-10-14 — Wrapper specification collision guard
+
+- Committed `9039d132c7f517218680af1bf64fa2209529f570` to `scripts/restore-ph-wrappers.py`. The tool now rejects duplicate wrapper names across its three specification tables before CHECK or restoration and requires ten distinct entries. Existing source generation and production CMS code are unchanged.
+- The previous checkpoint write failed; this entry records the missing handoff. No fresh Actions run has been verified for this change. Last positively verified full host run remains 38598877946. Protected G stage/index, CMS disks and target modules are untouched. No CMS upload required.
