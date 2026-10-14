@@ -100,6 +100,11 @@ def main():
         print("PH WRAPPER GENERATION PARITY PASS", len(all_specs))
         return
     if arg == "ALL":
+        # Check present wrappers before writing any absent ones.
+        for name in sorted(all_specs):
+            target = ROOT / "src" / (name + ".EXEC")
+            if target.exists() and target.read_text() != generate(name):
+                raise SystemExit("Existing wrapper differs: " + target.name)
         names = [name for name in sorted(all_specs)
                  if not (ROOT / "src" / (name + ".EXEC")).exists()]
     elif arg.endswith(".EXEC") and arg[:-5] in all_specs:
