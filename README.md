@@ -1690,7 +1690,7 @@ Current GitHub uses an ECC Sectigo certificate chain that the old z/VM 6.3
 service level cannot currently validate/import with the installed crypto
 facilities, so it is no longer the practical blocker for GitHub transport.
 
-See `docs/BUILD.md`, `docs/STATUS.md`, and `CHAT_STATE.md`.
+See `docs/NATIVE_REF.md`, `docs/STATUS.md`, and `CHAT_STATE.md`.
 
 ## Native PACK checkpoint: staging and index prototypes
 
@@ -1709,7 +1709,7 @@ returned independently SHA-1-checked object content on actual CMS.
 The canonical compiler wrapper is now `CMSCLNK EXEC`, with the
 existing native-inflater link mode as its default and a new `PLAIN`
 mode for programs without inflater dependencies. It is prepared for
-installation beside GCCCMS on F; see `docs/BUILD.md`. Its F-disk
+installation beside GCCCMS on F; see `docs/NATIVE_REF.md`. Its F-disk
 placement and PLAIN linkage still require CMS validation.
 
 The separate GITCIDX AUDIT mode and experimental ftell/fseek
@@ -1767,7 +1767,7 @@ GCCCMS. Default `CMSCLNK GITCWALK` links the native inflater;
 source and host static checks pass. To install the EXEC next to
 GCC on CMS F, check `QUERY DISK F`, copy from A to F only if F is
 R/W, and validate the newly built module before retiring the
-original A-disk GITCLNK. Instructions: `docs/BUILD.md`.
+original A-disk GITCLNK. Instructions: `docs/NATIVE_REF.md`.
 
 ## September 26, 2026 — direct-seek index and native REF progress
 
