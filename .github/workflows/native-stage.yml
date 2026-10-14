@@ -353,6 +353,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # Consolidated historical archive must contain six independently counted bundles.
       - name: Restore and verify historical CMS EXEC archives
         run: |
           python3 -m py_compile scripts/restore-cms-exec.py
