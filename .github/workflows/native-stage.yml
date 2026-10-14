@@ -183,7 +183,16 @@ jobs:
       - name: Audit all tracked live CMS source dependencies
         run: python3 scripts/restore-cms-exec.py LIVEDEPS
       - name: Inventory all CMS source consolidation candidates without deletion
-        run: python3 scripts/restore-cms-exec.py LIVEPLAN
+        run: |
+          python3 scripts/restore-cms-exec.py LIVEPLAN > cms-source-inventory.txt
+          cat cms-source-inventory.txt
+      - name: Preserve source inventory for consolidation review
+        uses: actions/upload-artifact@v4
+        with:
+          name: cms-source-inventory
+          path: cms-source-inventory.txt
+          if-no-files-found: error
+          retention-days: 30
       - name: Audit archived CMS EXEC references without modifying sources
         run: python3 scripts/restore-cms-exec.py AUDIT
       - name: Check CMS A cleanup exact allowlist
