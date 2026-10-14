@@ -14447,3 +14447,10 @@ target verification.
 
 - Committed `9039d132c7f517218680af1bf64fa2209529f570` to `scripts/restore-ph-wrappers.py`. The tool now rejects duplicate wrapper names across its three specification tables before CHECK or restoration and requires ten distinct entries. Existing source generation and production CMS code are unchanged.
 - The previous checkpoint write failed; this entry records the missing handoff. No fresh Actions run has been verified for this change. Last positively verified full host run remains 38598877946. Protected G stage/index, CMS disks and target modules are untouched. No CMS upload required.
+
+
+## 2026-10-14 — Optimized-Python-safe wrapper guard
+
+- `9039d13` collision guard successfully checkpointed at `0320e7c4dabe9df6fdb8a43f8b32123e8fe7ed84`.
+- Commit `4e1112b63459a2f234c1c22cb094c7a52c420ed0` replaced `assert`-dependent CHECK validation in `scripts/restore-ph-wrappers.py` with explicit `RuntimeError` checks for empty/overlength source, invalid CMS wrapper name, and byte-for-byte tracked source drift. These checks now remain active under `python -O`. Inventory count is independently checked before CHECK/ALL. No CMS program or generated source changes.
+- GitHub Actions page remained inaccessible; no new full host CI execution was verified. Last confirmed complete run stays 38598877946. No CMS transfer, protected stage/index or disk changes.
