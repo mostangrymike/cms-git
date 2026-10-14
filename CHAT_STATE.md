@@ -14275,3 +14275,12 @@ target verification.
 - GitHub Actions workflow 38593874417 succeeded for first archive insertion; second full workflow 38593982215 was in progress when last queried. Verify this workflow's success before further deletion; if failed inspect job logs and repair. Maintained all independently executable host tests and existing CI document path filters.
 
 - **FINAL CI VERIFIED:** run `38593982215` completed SUCCESS on SHA `bdcf281ccf13cd972df420876ff1be5941c72d6e`, validating final 187-file merged source/doc layout. Following README and CHAT_STATE commits are documentation-only. No CMS target re-validation occurred.
+
+
+## 2026-10-14 — Native documentation archive consolidation
+
+- Started with 187 tracked files; prior full host Actions run 38593982215 passed.
+- Preserved all original `docs/BUILD.md` text inside `docs/NATIVE_REF.md` under original-source marker, redirected README references and existing Actions watchers, and deleted separate BUILD only after exact source comparison (delete commit `fe797b96be034c38442bd8a7fc079839c69f5470`).
+- Preserved all original `docs/LINK_BATCH.md` text within `docs/NATIVE_REF.md` under a distinct marker; redirected README references and verified exact source content before deleting separate file (delete commit `185a397bbb5f0c89cd7f744e7fcce4657951ca13`). Existing `docs/NATIVE_REF.md` CI watchers cover the new sections.
+- Verified GitHub recursive tree **185 tracked paths**, reduction 240 from 425 (56.5%); no production `src` changes, CMS target MODULE changes, protected disk/data changes or new CMS target tests.
+- Actions run 38596918667 passed on first retained build merge. Latest full host workflow 38597034999 was still in progress when queried; verify final success before further deletion. Do not mistake an in-progress workflow for PASS. Original deleted documents still recoverable from Git history. No CMS transfer needed for these docs-only changes.
