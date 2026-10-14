@@ -54,7 +54,7 @@ ORIGINAL = {
 def check_inventory():
     """Compile every retained original test without executing target actions."""
     import hashlib
-    if len(ORIGINAL) != 41:
+    if len(ORIGINAL) != 42:
         raise RuntimeError("Unexpectedly small preserved host test inventory")
     for name, source in sorted(ORIGINAL.items()):
         if not source.startswith("#!/usr/bin/env python3"):
