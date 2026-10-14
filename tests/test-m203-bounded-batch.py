@@ -56,6 +56,27 @@ BENCH_SOURCE = "#!/usr/bin/env python3\n\"\"\"Historical read-only native stage 
 def check_inventory():
     """Compile every retained original test without executing target actions."""
     import hashlib
+    # Validate nested preserved sources, not only the outer dispatcher.
+    import ast
+    tree = ast.parse(BENCH_SOURCE, filename=__file__)
+    nested = {}
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and len(node.targets) == 1:
+            target = node.targets[0]
+            if isinstance(target, ast.Name) and target.id in (
+                    "BENCHMARKS", "REFPACK_SOURCE"):
+                nested[target.id] = ast.literal_eval(node.value)
+    if set(nested) != {"BENCHMARKS", "REFPACK_SOURCE"}:
+        raise RuntimeError("Missing preserved benchmark or REF PACK source")
+    if set(nested["BENCHMARKS"]) != {"M184", "M185", "M188", "M189", "M190"}:
+        raise RuntimeError("Benchmark source inventory drift")
+    for name, source in sorted(nested["BENCHMARKS"].items()):
+        compile(source, __file__, "exec")
+        print("BENCHMARK CASE COMPILE PASS", name,
+              hashlib.sha256(source.encode("utf-8")).hexdigest())
+    compile(nested["REFPACK_SOURCE"], __file__, "exec")
+    print("REFPACK SOURCE COMPILE PASS",
+          hashlib.sha256(nested["REFPACK_SOURCE"].encode("utf-8")).hexdigest())
     compile(BENCH_SOURCE, __file__, "exec")
     print("BENCHMARK SOURCE COMPILE PASS",
           hashlib.sha256(BENCH_SOURCE.encode("utf-8")).hexdigest())
