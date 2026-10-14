@@ -14252,3 +14252,13 @@ target verification.
 - Latest full host workflow run `38592416975` was still in progress when last inspected. Verify completed status and repair any failure before additional deletion; a prior run `38592311814` succeeded for the first runbook write only. Do not claim final CI success prematurely.
 
 - **Final host validation succeeded:** full GitHub Actions run `38592861888` completed SUCCESS on commit `c16782bcdab8acc103faf17ef2e92206c3458f37` following two historical safety-gate scope fixes. The initial M173R regression arose because merged file reads included an older directory command in the EBS checklist assertion; the embedded source was updated to isolate the original EBS checklist with its archival marker. The M173 activation assertion was likewise scoped to its preserved original source section. The original assertion strings were retained. Earlier failed runs are resolved, not passes. Final source fixes `aac3cb27d0b8d9c29faae6c79744fb0b7f5ca302` and `c16782bcdab8acc103faf17ef2e92206c3458f37`. 191 tracked files, production CMS and protected disks untouched.
+
+
+## 2026-10-14 — CMS disk and live PACK documentation consolidation
+
+- Verified prior full host run 38592861888 SUCCESS before work. Starting 191 tracked files.
+- Preserved entire original docs/CMS_DASD_RECOVERY.md verbatim as distinct section in docs/M173_PERSISTENT_DISK_RUNBOOK.md, confirmed exact text by refetch, then deleted old tracked path (commit de48455e729ebdaffac473976849ec695548e00e).
+- Preserved entire original docs/LIVE_PACK_STORAGE.md verbatim as distinct section in docs/ACTIVE_GENERATION_DESIGN.md, confirmed exact text by refetch, then deleted standalone file (commit 26b433f408622e9dac28bd992f35a20beb21267e).
+- Added docs/ACTIVE_GENERATION_DESIGN.md to both push and PR workflow path filters beside existing retained M173 runbook, commit 03dab32d717d4d460442f1186c1159a667f55a7b.
+- Current repository **189 tracked files**, reduction of 236 from original 425 (55.5%). Only GitHub historical Markdown and CI metadata changed; original content accessible in retained docs and Git history. No CMS source, target MODULE, G stage/index, A/G minidisk or DASD mutation.
+- Latest full workflow 38593325720 had just queued on the CI-trigger commit during initial check; do not mark final layout green until completed SUCCESS. Previous workflow 38593217471 succeeded for first merge. Next: verify full CI, repair any issue, then continue lossless safe consolidation. No Mac/CMS upload required.
