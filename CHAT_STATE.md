@@ -14232,3 +14232,10 @@ target verification.
 - Preserved complete original docs/M171-M176_HISTORY.md in docs/M165-M166_HISTORY.md and removed redundant file after exact source check (delete commit 196a62117e1b7c0c852037a63cc18dfc8af7beb1). Updated README paths and workflow watchers where paths were previously referenced. The retained M179-M185 and M165-M166 archives are watched by CI.
 - No CMS source or module modifications, no protected A/G data, stage/index or DASD changes. These history changes require no CMS upload.
 - Most recent workflow observations: [{"id":38591308265,"status":"completed","conclusion":"failure","sha":"a1b6f81ad1292d0b24feebaa4f19cc43ee21dbd9"},{"id":38591301202,"status":"completed","conclusion":"failure","sha":"c51d79adeb4bd9983bc48d2c050d0e9a05e98bdf"},{"id":38591219429,"status":"completed","conclusion":"failure","sha":"aa3994d5419ffde85e19fe113e487ae5b5170e97"},{"id":38590885598,"status":"completed","conclusion":"success","sha":"fc4f8fb54506b1904e5165c8fee4e98acb90120f"}]. Do not claim a new full host CI pass for this final layout until the new workflow succeeds. Continue verifying workflow first, then further lossless document consolidation.
+
+
+### Host workflow regression repair after document merges
+
+- GitHub Actions runs 38591219429, 38591301202, 38591308265 failed, not because of missing runtime objects but at the M177 host assertion: the embedded historical Python test opened deleted `docs/M177-M178_HISTORY.md` directly. The original notes were actually preserved intact in `docs/M179-M185_HISTORY.md`.
+- Fixed consolidated Python historical test runner path references for M177 (`docs/M179-M185_HISTORY.md`) and M171 (`docs/M165-M166_HISTORY.md`), preserving test bodies and milestone assertions except the archive location. Commit `b7fb66a2dba0706fe52f9a9d9a5ec77a4351a659`.
+- New full GitHub Actions run 38591485873 was in progress when checked. Do not call this host validation PASS until successful completion; inspect subsequent failure steps and repair before any further file deletion. No CMS target code or data touched.
