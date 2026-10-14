@@ -14111,3 +14111,15 @@ User requested a fresh project-state save for a new chat. Continue IBM z/VM CMS 
   `1266b00ad64049f1156623c401713fcba9558cbe`.
 - CMS production source/modules, protected A/G disks, G stage/index, and DASD
   images remain untouched. Host-only CI is not new CMS target validation.
+
+## 2026-10-14 live-source dependency audit checkpoint
+
+- 205 tracked repository files, including 159 `src/` paths.
+- New `python3 scripts/restore-cms-exec.py LIVEDEPS` read-only static
+  inventory; full host CI `38587307751` passed, commit
+  `b01e2aab7bf9aaaad5855ed1272004bc4e67854a`.
+- Protected known production helpers and M188/M206 C-path native components;
+  asserted GITP9PWK -> GIT9CTX edge and unique tracked source stems.
+- **Do not delete any production source based only on zero observed static
+  callers.** CMS dynamic REXX invocations, compiled MODULEs and operators
+  require target review. No new CMS target test occurred in this pass.
