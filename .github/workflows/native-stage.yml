@@ -180,7 +180,6 @@ on:
       - 'scripts/map-cms-minidisk.sh'
       - 'src/GITSEL.C'
       - 'src/GITREC.C'
-      - 'tests/native_selector_verify_host.c'
   pull_request:
     paths:
       - 'src/GITCWALK.C'
@@ -360,7 +359,6 @@ on:
       - 'scripts/map-cms-minidisk.sh'
       - 'src/GITSEL.C'
       - 'src/GITREC.C'
-      - 'tests/native_selector_verify_host.c'
 
 jobs:
   staging:
