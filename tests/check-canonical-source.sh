@@ -18,7 +18,20 @@ for block in blocks:
 assert entries[0] == entries[1], "push/PR watched paths differ"
 assert '.github/workflows/native-stage.yml' in entries[0]
 assert 'tests/check-canonical-source.sh' in entries[0]
-print("CI PATH PARITY PASS", len(entries[0]))
+
+# Exercise the safety checker with independent malformed trigger fixtures.
+def valid(left, right):
+    return (bool(left) and len(left) == len(set(left))
+            and len(right) == len(set(right)) and left == right
+            and '.github/workflows/native-stage.yml' in left
+            and 'tests/check-canonical-source.sh' in left)
+
+assert valid(entries[0], entries[1])
+assert not valid(entries[0], entries[1][:-1]), "accepted missing PR path"
+assert not valid(entries[0] + [entries[0][0]], entries[1]), "accepted duplicate"
+assert not valid(entries[0], entries[1][::-1]), "accepted reversed paths"
+assert not valid([], []), "accepted empty triggers"
+print("CI PATH PARITY AND NEGATIVE FIXTURES PASS", len(entries[0]))
 PY
     exit $?
 fi
