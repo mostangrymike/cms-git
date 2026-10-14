@@ -14241,3 +14241,12 @@ target verification.
 - New full GitHub Actions run 38591485873 was in progress when checked. Do not call this host validation PASS until successful completion; inspect subsequent failure steps and repair before any further file deletion. No CMS target code or data touched.
 
 - **FINAL VALIDATION:** GitHub Actions complete full host workflow run 38591485873 finished SUCCESS on commit `b7fb66a2dba0706fe52f9a9d9a5ec77a4351a659` after the historical test archive-path repair. The workflow includes all historical gates and native host validation. Current tracked count 193; this is host-only, not fresh z/VM target verification.
+
+
+## 2026-10-14 — M173 safety document consolidation
+
+- At start of turn, full host CI 38591485873 passed. GitHub tree showed 193 tracked files.
+- Preserved exact original `docs/M173_EBS_RECOVERY_CHECKLIST.md` in `docs/M173_PERSISTENT_DISK_RUNBOOK.md` with a distinct archival section. Embedded M173 historical test's snapshot read path changed to the retained runbook, retaining original evidence strings. Verified exact source preservation from GitHub before deleting old checklist, commit `47adfb77ad132cdf1662eb301b563c1bc88a5f54`.
+- Preserved exact original `docs/M173_ACTIVATION_CHANGE_CONTROL.md` in `docs/M173_DIRECTORY_CHANGE_PLAN.md` with a distinct archival section; redirected embedded historical test and GitHub Actions watched path, then deleted standalone, commit `f956c63e8d57c1d7879cceb7779acf6421ba29be`.
+- Current count **191 tracked files**, reduction of 234 from 425 (55.1%). This counts paths, not equivalent code reduction. No CMS production source, MODULEs, protected disks, G stage/index or DASD images modified. No target upload needed.
+- Latest full host workflow run `38592416975` was still in progress when last inspected. Verify completed status and repair any failure before additional deletion; a prior run `38592311814` succeeded for the first runbook write only. Do not claim final CI success prematurely.
