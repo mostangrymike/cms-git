@@ -14460,3 +14460,9 @@ target verification.
 
 - Commit `6750e51713f9d0a40c4160ab52a5b5fb5a7be2bd` replaces both `assert`-only 80-column checks within the main `generate` function of `scripts/restore-ph-wrappers.py` with explicit RuntimeError paths. This ensures the CMS fixed-80-column source safeguard remains enforced under `python -O` for special and extra generated wrapper branches. The existing separate CHECK path already used explicit validation. No production source files or target disks changed.
 - Changes remain host-only; full end-to-end CI since the latest changes is not independently confirmed. Last verified full host green run 38598877946 predates the recent series. Historical repository count estimate 181 tracked files; no file additions/deletions this turn.
+
+
+## 2026-10-14 — Complete fixed-80 wrapper generator branch coverage
+
+- Commit `830e778a1224e5f40fadfe6a72adf9a1d00c4ac4` changed the last remaining `assert`-only 80-column check in `scripts/restore-ph-wrappers.py` to explicit `RuntimeError`. Earlier commit `6750e51713f9d0a40c4160ab52a5b5fb5a7be2bd` covered two branches but not the default branch. Now all three generator branches reject overlength CMS lines even under Python optimized mode. No generated source bytes changed, no source deletion or CMS target operation.
+- Full CI verification remains outstanding; last independently verified full successful run 38598877946 predates the changes. Repository path count remains estimated 181. Next priority: host and live CMS validation before any in-place consolidation of production modules.
