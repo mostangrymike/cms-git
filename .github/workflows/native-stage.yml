@@ -42,7 +42,6 @@ on:
       - 'src/GITVREF.EXEC'
       - 'src/GITREF2.REPO'
       - 'src/GIT.EXEC'
-      - 'tests/check-verified-ref.sh'
       - 'src/M155CHK.EXEC'
       - 'src/M156CHK.EXEC'
       - 'src/M157CHK.EXEC'
@@ -228,7 +227,6 @@ on:
       - 'src/GITVREF.EXEC'
       - 'src/GITREF2.REPO'
       - 'src/GIT.EXEC'
-      - 'tests/check-verified-ref.sh'
       - 'src/M155CHK.EXEC'
       - 'src/M156CHK.EXEC'
       - 'src/M157CHK.EXEC'
@@ -394,7 +392,7 @@ jobs:
       - name: Enforce read-only CMS CATHEX gate and cleanup hold
         run: sh tests/check-canonical-source.sh READONLY
       - name: Check verified modern REF2 read-only bridge
-        run: sh tests/check-verified-ref.sh
+        run: sh tests/check-canonical-source.sh VREF
       - name: Check compact CMS target gate source
         run: sh tests/check-canonical-source.sh M155
       - name: Check M156 authenticated presence duration
