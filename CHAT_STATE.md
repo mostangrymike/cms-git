@@ -14435,3 +14435,9 @@ target verification.
 
 - Updated `scripts/restore-ph-wrappers.py` at commit `c64935076ce6624428d23c2bb06c4dfffc1d9c48`: after exclusive creation of each retired historical EXEC source with exact newline preservation, compare the file's raw bytes to the UTF-8 encoded canonical generator output before printing RESTORED success. Fail closed on any mismatch; retain existing source-drift preflight and non-overwrite behavior. A failure in later files can still leave earlier newly created files, so this is not transactional batch atomicity.
 - This is only host restoration tooling. Production M206 C/EXEC, protected CMS original stage/index, live MODULEs, A/G disks and DASD images remain unchanged. No CMS transfer needed. Last independently observed full host Actions pass is 38598877946, before the recent tooling changes; new full CI outcome not verified. Reported tracked-path count remains approximately 181, not a fresh recursive inventory.
+
+
+## 2026-10-14 — Byte-exact historical wrapper preflight
+
+- Updated canonical historical wrapper restoration `scripts/restore-ph-wrappers.py` at commit `6f301a8fa149881857e23044aa8d493a73aad191`: existing-wrapper comparisons in read-only CHECK and before `ALL` restoration now use `read_bytes()` against canonical `source.encode('utf-8')`, rather than text reads that can normalize line endings. This closes an inconsistency with the already byte-exact post-write check, without changing generated EXEC specifications or production CMS programs.
+- All no-overwrite and exclusive-create safeguards remain. No new files or deletions. Latest full GitHub Actions run for this change remains unverified; previously confirmed complete host PASS run 38598877946 is older. Protected G stage/index, CMS modules, minidisks and DASD unchanged, no CMS transfer needed.
