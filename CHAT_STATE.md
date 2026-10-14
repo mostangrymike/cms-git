@@ -14297,3 +14297,12 @@ target verification.
 - Latest host full workflow `38597803148` was queued after final CI path update; `38597785249` was in progress after archived generation write. Do not claim new full host CI passing until completed. Prior green remains 38597034999. Verify new CI and repair any regression before more deletion.
 
 - **FINAL FULL HOST CI SUCCESS:** run 38597803148 completed SUCCESS on commit `3379d90e8635178c03fe2c867bcc96a0906655ea`, testing retained documentation and host code before subsequent README/CHAT_STATE-only commits. 183 tracked files; no CMS target execution occurred.
+
+
+## 2026-10-14 — Cleanup safety and early history archive consolidation
+
+- Starting tree: 183 tracked files; prior full host CI 38597803148 SUCCESS.
+- Preserved complete original `docs/CMS_A_CLEANUP.md` within `docs/M173_PERSISTENT_DISK_RUNBOOK.md` under named archive section, updated README references and CI watchers, refetched to confirm exact source text and deleted original at `b18c4ee2d9113941ebca0f3a0002b21e3ccac28c`. Full host CI 38598620793 completed SUCCESS for the safety merge.
+- Preserved exact complete original `docs/M165-M166_HISTORY.md` (itself retaining M155-M163 and M171-M176) under original-file heading inside retained `docs/M179-M185_HISTORY.md`. Repaired README references, workflow watched paths and embedded M171 history test archive path. Verified exact source preservation and absence of stale active paths before deleting original at `6a81c3091c1badd522d9b508f26971b3d7e8f2cd`.
+- Now **181 tracked files** (244 fewer than original 425, 57.4% path-count reduction). No production `src` changes, target modules, A/G data, G 7736-object stage/index, or DASD changes. These docs/host-path edits require no CMS transfer.
+- Latest full workflow on test edit commit `932058719dfa7e21c2b05b9d6ed6535378200326` is run `38598877946`, initially IN PROGRESS; verify result and repair any failures before another file deletion. Green safety merge run 38598620793 is not a substitute for final test-path validation.
