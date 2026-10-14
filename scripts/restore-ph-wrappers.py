@@ -95,7 +95,7 @@ def main():
             assert len(name) <= 8 and name.isalnum(), name
             target = ROOT / "src" / (name + ".EXEC")
             if target.exists():
-                assert target.read_text() == source, name
+                assert target.read_bytes() == source.encode("utf-8"), name
         assert len(all_specs) == 10, "Historical wrapper inventory changed"
         print("PH WRAPPER GENERATION PARITY PASS", len(all_specs))
         return
@@ -103,7 +103,7 @@ def main():
         # Check present wrappers before writing any absent ones.
         for name in sorted(all_specs):
             target = ROOT / "src" / (name + ".EXEC")
-            if target.exists() and target.read_text() != generate(name):
+            if target.exists() and target.read_bytes() != generate(name).encode("utf-8"):
                 raise SystemExit("Existing wrapper differs: " + target.name)
         names = [name for name in sorted(all_specs)
                  if not (ROOT / "src" / (name + ".EXEC")).exists()]
