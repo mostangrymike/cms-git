@@ -14066,3 +14066,28 @@ M177 pack-view host test was losslessly embedded in the existing selectable hist
 
 ## 2026-10-14 — New chat handoff
 User requested a fresh project-state save for a new chat. Continue IBM z/VM CMS Git consolidation in `mostangrymike/ibm-sandbox` `main`, following repository rules and maximizing safe work per turn; do not pause except for essential real-CMS validation. Most recent known work: approximately 224 tracked files (initial 425); historical host tests consolidated losslessly into `tests/test-m203-bounded-batch.py` containing 41 preserved Python test bodies with independent GitHub Actions invocations. Added `CHECK` mode to compile preserved test bodies and report SHA256; latest related commits `b13cd9be4de04ba40b25cbe6260ab1a1b6bce616` and `41a19dbd58dc54d48d560cda8ca2eafb7d2360bc`. Previous handoff commit `4500328376c9e83a018414b9c752be2c69bf4e7f`. IMPORTANT: full GitHub Actions success for these consolidations has NOT been confirmed. NEXT PRIORITY is to execute/verify CHECK and full host regression gates and repair regressions before further deletions. GitHub connector allows source inspection/write, but workflow-status lookup had returned no check statuses; do not mistake that for a PASS. CMS protected G stage/index (7,736 objects), proven M188 280-object tree closure and M206 32-object SHA gate must remain untouched. No CMS A cleanup APPLY; backup is required before any destructive changes. Preserve live protocol helpers GITACK/GITADV/GITZLIB and GIT9CTX, all recoverable archives and ten generated historic wrappers. Exact historical source can be recovered from Git. User demands direct GitHub commits, fewest maintained files, original functionality and independent regressions, no unnecessary pause, maximum work per turn. This note is a state checkpoint; no new code or target validation was performed in this handoff action.
+
+## 2026-10-14 verified consolidation checkpoint
+
+- Repository: `mostangrymike/ibm-sandbox`, branch `main`; 210 tracked files
+  (GitHub recursive tree count), down 215 from 425 original (50.6%). This
+  describes tracked-path reduction, not equivalent code-size reduction.
+- Latest green complete host workflow: run 38584114935, SHA
+  `71d3999c310857a313cd2b4af2018dcc9046b5ff`.
+- `tests/test-m203-bounded-batch.py` retains 42 original Python host cases,
+  historical M184/M185/M188/M189/M190 benchmark bodies, and REF PACK fixture
+  generator, with per-case CI invocation and nested source compile audit.
+- `tests/check-canonical-source.sh` retains distinct NATIVE, MAP, CONFIG,
+  BACKUP, VREF, M155, M157, READONLY, CMSCLNK and default source guard modes.
+- `tests/native_stage_host.c` holds distinct staging, REF_PACK_HOST, and
+  M172_CAPI_ONLY adapter variants; `tests/native_index_host.c` contains
+  an isolated SELECTOR_VERIFY_ONLY variant. Historical tests passed after
+  correcting the nested M172/M173 Python flag escaping.
+- The original native Git production sources, CMS modules, G stage/index,
+  A/G disk contents, and DASD images were not modified by these host-only
+  consolidations. Never run destructive ACLEAN APPLY based on host CI.
+- Next safe priorities: reduce duplicated history/status maintenance and
+  dependency-audit archived helpers before deletion; maintain exact-source
+  recovery and all standalone CI gates. A green host run does NOT constitute
+  new CMS target validation. User requires direct GitHub commits and maximum
+  work per turn without asking for routine confirmation.
