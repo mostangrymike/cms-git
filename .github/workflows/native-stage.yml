@@ -141,7 +141,6 @@ on:
       - 'src/GITPRB.EXEC'
       - 'docs/M191_CMS_SEEK_PROBE.md'
       - 'src/GITPSK.EXEC'
-      - 'tests/bench-native-stage.py'
       - 'docs/M190_SELECTIVE_SEEK.md'
       - 'src/GITPH9M.C'
       - 'src/GITPH9.EXEC'
@@ -323,7 +322,6 @@ on:
       - 'src/GITPRB.EXEC'
       - 'docs/M191_CMS_SEEK_PROBE.md'
       - 'src/GITPSK.EXEC'
-      - 'tests/bench-native-stage.py'
       - 'docs/M190_SELECTIVE_SEEK.md'
       - 'src/GITPH9M.C'
       - 'src/GITPH9.EXEC'
@@ -492,21 +490,21 @@ jobs:
       - name: Check M190 7736-object selective seek closure
         run: python3 tests/test-m203-bounded-batch.py M190S
       - name: Compare M190 indexed seek vs M188 two-pass host
-        run: python3 tests/bench-native-stage.py M190
+        run: python3 tests/test-m203-bounded-batch.py BENCH M190
       - name: Check M189 eight-way skipped-hex C89 parity
         run: python3 tests/test-m203-bounded-batch.py M189
       - name: Compare M189 eight-way skipped-hex host readers
-        run: python3 tests/bench-native-stage.py M189
+        run: python3 tests/test-m203-bounded-batch.py BENCH M189
       - name: Compare M188 EOL fast path against M185 host
-        run: python3 tests/bench-native-stage.py M188
+        run: python3 tests/test-m203-bounded-batch.py BENCH M188
       - name: Check M186 randomized skipped-record differential parity
         run: python3 tests/test-m203-bounded-batch.py M186
       - name: Check M187 synthetic 7736-object native closure
         run: python3 tests/test-m203-bounded-batch.py M187
       - name: Compare M181 M182 M183 M185 host skip readers
-        run: python3 tests/bench-native-stage.py M185
+        run: python3 tests/test-m203-bounded-batch.py BENCH M185
       - name: Compare M181 M182 M183 skipped-body host timings
-        run: python3 tests/bench-native-stage.py M184
+        run: python3 tests/test-m203-bounded-batch.py BENCH M184
       - name: Cross-check permanent CMS data disk safety runbook
         run: python3 tests/test-m203-bounded-batch.py M173R
       - name: Check read-only VMUDQ 6.3 source and fixed record model
