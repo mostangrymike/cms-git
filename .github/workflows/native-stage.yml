@@ -62,6 +62,7 @@ on:
       - 'src/M172CHK.EXEC'
       - 'src/GITPIMP.C'
       - 'src/M173CHK.EXEC'
+      - 'docs/M165-M166_HISTORY.md'
       - 'docs/M171-M176_HISTORY.md'
       - 'src/M173DCHK.EXEC'
       - 'src/M173VQ.ASSEMBLE'
