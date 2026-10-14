@@ -14212,3 +14212,12 @@ This is file-count reduction, not equivalent reduction in bytes/complexity.
 
 **This checkpoint itself is a documentation update**, not new CMS
 target verification.
+
+
+## 2026-10-14 — Two additional lossless historical document merges
+
+- Current GitHub `main` has **196 tracked files**, down 229 from the initial 425 (53.9%), verified with a nontruncated recursive GitHub tree after both deletions.
+- Complete original `docs/M206_STRATIFIED_32.md` preserved verbatim inside retained `docs/M201-M205_HISTORY.md` under an explicit original-file marker. Removed standalone M206 document after a GitHub fetch confirmed exact original text, repaired README links and both workflow path lists. Deletion commit `0c5658471f1c39434e97d12b1e4b26f9c3613896`.
+- Complete original `docs/M177-M178_HISTORY.md` preserved verbatim inside retained `docs/M179-M185_HISTORY.md` under an explicit original-file marker. Removed standalone M177-M178 document after exact source preservation verification, repaired README links and both workflow path lists. Deletion commit `b7fe448d68c68881901e2ee31f2a7026b2b164cc`.
+- GitHub Actions run `38590771458` succeeded for the first workflow update; run `38590885598` for the second workflow update was **in progress** at the moment of the latest check, so do not claim the final layout has passed host CI until it completes successfully. Its workflow-trigger commit `fc4f8fb54506b1904e5165c8fee4e98acb90120f`; later documentation deletion does not independently trigger the path-scoped workflow.
+- No production `src/` source, modules, CMS protected disks or 7736-object G stage/index modified. Historical documentation changes require no CMS upload. Original standalone documents are recoverable through Git history. Next priority: verify latest full host run, then continue lossless documentation consolidation and fix stale README top-level state when needed.
