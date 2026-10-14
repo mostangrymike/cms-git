@@ -12,7 +12,8 @@ required = (
     'src/**', 'tests/**', 'scripts/**', 'docs/**', 'archive/**',
     '.github/workflows/native-stage.yml',
 )
-assert len(blocks) == 2, "expected push and pull_request path lists"
+if len(blocks) != 2:
+    raise RuntimeError("expected push and pull_request path lists")
 entries = []
 for block in blocks:
     paths = re.findall(r"(?m)^      - '([^']+)'$", block)
@@ -28,7 +29,8 @@ if not valid(*entries):
 
 # Negative cases must reject missing entries, duplicates, reordering,
 # untracked areas, and losing coverage from either event trigger.
-assert valid(entries[0], entries[1])
+if not valid(entries[0], entries[1]):
+    raise RuntimeError("positive workflow fixture rejected")
 for bad in (
     entries[0][:-1],
     entries[0][1:],
@@ -37,11 +39,12 @@ for bad in (
     entries[0] + ['unrelated/**'],
     [],
 ):
-    assert not valid(bad, entries[1]), "accepted altered push filters"
-    assert not valid(entries[0], bad), "accepted altered PR filters"
+    if valid(bad, entries[1]) or valid(entries[0], bad):
+        raise RuntimeError("accepted altered workflow trigger fixture")
 for item in required:
     reduced = [p for p in entries[0] if p != item]
-    assert not valid(reduced, reduced), "accepted missing required area"
+    if valid(reduced, reduced):
+        raise RuntimeError("accepted missing required area")
 print("CI PATH PARITY AND NEGATIVE FIXTURES PASS", len(entries[0]))
 PY
     exit $?
