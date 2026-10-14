@@ -145,12 +145,48 @@ def live_dependencies():
               len(callers[stem]))
     print("ZERO OBSERVED SOURCE CALLERS IS NOT DELETION AUTHORIZATION")
 
+
+def consolidation_inventory():
+    """Reproducible source inventory; zero callers never permits deletion."""
+    tracked = subprocess.check_output(["git", "ls-files", "-z"], cwd=ROOT)
+    sources = sorted(p.decode() for p in tracked.split(b"\\0")
+                     if p.startswith(b"src/") and p.endswith(
+                         (b".EXEC", b".C", b".ASSEMBLE", b".REPO", b".sh")))
+    stems = {Path(name).stem.upper(): name for name in sources}
+    if len(stems) != len(sources):
+        raise RuntimeError("Ambiguous CMS source stem")
+    pattern = re.compile(r"(?<![A-Z0-9])(" +
+                         "|".join(re.escape(n) for n in sorted(
+                             stems, key=len, reverse=True)) + r")(?![A-Z0-9])")
+    callers = {name: set() for name in sources}
+    for path in sources:
+        for line in (ROOT / path).read_text(errors="replace").splitlines():
+            for match in pattern.finditer(line.upper()):
+                target = stems[match.group(1)]
+                if path != target:
+                    callers[target].add(path)
+    print("CMS SOURCE CONSOLIDATION INVENTORY", len(sources))
+    print("NOTE TOKEN CALLERS INCLUDE COMMENTS AND STRING LITERALS")
+    print("NOTE DYNAMIC CMS CALLS, OPERATORS AND EXTERNAL MODULES MAY BE INVISIBLE")
+    print("NOTE ZERO TOKEN CALLERS NEVER AUTHORIZES DELETION")
+    for path in sources:
+        relative = Path(path)
+        stem = relative.stem.upper()
+        family = ("MILESTONE" if re.fullmatch(r"M[0-9]+[A-Z0-9]*", stem)
+                  else "GIT" if stem.startswith("GIT") else "OTHER")
+        print("SOURCE", path, "FAMILY", family, "TOKEN_CALLERS",
+              len(callers[path]), "SIZE_BYTES", (ROOT / path).stat().st_size)
+    print("CMS SOURCE INVENTORY COMPLETE", len(sources))
+
 def main():
     if len(sys.argv) != 2:
-        raise SystemExit("Usage: python3 scripts/restore-cms-exec.py NAME.EXEC|ALL|MISSING|AUDIT|LIVEDEPS")
+        raise SystemExit("Usage: python3 scripts/restore-cms-exec.py NAME.EXEC|ALL|MISSING|AUDIT|LIVEDEPS|LIVEPLAN")
     arg = sys.argv[1].upper()
     if arg == "LIVEDEPS":
         live_dependencies()
+        return
+    if arg == "LIVEPLAN":
+        consolidation_inventory()
         return
     if arg == "AUDIT":
         audit()
