@@ -2126,3 +2126,18 @@ not remove the live EXECs until their callers and target behavior are
 verified. To restore an absent copy from the Mac project root, run
 `python3 scripts/restore-cms-exec.py GITACK.EXEC`; this refuses to
 overwrite existing files.
+
+### Dependency-safe source cleanup
+
+Before retiring any of the 159 tracked `src/` paths, run
+`python3 scripts/restore-cms-exec.py LIVEDEPS` (read-only).
+The CI workflow runs it alongside the independent archive `AUDIT`.
+It scans same-repository source-token references, detects ambiguous CMS
+source stems, and fails if protected runtime files or the known
+`GITP9PWK -> GIT9CTX` source dependency disappear. This is a
+**conservative inventory, not proof that files with no detected callers
+are safe to remove**; dynamic REXX calls, target modules, external
+operators, and CMS execution semantics require separate checks.
+The first full host CI run with the audit passed:
+[38587307751](https://github.com/mostangrymike/ibm-sandbox/actions/runs/38587307751)
+(commit `b01e2aab7bf9aaaad5855ed1272004bc4e67854a`).
