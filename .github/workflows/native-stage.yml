@@ -181,7 +181,6 @@ on:
       - 'docs/M166.md'
       - 'docs/M165.md'
       - 'src/M157GATE.EXEC'
-      - 'tests/check-m157-gate.sh'
       - 'tests/check-readonly-gitrchk.sh'
       - 'scripts/backup-offline-dasd.sh'
       - 'scripts/inspect-hercules-config.sh'
@@ -371,7 +370,6 @@ on:
       - 'docs/M166.md'
       - 'docs/M165.md'
       - 'src/M157GATE.EXEC'
-      - 'tests/check-m157-gate.sh'
       - 'tests/check-readonly-gitrchk.sh'
       - 'scripts/backup-offline-dasd.sh'
       - 'scripts/inspect-hercules-config.sh'
@@ -536,7 +534,7 @@ jobs:
       - name: Check CMS A cleanup exact allowlist
         run: python3 tests/test-m203-bounded-batch.py ACLEAN
       - name: Check combined compact M157 target gate
-        run: sh tests/check-m157-gate.sh
+        run: sh tests/check-m155-compact.sh M157
       - name: Check neutral compiler EXEC source and F-disk setup
         run: sh tests/check-cmsclnk-source.sh
       - name: Reject native-text Git object headers in CMS C source
