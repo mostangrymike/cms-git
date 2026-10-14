@@ -1811,7 +1811,7 @@ IDX2/SIDX2 index formats reject old incompatible indexes. Full
 host CI passes, but the fixed C code needs the next CMS run.
 Preserve existing GITSTAGE, GITINDEX and GITSEEK files; rebuild
 separately named GITFIX stage/index/seek files from the saved PACK
-after the corrected REF test succeeds. See docs/CANONICAL_OIDS.md
+after the corrected REF test succeeds. See docs/GENERATION_RECOVERY.md
 for exact safe commands and source of the defect. Issue #2 remains
 open for target proof and broader native Git functionality.
 
@@ -1832,7 +1832,7 @@ legacy incompatible IDs. The next required step is to rebuild the
 existing captured PACK offline into new GITFIX STAGE, INDEX and SEEK
 files and verify every object and both canonical IDX2/SIDX2 indexes.
 Do not overwrite the original stage or indexes. Full commands and
-success criteria: docs/CANONICAL_OIDS.md. A later optional GITCIDX
+success criteria: docs/GENERATION_RECOVERY.md. A later optional GITCIDX
 PAIR mode is host-tested to compare both new indexes and independently
 rehash each indexed body; it may require one new compiler transfer.
 
@@ -1855,7 +1855,7 @@ avoids repeated opens and adds a one-pass SFAST hash/seek-cookie
 verification. Optional PAIR compares both canonical index
 generations and invokes SFAST. Host regression passed; actual
 CMS execution of these updated audit modes remains the next
-validation gate. See docs/CANONICAL_OIDS.md for the minimal
+validation gate. See docs/GENERATION_RECOVERY.md for the minimal
 GITCIDX-only transfer and test commands. Preserve all existing
 canonical and historical datasets.
 
