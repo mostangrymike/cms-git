@@ -187,8 +187,6 @@ on:
       - 'scripts/inspect-hercules-config.sh'
       - 'scripts/map-cms-minidisk.sh'
       - 'tests/test-map-cms-minidisk.sh'
-      - 'tests/test-hercules-config.sh'
-      - 'tests/test-offline-dasd-backup.sh'
       - 'src/GITSEL.C'
       - 'src/GITREC.C'
       - 'tests/native_selector_verify_host.c'
@@ -379,8 +377,6 @@ on:
       - 'scripts/inspect-hercules-config.sh'
       - 'scripts/map-cms-minidisk.sh'
       - 'tests/test-map-cms-minidisk.sh'
-      - 'tests/test-hercules-config.sh'
-      - 'tests/test-offline-dasd-backup.sh'
       - 'src/GITSEL.C'
       - 'src/GITREC.C'
       - 'tests/native_selector_verify_host.c'
@@ -400,9 +396,9 @@ jobs:
       - name: Test CP-to-Hercules read-only minidisk correlation
         run: bash tests/test-map-cms-minidisk.sh
       - name: Test read-only Hercules config inventory
-        run: sh tests/test-hercules-config.sh
+        run: bash tests/test-map-cms-minidisk.sh CONFIG
       - name: Test offline-only DASD backup safeguards
-        run: sh tests/test-offline-dasd-backup.sh
+        run: bash tests/test-map-cms-minidisk.sh BACKUP
       - name: Enforce read-only CMS CATHEX gate and cleanup hold
         run: sh tests/check-readonly-gitrchk.sh
       - name: Check verified modern REF2 read-only bridge
