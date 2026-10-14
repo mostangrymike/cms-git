@@ -181,7 +181,6 @@ on:
       - 'scripts/backup-offline-dasd.sh'
       - 'scripts/inspect-hercules-config.sh'
       - 'scripts/map-cms-minidisk.sh'
-      - 'tests/test-map-cms-minidisk.sh'
       - 'src/GITSEL.C'
       - 'src/GITREC.C'
       - 'tests/native_selector_verify_host.c'
@@ -366,7 +365,6 @@ on:
       - 'scripts/backup-offline-dasd.sh'
       - 'scripts/inspect-hercules-config.sh'
       - 'scripts/map-cms-minidisk.sh'
-      - 'tests/test-map-cms-minidisk.sh'
       - 'src/GITSEL.C'
       - 'src/GITREC.C'
       - 'tests/native_selector_verify_host.c'
@@ -384,11 +382,11 @@ jobs:
       - name: Restore historical native tree wrappers
         run: python3 scripts/restore-ph-wrappers.py ALL
       - name: Test CP-to-Hercules read-only minidisk correlation
-        run: bash tests/test-map-cms-minidisk.sh
+        run: bash tests/check-canonical-source.sh MAP
       - name: Test read-only Hercules config inventory
-        run: bash tests/test-map-cms-minidisk.sh CONFIG
+        run: bash tests/check-canonical-source.sh CONFIG
       - name: Test offline-only DASD backup safeguards
-        run: bash tests/test-map-cms-minidisk.sh BACKUP
+        run: bash tests/check-canonical-source.sh BACKUP
       - name: Enforce read-only CMS CATHEX gate and cleanup hold
         run: sh tests/check-canonical-source.sh READONLY
       - name: Check verified modern REF2 read-only bridge
