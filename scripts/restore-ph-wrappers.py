@@ -66,12 +66,14 @@ def generate(name):
     if name in SPECIAL_SPECS:
         comment, body = SPECIAL_SPECS[name]
         text = comment + "\n" + body
-        assert all(len(line) <= 80 for line in text.splitlines())
+        if any(len(line) > 80 for line in text.splitlines()):
+            raise RuntimeError("Overlength generated CMS wrapper: " + name)
         return text
     if name in EXTRA_SPECS:
         milestone, module, comment = EXTRA_SPECS[name]
         text = comment + "\n" + EXTRA_TEMPLATE.replace("@@NAME@@", name).replace("@@MOD@@", module).replace("@@MILESTONE@@", milestone)
-        assert all(len(line) <= 80 for line in text.splitlines())
+        if any(len(line) > 80 for line in text.splitlines()):
+            raise RuntimeError("Overlength generated CMS wrapper: " + name)
         return text
     milestone, comment = SPECS[name]
     text = comment + "\n" + TEMPLATE.replace("@@NAME@@", name).replace("@@MILESTONE@@", milestone)
