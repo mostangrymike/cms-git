@@ -19,6 +19,13 @@ assert entries[0] == entries[1], "push/PR watched paths differ"
 assert '.github/workflows/native-stage.yml' in entries[0]
 assert 'tests/check-canonical-source.sh' in entries[0]
 
+# All literal watched files must exist in this checkout.  Otherwise a
+# retired source or documentation path silently leaves a dead CI trigger.
+root = pathlib.Path(sys.argv[1]).resolve().parents[2]
+missing = [path for path in entries[0] if not (root / path).is_file()]
+if missing:
+    raise SystemExit("missing watched paths: " + ", ".join(missing))
+
 # Exercise the safety checker with independent malformed trigger fixtures.
 def valid(left, right):
     return (bool(left) and len(left) == len(set(left))
