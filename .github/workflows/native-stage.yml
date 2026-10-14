@@ -183,7 +183,6 @@ on:
       - 'src/GITSEL.C'
       - 'src/GITREC.C'
       - 'tests/native_selector_verify_host.c'
-      - 'tests/run-native-stage-host.sh'
   pull_request:
     paths:
       - 'src/GITCWALK.C'
@@ -366,7 +365,6 @@ on:
       - 'src/GITSEL.C'
       - 'src/GITREC.C'
       - 'tests/native_selector_verify_host.c'
-      - 'tests/run-native-stage-host.sh'
 
 jobs:
   staging:
@@ -538,4 +536,4 @@ jobs:
       - name: Verify complete binary Git tree parsing and recovery
         run: python3 tests/test-m203-bounded-batch.py NTREE
       - name: Compile and test staging, OID index and native REF PACK on host
-        run: sh tests/run-native-stage-host.sh
+        run: sh tests/check-canonical-source.sh NATIVE
