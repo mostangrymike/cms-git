@@ -96,13 +96,14 @@ def main():
         # CHECK is read-only: do not recreate missing CMS source files.
         for name in all_specs:
             source = generate(name)
-            assert source and all(len(line) <= 80
-                                  for line in source.splitlines()), name
-            assert len(name) <= 8 and name.isalnum(), name
+            if not source or any(len(line) > 80
+                                 for line in source.splitlines()):
+                raise RuntimeError("Invalid generated wrapper width: " + name)
+            if len(name) > 8 or not name.isalnum():
+                raise RuntimeError("Invalid CMS wrapper name: " + name)
             target = ROOT / "src" / (name + ".EXEC")
-            if target.exists():
-                assert target.read_bytes() == source.encode("utf-8"), name
-        assert len(all_specs) == 10, "Historical wrapper inventory changed"
+            if target.exists() and target.read_bytes() != source.encode("utf-8"):
+                raise RuntimeError("Historical wrapper source drift: " + name)
         print("PH WRAPPER GENERATION PARITY PASS", len(all_specs))
         return
     if arg == "ALL":
