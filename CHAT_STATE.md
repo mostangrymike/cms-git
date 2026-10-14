@@ -14123,3 +14123,17 @@ User requested a fresh project-state save for a new chat. Continue IBM z/VM CMS 
 - **Do not delete any production source based only on zero observed static
   callers.** CMS dynamic REXX invocations, compiled MODULEs and operators
   require target review. No new CMS target test occurred in this pass.
+
+## 2026-10-14 M164–M170 documentation consolidation
+
+- Repository tracked file count now 203 (222 eliminated from original 425).
+- Former separate `docs/M164_PRACTICAL_PORCELAIN.md` and
+  `docs/M167-M170_HISTORY.md` were concatenated losslessly by milestone
+  into the retained `docs/M165-M166_HISTORY.md`. Original historic paths
+  remain recoverable through Git history; current document holds all text.
+- The retained combined document is watched by `.github/workflows/native-stage.yml`.
+- Most recent previously verified CI success was `38587307751`, for the
+  source-dependency gate; the M164-M170 documentation transition has its own
+  CI runs pending as of this entry.
+- Preserve all 159 tracked production `src/` items without a caller/target
+  dependency review; do not run `ACLEAN APPLY` or modify CMS G/A disks.
