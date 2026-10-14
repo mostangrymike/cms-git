@@ -642,7 +642,7 @@ FILEDEF
 
 Run each mode only after inspecting the current
 FILEDEF state and the complete exact-name cleanup
-list in `docs/M186-M192_HISTORY.md`. Stop and
+list in `docs/M179-M185_HISTORY.md`. Stop and
 investigate any cleanup failure. M199's next
 functional gate is an **independent second object**:
 `GITRP6 G 3868 64`; do not guess its
@@ -666,7 +666,7 @@ bounded parameterized record numbers and count, with
 independent NEW-only GITR199 DATA A scratch and
 complete M197 SHA verification. It is host-only
 until independently assembled and run on real CMS.
-See docs/M186-M192_HISTORY.md.
+See docs/M179-M185_HISTORY.md.
 
 ---
  
@@ -727,8 +727,8 @@ GITB8 G LAST 9069E154EB145C25D8E1A8D31F72252C53E6684A
 Do not execute this M198 command before clean
 assembler/compiler gates and absence of scratch.
 Original G stage/index remain protected and
-unchanged. See `docs/M186-M192_HISTORY.md` and
-`docs/M186-M192_HISTORY.md` for safeguards.
+unchanged. See `docs/M179-M185_HISTORY.md` and
+`docs/M179-M185_HISTORY.md` for safeguards.
 
 ---
 
@@ -764,7 +764,7 @@ erasing it.
 **M198 is host-only pending real CMS assembly
 and runtime; do not run before M196 real CMS
 index plan PASS and M197 module build.**
-See `docs/M186-M192_HISTORY.md`.
+See `docs/M179-M185_HISTORY.md`.
 
 The next immediate CMS batch (if already
 uploaded) is **M196 only**:
@@ -802,7 +802,7 @@ Ready; T=0.01/0.01 09:22:59
 
 M195 fully passed its stated header/body
 physical-record goal. It does not independently
-authenticate the Git OID. See `docs/M186-M192_HISTORY.md`.
+authenticate the Git OID. See `docs/M179-M185_HISTORY.md`.
 
 ---
 
@@ -850,7 +850,7 @@ QUERY FILEDEF
 Preserve original G stage/index and prior
 proven CMS modules. Keep M196 target and M197
 integration gates distinct. See
-`docs/M186-M192_HISTORY.md`.
+`docs/M179-M185_HISTORY.md`.
 
 ---
 
@@ -881,7 +881,7 @@ record plan are both already merged and host tested.
 Neither has yet been reported as passing on real CMS.
 Proceed with their exact existing CMS tests first:
 `GITFLP G LAST` and `GITRP6 G 7736 10`.
-See `docs/M186-M192_HISTORY.md` for scope and safeguards.
+See `docs/M179-M185_HISTORY.md` for scope and safeguards.
 The proven M188 full tree closure remains 208.27s elapsed.
 
 ---
@@ -932,7 +932,7 @@ separately; a successful M196 index-only model
 cannot substitute for M195 or a Git SHA-1 check.
 The full authenticated M188 two-scan closure
 remains the proven 208.27s elapsed baseline.
-See `docs/M186-M192_HISTORY.md`.
+See `docs/M179-M185_HISTORY.md`.
 
 ---
 
@@ -963,7 +963,7 @@ git pull
 ```
 
 Then follow the read-only preflight and exact assembler
-build in `docs/M186-M192_HISTORY.md` before:
+build in `docs/M179-M185_HISTORY.md` before:
 
 ```text
 GITFLP G LAST
@@ -1066,7 +1066,7 @@ arithmetic fixture passed, but IBM CMS macro
 assembly/execution remains **unverified**.
 The safe first target trial is `GITFSP G FIRST`
 after a clean standalone native assembly;
-see `docs/M186-M192_HISTORY.md`. The
+see `docs/M179-M185_HISTORY.md`. The
 working M188 two-scan reader remains the
 208.27-second real CMS baseline. Do not run
 the 272-seek M190 experiment.
@@ -1107,7 +1107,7 @@ unchanged source hashes.
 This is a **record-layout model**, not yet a
 CMS FSREAD adapter or native tree reader.
 No target runtime improvement is claimed.
-See `docs/M186-M192_HISTORY.md`.
+See `docs/M179-M185_HISTORY.md`.
 M188 remains the proven 208.27-second
 two-scan reader; original G files and
 existing modules are unchanged.
@@ -1127,7 +1127,7 @@ seeks. The full 272-seek M190 walk remains
 probe has not run. Investigating native CMS
 record-number FSREAD as a separate approach,
 first through read-only host mapping tests.
-See `docs/M186-M192_HISTORY.md`.
+See `docs/M179-M185_HISTORY.md`.
 
 ---
 
@@ -1162,7 +1162,7 @@ temporary FILEDEFs, and never modifies G.
 After strict host CI, run `GITPRB G FIRST`
 first, then separately MID and LAST if
 safe. The full runbook is
-`docs/M186-M192_HISTORY.md`. Do **not**
+`docs/M179-M185_HISTORY.md`. Do **not**
 repeat the full M190 walk merely to
 diagnose `fseek`. M185 and M188 stay
 target-proven, the latest M188 elapsed
@@ -1204,7 +1204,7 @@ vs **M188 0.0719s** on a disposable 15.36MB
 fixture. **Those are not z/VM results.** IBM
 CMS's C text stream seek behavior on `dd:STGIN`
 is unproven; test only as a separate reader,
-following `docs/M186-M192_HISTORY.md`.
+following `docs/M179-M185_HISTORY.md`.
 
 ---
 
@@ -1227,7 +1227,7 @@ claim without repeated samples. G was checked as a
 include post-run `QUERY FILEDEF`; final DD cleanup
 not independently proven. Original modules and G
 data remain preserved. Evidence:
-`docs/M186-M192_HISTORY.md`.
+`docs/M179-M185_HISTORY.md`.
 
 ---
 
@@ -1250,7 +1250,7 @@ the fastest verified on z/VM at **209.97s**.
 Prioritize the isolated M188 CMS experiment
 ahead of M189. Full details and optional
 independent M189 runbook:
-`docs/M186-M192_HISTORY.md`.
+`docs/M179-M185_HISTORY.md`.
 
 ---
 
@@ -1271,7 +1271,7 @@ including differential malformed suffix/SHA tests.
 Linux fixture medians: M188 0.0735s versus M185
 0.0766s (seven rounds), **host-only evidence**.
 Actual M188 CMS performance is unmeasured.
-See `docs/M186-M192_HISTORY.md` for safe instructions.
+See `docs/M179-M185_HISTORY.md` for safe instructions.
 
 ---
 
@@ -1317,7 +1317,7 @@ This is host-only correctness evidence,
 **not M182/M183/M185 z/VM performance proof**.
 Latest real CMS elapsed benchmark remains
 M181 **298.38s**. No read or write to
-protected G data. See `docs/M186-M192_HISTORY.md`.
+protected G data. See `docs/M179-M185_HISTORY.md`.
 
 ---
 
@@ -1334,7 +1334,7 @@ or that produces a different authenticated closure.
 It verifies unchanged source index and restores
 the disposable stage. No new CMS code or protected
 G input is modified. Detailed test rules and
-limitations: `docs/M186-M192_HISTORY.md`.
+limitations: `docs/M179-M185_HISTORY.md`.
 
 The latest real-CMS positive performance reference
 is **M181 298.38s elapsed** (294.57s CPU). M182,
