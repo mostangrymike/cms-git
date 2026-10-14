@@ -14091,3 +14091,23 @@ User requested a fresh project-state save for a new chat. Continue IBM z/VM CMS 
   recovery and all standalone CI gates. A green host run does NOT constitute
   new CMS target validation. User requires direct GitHub commits and maximum
   work per turn without asking for routine confirmation.
+
+## 2026-10-14 host-verified six-archive consolidation
+
+- `main` now has **205 tracked files**, down 220 from original 425 (51.8%).
+- The six separate historical EXEC JSON archives were combined as
+  `archive/HISTORICAL_EXEC.json`, retaining the original six bundle names,
+  descriptions and 99 complete EXEC source texts. Original archive JSON byte
+  representations remain accessible through Git history; the combined format
+  retains original source strings, not necessarily original JSON formatting.
+- `scripts/restore-cms-exec.py` now enforces one collection, six expected
+  bundles, strict original per-bundle counts (15/48/23/3/3/7), non-empty EXEC
+  sources, valid CMS names, no duplicate names, original source parity,
+  and protection of GITACK/GITADV/GITZLIB/GIT9CTX active helpers.
+- The archived ACLEAN source audit continues to compare its original three
+  *_EXEC bundle classes (86 old-test EXEC sources), not the additional
+  protocol/transport/walker bundles.
+- Latest complete green host CI: run 38586468081, commit
+  `1266b00ad64049f1156623c401713fcba9558cbe`.
+- CMS production source/modules, protected A/G disks, G stage/index, and DASD
+  images remain untouched. Host-only CI is not new CMS target validation.
