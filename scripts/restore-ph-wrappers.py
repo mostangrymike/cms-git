@@ -125,6 +125,9 @@ def main():
     for path, source in zip(targets, sources):
         with path.open("x", encoding="utf-8", newline="") as output:
             output.write(source)
+        # Read back the exact bytes before reporting successful recovery.
+        if path.read_bytes() != source.encode("utf-8"):
+            raise SystemExit("Restored wrapper byte mismatch: " + path.name)
         print("RESTORED " + path.name)
 
 if __name__ == "__main__":
