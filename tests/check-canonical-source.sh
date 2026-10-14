@@ -1,4 +1,28 @@
 #!/bin/sh
+# Guard workflow trigger parity without changing target or native sources.
+if [ "${1:-}" = "WORKFLOW" ]; then
+    python3 - "$(dirname "$0")/../.github/workflows/native-stage.yml" <<'PY'
+import pathlib
+import re
+import sys
+
+source = pathlib.Path(sys.argv[1]).read_text()
+blocks = re.findall(r"(?m)^    paths:\n((?:      - '[^']+'\n)+)", source)
+assert len(blocks) == 2, "expected push and pull_request path lists"
+entries = []
+for block in blocks:
+    paths = re.findall(r"(?m)^      - '([^']+)'$", block)
+    assert paths, "empty path watch"
+    assert len(paths) == len(set(paths)), "duplicate watched path"
+    entries.append(paths)
+assert entries[0] == entries[1], "push/PR watched paths differ"
+assert '.github/workflows/native-stage.yml' in entries[0]
+assert 'tests/check-canonical-source.sh' in entries[0]
+print("CI PATH PARITY PASS", len(entries[0]))
+PY
+    exit $?
+fi
+
 # Independent native C89 staging integration test retained verbatim.
 if [ "${1:-}" = "NATIVE" ]; then
 (
