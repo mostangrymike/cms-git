@@ -96,6 +96,18 @@ def check_inventory():
                       "BENCH " + name)
         if invocation not in workflow:
             raise RuntimeError("Missing benchmark CI invocation: " + name)
+    # The combined shell guard must retain every independently scheduled
+    # safety and native-integration test, not merely its implementation.
+    for mode in ("MAP", "CONFIG", "BACKUP", "VREF", "M155",
+                 "M157", "READONLY", "CMSCLNK", "NATIVE"):
+        invocation = ("run: " +
+                      ("bash" if mode in ("MAP", "CONFIG", "BACKUP")
+                       else "sh") +
+                      " tests/check-canonical-source.sh " + mode)
+        if invocation not in workflow:
+            raise RuntimeError("Missing safety CI invocation: " + mode)
+    if "run: sh tests/check-canonical-source.sh\\n" not in workflow:
+        raise RuntimeError("Missing default canonical source CI invocation")
     if "BENCH REFPACK" not in (Path(__file__).resolve().parents[1] /
                              "tests/check-canonical-source.sh").read_text():
         raise RuntimeError("Missing native REF PACK fixture integration")
