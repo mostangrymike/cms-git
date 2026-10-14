@@ -642,7 +642,7 @@ FILEDEF
 
 Run each mode only after inspecting the current
 FILEDEF state and the complete exact-name cleanup
-list in `docs/M193-M200_HISTORY.md`. Stop and
+list in `docs/M186-M192_HISTORY.md`. Stop and
 investigate any cleanup failure. M199's next
 functional gate is an **independent second object**:
 `GITRP6 G 3868 64`; do not guess its
@@ -666,7 +666,7 @@ bounded parameterized record numbers and count, with
 independent NEW-only GITR199 DATA A scratch and
 complete M197 SHA verification. It is host-only
 until independently assembled and run on real CMS.
-See docs/M193-M200_HISTORY.md.
+See docs/M186-M192_HISTORY.md.
 
 ---
  
@@ -727,8 +727,8 @@ GITB8 G LAST 9069E154EB145C25D8E1A8D31F72252C53E6684A
 Do not execute this M198 command before clean
 assembler/compiler gates and absence of scratch.
 Original G stage/index remain protected and
-unchanged. See `docs/M193-M200_HISTORY.md` and
-`docs/M193-M200_HISTORY.md` for safeguards.
+unchanged. See `docs/M186-M192_HISTORY.md` and
+`docs/M186-M192_HISTORY.md` for safeguards.
 
 ---
 
@@ -764,7 +764,7 @@ erasing it.
 **M198 is host-only pending real CMS assembly
 and runtime; do not run before M196 real CMS
 index plan PASS and M197 module build.**
-See `docs/M193-M200_HISTORY.md`.
+See `docs/M186-M192_HISTORY.md`.
 
 The next immediate CMS batch (if already
 uploaded) is **M196 only**:
@@ -802,7 +802,7 @@ Ready; T=0.01/0.01 09:22:59
 
 M195 fully passed its stated header/body
 physical-record goal. It does not independently
-authenticate the Git OID. See `docs/M193-M200_HISTORY.md`.
+authenticate the Git OID. See `docs/M186-M192_HISTORY.md`.
 
 ---
 
@@ -850,7 +850,7 @@ QUERY FILEDEF
 Preserve original G stage/index and prior
 proven CMS modules. Keep M196 target and M197
 integration gates distinct. See
-`docs/M193-M200_HISTORY.md`.
+`docs/M186-M192_HISTORY.md`.
 
 ---
 
@@ -881,7 +881,7 @@ record plan are both already merged and host tested.
 Neither has yet been reported as passing on real CMS.
 Proceed with their exact existing CMS tests first:
 `GITFLP G LAST` and `GITRP6 G 7736 10`.
-See `docs/M193-M200_HISTORY.md` for scope and safeguards.
+See `docs/M186-M192_HISTORY.md` for scope and safeguards.
 The proven M188 full tree closure remains 208.27s elapsed.
 
 ---
@@ -932,7 +932,7 @@ separately; a successful M196 index-only model
 cannot substitute for M195 or a Git SHA-1 check.
 The full authenticated M188 two-scan closure
 remains the proven 208.27s elapsed baseline.
-See `docs/M193-M200_HISTORY.md`.
+See `docs/M186-M192_HISTORY.md`.
 
 ---
 
@@ -963,7 +963,7 @@ git pull
 ```
 
 Then follow the read-only preflight and exact assembler
-build in `docs/M193-M200_HISTORY.md` before:
+build in `docs/M186-M192_HISTORY.md` before:
 
 ```text
 GITFLP G LAST
@@ -1066,7 +1066,7 @@ arithmetic fixture passed, but IBM CMS macro
 assembly/execution remains **unverified**.
 The safe first target trial is `GITFSP G FIRST`
 after a clean standalone native assembly;
-see `docs/M193-M200_HISTORY.md`. The
+see `docs/M186-M192_HISTORY.md`. The
 working M188 two-scan reader remains the
 208.27-second real CMS baseline. Do not run
 the 272-seek M190 experiment.
