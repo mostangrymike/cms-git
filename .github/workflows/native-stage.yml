@@ -44,7 +44,6 @@ on:
       - 'src/GIT.EXEC'
       - 'tests/check-verified-ref.sh'
       - 'src/M155CHK.EXEC'
-      - 'tests/check-m155-compact.sh'
       - 'src/M156CHK.EXEC'
       - 'src/M157CHK.EXEC'
       - 'src/M158CHK.EXEC'
@@ -231,7 +230,6 @@ on:
       - 'src/GIT.EXEC'
       - 'tests/check-verified-ref.sh'
       - 'src/M155CHK.EXEC'
-      - 'tests/check-m155-compact.sh'
       - 'src/M156CHK.EXEC'
       - 'src/M157CHK.EXEC'
       - 'src/M158CHK.EXEC'
@@ -398,7 +396,7 @@ jobs:
       - name: Check verified modern REF2 read-only bridge
         run: sh tests/check-verified-ref.sh
       - name: Check compact CMS target gate source
-        run: sh tests/check-m155-compact.sh
+        run: sh tests/check-canonical-source.sh M155
       - name: Check M156 authenticated presence duration
         run: python3 tests/test-m203-bounded-batch.py PHIST M156
       - name: Check M157 authenticated current presence age
@@ -530,7 +528,7 @@ jobs:
       - name: Check CMS A cleanup exact allowlist
         run: python3 tests/test-m203-bounded-batch.py ACLEAN
       - name: Check combined compact M157 target gate
-        run: sh tests/check-m155-compact.sh M157
+        run: sh tests/check-canonical-source.sh M157
       - name: Check neutral compiler EXEC source and F-disk setup
         run: sh tests/check-canonical-source.sh CMSCLNK
       - name: Reject native-text Git object headers in CMS C source
