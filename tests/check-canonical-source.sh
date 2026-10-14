@@ -1,4 +1,13 @@
 #!/bin/sh
+# Fail closed on unknown selector names; never run an unrelated default gate.
+if [ "$#" -gt 1 ]; then
+  echo "FAIL: expected at most one guard selector" >&2
+  exit 2
+fi
+case "${1:-}" in
+  ""|MAP|CONFIG|BACKUP|VREF|M155|M157|READONLY|CMSCLNK) ;;
+  *) echo "FAIL: unknown guard selector: $1" >&2; exit 2 ;;
+esac
 # Original three independent Hercules/DASD safety modes (run with bash).
 if [ "${1:-}" = "MAP" ] || [ "${1:-}" = "CONFIG" ] || [ "${1:-}" = "BACKUP" ]; then
 (
