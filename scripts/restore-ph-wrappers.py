@@ -83,8 +83,14 @@ def main():
         raise SystemExit("Usage: restore-ph-wrappers.py NAME.EXEC|ALL|CHECK")
     arg = sys.argv[1].upper()
     all_specs = dict(SPECS)
-    all_specs.update(EXTRA_SPECS)
-    all_specs.update(SPECIAL_SPECS)
+    for group in (EXTRA_SPECS, SPECIAL_SPECS):
+        overlap = set(all_specs).intersection(group)
+        if overlap:
+            raise SystemExit("Duplicate wrapper specifications: " +
+                             ", ".join(sorted(overlap)))
+        all_specs.update(group)
+    if len(all_specs) != 10:
+        raise SystemExit("Historical wrapper inventory changed")
     if arg == "CHECK":
         # Even retired wrapper paths must remain exactly regenerable.
         # CHECK is read-only: do not recreate missing CMS source files.
