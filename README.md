@@ -1,18 +1,19 @@
 # IBM Sandbox
 
-## Consolidation status (2026-10-14)
+## Consolidation status (2026-10-14, verified archive merge)
 
-GitHub `main` is canonical. The repository has **212 tracked files** after
-lossless consolidation from 425, a reduction of 213 tracked paths (50.1%).
+GitHub `main` is canonical. The repository has **205 tracked files** after
+lossless consolidation from 425, a reduction of 220 tracked paths (51.8%).
 This measures file count, **not** lines of code or executable complexity.
-The last complete host CI success before this checkpoint was commit
-`23b3d554177d1eae69e62a141e4306a53ef7b2f7`, workflow run
-[38581585895](https://github.com/mostangrymike/ibm-sandbox/actions/runs/38581585895).
-The newer source/CI coverage-audit commit may require its own green run.
+The latest fully verified host CI commit is
+`1266b00ad64049f1156623c401713fcba9558cbe`, workflow run
+[38586468081](https://github.com/mostangrymike/ibm-sandbox/actions/runs/38586468081).
 
 The consolidated Python test runner is `tests/test-m203-bounded-batch.py`;
 the shell safety/native integration runner is `tests/check-canonical-source.sh`.
-Both preserve independently invoked historical gates. Exact original historical
+Both preserve independently invoked historical gates. All 99 historical EXEC source entries now reside in a single
+`archive/HISTORICAL_EXEC.json` collection retaining six separately audited
+bundle identities and counts (15, 48, 23, 3, 3, 7). Exact original historical
 EXEC files are recoverable using `scripts/restore-cms-exec.py`, and ten
 native tree wrappers are regenerated using `scripts/restore-ph-wrappers.py`.
 Never delete active production helpers based solely on static reference misses.
