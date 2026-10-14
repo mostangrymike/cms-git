@@ -14466,3 +14466,10 @@ target verification.
 
 - Commit `830e778a1224e5f40fadfe6a72adf9a1d00c4ac4` changed the last remaining `assert`-only 80-column check in `scripts/restore-ph-wrappers.py` to explicit `RuntimeError`. Earlier commit `6750e51713f9d0a40c4160ab52a5b5fb5a7be2bd` covered two branches but not the default branch. Now all three generator branches reject overlength CMS lines even under Python optimized mode. No generated source bytes changed, no source deletion or CMS target operation.
 - Full CI verification remains outstanding; last independently verified full successful run 38598877946 predates the changes. Repository path count remains estimated 181. Next priority: host and live CMS validation before any in-place consolidation of production modules.
+
+
+## 2026-10-14 — Explicit optimized Python regression step
+
+- Audited latest CI workflow and historical wrapper source. The three generator paths now use explicit RuntimeErrors for CMS fixed-80 checks, while the pre-regeneration `CHECK` verifies the complete ten-wrapper inventory.
+- Added an independent host workflow step running `python3 -O scripts/restore-ph-wrappers.py CHECK` before historical wrapper `ALL` regeneration, commit `37ba459af9cafa2ad38ace02a33e2832bcbfd429`. This exercises the source-preservation guard with Python assertions disabled rather than only trusting source inspection. The existing standard precheck, restoration and post-restoration checks remain. Workflow step count rises 84 to 85; no tracked paths added/removed.
+- All production CMS and G 7736-object protected files unchanged. Latest full CI pass for this commit unverified; last independently confirmed completed host PASS is run 38598877946. Further consolidation of proven production modules requires a tested CMS rollout, not speculative source deletion. Repository tracked file baseline remains 181 (historical checkpoint, not recounted).
