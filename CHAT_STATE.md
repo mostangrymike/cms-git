@@ -14264,3 +14264,12 @@ target verification.
 - Latest full workflow 38593325720 had just queued on the CI-trigger commit during initial check; do not mark final layout green until completed SUCCESS. Previous workflow 38593217471 succeeded for first merge. Next: verify full CI, repair any issue, then continue lossless safe consolidation. No Mac/CMS upload required.
 
 - **FINAL VERIFIED GREEN:** full GitHub Actions workflow 38593325720 completed SUCCESS on commit `03dab32d717d4d460442f1186c1159a667f55a7b` for the 189-file document/CI layout. Latest added README and state-only commits did not alter host source. Preserve host vs CMS target validation distinction.
+
+
+## 2026-10-14 — Canonical OIDs and early milestone historical archive consolidation
+
+- Started at 189 tracked files; previously verified host workflow 38593325720 PASS.
+- Exact original `docs/CANONICAL_OIDS.md` preserved under original-file heading in `docs/GENERATION_RECOVERY.md`. Redirected three README references, verified full source-text parity on refetch, deleted old path at commit `6234f088f4fa198ddfc840f986d2804f4476d6f1`.
+- Exact original `docs/M155-M163_HISTORY.md` preserved inside `docs/M165-M166_HISTORY.md` under independent archival heading; original text checked exactly before deletion at `e49909b755c97c39e3990290094b88a361b38bf3`.
+- Current GitHub recursive-tree count **187 tracked files**, reduction 238 of 425 (56.0%). Original content is preserved inside retained documents and accessible through Git history. No CMS source, MODULE, target A/G disks, G 7736-object stage/index or DASD modified; no Mac/CMS transfer needed.
+- GitHub Actions workflow 38593874417 succeeded for first archive insertion; second full workflow 38593982215 was in progress when last queried. Verify this workflow's success before further deletion; if failed inspect job logs and repair. Maintained all independently executable host tests and existing CI document path filters.
