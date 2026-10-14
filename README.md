@@ -6,8 +6,9 @@ GitHub `main` is canonical. The repository has **181 tracked files** after
 lossless consolidation from 425, a reduction of 244 tracked paths (57.4%).
 This measures file count, **not** lines of code or executable complexity.
 The latest fully verified host CI commit is
-`1266b00ad64049f1156623c401713fcba9558cbe`, workflow run
-[38586468081](https://github.com/mostangrymike/ibm-sandbox/actions/runs/38586468081).
+`932058719dfa7e21c2b05b9d6ed6535378200326`, workflow run
+[38598877946](https://github.com/mostangrymike/ibm-sandbox/actions/runs/38598877946).
+This is a complete host-CI success, not new CMS target validation.
 
 The consolidated Python test runner is `tests/test-m203-bounded-batch.py`;
 the shell safety/native integration runner is `tests/check-canonical-source.sh`.
