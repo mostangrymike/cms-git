@@ -7,6 +7,7 @@ Usage:
   python3 scripts/restore-cms-exec.py MISSING
 """
 import json
+import hashlib
 import re
 import sys
 import subprocess
@@ -163,12 +164,16 @@ def consolidation_inventory():
     print("NOTE ZERO TOKEN CALLERS NEVER AUTHORIZES DELETION")
     totals = {"MILESTONE": [0, 0], "GIT": [0, 0], "OTHER": [0, 0]}
     unreferenced = 0
+    content_groups = {}
     for path in sources:
         relative = Path(path)
         stem = relative.stem.upper()
         family = ("MILESTONE" if re.fullmatch(r"M[0-9]+[A-Z0-9]*", stem)
                   else "GIT" if stem.startswith("GIT") else "OTHER")
-        size = (ROOT / path).stat().st_size
+        data = (ROOT / path).read_bytes()
+        size = len(data)
+        digest = hashlib.sha256(data).hexdigest()
+        content_groups.setdefault((digest, size), []).append(path)
         totals[family][0] += 1
         totals[family][1] += size
         unreferenced += not callers[path]
@@ -177,6 +182,14 @@ def consolidation_inventory():
     for family in ("MILESTONE", "GIT", "OTHER"):
         count, size = totals[family]
         print("FAMILY", family, "FILES", count, "BYTES", size)
+    exact_groups = [sorted(paths) for paths in content_groups.values()
+                    if len(paths) > 1]
+    exact_groups.sort()
+    for group in exact_groups:
+        print("EXACT SOURCE DUPLICATE", " ".join(group))
+    print("EXACT DUPLICATE GROUPS", len(exact_groups),
+          "FILES", sum(len(group) for group in exact_groups))
+    print("NOTE DUPLICATE SOURCE BYTES DO NOT AUTHORIZE FILE DELETION")
     print("ZERO OBSERVED TOKEN CALLERS", unreferenced,
           "NOT DELETION AUTHORIZATION")
     if sum(values[0] for values in totals.values()) != len(sources):
