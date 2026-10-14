@@ -106,7 +106,8 @@ def check_inventory():
                       " tests/check-canonical-source.sh " + mode)
         if invocation not in workflow:
             raise RuntimeError("Missing safety CI invocation: " + mode)
-    if "run: sh tests/check-canonical-source.sh\\n" not in workflow:
+    if not any(line.strip() == "run: sh tests/check-canonical-source.sh"
+               for line in workflow.splitlines()):
         raise RuntimeError("Missing default canonical source CI invocation")
     if "BENCH REFPACK" not in (Path(__file__).resolve().parents[1] /
                              "tests/check-canonical-source.sh").read_text():
