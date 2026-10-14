@@ -80,6 +80,24 @@ def check_inventory():
     compile(BENCH_SOURCE, __file__, "exec")
     print("BENCHMARK SOURCE COMPILE PASS",
           hashlib.sha256(BENCH_SOURCE.encode("utf-8")).hexdigest())
+    # Every archived test must still have a distinct CI command after
+    # a consolidation; storing source without executing it is not enough.
+    workflow = (Path(__file__).resolve().parents[1] /
+                ".github/workflows/native-stage.yml").read_text()
+    for name in sorted(ORIGINAL):
+        invocation = "run: python3 tests/test-m203-bounded-batch.py " + name
+        if not any(line.strip() == invocation or
+                   line.strip().startswith(invocation + " ")
+                   for line in workflow.splitlines()):
+            raise RuntimeError("Missing CI invocation for " + name)
+    for name in sorted(nested["BENCHMARKS"]):
+        invocation = ("run: python3 tests/test-m203-bounded-batch.py "
+                      "BENCH " + name)
+        if invocation not in workflow:
+            raise RuntimeError("Missing benchmark CI invocation: " + name)
+    if "BENCH REFPACK" not in (Path(__file__).resolve().parents[1] /
+                             "tests/check-canonical-source.sh").read_text():
+        raise RuntimeError("Missing native REF PACK fixture integration")
     if len(ORIGINAL) != 42:
         raise RuntimeError("Unexpectedly small preserved host test inventory")
     for name, source in sorted(ORIGINAL.items()):
