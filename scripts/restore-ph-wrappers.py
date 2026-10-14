@@ -119,11 +119,11 @@ def main():
     sources = [generate(name) for name in names]
     if any(not source for source in sources):
         raise SystemExit("Empty generated wrapper")
-    for name, path, source in zip(names, targets, sources):
+    for path in targets:
         if path.exists():
-            raise SystemExit("Refusing overwrite of an existing EXEC: " + name)
+            raise SystemExit("Refusing overwrite of an existing EXEC: " + path.name)
     for path, source in zip(targets, sources):
-        with path.open("x", encoding="utf-8") as output:
+        with path.open("x", encoding="utf-8", newline="") as output:
             output.write(source)
         print("RESTORED " + path.name)
 
