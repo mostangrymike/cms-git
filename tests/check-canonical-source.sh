@@ -118,7 +118,9 @@ grep -Fq "if obj.i=obj.j then exit 4" "$c"
 grep -Fq "M206 OBJECTS AUTHENTICATION PASS" "$c"
 grep -Fq "if fm\\='G' | (mode\\='CHECK' & mode\\='RUN')" "$c"
 grep -Fq "M206 STRATIFIED FULL SHA CLEAN PASS" "$c"
-grep -Fq "M203 BOUNDED FULL SHA CLEAN PASS" "$old"
+grep -Fq "M203 BOUNDED FULL SHA CLEAN PASS" "$c"
+grep -Fq "'GITC26' fm route limit members" "$old"
+grep -Fq "if mode='RUN' then route='OBJECTSRUN'" "$old"
 python3 - "$c" "$old" <<'PY'
 from pathlib import Path
 import sys
