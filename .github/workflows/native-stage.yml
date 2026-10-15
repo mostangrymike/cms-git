@@ -182,6 +182,8 @@ jobs:
         run: PYTHONOPTIMIZE=1 sh tests/check-canonical-source.sh WORKFLOW
       - name: Audit all tracked live CMS source dependencies
         run: python3 scripts/restore-cms-exec.py LIVEDEPS
+      - name: Test CMS source inventory against duplicate and collision fixtures
+        run: sh tests/check-canonical-source.sh LIVEPLANFIX
       - name: Inventory all CMS source consolidation candidates without deletion
         run: |
           python3 scripts/restore-cms-exec.py LIVEPLAN > cms-source-inventory.txt
