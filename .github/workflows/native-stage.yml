@@ -146,6 +146,8 @@ jobs:
         run: python3 tests/test-m203-bounded-batch.py M205
       - name: Check M206 up to 32 independently SHA-authenticated bands
         run: python3 tests/test-m203-bounded-batch.py M206
+      - name: Guard M206 explicit-object compatibility dispatch
+        run: sh tests/check-canonical-source.sh M206BRIDGE
       - name: Check M190 7736-object selective seek closure
         run: python3 tests/test-m203-bounded-batch.py M190S
       - name: Compare M190 indexed seek vs M188 two-pass host
