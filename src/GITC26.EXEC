@@ -18,10 +18,13 @@ if mode='OBJECTS' | mode='OBJECTSRUN' then do
   end
  end
  /* Delegate target-proven explicit-object semantics until CMS gate. */
- 'GITC23 G CHECK' max members
- if rc\=0 then exit 8
- say 'M206 OBJECTS PREFLIGHT PASS' count
- if mode='OBJECTSRUN' then do
+ if mode='OBJECTS' then do
+  'GITC23 G CHECK' max members
+  if rc\=0 then exit 8
+  say 'M206 OBJECTS PREFLIGHT PASS' count
+ end
+ else do
+  /* M203 RUN already performs full preflight before any scratch. */
   'GITC23 G RUN' max members
   if rc\=0 then exit 8
   say 'M206 OBJECTS AUTHENTICATION PASS' count
