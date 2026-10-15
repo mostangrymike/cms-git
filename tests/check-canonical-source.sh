@@ -124,19 +124,19 @@ from pathlib import Path
 import sys
 new = Path(sys.argv[1]).read_text()
 legacy = Path(sys.argv[2]).read_text()
-worker = new.split("\\nobjectpath:\\n", 1)[1]
+worker = new.split("\nobjectpath:\n", 1)[1]
 expected = legacy.split("'STATE GITP21 EXEC A'", 1)[1]
 expected = "'STATE GITP21 EXEC A'" + expected
 expected = expected.replace("if mode='CHECK' then do",
                             "if mode='OBJECTS' then do")
 expected = expected.replace(
-    "say 'M203 CHECK ONLY NO SCRATCH PASS' count\\n exit 0",
-    "say 'M203 CHECK ONLY NO SCRATCH PASS' count\\n"
-    " say 'M206 OBJECTS PREFLIGHT PASS' count\\n exit 0")
+    "say 'M203 CHECK ONLY NO SCRATCH PASS' count\n exit 0",
+    "say 'M203 CHECK ONLY NO SCRATCH PASS' count\n"
+    " say 'M206 OBJECTS PREFLIGHT PASS' count\n exit 0")
 expected = expected.replace(
-    "say 'M203 BOUNDED FULL SHA CLEAN PASS' count\\nexit 0",
-    "say 'M203 BOUNDED FULL SHA CLEAN PASS' count\\n"
-    "say 'M206 OBJECTS AUTHENTICATION PASS' count\\nexit 0")
+    "say 'M203 BOUNDED FULL SHA CLEAN PASS' count\nexit 0",
+    "say 'M203 BOUNDED FULL SHA CLEAN PASS' count\n"
+    "say 'M206 OBJECTS AUTHENTICATION PASS' count\nexit 0")
 if worker != expected:
     raise RuntimeError("inline worker drifted from proven M203 source")
 print("M206 EMBEDDED M203 WORKER BYTE PARITY PASS")
