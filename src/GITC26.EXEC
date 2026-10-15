@@ -2,7 +2,7 @@
 address cms
 parse upper arg fm mode max requested extra
 /* New OBJECTS route is isolated; CHECK/RUN stay byte-exact below. */
-if mode='OBJECTS' then do
+if mode='OBJECTS' | mode='OBJECTSRUN' then do
  if fm\='G' | datatype(max,'W')\=1 then exit 4
  if max<1 | max>64 then exit 4
  members=strip(requested ' ' extra)
@@ -21,6 +21,11 @@ if mode='OBJECTS' then do
  'GITC23 G CHECK' max members
  if rc\=0 then exit 8
  say 'M206 OBJECTS PREFLIGHT PASS' count
+ if mode='OBJECTSRUN' then do
+  'GITC23 G RUN' max members
+  if rc\=0 then exit 8
+  say 'M206 OBJECTS AUTHENTICATION PASS' count
+ end
  exit 0
 end
 if fm\='G' | (mode\='CHECK' & mode\='RUN') then exit 4
