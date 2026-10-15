@@ -14582,3 +14582,10 @@ target verification.
 - The current GITC26 OBJECTS/OBJECTSRUN routes contain the M203 worker in-line and do not call GITC23. The original stratified CHECK/RUN path is unchanged. GITC23 remains tracked, target-proven, and is required by existing independent M203 host tests. Keep it as a rollback/compatibility entry point until dependency and regression review explicitly permits retirement. No CMS erase or protected stage/index write was executed.
 - The provided transcript does not contain independent final FILEDEF and STATE commands for this second inline run; do not claim those postchecks were separately observed. The internal cleanup PASS and absent scratch diagnostics are present.
 - No new CMS command is required to establish this positive path. Next: review externally invoked GITC23 interface, host source guards and any historical dependency before deciding if a tracked source can be retired; test negative paths and preserve CMS rollback.
+
+
+## 2026-10-15 — Independent post-run cleanup confirmed for inline M206
+
+- Following successful real-CMS inline `GITC26 G OBJECTS 64 3868 7736` and `GITC26 G OBJECTSRUN 64 3868 7736`, the operator independently ran `FILEDEF`, `STATE GITR199 DATA A`, and `STATE GITVRAW DATA A`.
+- `FILEDEF` returned `DMSFLD324I No user defined FILEDEFs in effect`. Both scratch `STATE` commands returned `DMSSTT002E ... not found`, RC 28. This closes the independent post-run FILEDEF and scratch-absence qualification left open in the previous checkpoint.
+- Host Actions run 38817881142 SUCCESS; real CMS two-object SHA verification, exact M200 cleanup, and final independent cleanup all PASS. Do not extrapolate to untested negative cases or retire GITC23 without compatibility review. G stage/index, MODULEs, A/G minidisks and DASD remain protected.
