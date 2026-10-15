@@ -60,9 +60,9 @@ tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT HUP INT TERM
 mkdir -p "$tmp/scripts" "$tmp/src"
 cp "$root/scripts/restore-cms-exec.py" "$tmp/scripts/"
-printf 'address cms\\nexit 0\\n' > "$tmp/src/ALPHA.EXEC"
+printf 'address cms\nexit 0\n' > "$tmp/src/ALPHA.EXEC"
 cp "$tmp/src/ALPHA.EXEC" "$tmp/src/BETA.EXEC"
-printf 'address cms\\nexit 4\\n' > "$tmp/src/GAMMA.EXEC"
+printf 'address cms\nexit 4\n' > "$tmp/src/GAMMA.EXEC"
 (
  cd "$tmp"
  git init -q
@@ -74,7 +74,7 @@ grep -F 'EXACT SOURCE DUPLICATE src/ALPHA.EXEC src/BETA.EXEC' "$tmp/report"
 grep -F 'EXACT DUPLICATE GROUPS 1 FILES 2' "$tmp/report"
 grep -F 'CMS SOURCE INVENTORY COMPLETE 3' "$tmp/report"
 grep -F 'NOT DELETION AUTHORIZATION' "$tmp/report"
-printf 'address cms\\nexit 0\\n' > "$tmp/src/alpha.EXEC"
+printf 'address cms\nexit 0\n' > "$tmp/src/alpha.EXEC"
 (
  cd "$tmp"
  git add src/alpha.EXEC
