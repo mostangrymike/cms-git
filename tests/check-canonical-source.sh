@@ -101,8 +101,17 @@ c="$root/src/GITC26.EXEC"
 old="$root/src/GITC23.EXEC"
 test -s "$c" && test -s "$old"
 grep -Fq "if mode='OBJECTS' | mode='OBJECTSRUN' then do" "$c"
-grep -Fq "'GITC23 G CHECK' max members" "$c"
-grep -Fq "'GITC23 G RUN' max members" "$c"
+grep -Fq "signal objectpath" "$c"
+grep -Fq "objs.i=obj.i" "$c"
+grep -Fq "limit=max" "$c"
+grep -Fq "objectpath:" "$c"
+grep -Fq "'GITP21 G' objs.i limit 'CHECK'" "$c"
+grep -Fq "'GITP21 G' obj limit" "$c"
+grep -Fq "'GITCLN SCRATCH'" "$c"
+if grep -Fq "'GITC23 G " "$c"; then
+ echo 'FAIL: M206 retained external M203 dispatch' >&2
+ exit 1
+fi
 grep -Fq "if count<2 | count>8 then exit 4" "$c"
 grep -Fq "if obj.i<1 | obj.i>7736 then exit 4" "$c"
 grep -Fq "if obj.i=obj.j then exit 4" "$c"
