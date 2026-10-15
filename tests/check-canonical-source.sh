@@ -92,6 +92,30 @@ echo 'LIVEPLAN SYNTHETIC POSITIVE AND NEGATIVE FIXTURES PASS'
 exit $?
 fi
 
+# Isolated M206 explicit-object compatibility route: host source guard only.
+if [ "${1:-}" = "M206BRIDGE" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+c="$root/src/GITC26.EXEC"
+old="$root/src/GITC23.EXEC"
+test -s "$c" && test -s "$old"
+grep -Fq "if mode='OBJECTS' | mode='OBJECTSRUN' then do" "$c"
+grep -Fq "'GITC23 G CHECK' max members" "$c"
+grep -Fq "'GITC23 G RUN' max members" "$c"
+grep -Fq "if count<2 | count>8 then exit 4" "$c"
+grep -Fq "if obj.i<1 | obj.i>7736 then exit 4" "$c"
+grep -Fq "if obj.i=obj.j then exit 4" "$c"
+grep -Fq "M206 OBJECTS AUTHENTICATION PASS" "$c"
+grep -Fq "if fm\\='G' | (mode\\='CHECK' & mode\\='RUN')" "$c"
+grep -Fq "M206 STRATIFIED FULL SHA CLEAN PASS" "$c"
+grep -Fq "M203 BOUNDED FULL SHA CLEAN PASS" "$old"
+awk 'length($0)>80 {bad=1} END {exit bad}' "$c"
+echo 'M206 EXPLICIT ROUTE SOURCE GUARDS PASS (CMS UNVERIFIED)'
+)
+exit $?
+fi
+
 # Independent native C89 staging integration test retained verbatim.
 if [ "${1:-}" = "NATIVE" ]; then
 (
