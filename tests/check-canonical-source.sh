@@ -78,10 +78,10 @@ grep -F "SOURCE src/ALPHA.EXEC FAMILY OTHER TOKEN_CALLERS 1 SIZE_BYTES 19 SHA256
 grep -F "SOURCE src/BETA.EXEC FAMILY OTHER TOKEN_CALLERS 0 SIZE_BYTES 19 SHA256 $digest" "$tmp/report"
 grep -F 'CMS SOURCE INVENTORY COMPLETE 3' "$tmp/report"
 grep -F 'NOT DELETION AUTHORIZATION' "$tmp/report"
-printf 'address cms\nexit 0\n' > "$tmp/src/alpha.EXEC"
+printf '/* same CMS stem, different source type */\n' > "$tmp/src/ALPHA.C"
 (
  cd "$tmp"
- git add src/alpha.EXEC
+ git add src/ALPHA.C
  if python3 scripts/restore-cms-exec.py LIVEPLAN > "$tmp/negative" 2>&1; then
   echo 'FAIL: ambiguous CMS source stem accepted' >&2
   exit 1
