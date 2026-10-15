@@ -50,6 +50,44 @@ PY
     exit $?
 fi
 
+# Exercise the full LIVEPLAN inventory with a temporary synthetic Git checkout.
+# Never touch production src/, disks, or tracked test fixtures.
+if [ "${1:-}" = "LIVEPLANFIX" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+mkdir -p "$tmp/scripts" "$tmp/src"
+cp "$root/scripts/restore-cms-exec.py" "$tmp/scripts/"
+printf 'address cms\\nexit 0\\n' > "$tmp/src/ALPHA.EXEC"
+cp "$tmp/src/ALPHA.EXEC" "$tmp/src/BETA.EXEC"
+printf 'address cms\\nexit 4\\n' > "$tmp/src/GAMMA.EXEC"
+(
+ cd "$tmp"
+ git init -q
+ git add src/ALPHA.EXEC src/BETA.EXEC src/GAMMA.EXEC
+ python3 scripts/restore-cms-exec.py LIVEPLAN > "$tmp/report"
+)
+grep -F 'CMS SOURCE CONSOLIDATION INVENTORY 3' "$tmp/report"
+grep -F 'EXACT SOURCE DUPLICATE src/ALPHA.EXEC src/BETA.EXEC' "$tmp/report"
+grep -F 'EXACT DUPLICATE GROUPS 1 FILES 2' "$tmp/report"
+grep -F 'CMS SOURCE INVENTORY COMPLETE 3' "$tmp/report"
+grep -F 'NOT DELETION AUTHORIZATION' "$tmp/report"
+printf 'address cms\\nexit 0\\n' > "$tmp/src/alpha.EXEC"
+(
+ cd "$tmp"
+ git add src/alpha.EXEC
+ if python3 scripts/restore-cms-exec.py LIVEPLAN > "$tmp/negative" 2>&1; then
+  echo 'FAIL: ambiguous CMS source stem accepted' >&2
+  exit 1
+ fi
+)
+echo 'LIVEPLAN SYNTHETIC POSITIVE AND NEGATIVE FIXTURES PASS'
+)
+exit $?
+fi
+
 # Independent native C89 staging integration test retained verbatim.
 if [ "${1:-}" = "NATIVE" ]; then
 (
