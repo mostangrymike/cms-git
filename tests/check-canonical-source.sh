@@ -73,7 +73,7 @@ grep -F 'CMS SOURCE CONSOLIDATION INVENTORY 3' "$tmp/report"
 grep -F 'EXACT SOURCE DUPLICATE src/ALPHA.EXEC src/BETA.EXEC' "$tmp/report"
 grep -F 'EXACT DUPLICATE GROUPS 1 FILES 2' "$tmp/report"
 grep -F 'SOURCE_CALLER src/ALPHA.EXEC FROM src/GAMMA.EXEC' "$tmp/report"
-digest=$(sha256sum "$tmp/src/ALPHA.EXEC" | cut -d ' ' -f 1)
+digest=$(python3 -c 'import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$tmp/src/ALPHA.EXEC")
 grep -F "SOURCE src/ALPHA.EXEC FAMILY OTHER TOKEN_CALLERS 1 SIZE_BYTES 19 SHA256 $digest" "$tmp/report"
 grep -F "SOURCE src/BETA.EXEC FAMILY OTHER TOKEN_CALLERS 0 SIZE_BYTES 19 SHA256 $digest" "$tmp/report"
 grep -F 'CMS SOURCE INVENTORY COMPLETE 3' "$tmp/report"
