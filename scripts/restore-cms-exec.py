@@ -178,7 +178,9 @@ def consolidation_inventory():
         totals[family][1] += size
         unreferenced += not callers[path]
         print("SOURCE", path, "FAMILY", family, "TOKEN_CALLERS",
-              len(callers[path]), "SIZE_BYTES", size)
+              len(callers[path]), "SIZE_BYTES", size, "SHA256", digest)
+        for caller in sorted(callers[path]):
+            print("SOURCE_CALLER", path, "FROM", caller)
     for family in ("MILESTONE", "GIT", "OTHER"):
         count, size = totals[family]
         print("FAMILY", family, "FILES", count, "BYTES", size)
@@ -189,6 +191,7 @@ def consolidation_inventory():
         print("EXACT SOURCE DUPLICATE", " ".join(group))
     print("EXACT DUPLICATE GROUPS", len(exact_groups),
           "FILES", sum(len(group) for group in exact_groups))
+    print("NOTE SOURCE_CALLER ENTRIES ARE LEXICAL EVIDENCE, NOT CALL PROOF")
     print("NOTE DUPLICATE SOURCE BYTES DO NOT AUTHORIZE FILE DELETION")
     print("ZERO OBSERVED TOKEN CALLERS", unreferenced,
           "NOT DELETION AUTHORIZATION")
