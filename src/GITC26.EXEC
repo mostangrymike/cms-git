@@ -1,6 +1,28 @@
 /* M206: stratified index sample, full SHA with exact cleanup. */
 address cms
 parse upper arg fm mode max requested extra
+/* New OBJECTS route is isolated; CHECK/RUN stay byte-exact below. */
+if mode='OBJECTS' then do
+ if fm\='G' | datatype(max,'W')\=1 then exit 4
+ if max<1 | max>64 then exit 4
+ members=strip(requested ' ' extra)
+ count=words(members)
+ if count<2 | count>8 then exit 4
+ drop obj.
+ do i=1 to count
+  obj.i=word(members,i)
+  if datatype(obj.i,'W')\=1 then exit 4
+  if obj.i<1 | obj.i>7736 then exit 4
+  do j=1 to i-1
+   if obj.i=obj.j then exit 4
+  end
+ end
+ /* Delegate target-proven explicit-object semantics until CMS gate. */
+ 'GITC23 G CHECK' max members
+ if rc\=0 then exit 8
+ say 'M206 OBJECTS PREFLIGHT PASS' count
+ exit 0
+end
 if fm\='G' | (mode\='CHECK' & mode\='RUN') then exit 4
 if extra\='' then exit 4
 if datatype(max,'W')\=1 then exit 4
