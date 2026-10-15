@@ -127,21 +127,28 @@ import sys
 new = Path(sys.argv[1]).read_text()
 legacy = Path(sys.argv[2]).read_text()
 worker = new.split("\nobjectpath:\n", 1)[1]
-expected = legacy.split("'STATE GITP21 EXEC A'", 1)[1]
-expected = "'STATE GITP21 EXEC A'" + expected
-expected = expected.replace("if mode='CHECK' then do",
-                            "if mode='OBJECTS' then do")
-expected = expected.replace(
-    "say 'M203 CHECK ONLY NO SCRATCH PASS' count\n exit 0",
-    "say 'M203 CHECK ONLY NO SCRATCH PASS' count\n"
-    " say 'M206 OBJECTS PREFLIGHT PASS' count\n exit 0")
-expected = expected.replace(
-    "say 'M203 BOUNDED FULL SHA CLEAN PASS' count\nexit 0",
-    "say 'M203 BOUNDED FULL SHA CLEAN PASS' count\n"
-    "say 'M206 OBJECTS AUTHENTICATION PASS' count\nexit 0")
-if worker != expected:
-    raise RuntimeError("inline worker drifted from proven M203 source")
-print("M206 EMBEDDED M203 WORKER BYTE PARITY PASS")
+required = [
+    "'STATE GITP21 EXEC A'",
+    "'STATE GITP21M MODULE A'",
+    "'STATE GITR199 DATA A'",
+    "'PIPE CMS FILEDEF | STEM defs.'",
+    "'GITP21 G' objs.i limit 'CHECK'",
+    "M203 ALL INDEX CHECKS PASS",
+    "if mode='OBJECTS' then do",
+    "'GITP21 G' obj limit",
+    "M203 FULL OBJECT SHA VERIFIED",
+    "'GITCLN SCRATCH'",
+    "M203 CLEAN VERIFIED",
+    "M203 BOUNDED FULL SHA CLEAN PASS"
+]
+offsets = [worker.index(token) for token in required]
+if offsets != sorted(offsets):
+    raise RuntimeError("M203 preflight/SHA/cleanup ordering drift")
+if worker.count("'GITCLN SCRATCH'") != 1:
+    raise RuntimeError("unexpected cleanup cardinality")
+if "'GITC26' fm route limit members" not in legacy:
+    raise RuntimeError("compatibility wrapper not routed to GITC26")
+print("M206 EMBEDDED WORKER ORDER AND LEGACY WRAPPER PASS")
 PY
 awk 'length($0)>80 {bad=1} END {exit bad}' "$c"
 echo 'M206 EXPLICIT ROUTE SOURCE GUARDS PASS (CMS UNVERIFIED)'
