@@ -17,19 +17,13 @@ if mode='OBJECTS' | mode='OBJECTSRUN' then do
    if obj.i=obj.j then exit 4
   end
  end
- /* Delegate target-proven explicit-object semantics until CMS gate. */
- if mode='OBJECTS' then do
-  'GITC23 G CHECK' max members
-  if rc\=0 then exit 8
-  say 'M206 OBJECTS PREFLIGHT PASS' count
+ /* Keep the M203 object list and limit bindings exact. */
+ drop objs.
+ do i=1 to count
+  objs.i=obj.i
  end
- else do
-  /* M203 RUN already performs full preflight before any scratch. */
-  'GITC23 G RUN' max members
-  if rc\=0 then exit 8
-  say 'M206 OBJECTS AUTHENTICATION PASS' count
- end
- exit 0
+ limit=max
+ signal objectpath
 end
 if fm\='G' | (mode\='CHECK' & mode\='RUN') then exit 4
 if extra\='' then exit 4
@@ -129,4 +123,89 @@ do i=1 to count
  say 'M206 SCRATCH CLEAN VERIFIED' i word(span.i,1)
 end
 say 'M206 STRATIFIED FULL SHA CLEAN PASS' count
+exit 0
+
+/* Inline original M203 run path; GITC23 remains rollback. */
+objectpath:
+'STATE GITP21 EXEC A'
+if rc\=0 then exit 8
+'STATE GITP21M MODULE A'
+if rc\=0 then exit 8
+'STATE GITB9 EXEC A'
+if rc\=0 then exit 8
+'STATE GITBX9 MODULE A'
+if rc\=0 then exit 8
+'STATE GITVO7M MODULE A'
+if rc\=0 then exit 8
+'STATE GITCLN EXEC A'
+if rc\=0 then exit 8
+'STATE GITVRAW DATA A'
+if rc\=28 then do
+ say 'M203 OLD SCRATCH EXISTS OR STATE UNKNOWN'
+ exit 8
+end
+'STATE GITR199 DATA A'
+if rc\=28 then do
+ say 'M203 CURRENT SCRATCH EXISTS OR STATE UNKNOWN'
+ exit 8
+end
+drop defs.
+defs.0=0
+'PIPE CMS FILEDEF | STEM defs.'
+if rc\=0 then exit 8
+do i=1 to defs.0
+ name=word(translate(defs.i),1)
+ if name='IDXIN' | name='OBJIN' then do
+  say 'M203 CALLER FILEDEF CONFLICT'
+  exit 8
+ end
+end
+say 'M203 BOUNDED INDEX PREFLIGHT BEGIN' count
+do i=1 to count
+ say 'M203 INDEX CHECK BEGIN' i objs.i
+ 'GITP21 G' objs.i limit 'CHECK'
+ c=rc
+ if c\=0 then do
+  say 'M203 INDEX PREFLIGHT FAIL' i objs.i c
+  exit 8
+ end
+ say 'M203 INDEX CHECK PASS' i objs.i
+end
+say 'M203 ALL INDEX CHECKS PASS' count
+if mode='OBJECTS' then do
+ say 'M203 CHECK ONLY NO SCRATCH PASS' count
+ say 'M206 OBJECTS PREFLIGHT PASS' count
+ exit 0
+end
+do i=1 to count
+ obj=objs.i
+ say 'M203 FULL OBJECT SHA BEGIN' i obj
+ 'STATE GITR199 DATA A'
+ if rc\=28 then do
+  say 'M203 SCRATCH COLLISION BEFORE OBJECT' obj
+  exit 8
+ end
+ 'GITP21 G' obj limit
+ s=rc
+ if s\=0 then do
+  say 'M203 SHA GATE FAIL SCRATCH PRESERVED' i obj s
+  exit 8
+ end
+ say 'M203 FULL OBJECT SHA VERIFIED' i obj
+ /* GITCLN is exact A1 whitelist. Old GITVRAW is absent. */
+ 'GITCLN SCRATCH'
+ c=rc
+ if c\=0 then do
+  say 'M203 CLEANUP FAILED STOP' i obj c
+  exit 8
+ end
+ 'STATE GITR199 DATA A'
+ if rc\=28 then do
+  say 'M203 SCRATCH REMOVAL NOT VERIFIED' obj
+  exit 8
+ end
+ say 'M203 CLEAN VERIFIED' i obj
+end
+say 'M203 BOUNDED FULL SHA CLEAN PASS' count
+say 'M206 OBJECTS AUTHENTICATION PASS' count
 exit 0
