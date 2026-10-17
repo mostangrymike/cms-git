@@ -1,4 +1,4 @@
-"""Explicit live source download of the known command helper, checked against local source."""
+"""Explicit live native source backup, optionally checked against exact local source."""
 import argparse
 import asyncio
 from datetime import timedelta
@@ -27,6 +27,7 @@ async def validate(args):
             assert {t.name for t in (await client.list_tools()).tools}==EXPECTED
             try:
                 for stage,tool,params in [('connect','zvm_connect',{}),
+                    ('initial_screen','zvm_screen',{'wait_output':True,'timeout':10}),
                     ('login','zvm_login',{}),('startup','zvm_startup',{'verify_cms':True}),
                     ('download','zvm_download',{'filename':args.filename,'filetype':args.filetype,'filemode':args.filemode,
                                                'create_runner':args.create_reader,'timeout':300})]:
@@ -43,15 +44,23 @@ async def validate(args):
                     if actual!=expected:
                         persist()
                         return evidence
+                elif args.snapshot_only:
+                    expected=actual
                 else:
-                    expected=b''.join(line.ljust(80).encode('cp037') for line in server.with_name('ZMCPRUN.EXEC').read_text(encoding='ascii').splitlines())
-                    assert actual==expected,'Native downloaded helper differs from known local source'
+                    source=args.expected_source or server.with_name('ZMCPRUN.EXEC')
+                    lines=source.read_text(encoding='ascii').splitlines()
+                    assert lines and all(len(line)<=80 for line in lines),'Expected source must fit fixed-80 records'
+                    expected=b''.join(line.ljust(80).encode('cp037') for line in lines)
+                    assert actual==expected,'Native downloaded source differs from exact local source'
                 manifest=json.loads(Path(result['manifest']).read_text())
                 assert manifest['cms']['recfm']=='F' and manifest['cms']['lrecl']==80
                 assert manifest['sha256']==hashlib.sha256(expected).hexdigest()
                 assert manifest['record_lengths']==[80]*(len(expected)//80)
                 assert all(step.get('cms_rc',0)==0 for step in manifest['verification'])
-                evidence['known_source_verified']=True;persist()
+                evidence['native_snapshot_verified']=True
+                evidence['known_source_verified']=not args.snapshot_only
+                evidence['snapshot_only']=args.snapshot_only
+                persist()
             finally:
                 evidence['disconnect']=content(await client.call_tool('zvm_disconnect',{}));persist()
     return evidence
@@ -69,10 +78,13 @@ if __name__=='__main__':
     p.add_argument('--filename',default='ZM537EF1')
     p.add_argument('--filetype',default='EXEC')
     p.add_argument('--filemode',default='A1')
-    p.add_argument('--expected-native',type=Path)
+    expected=p.add_mutually_exclusive_group()
+    expected.add_argument('--expected-native',type=Path)
+    expected.add_argument('--expected-source',type=Path,help='Exact ASCII source for fixed-80 native comparison')
+    expected.add_argument('--snapshot-only',action='store_true',help='Verify native backup integrity without claiming equality to a local candidate')
     args=p.parse_args()
     if args.create_reader and args.reader_name:p.error('Select new-reader creation OR existing-reader reuse')
     e=asyncio.run(validate(args))
-    passed=(e.get('known_source_verified',False) or e.get('candidate_readback_equal',False)) and e.get('download',{}).get('download_complete',False)
+    passed=e.get('native_snapshot_verified',False) and e.get('download',{}).get('download_complete',False)
     print(json.dumps({'passed':passed,'disconnect':e.get('disconnect')}),flush=True)
     raise SystemExit(0 if passed else 1)

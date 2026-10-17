@@ -508,7 +508,7 @@ unerased. The corrected padding comparison has offline coverage; the file was
 not uploaded again because that target already exists.
 
 The main Git project is `mostangrymike/ibm-sandbox`; its handoff is
-`../CHAT_STATE.md`. GitHub remains canonical. Codex CLI can replace manual
+`../../CHAT_STATE.md`. GitHub remains canonical. Codex CLI can replace manual
 web-chat editing/testing/transfer handoffs with direct local work and verified
 MCP operations as those capabilities become ready and authorized. Protected
 production stage/index, modules and disks remain unchanged by tooling demos.
@@ -545,3 +545,28 @@ fail-stop behavior, not qualification of an executor (none exists).
 checks the actual CLI's full matrix. The isolated distribution build runs it and
 retains `rehearsal-evidence.json`; CI uploads that report with the source archive.
 No additional MCP tool, capability or terminal connection is introduced.
+
+## Existing G-disk linkage, not initialization
+
+The canonical [M173 runbook](../../docs/M173_PERSISTENT_DISK_RUNBOOK.md) and
+[directory plan](../../docs/M173_DIRECTORY_CHANGE_PLAN.md) identify the existing
+G disk as MAINT/0600, label GIT600, 3390/1600 cylinders, 4096-byte CMS blocks,
+VMCOM1 / real 0127, starting at cylinder 6000 (ending 7599). It already contains
+the protected M173NET STAGE and M174NET INDEX generation. Historical FORMAT and
+import instructions are not a reattachment procedure: never repeat them.
+
+An absent G row in QUERY DISK does not establish whether virtual 0600 is absent
+or merely not accessed. The documented first checks are CP QUERY VIRTUAL DASD,
+CP QUERY MDISK 0600 LOCATION and QUERY DISK. The historical own-minidisk
+`CP LINK * 0600 0600 W` was conditional on 0600 being absent, exact directory
+identity and no conflicting/overlapping fullpack writer. It is not an automatic
+repair command. Verify the current attachment before selecting an authorized
+CMS ACCESS operation; never release an unrelated G or change directory/DASD.
+The overlapping PMAINT/0141 fullpack must not be linked for writes.
+
+The command bridge remembers a bounded history of fully verified captures for
+the current terminal only, so several completed short commands can remain on
+the screen. Unknown or incomplete capture frames still block new input; the
+history is discarded on disconnect. The source download validator supports
+`--snapshot-only` for a verified native backup without claiming it matches the
+candidate, and `--expected-source` for an exact local fixed-80 source comparison.

@@ -170,6 +170,44 @@ class CommandTests(unittest.TestCase):
         self.assertFalse(result["output_complete"])
         self.assertFalse(result["cms_command_complete"])
         self.assertTrue(result["snapshots"])
+        self.assertEqual(list(s.completed_capture_tokens), [])
+
+    def test_older_completed_frames_do_not_block_later_short_commands(self):
+        s, fake = self.session(records=[])
+        s.runner.name = 'ZMABCDEF'
+        s.runner.verified = True
+        first = s.runner.run('STATE FIRST EXEC A1')
+        second = s.runner.run('STATE SECOND EXEC A1')
+        self.assertTrue(first['ok'], first)
+        self.assertTrue(second['ok'], second)
+        # The real CMS console can retain an older DONE frame as well as the
+        # latest completed response. A third request must not reject that page.
+        fake.rows[4] = ('ZM1 ' + first['request_id'] + ' Z 1 DONE').ljust(80)
+        third = s.runner.run('STATE THIRD EXEC A1')
+        self.assertTrue(third['ok'], third)
+        self.assertEqual(list(s.completed_capture_tokens),
+                         [first['request_id'], second['request_id'], third['request_id']])
+
+    def test_unknown_frame_still_refuses_input_despite_completed_history(self):
+        s, fake = self.session(records=[])
+        s.runner.name = 'ZMABCDEF'
+        s.runner.verified = True
+        self.assertTrue(s.runner.run('QUERY DISK')['ok'])
+        fake.rows[4] = 'ZM1 0000000000000000 B 0 0 0 0 1'.ljust(80)
+        before = len([call for call in fake.calls if call.startswith('String(')])
+        result = s.runner.run('QUERY DISK')
+        self.assertFalse(result['ok'])
+        self.assertIn('Unresolved runner output', result['message'])
+        self.assertEqual(before, len([call for call in fake.calls if call.startswith('String(')]))
+
+    def test_completion_history_is_bounded_and_disconnect_scoped(self):
+        s, fake = self.session()
+        tokens = [f'{number:016X}' for number in range(129)]
+        s.completed_capture_tokens.extend(tokens)
+        self.assertEqual(len(s.completed_capture_tokens), 128)
+        self.assertNotIn(tokens[0], s.completed_capture_tokens)
+        s.disconnect()
+        self.assertEqual(list(s.completed_capture_tokens), [])
 
     def test_encoded_credentials_are_redacted_from_screens_and_records(self):
         s,fake=self.session(records=["TESTUSER".encode("cp037")])

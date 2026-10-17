@@ -56,9 +56,10 @@ class RunnerBridge:
         if screen["state"] != "cms_ready" or not self.input_field(screen):
             raise CaptureError("Establish CMS Ready and an empty input field before command execution")
         # Never mistake an interrupted runner's old Ready prompt for a shell.
+        completed = {*s.completed_capture_tokens, self.completed_token, s.completed_capture_token}
         for row in screen["rows"]:
             match = re.search(r"ZM1 ([0-9A-F]{16}) [BRDZF] ", row)
-            if match and match[1] not in {self.completed_token, self.session.completed_capture_token}:
+            if match and match[1] not in completed:
                 raise CaptureError("Unresolved runner output is present; refusing a new command")
         return screen
 
@@ -217,6 +218,7 @@ class RunnerBridge:
                                     (frame_rows and max(ready_rows) > max(frame_rows)))):
                                 self.completed_token = token
                                 s.completed_capture_token = token
+                                s.completed_capture_tokens.append(token)
                                 s.capture_token = None
                                 return {"command": command, "request_id": token, "runner": self.name,
                                         **capture.result(s.redact), "cms_command_complete": True,

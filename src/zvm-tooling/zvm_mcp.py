@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+from collections import deque
 import atexit
 import logging
 import queue
@@ -216,6 +217,9 @@ class Session:
         self.allow_create_only_upload = allow_create_only_upload
         self.allow_query_links = allow_query_links
         self.completed_capture_token = None
+        # Completed frames can remain visible across several short commands.
+        # Only this live terminal's fully verified captures enter the history.
+        self.completed_capture_tokens = deque(maxlen=128)
         self.capture_token = None
         self._protocol_rows = []
         from zvm_commands import RunnerBridge
@@ -312,6 +316,7 @@ class Session:
         self.downloader.reader.verified = False
         self.downloader.reader.completed_token = None
         self.completed_capture_token = None
+        self.completed_capture_tokens.clear()
         if self.em is not None:
             try:
                 # Closing our dedicated process only; never send LOGOFF or Clear.
