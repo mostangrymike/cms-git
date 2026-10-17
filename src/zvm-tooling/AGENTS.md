@@ -67,6 +67,13 @@
   tests use sanitized fixtures under `fixtures/`; do not restore dependencies on
   machine-local capture files. Build artifacts and source distribution hashes
   do not establish CMS target qualification or authorize uploads/builds.
+- `zvm_rehearsal.py` is an offline symbolic fail-stop model, not an executor.
+  Revalidate the exact operation hash and all bound local source artifacts first.
+  Never turn assumed_success checkpoints into host qualification claims. Preserve
+  execution blockers and false execution/host/replacement-safety flags. Failure
+  scenarios must not continue, retry, restore or clean up; uncertain/partial target
+  and output states must remain explicit. No host adapter or new capability is
+  authorized by rehearsal success.
 - Interrupted provisioning of ZM6360C6 EXEC A was canceled with one Clear on a
   verified blank unformatted screen. That candidate remains unverified and may
   be partial: never execute, overwrite or erase it without specific approval.

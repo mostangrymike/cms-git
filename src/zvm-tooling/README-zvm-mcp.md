@@ -512,3 +512,36 @@ The main Git project is `mostangrymike/ibm-sandbox`; its handoff is
 web-chat editing/testing/transfer handoffs with direct local work and verified
 MCP operations as those capabilities become ready and authorized. Protected
 production stage/index, modules and disks remain unchanged by tooling demos.
+
+## Offline transaction failure rehearsal
+
+`zvm_rehearsal.py` models the proposed replacement/build stop boundaries without
+implementing any host operation. It accepts only a complete local operation
+review for a non-protected A1 source, pinned by exact SHA-256. It revalidates the
+source plan, snapshot, baseline, working text, candidate, diff and operation
+receipt before producing a read-only JSON report on stdout:
+
+```sh
+python -B zvm_rehearsal.py --root /absolute/local/sources \
+  --edit-id edit-<24-hex> --operation-id operation-<24-hex> \
+  --operation-sha256 <64-hex> --all-faults
+```
+
+Omit `--all-faults` for the synthetic success path, or use `--fault before_write`,
+`--fault replacement_transfer`, `--fault candidate_readback`,
+`--fault step:<name>:rc`, or another exact checkpoint in the full matrix.
+These are synthetic checks, not CMS commands. Faults stop at that boundary;
+no later step, retry, automatic restore or cleanup is modeled. Reports distinguish
+an unchanged target, uncertain/partial transfer, unverified candidate and verified
+candidate; possibly created outputs remain at risk until their modeled check.
+
+Every successful check is labeled `assumed_success`. A completed rehearsal does
+not verify writer exclusion, real command semantics, output completeness, native
+backup or rollback. All execution/host-operation/replacement-safety claims remain
+false, and the original host blockers are retained. This is a model of required
+fail-stop behavior, not qualification of an executor (none exists).
+
+`python -B validate_zvm_rehearsal.py` creates a disposable local fixture and
+checks the actual CLI's full matrix. The isolated distribution build runs it and
+retains `rehearsal-evidence.json`; CI uploads that report with the source archive.
+No additional MCP tool, capability or terminal connection is introduced.

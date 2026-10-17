@@ -94,6 +94,18 @@ optional `--recipe-file`, and an optional local `--credential-file` for redactio
 
 ## Proposed implementation gates
 
+Gate 2 now has a local symbolic failure rehearsal in `zvm_rehearsal.py`, with
+strict revalidation of the pinned operation review and all source artifacts.
+The standalone validator checks twenty scenarios for a two-step synthetic recipe:
+one assumed-success path and nineteen exact fail-stop boundaries. It exercises
+writer/baseline/backup/input/output preconditions, partial transfer, candidate
+readback, each step's dispatch/RC/markers/output checks, and final Ready/inventory.
+Every modeled failure retains uncertainty and stops without retry, restore,
+cleanup or later-step dispatch. Reports preserve all host authorization blockers.
+This supplies an offline specification and regression gate only; there is no
+replacement/build adapter under test, and real fault/recovery qualification
+remains outstanding. No production transaction choices have been inferred.
+
 1. Resolve the exact transaction above and produce a local review-only operation
    manifest. Refuse unspecified target names, commands, outputs or policies.
 2. Validate syntax, widths, input/output collisions, hashes and capability flags

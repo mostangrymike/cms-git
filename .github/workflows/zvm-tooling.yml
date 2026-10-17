@@ -61,4 +61,5 @@ jobs:
             src/zvm-tooling/builds/**/build-report.json
             src/zvm-tooling/builds/**/local-review-evidence.json
             src/zvm-tooling/builds/**/operation-review-evidence.json
+            src/zvm-tooling/builds/**/rehearsal-evidence.json
             src/zvm-tooling/builds/**/zvm-tooling.tar.gz

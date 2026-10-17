@@ -171,6 +171,28 @@ def review_recipe(recipe, target, snapshot, base_hash):
             'writer_exclusion': writer, 'rollback': rollback}, sorted(set(missing))
 
 
+def operation_receipt(source, edit_id, plan_id, plan_sha256, recipe, worktree):
+    """Construct the review consistently for creation and later local revalidation."""
+    cms = source['expected_original']['cms']
+    target = literal_file(' '.join(cms[key] for key in ('filename', 'filetype', 'filemode')))
+    normalized, missing = review_recipe(recipe, target, source['source_snapshot'], source['expected_original']['sha256'])
+    blockers = ['execution_not_implemented', 'exact_target_authorization_required',
+                'writer_exclusion_not_verified', 'fresh_host_baseline_required',
+                'rollback_not_qualified', 'command_semantics_not_verified',
+                'output_inventory_not_verified']
+    if cms['filemode'] != 'A1' or re.fullmatch(r'Z[MV][0-9A-F]{6}', cms['filename']):
+        blockers.append('protected_source_target')
+    return {'schema': 'zvm-cms-operation-review-v1', 'edit_id': edit_id,
+        'source_plan_id': plan_id, 'source_plan_sha256': plan_sha256,
+        'source_snapshot': source['source_snapshot'], 'target': target,
+        'expected_original': source['expected_original'], 'candidate': source['proposed'],
+        'recipe': normalized, 'missing_inputs': missing, 'blocking_conditions': blockers,
+        'review_complete': not missing, 'execution_authorized': False,
+        'execution_implemented': False, 'host_operations_performed': False,
+        'replacement_safe': False, 'writer_exclusion_verified': False,
+        'input_hashes_host_verified': False, 'git_worktree': str(worktree)}
+
+
 class OperationPlans:
     def __init__(self, session):
         self.session = session
@@ -180,27 +202,10 @@ class OperationPlans:
             directory = None
             try:
                 root, worktree, edit, source = review_source(self.session.edits, edit_id, plan_id, plan_sha256)
-                cms = source['expected_original']['cms']
-                target = literal_file(' '.join(cms[key] for key in ('filename', 'filetype', 'filemode')))
                 if len(canonical(recipe)) > 65536:
                     raise ValueError('Recipe exceeds 64 KiB')
                 self.session.edits.reject_credentials(canonical(recipe).decode())
-                normalized, missing = review_recipe(recipe, target, source['source_snapshot'], source['expected_original']['sha256'])
-                blockers = ['execution_not_implemented', 'exact_target_authorization_required',
-                            'writer_exclusion_not_verified', 'fresh_host_baseline_required',
-                            'rollback_not_qualified', 'command_semantics_not_verified',
-                            'output_inventory_not_verified']
-                if cms['filemode'] != 'A1' or re.fullmatch(r'Z[MV][0-9A-F]{6}', cms['filename']):
-                    blockers.append('protected_source_target')
-                receipt = {'schema': 'zvm-cms-operation-review-v1', 'edit_id': edit_id,
-                    'source_plan_id': plan_id, 'source_plan_sha256': plan_sha256,
-                    'source_snapshot': source['source_snapshot'], 'target': target,
-                    'expected_original': source['expected_original'], 'candidate': source['proposed'],
-                    'recipe': normalized, 'missing_inputs': missing, 'blocking_conditions': blockers,
-                    'review_complete': not missing, 'execution_authorized': False,
-                    'execution_implemented': False, 'host_operations_performed': False,
-                    'replacement_safe': False, 'writer_exclusion_verified': False,
-                    'input_hashes_host_verified': False, 'git_worktree': str(worktree)}
+                receipt = operation_receipt(source, edit_id, plan_id, plan_sha256, recipe, worktree)
                 operation_id = 'operation-' + secrets.token_hex(12)
                 destination = edit / operation_id
                 git_root_for(destination)
@@ -211,9 +216,9 @@ class OperationPlans:
                 if read_file(directory / 'operation.json', 2 * MAX_BYTES) != payload:
                     raise ValueError('Operation manifest readback failed')
                 return {'ok': True, 'operation_id': operation_id, 'operation_file': str(directory / 'operation.json'),
-                        'operation_sha256': sha(payload), 'target': target,
-                        'candidate_sha256': source['proposed']['sha256'], 'review_complete': not missing,
-                        'missing_inputs': missing, 'blocking_conditions': blockers,
+                        'operation_sha256': sha(payload), 'target': receipt['target'],
+                        'candidate_sha256': source['proposed']['sha256'], 'review_complete': receipt['review_complete'],
+                        'missing_inputs': receipt['missing_inputs'], 'blocking_conditions': receipt['blocking_conditions'],
                         'execution_authorized': False, 'execution_implemented': False,
                         'host_operations_performed': False, 'replacement_safe': False}
             except Exception as exc:

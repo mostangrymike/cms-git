@@ -22,13 +22,13 @@ SOURCE_FILES = (
     "AGENTS.md", ".gitignore", "README-zvm-mcp.md", "VALIDATION-zvm-mcp.md", "PIPELINE-READINESS.md",
     "requirements-zvm-mcp.txt", "ZMCPRUN.EXEC", "ZMCPGET.EXEC",
     "zvm_mcp.py", "zvm_capture.py", "zvm_commands.py", "zvm_credentials.py",
-    "zvm_download.py", "zvm_edit.py", "zvm_upload.py", "zvm_link_query.py", "zvm_operations.py",
+    "zvm_download.py", "zvm_edit.py", "zvm_upload.py", "zvm_link_query.py", "zvm_operations.py", "zvm_rehearsal.py",
     "diagnose_zvm_cms.py", "verify_codex_zvm.py", "build_zvm_tooling.py",
     "fixtures/README.md", "fixtures/terminal-screens.json",
     "ci/zvm-tooling.yml",
-) + tuple(f"validate_zvm_{name}.py" for name in ("mcp", "login", "commands", "download", "edit", "upload", "operations")) + tuple(
+) + tuple(f"validate_zvm_{name}.py" for name in ("mcp", "login", "commands", "download", "edit", "upload", "operations", "rehearsal")) + tuple(
     f"test_zvm_{name}.py" for name in
-    ("mcp", "login", "startup", "capture", "commands", "download", "edit", "upload", "link_query", "fixtures", "operations")
+    ("mcp", "login", "startup", "capture", "commands", "download", "edit", "upload", "link_query", "fixtures", "operations", "rehearsal")
 )
 
 UNIT_CHECK = """
@@ -161,6 +161,13 @@ def build(output_root, credential_file=None):
             if not operation.get('passed') or not all(operation.get('verification', {}).values()):
                 raise ValueError('Isolated operation review verification did not pass')
             report['operation_verification'] = operation['verification']
+            rehearsal = run_json(isolated, ['validate_zvm_rehearsal.py'])
+            if not rehearsal.get('passed') or not all(rehearsal.get('verification', {}).values()):
+                raise ValueError('Isolated transaction failure rehearsal did not pass')
+            with (directory / 'rehearsal-evidence.json').open('x') as output:
+                json.dump(rehearsal, output, indent=2)
+                output.write('\n')
+            checks['failure_rehearsal'] = {key: value for key, value in rehearsal.items() if key != 'suite'}
             # Temporary working files are intentionally discarded after the test;
             # the report retains verification results, not durable review links.
             report['temporary_review_workspace_retained'] = False

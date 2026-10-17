@@ -696,3 +696,32 @@ implicitly treating a generic continuation as production write authority.
   snapshot. Local s3270 4.5 passes; Linux qualification requires inspecting the
   follow-up matrix run, not assuming that a local pass proves compatibility.
 - No guest session, CMS command or CMS write was used for this correction.
+
+## 2026-10-16 offline failure-rehearsal implementation
+
+- Commit `86e1cba0cdbf7d1c73ef25ac147502f6ea510b58` passed both Ubuntu tooling
+  jobs in run `38996039265` (143 tests each; zero failures/errors/skips), and
+  native staging run `38996039236`. Both Linux archives matched the Mac archive
+  SHA-256 `d13d0dd493e74f9665ff5f3adddef8d5a19dabe7cc4588b2d9ac38608f872cb6`.
+  Local receipt: `zvm-ci-qualified-evidence.json`.
+- Added a standalone read-only symbolic transaction rehearsal. It pins the exact
+  operation manifest SHA-256 and reconstructs that receipt after revalidating the
+  source review, native snapshot, baseline, current working text, candidate and
+  diff. Noncanonical/tampered receipts, stale source artifacts, incomplete recipes,
+  protected targets, disabled local edits and symlink files are refused.
+- Shared operation receipt construction between the planner and revalidator;
+  the planner's existing schema, authority flags and blockers are unchanged.
+- The full two-step fixture matrix covers one synthetic success path and nineteen
+  injected failures. It models prewrite aborts, uncertain partial transfers,
+  unverified/verified candidate states, per-step stop boundaries, possible output
+  files and final-check failures. No failure continues or triggers automatic
+  recovery. Every successful checkpoint is an explicit synthetic assumption.
+- New unit tests cover every stop prefix, multistep dispatch ordering, uncertainty,
+  tampering/stale artifacts, no local artifact mutation, CLI JSON and secret-free
+  errors. A separate isolated validator exercises the CLI, checks the matrix and
+  retains all twenty traces in `rehearsal-evidence.json` during a package build.
+- Source inventory grows from 41 to 44 files. CI's reviewed template adds the
+  rehearsal report to retained artifacts. This entry records implementation scope,
+  not an unobserved remote result for the follow-up commit.
+- No host adapter, MCP capability, CMS session, source replacement, build/test
+  execution, retry, restore or scratch cleanup is added or performed.
