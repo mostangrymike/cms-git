@@ -44,6 +44,17 @@
   address validated by `zvm_link_query.py`; it must not provision CMS files. A
   production write still requires an operator-established single-writer/quiescence
   procedure.
+- `validate_zvm_gdisk.py` is a local, fixed MAINT/0600 diagnostic workflow using
+  link-observation authority. Its five queries cannot accept arbitrary commands.
+  Separate explicit `--access-existing-g` allows only ACCESS 600 G after exact
+  fresh geometry/current+directory extent, known volume-link set and unused-mode
+  checks. Never LINK, FORMAT, RELEASE, initialize or erase from this workflow.
+  Verify GIT600 metadata and protected stage/index presence afterward. This
+  changes CMS access, not production source authority; observations remain no lock.
+- Live G access was restored with that exact ACCESS workflow on 2026-10-16.
+  Native QUERY DISK verified GIT600/600/G/R/W/1600/3390/4096; both protected
+  stage/index STATE calls returned actual RC0. No LINK, FORMAT, import, erase or
+  protected-content write occurred. Evidence: zvm-gdisk-access-evidence.json.
 - Do not use LISTFILE (EXEC without authorization: it replaces CMS EXEC A.
 - Use one dedicated persistent s3270 process; serialize every terminal operation.
 - Never interpret keyboard unlock, a stale Ready prompt, or screen change as proof
@@ -144,7 +155,7 @@
   zvm-upload-native-qualified-evidence.json. Production replacement/build
   boundaries are specified in PIPELINE-READINESS.md; exact target, recipe and
   operator-established writer exclusion remain required.
-- Main project: mostangrymike/ibm-sandbox. Read ../CHAT_STATE.md and ../README.md
+- Main project: mostangrymike/ibm-sandbox. Read ../../CHAT_STATE.md and ../../README.md
   before resuming production work. Finish z/VM tooling first. GitHub is canonical.
   Codex CLI may perform direct local edits/tests/Git work and verified MCP actions;
   older web-chat manual handoff steps may be adapted to these capabilities.

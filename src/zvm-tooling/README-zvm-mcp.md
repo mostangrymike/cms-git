@@ -570,3 +570,27 @@ the screen. Unknown or incomplete capture frames still block new input; the
 history is discarded on disconnect. The source download validator supports
 `--snapshot-only` for a verified native backup without claiming it matches the
 candidate, and `--expected-source` for an exact local fixed-80 source comparison.
+
+`validate_zvm_gdisk.py --live --credential-file /owner-only/credentials.json
+--output zvm-gdisk-observation-evidence.json` captures five fixed diagnostics:
+virtual DASD, current 0600 location, MAINT/0600 directory location, real 0127
+volume links, and CMS QUERY DISK. No generic command tool is added. This local
+validator uses the explicit link-observation capability; normal MCP defaults
+and its fifteen-tool catalog are unchanged.
+
+The separate explicit `--access-existing-g` option may issue exactly
+`ACCESS 600 G`, never LINK, FORMAT, RELEASE, replacement or erasure. It refuses
+unless the fresh diagnostics show the exact documented current/directory extent,
+3390/1600-cylinder virtual geometry, unused G and 600, and the exact known
+16-link VMCOM1 baseline. It then source-verifies the existing read-only runner
+and captures QUERY DISK plus STATE for M173NET STAGE G1 and M174NET INDEX G1
+with native protocol integrity and actual return codes. This verifies access
+and file presence, not the complete protected files' content hashes. An access
+failure stops without recovery or another attempt. These observations are not
+writer exclusion and do not authorize any write to G or source replacement on A.
+
+The screen observer captures each MORE/HOLDING page before one Clear, does not
+repeat paging keys for unchanged output events, permits partial RUNNING pages
+to finish passively, and matches the command echo after geometry-preserving
+redaction. Startup also accepts fresh verified Ready arriving during the final
+field recheck without sending another startup input.

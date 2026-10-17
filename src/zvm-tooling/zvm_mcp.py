@@ -540,6 +540,13 @@ class Session:
                     check = self.snapshot()
                     snapshots.append(check)
                     target = [f for f in check["fields"] if not f["protected"]]
+                    if (check['state'] == 'cms_ready' and self.runner.input_field(check)
+                            and host_display(check) != host_display(current)):
+                        # CMS can reach Ready while we recheck a startup field.
+                        # Observe it without sending the now-unnecessary AID.
+                        return {'outcome': 'cms_ready_observed', 'screen': check,
+                                'actions': actions, 'snapshots': snapshots,
+                                'cms_command_complete': None}
                     if (check["state"] != state or check["cursor"] != {"row": 23, "column": 1, "protected": False}
                             or target != fields):
                         raise RuntimeError("Startup field changed before input; continuation aborted")

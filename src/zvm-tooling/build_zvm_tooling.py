@@ -26,7 +26,7 @@ SOURCE_FILES = (
     "diagnose_zvm_cms.py", "verify_codex_zvm.py", "build_zvm_tooling.py",
     "fixtures/README.md", "fixtures/terminal-screens.json",
     "ci/zvm-tooling.yml",
-) + tuple(f"validate_zvm_{name}.py" for name in ("mcp", "login", "commands", "download", "edit", "upload", "operations", "rehearsal")) + tuple(
+) + tuple(f"validate_zvm_{name}.py" for name in ("mcp", "login", "commands", "download", "edit", "upload", "operations", "rehearsal", "gdisk")) + tuple(
     f"test_zvm_{name}.py" for name in
     ("mcp", "login", "startup", "capture", "commands", "download", "edit", "upload", "link_query", "fixtures", "operations", "rehearsal")
 )

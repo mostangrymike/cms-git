@@ -725,3 +725,43 @@ implicitly treating a generic continuation as production write authority.
   not an unobserved remote result for the follow-up commit.
 - No host adapter, MCP capability, CMS session, source replacement, build/test
   execution, retry, restore or scratch cleanup is added or performed.
+
+## 2026-10-16 existing G attachment and direct-screen diagnostic qualification
+
+- Fixed direct-screen paging after a real virtual-DASD query reached MORE.
+  The observer now captures a changed host page before one Clear, never repeats
+  paging input for unchanged output events, and permits an incomplete RUNNING
+  page to finish without sending keys. A final page need not repeat the original
+  command echo; it must have fresh Ready below its output. Return codes are not
+  inferred from these observational diagnostic screens.
+- Corrected echo matching when the configured userid is masked in the fixed
+  directory query. Returned command/evidence remain redacted. Output rows now
+  exclude unrelated earlier console text and are retained across captured pages.
+- Added a regression for Ready arriving during startup's final field recheck:
+  it is observed without unnecessary Enter or BEGIN. Existing layout/provenance
+  checks and generic-input prohibition remain in place.
+- Actual fixed read-only inspection completed for virtual DASD, 0600 location,
+  its MAINT directory location, real 0127 volume links, and QUERY DISK. Both
+  location responses identify VMCOM1/0127 start6000 size1600; virtual 0600 is
+  already attached R/W. G is not accessed. The sixteen volume links match the
+  documented baseline and no PMAINT/0141 link appears. Evidence:
+  `zvm-gdisk-observation-evidence.json`. Do not self-LINK an already present 0600.
+- Added a separately explicit existing-filesystem ACCESS option guarded by that
+  exact identity/link baseline and unused G/600. It never LINKs, FORMATs, RELEASEs,
+  erases or replaces. Postchecks use the source-verified read-only runner, actual
+  RC and complete native output. Actual access results, if run, are retained
+  separately in `zvm-gdisk-access-evidence.json`; this entry alone claims no access.
+- The 45-file source package includes the fixed local validator. New regressions
+  cover all query choices, paging fragments/no repeated keys, redacted echoes,
+  startup races and rejection of mapping, volume-link and mode collisions. No new
+  MCP tool or default-enabled capability is introduced. Production replacement,
+  CMS build/test execution and automatic recovery remain unavailable.
+
+Actual follow-up access PASS: `ACCESS 600 G` restored the already attached
+filesystem without LINK, FORMAT or import. The verified native runner captured
+QUERY DISK with `GIT600 600 G R/W 1600 3390 4096`, and STATE for both
+`M173NET STAGE G1` and `M174NET INDEX G1` returned actual RC 0 with complete,
+integrity-verified output. This proves access and file presence, not full content
+hashes. The dedicated terminal disconnected normally. Source replacement,
+build/test execution, erasure and rollback were not performed. Durable local
+evidence: `zvm-gdisk-access-evidence.json`.

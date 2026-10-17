@@ -67,6 +67,21 @@ class StartupTests(unittest.TestCase):
         self.assertEqual(result["actions"], ["BEGIN", "Enter"])
         self.assertEqual([c for c in fake.calls if c.startswith("String")], ['String("BEGIN")'])
 
+    def test_ready_arriving_during_field_recheck_sends_no_startup_input(self):
+        s, fake = self.session()
+        original = fake.exec_command
+        def transition(action):
+            if action == b'MoveCursor(22,0)':
+                fake.rows = screen('Ready;')
+            return original(action)
+        fake.exec_command = transition
+        result = s.startup()
+        self.assertTrue(result['ok'], result)
+        self.assertEqual(result['outcome'], 'cms_ready_observed')
+        self.assertEqual(result['actions'], [])
+        self.assertNotIn('Enter', fake.calls)
+        self.assertFalse(any(call.startswith('String') for call in fake.calls))
+
     def test_unrelated_vm_read_refused(self):
         s, fake = self.session()
         fake.rows = screen("An application waiting for input", "VM READ")
