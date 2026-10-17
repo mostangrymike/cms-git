@@ -293,6 +293,11 @@ class SessionTests(unittest.TestCase):
         session = Session(factory=lambda: Emulator(app=PipeApp()))
         session.em = session.factory()
         try:
+            self.assertEqual(session.em.app.sp.args[1:],
+                             ["-model", "2", "-clear", "aidWait", "-clear", "trace"])
+            # Check effective safety settings, not just accepted CLI syntax.
+            self.assertEqual(session.em.exec_command(b"Set(aidWait)").data, [b"false"])
+            self.assertEqual(session.em.exec_command(b"Set(trace)").data, [b"false"])
             result = session.screen()
             self.assertTrue(result["ok"], result)
             self.assertFalse(result["screen"]["connected"])

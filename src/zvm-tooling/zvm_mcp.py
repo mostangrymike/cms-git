@@ -131,7 +131,9 @@ class PipeApp:
         if not executable:
             raise RuntimeError("s3270 not found on PATH")
         self.sp = subprocess.Popen(
-            [executable, "-model", "2", "-set", "aidWait=false", "-set", "trace=false"],
+            # -clear works on both distro 4.1 and newer 4.5 emulators;
+            # older versions reject assignment syntax in -set arguments.
+            [executable, "-model", "2", "-clear", "aidWait", "-clear", "trace"],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             bufsize=0,
         )

@@ -681,3 +681,18 @@ implicitly treating a generic continuation as production write authority.
 - This checkpoint is local. It does not assert a GitHub push, a completed Linux
   matrix run or a new full native staging CI result. Actual remote CI qualification
   follows publication and inspection of the exact committed revision.
+
+## 2026-10-16 published CI compatibility correction
+
+- Published checkpoint `f07fe210a4b13acf901b12447f3e844901d6571b` to canonical
+  `main`. The existing native staging workflow passed in run `38995811834`.
+- The new offline matrix run `38995811848` installed all dependencies and
+  verified workflow parity, but both Python jobs failed the real local emulator
+  test: Ubuntu's s3270 4.1 rejects `-set aidWait=false`. This was a launch-option
+  compatibility failure, not a CMS connection or a host qualification failure.
+- Replaced assignment syntax with portable `-clear aidWait -clear trace`.
+  The real offline emulator test now also asserts the launch arguments and
+  queries both effective settings as false before taking a disconnected
+  snapshot. Local s3270 4.5 passes; Linux qualification requires inspecting the
+  follow-up matrix run, not assuming that a local pass proves compatibility.
+- No guest session, CMS command or CMS write was used for this correction.
