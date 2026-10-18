@@ -238,7 +238,9 @@ longname=refs/tags/abcdefghijklmnopqrstuvwxyz
 for file in GITUPD.EXEC GITVREF.EXEC GITWT.EXEC; do
  rexx -c "$tmp/$file.rexx" /dev/null
  for name in refs/tags/v1.2 refs/tags/release/2026.10 \
-             refs/tags/with-underscore_1 refs/heads/main; do
+             refs/tags/with-underscore_1 refs/heads/main \
+             refs/heads/feature/x refs/heads/topic-1 \
+             refs/heads/under_score; do
   rexx "$tmp/$file.rexx" "$name" > "$tmp/result"
   actual=$(tail -n 1 "$tmp/result")
   if [ "$actual" != OK ]; then
@@ -247,7 +249,11 @@ for file in GITUPD.EXEC GITVREF.EXEC GITWT.EXEC; do
   fi
  done
  for name in refs/tags/.hidden refs/tags/a..b refs/tags/branch.lock \
-             'refs/tags/bad*' refs/tags/a//b refs/tags/a/ "$longname"; do
+             'refs/tags/bad*' refs/tags/a//b refs/tags/a/ "$longname" \
+             'refs/heads/bad|name' 'refs/heads/bad#name' \
+             refs/heads/.hidden refs/heads/a//b refs/heads/a/ \
+             refs/heads/main.lock 'refs/heads/bad name' \
+             refs/heads/a..b; do
   rexx "$tmp/$file.rexx" "$name" > "$tmp/result"
   actual=$(tail -n 1 "$tmp/result")
   if [ "$actual" != ERROR ]; then
@@ -256,7 +262,37 @@ for file in GITUPD.EXEC GITVREF.EXEC GITWT.EXEC; do
   fi
  done
 done
-echo 'M213 SOURCE-DERIVED REF2 VALIDATOR FIXTURES PASS 33'
+echo 'M213 SOURCE-DERIVED REF2 VALIDATOR FIXTURES PASS 66'
+)
+exit $?
+fi
+
+# Keep branch-name validation identical across REF2 readers and writers.
+if [ "${1:-}" = "M223" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M222
+python3 - "$root" <<'PY'
+from pathlib import Path
+import sys
+
+root=Path(sys.argv[1])
+blocks=[]
+for filename in ('GITUPD.EXEC','GITVREF.EXEC','GITWT.EXEC'):
+ source=(root/'src'/filename).read_text()
+ start=source.index("if left(vr,11)='refs/heads/' then do")
+ end=source.index("  return 'OK'\n end",start)+len("  return 'OK'\n end")
+ block=source[start:end]
+ for token in ("verify(name,refchars)\\=0", "pos('//',name)>0",
+               "right(part,5)='.lock'", "left(part,1)='.'"):
+  if token not in block:
+   raise SystemExit(f'{filename}: missing strict branch-ref rule {token!r}')
+ blocks.append(block)
+if len(set(blocks)) != 1:
+ raise SystemExit('branch-name validators differ across REF2 callers')
+print('M223 STRICT BRANCH REF VALIDATOR PARITY PASS 3')
+PY
 )
 exit $?
 fi

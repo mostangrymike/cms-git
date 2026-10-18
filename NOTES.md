@@ -15172,3 +15172,26 @@ current/noncurrent success, missing/stale source, destination collision, and
 write/readback failures. M222 through M208 tests and all 42 preserved
 host-source compilations, canonical/workflow guards, syntax/width, and diff
 checks pass locally. CMS remains unverified; commit and Actions are pending.
+
+
+M222 CI follow-up: full native host workflow 39153400972 passed on commit
+`889535f2d136680ffc5776a82ff9f6ed73a419c1`. Branch rename fixtures and the
+existing host regressions passed. CMS branch rename remains unverified.
+
+## 2026-10-18 — M223 strict branch ref validation
+
+Plan: use one strict branch-name rule in GITUPD, GITVREF, and GITWT; reject
+command delimiters and malformed path components; extend the source-derived
+fixtures; and add parity validation to CI.
+
+Assumption: restrict branch names to the CMS-safe ASCII alphabet
+`A-Z a-z 0-9 . _ / -`. This matches the current CMS command/capture framing
+and fixed ref handling; broader Git Unicode ref names remain unsupported.
+
+Progress: all three branch validators now use the same allowlist and component
+rules. Existing M213 source-derived cases cover valid nested and punctuation
+names plus `|`, `#`, whitespace, hidden components, repeated/trailing slashes,
+`..`, and `.lock`. M223 adds a source-block parity check and a CI step. M223,
+all branch milestones M213 and M215-M222, REXX syntax/80-column checks, the 42
+preserved host-source compilations, and `git diff --check` pass locally. CMS
+behavior remains unverified; M223 commit and Actions are pending.

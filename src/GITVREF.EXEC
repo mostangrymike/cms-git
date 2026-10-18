@@ -2336,10 +2336,16 @@ validref:
  if length(vr)>35 then return 'ERROR'
  if left(vr,11)='refs/heads/' then do
   name=substr(vr,12)
-  if name='' | pos(' ',name)>0 | pos('..',name)>0 |,
-     pos('~',name)>0 | pos('^',name)>0 | pos(':',name)>0 |,
-     pos('?',name)>0 | pos('*',name)>0 | pos('[',name)>0 |,
-     pos('//',name)>0 | right(name,1)='.' then return 'ERROR'
+  refchars='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+  refchars=refchars||'0123456789._/-'
+  if name='' | verify(name,refchars)\=0 |,
+     pos('//',name)>0 | pos('..',name)>0 |,
+     left(name,1)='/' | right(name,1)='/' then return 'ERROR'
+  do vi=1 to words(translate(name,' ','/'))
+   part=word(translate(name,' ','/'),vi)
+   if part='' | part='.' | part='..' | left(part,1)='.' |,
+      right(part,1)='.' | right(part,5)='.lock' then return 'ERROR'
+  end
   return 'OK'
  end
  else if left(vr,10)='refs/tags/' then name=substr(vr,11)

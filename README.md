@@ -146,6 +146,13 @@ current branch moves symbolic HEAD in the same rewrite; renaming another branch
 preserves HEAD. No force-rename mode is provided. Host REXX checks pass; CMS
 behavior remains unverified.
 
+M223 applies the same strict ASCII branch-name validator in the REF2 updater,
+resolver, and worktree code. It accepts alphanumeric names plus `.`, `_`, `/`,
+and `-`, while rejecting unsafe delimiters, empty or dot-prefixed components,
+`..`, trailing dots, and `.lock` components. Host REXX fixtures verify accepted
+and rejected names and require the three validator implementations to match;
+CMS behavior remains unverified.
+
 ---
 
 ## M206 full 32-object CMS PASS and A-disk audit (October 13, 2026)
