@@ -32,12 +32,14 @@ Assumption: the requested destination is the standalone `cms-tooling` checkout; 
 - [x] M165 retained-commit handoff: local source now validates and reports exactly one commit OID; its focused host guard and M165 model pass.
 - [x] M166–M174 host models: REF2 CAS, integrated commit/ref, branch reconciliation, fetch discovery, upload PACK, generalized PACK storage/census/import, and stage-index models all pass.
 - [x] Run the revised M165 checker on CMS and retain its commit OID.
-- [ ] Run the M166/M167 target gates on CMS; no M166–M174 live qualification is claimed yet.
+- [x] Run the M166 REF2 CAS target gate on CMS using the commit OID retained by M165.
+- [ ] Run the M167 integrated commit-to-ref target gate; M168–M174 remain host-model-only here.
 - [ ] Continue with the next unimplemented milestone after M174.
 
 The M166–M174 results are local host-model results only. The dedicated `src/zvm-tooling` checkout has been removed from ibm-sandbox per operator direction; its separate Actions workflow was removed with it.
 - M166 now accepts the validated retained commit OID as an EXEC argument, while keeping the historical candidate as its no-argument fallback. Its host model and argument guard pass; no ref was changed by that local work.
 - The first revised M165 CMS run exposed a bad verifier dispatch (`ZTMCAND1 VERIFY-OBJECT`); it returned complete RC 8, and the disposable files were cleaned. The candidate object was retained, and no ref changed. After routing verification through `GIT`, fresh checker `ZTMDCHK5 EXEC A` returned correlated RC 0 and `M165 MULTI-PATH STAGED COMMIT TARGET GATE PASS`. It emitted and verified commit `58200E77B859296DB1B18121992229D57A5B56AA`, confirmed refs unchanged, and passed four post-run RC28 absence checks. Evidence: `cms-m165-multipath-oid-live-evidence-20261018.json`.
+- Fresh checker `ZTDM166 EXEC A` accepted that OID as its EXEC argument. CMS SHA-256 matched the local CP037 logical-record digest. M166 created only `refs/heads/m166test`, proved stale CAS returns RC8 without changing REF2, deleted that transient ref, and restored the complete GITREF2 snapshot byte-for-byte. Correlated CMS RC0: `M166 REF CAS TARGET GATE PASS`. Evidence: `cms-m166-cas-live-evidence-20261018.json`.
 
 ---
 
