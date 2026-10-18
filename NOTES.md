@@ -14915,3 +14915,10 @@ valid/invalid name fixtures pass locally under Regina. The default canonical
 source guard, 42 historical test-body compilations, 80-column checks and
 `git diff --check` also pass. CMS remains untested; commit and Actions are
 pending.
+
+
+M213 CI follow-up: full native host workflow 39150220130 passed on commit
+`9c28a4504864f53fc9c5f92387a0e86edfcbf1e1`. Actions ran all three
+source-derived validators and the 33 valid/invalid fixtures successfully.
+This validates only host REXX behavior; no CMS command or source deployment
+occurred.
