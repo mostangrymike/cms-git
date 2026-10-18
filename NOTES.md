@@ -15759,3 +15759,8 @@ deletion whose CMS workfile reappeared. Two source-derived Regina fixtures
 cover successful compaction and the reappeared-file failure; six source guards
 check validation and save order. The cumulative M250 suite passes; host compile
 and CI are pending. CMS behavior remains unverified.
+
+The first M250 Actions run (39170133153) failed because the existing M168
+guard expected the old in-place `mapbase.ai` assignment. Updated that guard to
+check the compacted `mapbase.keptcount` assignment; the exact M168 CI step now
+passes locally. A full rerun is pending.
