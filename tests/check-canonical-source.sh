@@ -1703,6 +1703,66 @@ echo 'M245 SOURCE-DERIVED GIT RESET FIXTURES PASS 6'
 exit $?
 fi
 
+if [ "${1:-}" = "M249" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M248
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GITWT.EXEC" "$tmp/buildraw.rexx" "$tmp/empty.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+start=source.index("if command='COMMIT' then do")
+end=source.index("say 'GITWT: unknown command'",start)
+commit=source[start:end]
+for token in ('if mapstage.mi=zeros then do', 'if rc=28 then iterate',
+              'nodeentrydeleted.currentnode.entryindex=1',
+              'call buildraw ni', 'if buildcount=0 then do',
+              'nodeentrydeleted.parentnode.parententry=1',
+              'call buildraw 1', 'COMMIT-STAGED ROOT TREE'):
+ if token not in commit:
+  raise SystemExit(f'M249 commit deletion source guard missing {token!r}')
+start=source.index('buildraw:\n')
+end=source.index('\nparsepathout:',start)
+buildraw=source[start:end]
+start=source.index('modehex:\n')
+end=source.index('\nwritehex:',start)
+modehex=source[start:end]
+fixture=(
+ "parse arg rest\nnodeentries.1=3\n"
+ "nodemode.1.1='100644'\nnodenamehex.1.1='61'\n"
+ "nodechildoid.1.1='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "nodemode.1.2='100644'\nnodenamehex.1.2='62'\n"
+ "nodechildoid.1.2='CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC'\n"
+ "nodeentrydeleted.1.2=1\n"
+ "nodemode.1.3='100755'\nnodenamehex.1.3='63'\n"
+ "nodechildoid.1.3='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
+ "call buildraw 1\nsay 'KEPT' buildcount\nsay result\nexit 0\n"
+ + buildraw+modehex)
+Path(sys.argv[2]).write_text(fixture)
+Path(sys.argv[3]).write_text(fixture.replace("nodeentrydeleted.1.2=1", "nodeentrydeleted.1.2=1\nnodeentrydeleted.1.1=1\nnodeentrydeleted.1.3=1"))
+print('M249 COMMIT DELETION SOURCE GUARDS PASS 8')
+PY
+rexx -c "$tmp/buildraw.rexx" /dev/null
+rexx -c "$tmp/empty.rexx" /dev/null
+expected='KEPT 2
+313030363434206100AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA313030373535206300BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'
+if [ "$(rexx "$tmp/buildraw.rexx")" != "$expected" ]; then
+ echo 'M249 rewritten tree raw bytes mismatch' >&2
+ exit 1
+fi
+if [ "$(rexx "$tmp/empty.rexx")" != 'KEPT 0' ]; then
+ echo 'M249 empty subtree fixture mismatch' >&2
+ exit 1
+fi
+echo 'M249 SOURCE-DERIVED TREE DELETION SERIALIZATION FIXTURES PASS 2'
+)
+exit $?
+fi
+
 if [ "${1:-}" = "M248" ]; then
 (
 set -eu

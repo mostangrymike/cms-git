@@ -228,6 +228,8 @@ jobs:
         run: sh tests/check-canonical-source.sh M247
       - name: Check M248 staged deletion state
         run: sh tests/check-canonical-source.sh M248
+      - name: Check M249 deletion commit tree rewrite
+        run: sh tests/check-canonical-source.sh M249
       - name: Check M190 7736-object selective seek closure
         run: python3 tests/test-m203-bounded-batch.py M190S
       - name: Compare M190 indexed seek vs M188 two-pass host

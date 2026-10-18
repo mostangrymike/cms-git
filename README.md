@@ -277,6 +277,11 @@ Short status and name-only diff distinguish staged deletion from an unstaged
 worktree deletion. Commit-tree deletion and post-commit map acceptance are
 still being implemented. CMS behavior remains unverified.
 
+M249 lets staged deletions pass `GIT COMMIT` preflight, removes their leaf
+entries from rewritten trees, and prunes newly empty subtrees. CMS workfiles
+must remain absent while committing. Post-commit worktree-map acceptance is
+still separate; CMS behavior remains unverified.
+
 ---
 
 ## M206 full 32-object CMS PASS and A-disk audit (October 13, 2026)

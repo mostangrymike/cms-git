@@ -595,19 +595,32 @@ if command='COMMIT' then do
   exit 8
  end
  stagedcount=0
+ zeros='0000000000000000000000000000000000000000'
  do mi=1 to mapcount
   if mapstage.mi\=mapbase.mi then stagedcount=stagedcount+1
   'STATE' mapfn.mi mapft.mi mapfm.mi
-  if rc\=0 then do
-   say 'GITWT: mapped workfile is absent' mapfn.mi mapft.mi mapfm.mi
+  if mapstage.mi=zeros then do
+   if rc=28 then iterate
+   if rc=0 then do
+    say 'GITWT: workfile restored after staging deletion',
+        mapfn.mi mapft.mi mapfm.mi
+    exit 8
+   end
+   say 'GITWT: cannot inspect deleted workfile' mapfn.mi mapft.mi mapfm.mi
    exit 8
   end
-  call workoid mapfn.mi,mapft.mi,mapfm.mi,maplf.mi,0
-  work=result
-  if work='ERROR' then exit 8
-  if work\=mapstage.mi then do
-   say 'GITWT: unstaged workfile change' mapfn.mi mapft.mi mapfm.mi
-   exit 8
+  else do
+   if rc\=0 then do
+    say 'GITWT: mapped workfile is absent' mapfn.mi mapft.mi mapfm.mi
+    exit 8
+   end
+   call workoid mapfn.mi,mapft.mi,mapfm.mi,maplf.mi,0
+   work=result
+   if work='ERROR' then exit 8
+   if work\=mapstage.mi then do
+    say 'GITWT: unstaged workfile change' mapfn.mi mapft.mi mapfm.mi
+    exit 8
+   end
   end
  end
  if stagedcount=0 then do
@@ -626,6 +639,7 @@ if command='COMMIT' then do
  if root='ERROR' then exit 8
  drop nodeparent. nodename. nodeentry. nodeoid. nodedepth.
  drop nodechanged. nodeentries. nodemode. nodenamehex. nodechildoid.
+ drop nodeentrydeleted.
  drop pathcomp.
  nodecount=1
  nodeparent.1=0
@@ -712,9 +726,14 @@ if command='COMMIT' then do
       say 'GITWT: staged path is not a local blob' mi
       exit 8
      end
-     address command 'EXEC GIT VERIFY-OBJECT' mapstage.mi
-     if rc\=0 then exit 8
-     nodechildoid.currentnode.entryindex=mapstage.mi
+     if mapstage.mi=zeros then do
+      nodeentrydeleted.currentnode.entryindex=1
+     end
+     else do
+      address command 'EXEC GIT VERIFY-OBJECT' mapstage.mi
+      if rc\=0 then exit 8
+      nodechildoid.currentnode.entryindex=mapstage.mi
+     end
      nodechanged.currentnode=1
     end
    end
@@ -723,23 +742,24 @@ if command='COMMIT' then do
  do level=maxdepth to 1 by -1
   do ni=2 to nodecount
    if nodedepth.ni=level & nodechanged.ni=1 then do
-    raw=''
-    do ei=1 to nodeentries.ni
-     call modehex nodemode.ni.ei
-     mh=result
-     if mh='ERROR' then exit 8
-     raw=raw||mh||'20'||nodenamehex.ni.ei||'00'||,
-       nodechildoid.ni.ei
-    end
-    call writehex raw
-    treeoid=result
-    if treeoid='ERROR' then exit 8
-    nodeoid.ni=treeoid
+    call buildraw ni
+    raw=result
+    if raw='ERROR' then exit 8
     parentnode=nodeparent.ni
     parententry=nodeentry.ni
-    nodechildoid.parentnode.parententry=treeoid
+    if buildcount=0 then do
+     nodeentrydeleted.parentnode.parententry=1
+    end
+    else do
+     call writehex raw
+     treeoid=result
+     if treeoid='ERROR' then exit 8
+     nodeoid.ni=treeoid
+     nodechildoid.parentnode.parententry=treeoid
+    end
     nodechanged.parentnode=1
-    say 'COMMIT-STAGED TREE DEPTH' level treeoid
+    if buildcount=0 then say 'COMMIT-STAGED PRUNED EMPTY TREE' level
+    else say 'COMMIT-STAGED TREE DEPTH' level treeoid
    end
   end
  end
@@ -747,13 +767,9 @@ if command='COMMIT' then do
   say 'GITWT: no rewritten root tree'
   exit 8
  end
- raw=''
- do ei=1 to nodeentries.1
-  call modehex nodemode.1.ei
-  mh=result
-  if mh='ERROR' then exit 8
-  raw=raw||mh||'20'||nodenamehex.1.ei||'00'||nodechildoid.1.ei
- end
+ call buildraw 1
+ raw=result
+ if raw='ERROR' then exit 8
  call writehex raw
  newroot=result
  if newroot='ERROR' then exit 8
@@ -789,6 +805,22 @@ end
 
 say 'GITWT: unknown command' command
 exit 4
+
+buildraw:
+ parse arg buildnode
+ raw=''
+ buildcount=0
+ do buildentry=1 to nodeentries.buildnode
+  if nodeentrydeleted.buildnode.buildentry\=1 then do
+   call modehex nodemode.buildnode.buildentry
+   mh=result
+   if mh='ERROR' then return 'ERROR'
+   raw=raw||mh||'20'||nodenamehex.buildnode.buildentry||'00'||,
+       nodechildoid.buildnode.buildentry
+   buildcount=buildcount+1
+  end
+ end
+ return raw
 
 parsepathout:
  closure=0

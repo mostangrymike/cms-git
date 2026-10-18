@@ -15719,3 +15719,20 @@ update tests now cover one deletion, and three source-derived Regina fixtures
 cover staged deletion, unstaged deletion, restoration against staged deletion,
 and both diff views. The cumulative M248 suite passes; host compile and CI are
 pending. CMS behavior remains unverified.
+
+## 2026-10-18 — M249 commit staged deletions
+
+Plan: teach `GIT COMMIT` to accept absent workfiles whose staged OID is zero,
+remove those leaf entries from commit trees, and prune newly empty directories.
+
+Assumption: a deletion remains valid only while the mapped CMS workfile is
+absent. If it reappears before commit, reject the commit as unstaged worktree
+content. Acceptance of the committed map is a separate step.
+
+Progress: commit preflight now recognizes the zero-OID deletion sentinel;
+tree rewrite skips deleted leaves, compacts surviving entries, and propagates
+empty-subtree pruning to the root. Source-derived Regina fixtures verify
+serialized tree bytes with a removed entry and the empty-tree case; eight
+source guards cover preflight, leaf removal, pruning, and root write. The
+cumulative M249 suite passes; host compile and CI are pending. CMS behavior
+remains unverified.
