@@ -4,11 +4,7 @@ parse arg ref newoid oldoid extra
 
 zeros='0000000000000000000000000000000000000000'
 if ref='' | newoid='' | oldoid='' | extra\='' then do
- say 'Usage: GITUPD refs/heads/name new-oid expected-old-oid'
- exit 4
-end
-if left(ref,11)\='refs/heads/' then do
- say 'GITUPD: ref must name refs/heads/<branch>'
+ say 'Usage: GITUPD refs/heads|tags/name new-oid expected-old-oid'
  exit 4
 end
 call validref ref
@@ -31,9 +27,16 @@ if newoid=zeros & oldoid=zeros then do
  exit 4
 end
 
-if newoid\=zeros then do
+if newoid\=zeros & left(ref,11)='refs/heads/' then do
  call requirecommit newoid
  if result\='OK' then exit 8
+end
+else if newoid\=zeros then do
+ address command 'EXEC GIT VERIFY-OBJECT' newoid
+ if rc\=0 then do
+  say 'GITUPD: tag target failed object verification' newoid
+  exit 8
+ end
 end
 
 call readrefs
@@ -133,14 +136,40 @@ exit 0
 
 validref:
  parse arg vr
- if left(vr,11)\='refs/heads/' then return 'ERROR'
- name=substr(vr,12)
+ if length(vr)>35 then return 'ERROR'
+ if left(vr,11)='refs/heads/' then do
+  name=substr(vr,12)
+  if name='' | pos(' ',name)>0 | pos('..',name)>0 |,
+     pos('~',name)>0 | pos('^',name)>0 | pos(':',name)>0 |,
+     pos('?',name)>0 | pos('*',name)>0 | pos('[',name)>0 |,
+     pos('//',name)>0 | right(name,1)='.' then do
+   say 'GITUPD: invalid branch name' name
+   return 'ERROR'
+  end
+  return 'OK'
+ end
+ else if left(vr,10)='refs/tags/' then name=substr(vr,11)
+ else return 'ERROR'
+ refchars='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+ refchars=refchars||'0123456789._/-'
  if name='' | name='.' | name='..' | pos(' ',name)>0 |,
+    verify(name,refchars)\=0 |,
     pos('..',name)>0 | pos('~',name)>0 | pos('^',name)>0 |,
     pos(':',name)>0 | pos('?',name)>0 | pos('*',name)>0 |,
-    pos('[',name)>0 | right(name,1)='.' then do
-  say 'GITUPD: invalid branch name' name
+    pos('[',name)>0 | pos('//',name)>0 |,
+    pos('@{',name)>0 | left(name,1)='/' | right(name,1)='/' |,
+    right(name,1)='.' | right(name,5)='.lock' then do
+  say 'GITUPD: invalid tag name' name
   return 'ERROR'
+ end
+ do vi=1 to words(translate(name,' ','/'))
+  part=word(translate(name,' ','/'),vi)
+  if part='' | part='.' | part='..' | left(part,1)='.' |,
+     right(part,1)='.' |,
+     right(part,5)='.lock' then do
+   say 'GITUPD: invalid ref path component' part
+   return 'ERROR'
+  end
  end
  return 'OK'
 
@@ -184,6 +213,7 @@ readrefs:
   if tag='HEAD' then do
    if words(line)\=2 | headcount\=0 then return 'ERROR'
    headref=word(line,2)
+   if left(headref,11)\='refs/heads/' then return 'ERROR'
    call validref headref
    if result\='OK' then return 'ERROR'
    headcount=1

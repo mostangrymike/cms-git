@@ -985,7 +985,8 @@ readrefs:
    if words(rr.ri)\=3 then return 'ERROR'
    name=word(rr.ri,2)
    roid=translate(word(rr.ri,3))
-   if left(name,11)\='refs/heads/' then return 'ERROR'
+   call validref name
+   if result\='OK' then return 'ERROR'
    if length(roid)\=40 |,
       verify(roid,'0123456789ABCDEF')\=0 then return 'ERROR'
    refcount=refcount+1
@@ -995,6 +996,33 @@ readrefs:
   else return 'ERROR'
  end
  if left(headref,11)\='refs/heads/' then return 'ERROR'
+ call validref headref
+ if result\='OK' then return 'ERROR'
+ return 'OK'
+
+validref:
+ parse arg vr
+ if length(vr)>35 then return 'ERROR'
+ if left(vr,11)='refs/heads/' then do
+  name=substr(vr,12)
+  if name='' | pos(' ',name)>0 | pos('..',name)>0 |,
+     pos('~',name)>0 | pos('^',name)>0 | pos(':',name)>0 |,
+     pos('?',name)>0 | pos('*',name)>0 | pos('[',name)>0 |,
+     pos('//',name)>0 | right(name,1)='.' then return 'ERROR'
+  return 'OK'
+ end
+ else if left(vr,10)='refs/tags/' then name=substr(vr,11)
+ else return 'ERROR'
+ refchars='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+ refchars=refchars||'0123456789._/-'
+ if name='' | verify(name,refchars)\=0 | pos('//',name)>0 |,
+    pos('..',name)>0 | left(name,1)='/' | right(name,1)='/' |,
+    right(name,1)='.' | right(name,5)='.lock' then return 'ERROR'
+ do vi=1 to words(translate(name,' ','/'))
+  part=word(translate(name,' ','/'),vi)
+  if left(part,1)='.' | right(part,1)='.' |,
+     right(part,5)='.lock' then return 'ERROR'
+ end
  return 'OK'
 
 resolve:

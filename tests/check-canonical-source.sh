@@ -92,6 +92,53 @@ echo 'LIVEPLAN SYNTHETIC POSITIVE AND NEGATIVE FIXTURES PASS'
 exit $?
 fi
 
+# M208 modern REF2 lightweight commit-tag source and REXX syntax gate.
+if [ "${1:-}" = "M208" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+for file in GIT.EXEC GITUPD.EXEC GITVREF.EXEC GITWT.EXEC; do
+ path="$root/src/$file"
+ test -s "$path"
+ awk 'length($0)>80 {print FILENAME ":" FNR ":" length($0);bad=1}
+      END {exit bad}' "$path"
+ rexx -c "$path" /dev/null
+done
+python3 - "$root" <<'PY'
+from pathlib import Path
+import sys
+root=Path(sys.argv[1])
+g=(root/'src/GIT.EXEC').read_text()
+u=(root/'src/GITUPD.EXEC').read_text()
+v=(root/'src/GITVREF.EXEC').read_text()
+w=(root/'src/GITWT.EXEC').read_text()
+required={
+ 'GIT.EXEC': (g, ("if command = 'TAG' then do", "EXEC GITVREF TAGS",
+     "ref='refs/tags/'||action", "ref='refs/tags/'||tagname",
+     "EXEC GIT UPDATE-REF' ref oid zeros",
+     "EXEC GIT UPDATE-REF' ref zeros oid")),
+ 'GITUPD.EXEC': (u, ("left(vr,11)='refs/heads/'",
+     "left(vr,10)='refs/tags/'", "EXEC GIT VERIFY-OBJECT' newoid",
+     'current\\=oldoid', 'call restore')),
+ 'GITVREF.EXEC': (v, ("command='TAGS' then do",
+     "left(refname.ti,10)='refs/tags/'", "left(wanted,10)\\='refs/tags/'",
+     "wanted='refs/tags/'||shortname", 'call validref name')),
+ 'GITWT.EXEC': (w, ('call validref name',
+     "left(headref,11)\\='refs/heads/'", "left(wanted,11)\\='refs/heads/'")),
+}
+for name,(source,tokens) in required.items():
+ for token in tokens:
+  if token not in source:
+   raise SystemExit(f'{name}: missing tag/ref guard {token!r}')
+if (root/'src/GITP208M.C').exists() or (root/'src/GITC208.EXEC').exists():
+ raise SystemExit('M208 added a numbered CMS program')
+print('M208 REF2 lightweight commit-tag source checks PASS')
+PY
+echo 'M208 REXX syntax and 80-column checks PASS (CMS UNVERIFIED)'
+)
+exit $?
+fi
+
 # Isolated M206 explicit-object compatibility route: host source guard only.
 if [ "${1:-}" = "M206BRIDGE" ]; then
 (

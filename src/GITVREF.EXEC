@@ -14,6 +14,16 @@ if command='STAMP' then do
  say 'GITVREF INTERNAL STAMP P2'
  exit 0
 end
+if command='TAGS' then do
+ if spec\='' | depth\='' | extra\='' then exit 4
+ call readrefs
+ if result\='OK' then exit 8
+ do ti=1 to refcount
+  if left(refname.ti,10)='refs/tags/' then,
+   say refoid.ti refname.ti
+ end
+ exit 0
+end
 if command='CASE' then do
  if spec='' | depth\='' | extra\='' then exit 4
  call pathasciihex spec
@@ -2203,7 +2213,8 @@ readrefs:
    if words(rr.i)\=3 then return 'ERROR'
    name=word(rr.i,2)
    oid=translate(word(rr.i,3))
-   if left(name,11)\='refs/heads/' then return 'ERROR'
+   call validref name
+   if result\='OK' then return 'ERROR'
    if length(oid)\=40 then return 'ERROR'
    if verify(oid,'0123456789ABCDEF')\=0 then return 'ERROR'
    do j=1 to refcount
@@ -2216,18 +2227,34 @@ readrefs:
   else return 'ERROR'
  end
  if left(headref,11)\='refs/heads/' then return 'ERROR'
+ call validref headref
+ if result\='OK' then return 'ERROR'
  return 'OK'
 
 resolve:
  parse arg wanted
  rawwanted=wanted
  if translate(wanted)='HEAD' then wanted=headref
- else if left(wanted,11)\='refs/heads/' then,
-  wanted='refs/heads/'||wanted
+ shortname=''
+ if left(wanted,11)\='refs/heads/' &,
+    left(wanted,10)\='refs/tags/' &,
+    translate(wanted)\='HEAD' then do
+  shortname=wanted
+  wanted='refs/heads/'||shortname
+ end
  do i=1 to refcount
   if refname.i=wanted then do
    reskind='REF'
    return refoid.i
+  end
+ end
+ if shortname\='' then do
+  wanted='refs/tags/'||shortname
+  do i=1 to refcount
+   if refname.i=wanted then do
+    reskind='REF'
+    return refoid.i
+   end
   end
  end
  direct=translate(rawwanted)
@@ -2240,6 +2267,31 @@ resolve:
  end
  say 'GITVREF: ref not found' wanted
  return 'ERROR'
+
+validref:
+ parse arg vr
+ if length(vr)>35 then return 'ERROR'
+ if left(vr,11)='refs/heads/' then do
+  name=substr(vr,12)
+  if name='' | pos(' ',name)>0 | pos('..',name)>0 |,
+     pos('~',name)>0 | pos('^',name)>0 | pos(':',name)>0 |,
+     pos('?',name)>0 | pos('*',name)>0 | pos('[',name)>0 |,
+     pos('//',name)>0 | right(name,1)='.' then return 'ERROR'
+  return 'OK'
+ end
+ else if left(vr,10)='refs/tags/' then name=substr(vr,11)
+ else return 'ERROR'
+ refchars='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+ refchars=refchars||'0123456789._/-'
+ if name='' | verify(name,refchars)\=0 | pos('//',name)>0 |,
+    pos('..',name)>0 | left(name,1)='/' | right(name,1)='/' |,
+    right(name,1)='.' | right(name,5)='.lock' then return 'ERROR'
+ do vi=1 to words(translate(name,' ','/'))
+  part=word(translate(name,' ','/'),vi)
+  if left(part,1)='.' | right(part,1)='.' |,
+     right(part,5)='.lock' then return 'ERROR'
+ end
+ return 'OK'
 
 directinput:
  parse arg c

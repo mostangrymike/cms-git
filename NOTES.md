@@ -14762,3 +14762,31 @@ Repository instructions: no `AGENTS.md` exists in this checkout; followed the op
 Progress: retried observation with `cms_screen`; the registered CMS MCP transport still returns `Transport closed`. No CMS input, transfer, compile, target test, or disconnect was attempted. The completed full host workflow and M207 source/tests remain pushed. This is an access blocker for the remaining target gate, not a source or test failure.
 
 Assumption: the existing MCP terminal transport can be restored in the Codex environment while preserving its dedicated s3270 session. Until then, do not replace the current CMS module or claim CMS qualification.
+
+
+## 2026-10-18 — M208 lightweight tag support plan
+
+Plan: add lightweight commit tags to the modern `GITREF2` store, in the
+existing `GIT.EXEC`, `GITUPD.EXEC`, `GITVREF.EXEC`, and `GITWT.EXEC` sources.
+Support listing, create-only creation and compare-and-swap deletion. Require a
+full verified commit OID for create/delete, preserve branch-only symbolic HEAD,
+and keep checkout resolution on branches. Add host source/REXX syntax regression
+coverage and document the exact supported command forms.
+
+Assumptions: CMS line/argument limits make a full `git tag` option surface too
+large for this step; first support lightweight tags pointing at verified commit
+objects. Ref names use a safe ASCII subset. No annotated/signature tags, tag of
+non-commit objects, CMS target qualification, or production REF2 mutation is
+claimed. The existing user working tree/evidence files must remain untouched.
+
+Progress: confirmed modern commit/ref operations use `GITREF2`, while older M5
+`GITREF.EXEC` is intentionally a separate prototype and must not be mixed into
+the modern store. Added `GIT TAG` list/create/delete and tag-aware modern ref
+parsing in the established sources; creation/deletion call the existing CAS
+updater. Added the M208 host gate to the canonical Actions workflow and README.
+Local `M208` REXX syntax/width/source checks, M206, M206 compatibility, NTREE,
+the default canonical-source guard, and the full test-source inventory all pass.
+The inventory emits its existing Python invalid-escape `SyntaxWarning`, but
+returns zero and compiles all 42 preserved host test bodies. Current CMS MCP
+observation/connect calls returned `Transport closed`; no CMS action was
+performed. Full Actions and real CMS target validation remain pending.

@@ -89,6 +89,16 @@ verification for every selected object, rejection at
 129, and fail-closed empty bands. This extension is
 host-tested only; it has not been compiled or run on CMS.
 
+M208 adds lightweight commit tags to the modern `GITREF2` store:
+`GIT TAG` lists tags, `GIT TAG <name> <full-commit-oid>` creates a tag, and
+`GIT TAG -D <name> <expected-commit-oid>` deletes one using compare-and-swap.
+Creation verifies the target commit; deletion requires its exact old OID.
+Names use a safe ASCII subset and the stored full ref is limited to 35
+characters to fit the existing 80-column records. `GIT VERIFY-REF` resolves
+tag refs; worktree checkout remains branch-only. Annotated tags and tags of
+non-commit objects are not supported. Host source/REXX checks pass; CMS
+compilation and target behavior remain unverified.
+
 ---
 
 ## M206 full 32-object CMS PASS and A-disk audit (October 13, 2026)

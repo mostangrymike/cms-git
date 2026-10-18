@@ -56,6 +56,55 @@ if command = 'INIT' then do
    exit 0
 end
 
+/* Modern lightweight tag porcelain over the guarded REF2 updater. */
+if command = 'TAG' then do
+   if strip(rest)='' then do
+      address command 'EXEC GITVREF TAGS'
+      exit rc
+   end
+   parse var rest action tagname oid extra
+   verb=translate(action)
+   if verb='-D' then do
+      if tagname='' | oid='' | extra\='' then do
+         say 'Usage: GIT TAG -D name expected-commit-oid'
+         exit 4
+      end
+      oid=translate(oid)
+      if length(oid)\=40 | verify(oid,'0123456789ABCDEF')\=0 then do
+         say 'GIT: invalid expected tag object-id'
+         exit 4
+      end
+      zeros='0000000000000000000000000000000000000000'
+      ref='refs/tags/'||tagname
+      address command 'EXEC GIT UPDATE-REF' ref zeros oid
+      if rc\=0 then exit rc
+      say 'TAG DELETED' ref oid
+      exit 0
+   end
+   if action='' | tagname='' | oid\='' | extra\='' then do
+      say 'Usage: GIT TAG [name commit-oid] | TAG -D name expected-commit-oid'
+      exit 4
+   end
+   oid=translate(tagname)
+   if length(oid)\=40 | verify(oid,'0123456789ABCDEF')\=0 then do
+      say 'GIT: tag requires a full commit object-id'
+      exit 4
+   end
+   address command 'EXEC GIT VERIFY-OBJECT' oid
+   if rc\=0 then exit 8
+   call readobject oid
+   if result\='OK' | objtype\='COMMIT' then do
+      say 'GIT: lightweight tags require a verified COMMIT object'
+      exit 8
+   end
+   zeros='0000000000000000000000000000000000000000'
+   ref='refs/tags/'||action
+   address command 'EXEC GIT UPDATE-REF' ref oid zeros
+   if rc\=0 then exit rc
+   say 'TAG CREATED' ref oid
+   exit 0
+end
+
 /* M5D integration boundary.  Keep the target-proven M4 object core below
  * unchanged while routing ref/HEAD commands through the independently proven
  * M5A/M5B/M5C implementations. */
