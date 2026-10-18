@@ -15806,3 +15806,28 @@ cumulative M208–M252 checks pass. M239 and M242 regression fixtures were
 narrowed to their original mapped-file branch after the new branch changed
 their extraction boundary. CMS behavior remains unverified; root-tree insertion
 is still needed before a newly added file can be committed.
+
+M252 follow-up: native host Actions run 39171069428 passed on commit
+`7c56cf5e`.
+
+## 2026-10-18 — M253 commit staged root-level additions
+
+Plan: allow a staged zero-base path to become a new Git tree entry when its
+repository-root name is absent from the current tree. Verify the staged blob,
+preserve Git's byte ordering around files and directories, and retain the
+256-entry CMS tree bound.
+
+Assumption: additions remain limited to the repository root; nested directory
+creation requires a separate tree-creation design.
+
+Progress: COMMIT now recognizes an absent root entry only for a staged zero-
+base, nonzero-OID path, verifies the blob, and queues it for insertion after
+existing path rewrites. The insertion routine shifts existing entries and
+deletion markers, compares directory names with their Git trailing slash, and
+rejects an addition when the resulting tree would exceed 256 live entries.
+`readtree` now reports a structurally valid missing target separately so a new
+root path can load its root tree. Seven source-derived fixtures cover serialized
+ordering around a directory/file boundary, deletion marker movement, full-tree
+capacity rejection, capacity reuse after a staged deletion, accepted root
+additions, rejected nested and stale additions, and invalid blob rejection.
+The cumulative M253 suite passes; CMS behavior remains unverified.

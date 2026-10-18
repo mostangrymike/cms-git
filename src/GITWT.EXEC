@@ -805,6 +805,8 @@ if command='COMMIT' then do
   say 'GITWT: cannot load commit root tree'
   exit 8
  end
+ newrootcount=0
+ drop newrootname. newrootoid.
  do mi=1 to mapcount
   if mapstage.mi\=mapbase.mi then do
    call splitpath mappath.mi
@@ -823,6 +825,19 @@ if command='COMMIT' then do
      end
     end
     if entryindex=0 then do
+     if cd=pcnt & pcnt=1 & mapbase.mi=zeros &,
+        mapstage.mi\=zeros then do
+      address command 'EXEC GIT VERIFY-OBJECT' mapstage.mi
+      if rc\=0 then do
+       say 'GITWT: staged new blob is not verified' mi
+       exit 8
+      end
+      newrootcount=newrootcount+1
+      newrootname.newrootcount=pathcomp.mi.cd
+      newrootoid.newrootcount=mapstage.mi
+      nodechanged.1=1
+      leave
+     end
      say 'GITWT: staged path entry missing' mi cd
      exit 8
     end
@@ -880,6 +895,11 @@ if command='COMMIT' then do
     end
    end
   end
+ end
+ call insertrootadds
+ if result\='OK' then do
+  say 'GITWT: cannot insert new root tree entries'
+  exit 8
  end
  do level=maxdepth to 1 by -1
   do ni=2 to nodecount
@@ -963,6 +983,59 @@ buildraw:
   end
  end
  return raw
+
+insertrootadds:
+ do nai=1 to newrootcount
+  liveentries=0
+  do lei=1 to nodeentries.1
+   if nodeentrydeleted.1.lei\=1 then liveentries=liveentries+1
+  end
+  if liveentries>=256 then return 'ERROR'
+  insertat=nodeentries.1+1
+  do nej=1 to nodeentries.1
+   compare=nodenamehex.1.nej
+   if nodemode.1.nej='40000' then compare=compare||'2F'
+   sortbefore=0
+   sortdone=0
+   commonlen=min(length(newrootname.nai),length(compare))
+   do cbi=1 to commonlen by 2
+    newbyte=x2d(substr(newrootname.nai,cbi,2))
+    oldbyte=x2d(substr(compare,cbi,2))
+    if newbyte<oldbyte then do
+     sortbefore=1
+     sortdone=1
+     leave
+    end
+    if newbyte>oldbyte then do
+     sortdone=1
+     leave
+    end
+   end
+   if sortbefore=1 then do
+    insertat=nej
+    leave
+   end
+   if sortdone=0 & length(newrootname.nai)=length(compare) then,
+    return 'ERROR'
+   if sortdone=0 & length(newrootname.nai)<length(compare) then do
+    insertat=nej
+    leave
+   end
+  end
+  do nej=nodeentries.1 to insertat by -1
+   next=nej+1
+   nodemode.1.next=nodemode.1.nej
+   nodenamehex.1.next=nodenamehex.1.nej
+   nodechildoid.1.next=nodechildoid.1.nej
+   nodeentrydeleted.1.next=nodeentrydeleted.1.nej
+  end
+  nodeentries.1=nodeentries.1+1
+  nodemode.1.insertat='100644'
+  nodenamehex.1.insertat=newrootname.nai
+  nodechildoid.1.insertat=newrootoid.nai
+  nodeentrydeleted.1.insertat=0
+ end
+ return 'OK'
 
 parsepathout:
  closure=0
@@ -1271,13 +1344,14 @@ readtree:
    foundindex=ei
   end
  end
- if matches\=1 then return 'ERROR'
+ if matches>1 then return 'ERROR'
+ if matches=0 then return 'MISSING'
  return 'OK'
 
 loadnode:
  parse arg loadid,loadtree,loadtarget
  call readtree loadtree,loadtarget
- if result\='OK' then return 'ERROR'
+ if result\='OK' & result\='MISSING' then return 'ERROR'
  nodeentries.loadid=ecount
  do li=1 to ecount
   nodemode.loadid.li=emode.li

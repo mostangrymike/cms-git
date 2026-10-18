@@ -1893,6 +1893,164 @@ echo 'M252 SOURCE-DERIVED NEW-FILE ADD FIXTURES PASS 14'
 exit $?
 fi
 
+if [ "${1:-}" = "M253" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M252
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GITWT.EXEC" "$tmp/insert.rexx" "$tmp/overflow.rexx" "$tmp/branch.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+commit=source[source.index("if command='COMMIT' then do"):
+               source.index("say 'GITWT: unknown command'")]
+for token in ('if cd=pcnt & pcnt=1 & mapbase.mi=zeros &',
+              'newrootname.newrootcount=pathcomp.mi.cd',
+              'newrootoid.newrootcount=mapstage.mi',
+              "address command 'EXEC GIT VERIFY-OBJECT' mapstage.mi",
+              'call insertrootadds',
+              "if matches=0 then return 'MISSING'",
+              "if result\\='OK' & result\\='MISSING' then return 'ERROR'",
+              "if nodemode.1.nej='40000' then compare=compare||'2F'",
+              'nodeentrydeleted.1.next=nodeentrydeleted.1.nej',
+              "nodemode.1.insertat='100644'",
+              'if nodeentrydeleted.1.lei\\=1 then liveentries=liveentries+1',
+              "if liveentries>=256 then return 'ERROR'"):
+ if token not in source:
+  raise SystemExit(f'M253 root-file commit guard missing {token!r}')
+if not (commit.index("address command 'EXEC GIT VERIFY-OBJECT' mapstage.mi")<
+        commit.index('newrootname.newrootcount=pathcomp.mi.cd')<
+        commit.index('call insertrootadds')<commit.index('do level=maxdepth')):
+ raise SystemExit('M253 inserts root files after tree rewrite begins')
+insert=source[source.index('insertrootadds:\n'):source.index('parsepathout:\n')]
+build=source[source.index('buildraw:\n'):source.index('insertrootadds:\n')]
+mode=source[source.index('modehex:\n'):source.index('writehex:\n')]
+entry_start=commit.index('    if entryindex=0 then do')
+entry_end=commit.index('    if cd<pcnt then do',entry_start)
+entry=commit[entry_start:entry_end]
+entry=entry.replace("address command 'EXEC GIT VERIFY-OBJECT' mapstage.mi",
+ "if scenario='VERIFYFAIL' then rc=8\nelse do\n say 'SIMULATED VERIFY'\n rc=0\nend")
+prefix="""parse arg scenario
+nodeentries.1=2
+nodemode.1.1='40000'
+nodenamehex.1.1='616C706861'
+nodechildoid.1.1='CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC'
+nodeentrydeleted.1.1=1
+nodemode.1.2='100644'
+nodenamehex.1.2='62657461'
+nodechildoid.1.2='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'
+nodeentrydeleted.1.2=0
+newrootcount=3
+newrootname.1='616172647661726B'
+newrootoid.1='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+newrootname.2='616C7068612E747874'
+newrootoid.2='DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD'
+newrootname.3='7A657461'
+newrootoid.3='EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE'
+"""
+main="""
+if scenario='OVERFLOW' | scenario='DELETEDCAP' then do
+ nodeentries.1=256
+ newrootcount=1
+ do fi=3 to 256
+  nodemode.1.fi='100644'
+  nodenamehex.1.fi='66'||right(d2x(fi),4,'0')
+  nodechildoid.1.fi='FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF'
+  nodeentrydeleted.1.fi=0
+ end
+end
+if scenario='OVERFLOW' then nodeentrydeleted.1.1=0
+if scenario='DELETEDCAP' then nodeentrydeleted.1.1=1
+call insertrootadds
+if scenario='OVERFLOW' then do
+ say result
+ if result\\='ERROR' then exit 12
+ exit 0
+end
+if scenario='DELETEDCAP' then do
+ if result\\='OK' then exit 12
+ call buildraw 1
+ if result='ERROR' then exit 12
+ say 'COUNT' buildcount
+ exit 0
+end
+if result\\='OK' then exit 12
+call buildraw 1
+ if result='ERROR' then exit 12
+say result
+say 'COUNT' buildcount
+exit 0
+"""
+fixture=prefix+main+insert+build+mode
+Path(sys.argv[2]).write_text(fixture)
+Path(sys.argv[3]).write_text(fixture.replace("parse arg scenario", "parse arg scenario", 1))
+branch="""parse arg scenario
+pcnt=1
+if scenario='NESTED' then pcnt=2
+cd=1
+entryindex=0
+mi=1
+zeros='0000000000000000000000000000000000000000'
+newrootcount=0
+nodechanged.1=0
+mapbase.1='0000000000000000000000000000000000000000'
+if scenario='STALE' then mapbase.1='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'
+mapstage.1='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+pathcomp.1.1='616C706861'
+do cd=1 to pcnt
+"""+entry+"""
+end
+say 'NEWROOT' newrootcount newrootname.1 newrootoid.1 nodechanged.1
+exit 0
+"""
+Path(sys.argv[4]).write_text(branch)
+print('M253 NEW-ROOT TREE SOURCE GUARDS PASS 11')
+PY
+rexx -c "$tmp/insert.rexx" /dev/null
+rexx -c "$tmp/overflow.rexx" /dev/null
+rexx -c "$tmp/branch.rexx" /dev/null
+expected='31303036343420616172647661726B00AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA31303036343420616C7068612E74787400DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD313030363434206265746100BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB313030363434207A65746100EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE'
+if output=$(rexx "$tmp/insert.rexx" NORMAL); then rc=0; else rc=$?; fi
+if [ "$rc" -ne 0 ] || [ "$output" != "$(printf '%s\nCOUNT 4' "$expected")" ]; then
+ echo "M253 sorted root-tree insertion fixture mismatch RC $rc: $output" >&2
+ exit 1
+fi
+if [ "$(rexx "$tmp/overflow.rexx" OVERFLOW)" != 'ERROR' ]; then
+ echo 'M253 root-tree capacity fixture failed' >&2
+ exit 1
+fi
+if [ "$(rexx "$tmp/insert.rexx" DELETEDCAP)" != 'COUNT 256' ]; then
+ echo 'M253 deleted-entry capacity fixture failed' >&2
+ exit 1
+fi
+expected_branch=$(printf 'SIMULATED VERIFY\nNEWROOT 1 616C706861 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA 1')
+if [ "$(rexx "$tmp/branch.rexx" OK)" != "$expected_branch" ]; then
+ echo "M253 new-root commit decision fixture failed: $(rexx "$tmp/branch.rexx" OK)" >&2
+ exit 1
+fi
+if output=$(rexx "$tmp/branch.rexx" NESTED); then rc=0; else rc=$?; fi
+if [ "$rc" -ne 8 ] || [ "$output" != 'GITWT: staged path entry missing 1 1' ]; then
+ echo "M253 nested addition rejection mismatch RC $rc: $output" >&2
+ exit 1
+fi
+if output=$(rexx "$tmp/branch.rexx" STALE); then rc=0; else rc=$?; fi
+if [ "$rc" -ne 8 ] || [ "$output" != 'GITWT: staged path entry missing 1 1' ]; then
+ echo "M253 stale addition rejection mismatch RC $rc: $output" >&2
+ exit 1
+fi
+if output=$(rexx "$tmp/branch.rexx" VERIFYFAIL); then rc=0; else rc=$?; fi
+if [ "$rc" -ne 8 ] || [ "$output" != 'GITWT: staged new blob is not verified 1' ]; then
+ echo "M253 invalid new blob rejection mismatch RC $rc: $output" >&2
+ exit 1
+fi
+echo 'M253 SOURCE-DERIVED NEW-ROOT TREE FIXTURES PASS 7'
+)
+exit $?
+fi
+
 if [ "${1:-}" = "M250" ]; then
 (
 set -eu

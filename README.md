@@ -300,6 +300,14 @@ is a separate follow-up; this command alone does not make a new path
 committable yet. Host source-derived cases pass; CMS behavior remains
 unverified.
 
+M253 lets the current-branch commit add staged repository-root files whose base
+OID is zero. It verifies each staged blob, inserts root tree entries in Git
+byte-sort order (including directory sort semantics), and refuses additions
+that would exceed 256 live tree entries or target nested paths. A staged
+deletion frees capacity for an addition in the same tree rewrite. Host
+source-derived serialization and rejection cases pass; CMS behavior remains
+unverified.
+
 ---
 
 ## M206 full 32-object CMS PASS and A-disk audit (October 13, 2026)
