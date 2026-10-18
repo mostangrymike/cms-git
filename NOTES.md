@@ -15543,3 +15543,25 @@ files, hash failure, and the 16-path cap. The accumulated M208–M239 checks,
 REXX syntax/80-column checks, `git diff --check`, and 42-source historical host
 compile inventory pass. CMS behavior remains unverified; M239 commit and CI are
 pending.
+
+M239 CI follow-up: full native host workflow 39156665548 passed on commit
+`702eccaaf57b`. CMS behavior remains unverified.
+
+M239 CI follow-up: pending GitHub Actions after the M239 push.
+
+## 2026-10-18 — M240 short-history `GIT LOG` completion
+
+Plan: make `LOGFULL` treat depth as an upper bound. When a verified commit has
+no first parent before the requested depth, stop at that root and frame the
+actual number of available commits instead of returning RC4.
+
+Assumption: an earlier root is normal end-of-history, while malformed commit
+objects still fail through the existing structural validator.
+
+Progress: GITREC LOGFULL now sets the output depth to the root's hop and exits
+the read loop cleanly; closure checks and `LOG NODES` framing then use the
+actual available count. Six source guards check the clamp, loop ordering, and
+node count. The accumulated M208–M240 source-derived suite, 42-source
+historical C compilation inventory, REXX syntax/80-column checks, and
+`git diff --check` pass. M240 commit and CI are pending; CMS behavior remains
+unverified.

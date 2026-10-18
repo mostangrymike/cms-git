@@ -1341,6 +1341,45 @@ echo 'M239 SOURCE-DERIVED MULTI-PATH ADD FIXTURES PASS 8'
 exit $?
 fi
 
+# A bounded log count must stop cleanly when history reaches a root commit.
+if [ "${1:-}" = "M240" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M239
+python3 - "$root/src/GITREC.C" <<'PY'
+from pathlib import Path
+import sys
+source=Path(sys.argv[1]).read_text()
+start=source.index('static int rec_logfull(')
+end=source.index('\nstatic int ',start+1)
+routine=source[start:end]
+rootcheck='if(sz<=46||!rec_ascii_key(idx_body+46,sz-46,"parent")) {'
+if rootcheck not in routine:
+ raise SystemExit('M240 LOG root detection missing')
+offset=routine.index(rootcheck)
+close=routine.index('\n  }',offset)
+rootbody=routine[offset:close]
+if 'depth=hop;' not in rootbody or 'break;' not in rootbody:
+ raise SystemExit('M240 LOG does not clamp depth at the reached root')
+if 'return 4;' in rootbody or 'LOG ROOT REACHED' in routine:
+ raise SystemExit('M240 LOG still fails when history is shorter than requested')
+required=('for(hop=0;hop<=depth;hop++)',
+          'for(j=0;j<=depth;j++)',
+          'printf("LOG NODES %u\\n",depth+1);')
+for token in required:
+ if token not in routine:
+  raise SystemExit(f'M240 short-history output framing missing {token!r}')
+if not (routine.index('depth=hop;')<routine.index('for(j=0;j<=depth;j++)')<
+        routine.index('printf("LOG NODES %u\\n",depth+1);')):
+ raise SystemExit('M240 LOG does not frame the clamped node count')
+print('M240 SHORT-HISTORY LOG SOURCE GUARDS PASS 6')
+PY
+echo 'M240 BOUNDED LOG ROOT COMPLETION PASS'
+)
+exit $?
+fi
+
 # Isolated M206 explicit-object compatibility route: host source guard only.
 if [ "${1:-}" = "M206BRIDGE" ]; then
 (

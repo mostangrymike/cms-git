@@ -235,6 +235,10 @@ then updates GITWORK once; duplicate paths are collapsed. Unmapped or missing
 CMS files fail without saving the map. Directory and wildcard adds remain
 unsupported. CMS behavior remains unverified.
 
+M240 makes `GIT LOG` treat its maximum as a limit: if the selected history
+reaches a root before the requested count, it returns the available commits
+instead of failing. CMS behavior remains unverified.
+
 ---
 
 ## M206 full 32-object CMS PASS and A-disk audit (October 13, 2026)
