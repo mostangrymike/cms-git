@@ -567,7 +567,7 @@ for token in ("if command = 'SWITCH' then do",
               "EXEC GITUPD HEAD refs/heads/",
               "if ref='HEAD' then do",
               "if oldoid\\=newoid then do",
-              "switch requires a worktree transition",
+              "call checkswitch oldhead,newhead",
               "HEAD switch verification failed",
               "if command='HEAD' then do",
               "say headref"):
@@ -594,7 +594,8 @@ ustart=upd.index("if ref='HEAD' then do")
 uend=upd.index("zeros='0000000000000000000000000000000000000000'",ustart)
 ublock=upd[ustart:uend]
 fixture=(
-    "parse arg mode\nref='HEAD'\nnewheadarg='refs/heads/topic'\n"
+    "parse arg mode\nreadcalls=0\nref='HEAD'\n"
+    "newheadarg='refs/heads/topic'\n"
     "newoid=newheadarg\noldoid='refs/heads/main'\nextra=''\n"
     +ublock+
     "exit 99\n"
@@ -602,20 +603,28 @@ fixture=(
     " if left(vr,11)='refs/heads/' then return 'OK'\n"
     " return 'ERROR'\n"
     "readrefs:\n"
+    " readcalls=readcalls+1\n"
     " if written=1 then headref=storedhead\n"
     " else headref='refs/heads/main'\n"
+    " if mode='race' & readcalls>1 then,\n"
+    "  headref='refs/heads/other'\n"
     " refcount=2\nrefname.1='refs/heads/main'\n"
     " refname.2='refs/heads/topic'\n"
     " refoid.1='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
     " refoid.2=refoid.1\n"
-    " if mode='different' then,\n"
+    " if mode='different' | mode='safe' then,\n"
     "  refoid.2='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
+    " if mode='raceoid' & readcalls>1 then,\n"
+    "  refoid.2='DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD'\n"
     " if mode='missing' then refcount=1\n"
     " rr.0=4\nrr.1='REF2 1'\nrr.2='HEAD '||headref\n"
     " rr.3='REF refs/heads/main '||refoid.1\n"
     " rr.4='REF refs/heads/topic '||refoid.2\n"
     " return 'OK'\n"
     "requirecommit:\n return 'OK'\n"
+    "checkswitch:\n say 'SIMULATED SWITCH PREFLIGHT'\n"
+    " if mode='different' then return 'ERROR'\n"
+    " return 'OK'\n"
     "writerefs:\n"
     " if mode='writefail' then return 'ERROR'\n"
     " storedhead=headref\nwritten=1\nsay 'SIMULATED WRITE'\nreturn 'OK'\n"
@@ -641,7 +650,11 @@ else
  rc=$?
  [ "$rc" -eq 8 ]
 fi
-grep -q 'switch requires a worktree transition' "$tmp/different"
+grep -q 'destination worktree preflight failed' "$tmp/different"
+grep -q 'SIMULATED SWITCH PREFLIGHT' "$tmp/different"
+safe=$(rexx "$tmp/switch.rexx" safe)
+echo "$safe" | grep -q 'HEAD UPDATED refs/heads/main refs/heads/topic'
+echo "$safe" | grep -q 'SIMULATED SWITCH PREFLIGHT'
 if rexx "$tmp/switch.rexx" missing >"$tmp/missing"; then
  echo 'missing branch switch unexpectedly succeeded' >&2
  exit 1
@@ -658,11 +671,155 @@ else
  [ "$rc" -eq 8 ]
 fi
 grep -q 'SIMULATED RESTORE' "$tmp/writefail"
+if rexx "$tmp/switch.rexx" race >"$tmp/race"; then
+ echo 'stale HEAD race unexpectedly succeeded' >&2
+ exit 1
+else
+ rc=$?
+ [ "$rc" -eq 8 ]
+fi
+grep -q 'symbolic HEAD changed during switch preflight' "$tmp/race"
+if rexx "$tmp/switch.rexx" raceoid >"$tmp/raceoid"; then
+ echo 'stale branch-tip race unexpectedly succeeded' >&2
+ exit 1
+else
+ rc=$?
+ [ "$rc" -eq 8 ]
+fi
+grep -q 'branch tips changed during switch preflight' "$tmp/raceoid"
 if grep -q 'SIMULATED WRITE' "$tmp/different" "$tmp/missing" "$tmp/writefail"; then
  echo 'rejected HEAD switch attempted a write' >&2
  exit 1
 fi
-echo 'M218 SOURCE-DERIVED REF2 SWITCH FIXTURES PASS 5'
+echo 'M218 SOURCE-DERIVED REF2 SWITCH FIXTURES PASS 8'
+)
+exit $?
+fi
+
+# Execute the exact read-only mapped-worktree preflight used by GITUPD.
+if [ "${1:-}" = "M219" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M218
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GIT.EXEC" "$root/src/GITUPD.EXEC" \
+ "$root/src/GITWT.EXEC" "$tmp/checkswitch.rexx" <<'PY'
+from pathlib import Path
+import sys
+git=Path(sys.argv[1]).read_text()
+upd=Path(sys.argv[2]).read_text()
+wt=Path(sys.argv[3]).read_text()
+out=Path(sys.argv[4])
+for source, token in ((upd,"EXEC GITWT CHECK-SWITCH"),
+                      (wt,"if command='CHECK-SWITCH' then do"),
+                      (wt,"GITREC PATHFULLCAT GITFIX M15NEW"),
+                      (wt,"'STATE' wfn wft wfm"),
+                      (wt,"workoid mapfn.mi,mapft.mi,mapfm.mi,maplf.mi,0"),
+                      (wt,"destination changes mapped path"),
+                      (wt,"staged changes block branch switch")):
+    if token not in source:
+        raise SystemExit(f'M219 source missing safe-switch check: {token}')
+head=upd[upd.index("if ref='HEAD' then do"):upd.index(
+    "zeros='0000000000000000000000000000000000000000'")]
+assert head.index('call checkswitch oldhead,newhead') < head.index('headref=newhead')
+start=wt.index("if command='CHECK-SWITCH' then do")
+end=wt.index("if command='ADD' then do",start)
+block=wt[start:end]
+for forbidden in ('DISKW', 'ERASE', 'WRITE-WORKFILE', 'UPDATE-REF'):
+    if forbidden in block:
+        raise SystemExit(f'M219 preflight contains a mutating operation: {forbidden}')
+fixture=(
+    "parse arg mode\ncommand='CHECK-SWITCH'\n"
+    "rest='refs/heads/main refs/heads/topic'\n"
+    +block+
+    "exit 99\n"
+    "validref:\n parse arg vr\n"
+    " if left(vr,11)='refs/heads/' then return 'OK'\n"
+    " return 'ERROR'\n"
+    "readrefs:\n"
+    " headref='refs/heads/main'\n"
+    " if mode='stale' then headref='refs/heads/other'\n"
+    " refcount=2\nrefname.1='refs/heads/main'\n"
+    " refoid.1='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
+    " refname.2='refs/heads/topic'\n"
+    " refoid.2='CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC'\n"
+    " return 'OK'\n"
+    "resolve:\n parse arg wanted\n"
+    " if wanted='refs/heads/main' then return refoid.1\n"
+    " if wanted='refs/heads/topic' then return refoid.2\n"
+    " return 'ERROR'\n"
+    "loadmap:\n"
+    " if mode='unmapped' then do\n mapcount=0\n return 'OK'\n end\n"
+    " mapcount=1\nmapfn.1='M219TEST'\nmapft.1='DATA'\n"
+    " mapfm.1='A'\nmaplf.1='1'\n"
+    " mapbase.1='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+    " mapstage.1=mapbase.1\nmappath.1='7372632F66696C65'\n"
+    " if mode='staged' then,\n"
+    "  mapstage.1='EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE'\n"
+    " return 'OK'\n"
+    "bindnative:\n return 'OK'\n"
+    "checkworkfile:\n"
+    " if mode='missingfile' then return 'ERROR'\n"
+    " return 'OK'\n"
+    "workoid:\n"
+    " if mode='dirty' then,\n"
+    "  return 'DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD'\n"
+    " return 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+    "pathoidfor:\n parse arg pcommit,ppath\n"
+    " if mode='missingpath' & pcommit=refoid.2 then,\n"
+    "  return 'ERROR'\n"
+    " if mode='currentstale' & pcommit=refoid.1 then,\n"
+    "  return 'DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD'\n"
+    " if mode='changed' & pcommit=refoid.2 then,\n"
+    "  return 'DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD'\n"
+    " return 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+)
+out.write_text(fixture)
+pstart=wt.index('\nparsepathout:\n')+1
+pend=wt.index('\npathoidfor:\n',pstart)
+parser=wt[pstart:pend]
+parse_fixture=(
+    "parse arg mode\nout.0=5\n"
+    "out.1='COMMIT ROOT FULL CLOSURE VERIFIED'\n"
+    "out.2='PATH OBJECT TYPE 3 SIZE 3 OID AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+    "out.3='PATH DATA BEGIN'\nout.4='PATH HEX 616263'\n"
+    "out.5='PATH DATA END'\n"
+    "if mode='bad' then out.2=\"PATH OBJECT TYPE 3 SIZE 4 OID AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\"\n"
+    "call parsepathout\n"
+    "if result='OK' then say 'OK' pathoid\nelse say 'ERROR'\n"
+    "exit 0\n"+parser
+)
+(out.parent/'parsepath.rexx').write_text(parse_fixture)
+PY
+rexx -c "$tmp/checkswitch.rexx" /dev/null
+rexx -c "$tmp/parsepath.rexx" /dev/null
+parsed=$(rexx "$tmp/parsepath.rexx" good)
+echo "$parsed" | grep -q '^OK AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA$'
+invalid=$(rexx "$tmp/parsepath.rexx" bad)
+[ "$invalid" = 'ERROR' ]
+safe=$(rexx "$tmp/checkswitch.rexx" clean)
+echo "$safe" | grep -q 'SWITCH PREFLIGHT SAFE MAPPED 1'
+unmapped=$(rexx "$tmp/checkswitch.rexx" unmapped)
+echo "$unmapped" | grep -q 'SWITCH PREFLIGHT SAFE UNMAPPED 0'
+for mode in staged dirty missingfile currentstale changed missingpath stale; do
+ if rexx "$tmp/checkswitch.rexx" "$mode" >"$tmp/$mode"; then
+  echo "unsafe switch preflight unexpectedly passed: $mode" >&2
+  exit 1
+ else
+  rc=$?
+  [ "$rc" -eq 8 ]
+ fi
+done
+grep -q 'staged changes block branch switch' "$tmp/staged"
+grep -q 'modified workfile blocks branch switch' "$tmp/dirty"
+grep -q 'missing mapped file blocks branch switch' "$tmp/missingfile"
+grep -q 'worktree base is stale against current branch' "$tmp/currentstale"
+grep -q 'destination changes mapped path' "$tmp/changed"
+grep -q 'destination changes mapped path' "$tmp/missingpath"
+grep -q 'symbolic HEAD changed during switch preflight' "$tmp/stale"
+echo 'M219 SOURCE-DERIVED WORKTREE SWITCH PREFLIGHT/PATH FIXTURES PASS 11'
 )
 exit $?
 fi

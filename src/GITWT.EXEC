@@ -161,6 +161,78 @@ if command='STATUS' then do
  exit 0
 end
 
+/* Read-only preflight for a branch switch across different commit tips. */
+if command='CHECK-SWITCH' then do
+ parse var rest expectedref targetref extra
+ if expectedref='' | targetref='' | extra\='' then do
+  say 'Usage: GITWT CHECK-SWITCH expected-head-ref target-branch-ref'
+  exit 4
+ end
+ call validref expectedref
+ if result\='OK' | left(expectedref,11)\='refs/heads/' then exit 4
+ call validref targetref
+ if result\='OK' | left(targetref,11)\='refs/heads/' then exit 4
+ call readrefs
+ if result\='OK' then do
+  say 'GITWT: cannot read REF2 for switch preflight'
+  exit 8
+ end
+ if headref\=expectedref then do
+  say 'GITWT: symbolic HEAD changed during switch preflight'
+  exit 8
+ end
+ call resolve expectedref
+ currentcommit=result
+ if currentcommit='ERROR' then exit 8
+ call resolve targetref
+ targetcommit=result
+ if targetcommit='ERROR' then exit 8
+ call loadmap
+ if result\='OK' then do
+  say 'GITWT: cannot read worktree map for switch preflight'
+  exit 8
+ end
+ if mapcount=0 then do
+  say 'SWITCH PREFLIGHT SAFE UNMAPPED 0'
+  exit 0
+ end
+ call bindnative
+ if result\='OK' then exit 8
+ do mi=1 to mapcount
+  if mapstage.mi\=mapbase.mi then do
+   say 'GITWT: staged changes block branch switch' mappath.mi
+   exit 8
+  end
+  call checkworkfile mapfn.mi,mapft.mi,mapfm.mi
+  if result\='OK' then do
+   say 'GITWT: missing mapped file blocks branch switch',
+       mapfn.mi mapft.mi mapfm.mi
+   exit 8
+  end
+  call workoid mapfn.mi,mapft.mi,mapfm.mi,maplf.mi,0
+  workoid=result
+  if workoid\=mapbase.mi then do
+   say 'GITWT: modified workfile blocks branch switch' mappath.mi
+   exit 8
+  end
+  call pathoidfor currentcommit,mappath.mi
+  currentpath=result
+  if currentpath\=mapbase.mi then do
+   say 'GITWT: worktree base is stale against current branch',
+       mappath.mi
+   exit 8
+  end
+  call pathoidfor targetcommit,mappath.mi
+  targetpath=result
+  if targetpath\=mapbase.mi then do
+   say 'GITWT: destination changes mapped path' mappath.mi
+   exit 8
+  end
+ end
+ say 'SWITCH PREFLIGHT SAFE MAPPED' mapcount
+ exit 0
+end
+
 if command='ADD' then do
  parse var rest path extra
  if path='' | extra\='' then do
@@ -543,6 +615,23 @@ parsepathout:
   return 'ERROR'
  if length(body)%2\=pathsize then return 'ERROR'
  return 'OK'
+
+pathoidfor:
+ parse arg pcommit,ppath
+ drop out.
+ out.0=0
+ cmd='GITREC PATHFULLCAT GITFIX M15NEW' pcommit ppath
+ 'PIPE CMS' cmd '| STEM out.'
+ if rc\=0 then return 'ERROR'
+ call parsepathout
+ if result\='OK' then return 'ERROR'
+ return pathoid
+
+checkworkfile:
+ parse arg wfn,wft,wfm
+ 'STATE' wfn wft wfm
+ if rc\=0 then return 'OK'
+ return 'ERROR'
 
 bodyrecords:
  parse arg h

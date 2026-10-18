@@ -15061,3 +15061,28 @@ M218 CI follow-up: full native host workflow 39151897194 passed on commit
 `67385e15974935375090cad041ebd0e88ec54d72`. The five source-derived switch
 fixtures and all existing host regressions passed. CMS branch switching remains
 unverified.
+
+## 2026-10-18 — M219 mapped-worktree switch preflight
+
+Plan: permit different-tip branch switches only when the current symbolic HEAD
+matches the expected old branch, the mapped worktree has no staged or modified
+files, every mapped CMS file exists, each map baseline matches the current
+commit, and each destination path resolves to that same blob OID. Keep the
+preflight read-only and make the REF2 updater call it before changing HEAD.
+Test clean/unmapped success and rejection for staged, dirty, absent, stale, and
+changed paths using the exact REXX source block.
+
+Assumption: GITWORK intentionally describes a partial mapped worktree. A safe
+branch change may preserve unmapped CMS files and paths not represented by that
+map; the command will not create or overwrite them.
+
+Progress: GITWT `CHECK-SWITCH` now checks the expected symbolic HEAD, map
+cleanliness, mapped file presence and hash, the current commit's blob for each
+mapped path, and the destination commit's blob. It performs no writes. GITUPD
+calls that preflight for different tips, rereads REF2, and verifies HEAD and
+both branch OIDs still match before its snapshot/rewrite. The source-derived
+Regina fixtures cover nine preflight cases plus valid/malformed path-output
+parsing. M219 and its M218-through-M208 dependency checks, the 42 preserved
+host-source compilations, canonical/workflow guards, source-width checks, and
+`git diff --check` pass locally. CMS remains unverified; commit and Actions are
+pending.

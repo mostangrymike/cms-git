@@ -118,6 +118,13 @@ refused until the client can update mapped CMS workfiles and stage state as one
 guarded worktree transition. Host REXX checks pass; CMS behavior remains
 unverified.
 
+M219 extends switching across different commit tips when the mapped worktree
+is clean and every mapped path has the same blob OID in both commits. It refuses
+staged or modified workfiles, missing mapped files, stale base mappings, and
+destination commits that change a mapped path. Unmapped CMS files are preserved;
+the command does not materialize paths that are absent from the current map.
+Host REXX checks pass; CMS behavior remains unverified.
+
 ---
 
 ## M206 full 32-object CMS PASS and A-disk audit (October 13, 2026)

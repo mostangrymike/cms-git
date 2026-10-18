@@ -2,7 +2,7 @@
 address cms
 parse arg ref newoid oldoid extra
 
-/* HEAD changes are limited to branches with the same verified commit. */
+/* HEAD changes require a verified, unchanged mapped worktree. */
 if ref='HEAD' then do
  if newoid='' | oldoid='' | extra\='' then do
   say 'Usage: GITUPD HEAD refs/heads/name expected-head-ref'
@@ -33,12 +33,32 @@ if ref='HEAD' then do
   say 'GITUPD: switch branch is missing'
   exit 8
  end
- if oldoid\=newoid then do
-  say 'GITUPD: switch requires a worktree transition'
-  exit 8
- end
  call requirecommit newoid
  if result\='OK' then exit 8
+ if oldoid\=newoid then do
+  call requirecommit oldoid
+  if result\='OK' then exit 8
+  call checkswitch oldhead,newhead
+  if result\='OK' then do
+   say 'GITUPD: destination worktree preflight failed'
+   exit 8
+  end
+ end
+ call readrefs
+ if result\='OK' | headref\=oldhead then do
+  say 'GITUPD: symbolic HEAD changed during switch preflight'
+  exit 8
+ end
+ checkoldoid=''
+ checknewoid=''
+ do i=1 to refcount
+  if refname.i=oldhead then checkoldoid=refoid.i
+  if refname.i=newhead then checknewoid=refoid.i
+ end
+ if checkoldoid\=oldoid | checknewoid\=newoid then do
+  say 'GITUPD: branch tips changed during switch preflight'
+  exit 8
+ end
  if newhead=oldhead then do
   say 'Already on' substr(newhead,12)
   exit 0
@@ -195,6 +215,12 @@ else do
  say newoid ref
 end
 exit 0
+
+checkswitch:
+ parse arg oldhead,newhead
+ address command 'EXEC GITWT CHECK-SWITCH' oldhead newhead
+ if rc\=0 then return 'ERROR'
+ return 'OK'
 
 validref:
  parse arg vr
