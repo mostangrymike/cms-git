@@ -15624,3 +15624,23 @@ maps, and unsupported options; eight source guards check the mapping. The M243
 cumulative suite, 42-source host compile inventory, REXX syntax/80-column
 checks, and `git diff --check` pass. GitHub CI is pending; CMS behavior remains
 unverified.
+
+M243 CI follow-up: full native host workflow 39157625495 passed on commit
+`cc1d5a0cfc4c`. CMS behavior remains unverified.
+
+## 2026-10-18 — M244 mapped name-only diff
+
+Plan: add read-only `GIT DIFF --name-only` and cached/staged name-only forms,
+using GITWORK's base/index/workfile OIDs to list changed mapped paths.
+
+Assumption: patch rendering, pathspecs, and untracked-file discovery remain
+unsupported; the command reports paths already present in GITWORK only.
+
+Progress: GIT and GITWT route unstaged and staged name-only comparisons. The
+unstaged path hashes each existing mapped workfile and reports missing mapped
+files as deletions; the cached path compares stage and base OIDs. Six
+source-derived Regina fixtures cover clean, staged, unstaged, combined,
+addition, deletion, empty-map, alias, and invalid-argument cases; eight source
+guards check routing and state comparisons. The M244 cumulative source suite,
+42-source host compile inventory, REXX syntax/80-column checks, and
+`git diff --check` pass. GitHub CI is pending; CMS behavior remains unverified.

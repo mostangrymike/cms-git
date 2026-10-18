@@ -254,6 +254,11 @@ and unstaged additions, modifications, and deletions in two-column status
 form. It reports mapped worktree paths only; untracked-file discovery remains
 unsupported. CMS behavior remains unverified.
 
+M244 adds `GIT DIFF --name-only` for unstaged mapped changes and
+`GIT DIFF --cached|--staged --name-only` for staged changes. It lists paths
+without patch content and does not include unmapped or untracked files. CMS
+behavior remains unverified.
+
 ---
 
 ## M206 full 32-object CMS PASS and A-disk audit (October 13, 2026)

@@ -179,6 +179,49 @@ if command='STATUS' then do
  exit 0
 end
 
+if command='DIFF' then do
+ diffarg1=translate(word(rest,1))
+ diffarg2=translate(word(rest,2))
+ cached=0
+ if diffarg1='--CACHED' | diffarg1='--STAGED' then do
+  if words(rest)\=2 | diffarg2\='--NAME-ONLY' then do
+   say 'Usage: GIT DIFF [--cached|--staged] --name-only'
+   exit 4
+  end
+  cached=1
+ end
+ else if words(rest)\=1 | diffarg1\='--NAME-ONLY' then do
+  say 'Usage: GIT DIFF [--cached|--staged] --name-only'
+  exit 4
+ end
+ call loadmap
+ if result\='OK' then exit 8
+ do i=1 to mapcount
+  changed=0
+  if cached=1 then do
+   if mapstage.i\=mapbase.i then changed=1
+  end
+  else do
+   'STATE' mapfn.i mapft.i mapfm.i
+   if rc=28 then changed=1
+   else if rc\=0 then exit 8
+   else do
+    call workoid mapfn.i,mapft.i,mapfm.i,maplf.i,0
+    work=result
+    if work='ERROR' then exit 8
+    if work\=mapstage.i then changed=1
+   end
+  end
+  if changed=1 then do
+   call asciitocms mappath.i
+   path=result
+   if path='ERROR' then exit 8
+   say path
+  end
+ end
+ exit 0
+end
+
 /* Read-only preflight for a branch switch across different commit tips. */
 if command='CHECK-SWITCH' then do
  parse var rest expectedref targetref extra
