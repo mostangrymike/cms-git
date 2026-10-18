@@ -206,6 +206,56 @@ echo 'M210 SOURCE-DERIVED REXX TAG GLOB FIXTURES PASS 9'
 exit $?
 fi
 
+# Run the exact REF2 name validators from each caller under Regina REXX.
+if [ "${1:-}" = "M213" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M210
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root" "$tmp" <<'PY'
+from pathlib import Path
+import sys
+root=Path(sys.argv[1]); out=Path(sys.argv[2])
+ends={'GITUPD.EXEC':'requirecommit',
+      'GITVREF.EXEC':'directinput',
+      'GITWT.EXEC':'resolve'}
+for filename,endlabel in ends.items():
+ source=(root/'src'/filename).read_text()
+ start=source.index('\nvalidref:\n')+1
+ end=source.index('\n'+endlabel+':\n',start)
+ (out/(filename+'.rexx')).write_text(
+  'parse arg name\ncall validref name\nsay result\nexit 0\n'+
+  source[start:end]+'\n')
+PY
+longname=refs/tags/abcdefghijklmnopqrstuvwxyz
+for file in GITUPD.EXEC GITVREF.EXEC GITWT.EXEC; do
+ rexx -c "$tmp/$file.rexx" /dev/null
+ for name in refs/tags/v1.2 refs/tags/release/2026.10 \
+             refs/tags/with-underscore_1 refs/heads/main; do
+  rexx "$tmp/$file.rexx" "$name" > "$tmp/result"
+  actual=$(tail -n 1 "$tmp/result")
+  if [ "$actual" != OK ]; then
+   echo "$file rejected valid ref $name: $actual" >&2
+   exit 1
+  fi
+ done
+ for name in refs/tags/.hidden refs/tags/a..b refs/tags/branch.lock \
+             'refs/tags/bad*' refs/tags/a//b refs/tags/a/ "$longname"; do
+  rexx "$tmp/$file.rexx" "$name" > "$tmp/result"
+  actual=$(tail -n 1 "$tmp/result")
+  if [ "$actual" != ERROR ]; then
+   echo "$file accepted invalid ref $name: $actual" >&2
+   exit 1
+  fi
+ done
+done
+echo 'M213 SOURCE-DERIVED REF2 VALIDATOR FIXTURES PASS 33'
+)
+exit $?
+fi
+
 # Isolated M206 explicit-object compatibility route: host source guard only.
 if [ "${1:-}" = "M206BRIDGE" ]; then
 (

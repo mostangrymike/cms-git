@@ -14897,3 +14897,21 @@ source-derived wildcard cases passed locally. Full native host workflow
 39150028893 passed on commit `fda7df7245187a267fc63ab27ddccee3e62acbfd`.
 The force-update path is host-validated only; CMS compile and REF2 behavior
 remain unverified.
+
+## 2026-10-18 — M213 cross-caller REF2 name validation
+
+Plan: execute the exact tag/branch `validref` implementations extracted from
+`GITUPD.EXEC`, `GITVREF.EXEC`, and `GITWT.EXEC` under Regina. Require identical
+acceptance for representative valid refs and rejection of malformed path
+components, wildcards, locks, and overlong refs.
+
+Assumption: safe names remain limited to the common ASCII subset already
+accepted by all three sources; this step changes tests only.
+
+
+Progress: M213 extracts and executes the validators directly from all three
+REXX sources. The M210 tag guards, nine wildcard cases, and 33 cross-caller
+valid/invalid name fixtures pass locally under Regina. The default canonical
+source guard, 42 historical test-body compilations, 80-column checks and
+`git diff --check` also pass. CMS remains untested; commit and Actions are
+pending.
