@@ -671,6 +671,74 @@ echo 'M229 SOURCE-DERIVED BRANCH PATTERN FIXTURES PASS 15'
 exit $?
 fi
 
+# Create a branch at HEAD or a resolved branch/tag start point.
+if [ "${1:-}" = "M230" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M229
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GIT.EXEC" "$tmp/createbranch.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+route=source[source.index("if command = 'BRANCH' then do"):
+             source.index("/* M218: change symbolic HEAD")]
+start=route.index("if brancharg1='' | brancharg3\\='' |")
+block=route[start:]
+command="address command 'EXEC GIT UPDATE-REF' branchref branchoid zeros"
+if command not in block:
+ raise SystemExit('M230 branch create did not preserve the CAS updater')
+block=block.replace(command,
+ "rc=0\nsay 'SIMULATED UPDATE-REF' branchref branchoid zeros")
+vstart=source.index('validbranch: procedure')
+vend=source.index('resolvetagtarget: procedure',vstart)
+validator=source[vstart:vend]
+fixture=(
+ "parse arg brancharg1 brancharg2 brancharg3 brancharg4 brancharg5\n"
+ "command='BRANCH'\nif command='BRANCH' then do\n"
+ "zeros='0000000000000000000000000000000000000000'\n"+
+ block+
+ "exit 99\n"
+ "resolvetagtarget: procedure\n parse arg wanted\n"
+ " if wanted='HEAD' then return 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ " if wanted='main' then return 'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
+ " return 'ERROR'\n"+validator)
+Path(sys.argv[2]).write_text(fixture)
+if block.index("if branchstart='' then branchstart='HEAD'") > block.index(
+        'call resolvetagtarget branchstart'):
+ raise SystemExit('M230 resolves branch source before applying HEAD default')
+if block.index('call validbranch brancharg1') > block.index(
+        "branchref='refs/heads/'||brancharg1"):
+ raise SystemExit('M230 builds branch ref before validating its name')
+print('M230 BRANCH CREATE SOURCE GUARDS PASS 3')
+PY
+rexx -c "$tmp/createbranch.rexx" /dev/null
+head=$(rexx "$tmp/createbranch.rexx" new)
+echo "$head" | grep -q 'SIMULATED UPDATE-REF refs/heads/new AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+echo "$head" | grep -q 'BRANCH CREATED new AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+start=$(rexx "$tmp/createbranch.rexx" new main)
+echo "$start" | grep -q 'SIMULATED UPDATE-REF refs/heads/new BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'
+for args in "bad|name" 'new missing' 'new main extra'; do
+ if rexx "$tmp/createbranch.rexx" $args > "$tmp/rejected"; then
+  echo "invalid branch create unexpectedly succeeded: $args" >&2
+  exit 1
+ else
+  rc=$?
+  [ "$rc" -eq 4 ]
+ fi
+ if grep -q 'SIMULATED UPDATE-REF' "$tmp/rejected"; then
+  echo "invalid branch create reached updater: $args" >&2
+  exit 1
+ fi
+done
+echo 'M230 SOURCE-DERIVED BRANCH CREATE FIXTURES PASS 5'
+)
+exit $?
+fi
+
 # Isolated M206 explicit-object compatibility route: host source guard only.
 if [ "${1:-}" = "M206BRIDGE" ]; then
 (

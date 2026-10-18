@@ -273,9 +273,9 @@ if command = 'BRANCH' then do
       say 'BRANCH DELETED' brancharg2 branchoid
       exit 0
    end
-   if brancharg1='' | brancharg2='' | brancharg3\='' |,
+   if brancharg1='' | brancharg3\='' |,
       brancharg4\='' | brancharg5\='' then do
-      say 'Usage: GIT BRANCH [name commit-oid]'
+      say 'Usage: GIT BRANCH name [start-point]'
       say '       GIT BRANCH -d|--delete name expected-old-oid'
       exit 4
    end
@@ -285,7 +285,14 @@ if command = 'BRANCH' then do
       exit 4
    end
    branchref='refs/heads/'||brancharg1
-   branchoid=translate(brancharg2)
+   branchstart=brancharg2
+   if branchstart='' then branchstart='HEAD'
+   call resolvetagtarget branchstart
+   branchoid=result
+   if branchoid='ERROR' then do
+      say 'GIT: cannot resolve branch start point' branchstart
+      exit 4
+   end
    address command 'EXEC GIT UPDATE-REF' branchref branchoid zeros
    if rc\=0 then exit rc
    say 'BRANCH CREATED' brancharg1 branchoid

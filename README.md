@@ -185,6 +185,12 @@ inside the validated ASCII alphabet. Fixtures cover nested matches, ordering,
 current-branch marking, and unsafe direct input. CMS behavior remains
 unverified.
 
+M230 lets `GIT BRANCH name [start-point]` create a branch at `HEAD` by default
+or at a resolved full object ID, branch, or tag. The update still uses the
+expected-absent ref compare-and-swap path. Source-derived fixtures cover the
+default, resolved ref, unsafe name, missing start point, and extra arguments.
+CMS behavior remains unverified.
+
 ---
 
 ## M206 full 32-object CMS PASS and A-disk audit (October 13, 2026)

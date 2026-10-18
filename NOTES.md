@@ -15331,3 +15331,26 @@ source-derived cases and five dispatch guards pass, as do M228 and earlier
 branch/tag tests, the 42 preserved host-source compilations, syntax/80-column
 checks, and `git diff --check`. CMS behavior remains unverified; M229 commit and
 Actions are pending.
+
+
+M229 CI follow-up: full native host workflow 39154556840 passed on commit
+`eca4caffa97e5e277af1cd313c9526461bf45bcd`. Filtered branch output and the
+existing host regressions passed. CMS behavior remains unverified.
+
+## 2026-10-18 — M230 branch start-point resolution
+
+Plan: allow `GIT BRANCH name [start-point]` to create at HEAD by default or at a
+resolved commit/ref. Keep branch-name validation and use the existing REF2
+compare-and-swap updater. Add exact-source tests for defaulting, resolution,
+invalid operands, and argument arity.
+
+Assumption: preserve the explicit existing create form while making the
+start-point optional; branch creation does not switch the current worktree.
+
+Progress: the branch router now defaults the target to HEAD and resolves HEAD,
+full OIDs, branch names, and tag names through the verified tag-target resolver.
+GITUPD still verifies the commit and creates through the expected-absent CAS
+path. Five generated source cases and three dispatch guards pass, along with
+M229 and prior branch/tag fixtures, all 42 preserved host-source compilations,
+syntax/80-column checks, and `git diff --check`. CMS behavior remains
+unverified; M230 commit and Actions are pending.
