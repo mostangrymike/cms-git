@@ -14937,3 +14937,10 @@ Progress: added a zero-OID rejection before calling `GIT UPDATE-REF`. Focused
 M213 checks, REXX syntax, all source widths, the canonical source guard, all 42
 preserved test-body compilations and `git diff --check` pass locally. CMS remains
 unverified; commit and full Actions are pending.
+
+
+M214 validation: focused M213 (including M210/M208 and all 33 extracted
+validator cases), syntax/width checks, canonical source guard and historical
+host test compilation passed. Full native host workflow 39150390362 passed on
+commit `c09377e9f9f0c82580eee8daa0fdf678c7183377`. CMS qualification remains
+unavailable.
