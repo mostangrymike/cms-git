@@ -114,7 +114,8 @@ v=(root/'src/GITVREF.EXEC').read_text()
 w=(root/'src/GITWT.EXEC').read_text()
 required={
  'GIT.EXEC': (g, ("if command = 'TAG' then do", "EXEC GITVREF TAGS",
-     "verb='-L' | verb='--LIST'", "say 'Usage: GIT TAG [-l|--list]'",
+     "verb='-L' | verb='--LIST'",
+     "say 'Usage: GIT TAG [-l|--list [pattern]]'",
      "ref='refs/tags/'||action", "ref='refs/tags/'||tagname",
      "EXEC GIT UPDATE-REF' ref oid zeros",
      "EXEC GIT UPDATE-REF' ref zeros oid")),
@@ -123,7 +124,8 @@ required={
      'current\\=oldoid', 'call restore')),
  'GITVREF.EXEC': (v, ("command='TAGS' then do",
      "left(refname.ti,10)='refs/tags/'", "left(wanted,10)\\='refs/tags/'",
-     "wanted='refs/tags/'||shortname", 'say substr(refname.ti,11)',
+     "wanted='refs/tags/'||shortname",
+     'tagcandidate=substr(refname.ti,11)', 'say tagcandidate',
      'call validref name')),
  'GITWT.EXEC': (w, ('call validref name',
      "left(headref,11)\\='refs/heads/'", "left(wanted,11)\\='refs/heads/'")),
@@ -137,6 +139,64 @@ if (root/'src/GITP208M.C').exists() or (root/'src/GITC208.EXEC').exists():
 print('M208 REF2 lightweight commit-tag source checks PASS')
 PY
 echo 'M208 REXX syntax and 80-column checks PASS (CMS UNVERIFIED)'
+)
+exit $?
+fi
+
+# Exercise the exact source-derived REXX tag-list matcher on the host.
+if [ "${1:-}" = "M210" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M208
+python3 - "$root/src/GIT.EXEC" "$root/src/GITVREF.EXEC" <<'PY'
+from pathlib import Path
+import sys
+cli=Path(sys.argv[1]).read_text()
+refs=Path(sys.argv[2]).read_text()
+for token in ("address command 'EXEC GITVREF TAGS' tagname",):
+ if token not in cli:
+  raise SystemExit(f'GIT.EXEC missing list-pattern forwarding: {token}')
+for token in ("tagchars=tagchars||'0123456789._/-*?'",
+              'call tagmatch tagpattern, tagcandidate',
+              "if result='MATCH' then say tagcandidate"):
+ if token not in refs:
+  raise SystemExit(f'GITVREF.EXEC missing list-pattern behavior: {token}')
+print('M210 LIST-PATTERN INTEGRATION GUARDS PASS')
+PY
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GITVREF.EXEC" "$tmp/tagmatch.rexx" <<'PY'
+from pathlib import Path
+import sys
+source=Path(sys.argv[1]).read_text()
+start=source.index("\ntagmatch:\n")+1
+end=source.index("\nbindnative:\n",start)
+routine=source[start:end]
+Path(sys.argv[2]).write_text(
+    "parse arg pattern value\ncall tagmatch pattern, value\nsay result\nexit 0\n"+routine+"\n")
+PY
+rexx -c "$tmp/tagmatch.rexx" /dev/null
+check() {
+ expected=$1
+ pattern=$2
+ value=$3
+ actual=$(rexx "$tmp/tagmatch.rexx" "$pattern" "$value")
+ if [ "$actual" != "$expected" ]; then
+  echo "tag matcher $pattern / $value: expected $expected, got $actual" >&2
+  exit 1
+ fi
+}
+check MATCH 'v*' v2.0
+check MATCH 'v?.*' v2.0
+check MATCH 'v*0' v20
+check MATCH 'release/*' release/2026.10
+check MATCH '*' plain
+check NO 'v?.*' v12.0
+check NO 'v*rc' v2.0
+check NO 'release/*' release
+check MATCH '*' ''
+echo 'M210 SOURCE-DERIVED REXX TAG GLOB FIXTURES PASS 9'
 )
 exit $?
 fi

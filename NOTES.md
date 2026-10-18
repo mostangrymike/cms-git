@@ -14831,3 +14831,23 @@ MCP transport boundary (`Transport closed`). Process inspection shows the
 existing bridge and its single s3270 process are still present, with one
 established connection to 127.0.0.1:3271; I did not restart or terminate them.
 No CMS input or target validation occurred.
+
+## 2026-10-18 — M210 tag-list wildcard plan
+
+Plan: extend `GIT TAG -l`/`--list` to filter names with bounded `*` and `?`
+wildcards, validate pattern characters/length, and exercise the exact
+source-derived REXX matcher under Regina. Keep REF2 unchanged and do no CMS
+operations.
+
+Assumption: bracket character classes and escaping are deferred; list patterns
+are a single CMS token using only the supported tag-name alphabet plus `*` and
+`?`.
+
+Progress: implemented forwarding from `GIT.EXEC`, filtering in `GITVREF.EXEC`,
+and the REXX wildcard matcher. The first two test runs caught outdated M208
+source assertions after the usage text and name extraction changed; updated
+those assertions to match the new integration. M208 syntax/width/source guards,
+M210 integration assertions, nine source-derived matcher cases, the canonical
+source guard, all 42 preserved test-body compilations, and `git diff --check`
+pass locally. CMS target validation remains unavailable; commit and Actions
+validation are pending.

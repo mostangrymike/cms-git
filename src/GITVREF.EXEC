@@ -15,12 +15,30 @@ if command='STAMP' then do
  exit 0
 end
 if command='TAGS' then do
- if spec\='' | depth\='' | extra\='' then exit 4
+ if depth\='' | extra\='' then exit 4
+ if spec\='' then do
+  tagpattern=''
+ end
+ else do
+  tagpattern=spec
+  tagchars='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+  tagchars=tagchars||'0123456789._/-*?'
+  if length(tagpattern)>25 | verify(tagpattern,tagchars)\=0 then do
+   say 'GITVREF: invalid tag-list pattern' tagpattern
+   exit 4
+  end
+ end
  call readrefs
  if result\='OK' then exit 8
  do ti=1 to refcount
-  if left(refname.ti,10)='refs/tags/' then,
-   say substr(refname.ti,11)
+  if left(refname.ti,10)='refs/tags/' then do
+   tagcandidate=substr(refname.ti,11)
+   if tagpattern='' then say tagcandidate
+   else do
+    call tagmatch tagpattern, tagcandidate
+    if result='MATCH' then say tagcandidate
+   end
+  end
  end
  exit 0
 end
@@ -4980,6 +4998,43 @@ pathasciihex:
  out=c2x(translate(text,e2a,bytes))
  if pos('00',out)>0 then return 'ERROR'
  return out
+
+tagmatch:
+ parse arg tagpattern, tagvalue
+ tagp=1
+ tagv=1
+ tagstar=0
+ tagretry=0
+ do while tagv<=length(tagvalue)
+  if tagp<=length(tagpattern) then do
+   tagpc=substr(tagpattern,tagp,1)
+   tagvc=substr(tagvalue,tagv,1)
+   if tagpc='?' | tagpc=tagvc then do
+    tagp=tagp+1
+    tagv=tagv+1
+    iterate
+   end
+   if tagpc='*' then do
+    tagstar=tagp
+    tagp=tagp+1
+    tagretry=tagv
+    iterate
+   end
+  end
+  if tagstar>0 then do
+   tagp=tagstar+1
+   tagretry=tagretry+1
+   tagv=tagretry
+   iterate
+  end
+  return 'NO'
+ end
+ do while tagp<=length(tagpattern) &,
+    substr(tagpattern,tagp,1)='*'
+  tagp=tagp+1
+ end
+ if tagp>length(tagpattern) then return 'MATCH'
+ return 'NO'
 
 bindnative:
  'FILEDEF SEL0 DISK M15SL0 PTR A'

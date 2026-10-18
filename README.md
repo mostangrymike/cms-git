@@ -89,8 +89,10 @@ verification for every selected object, rejection at
 129, and fail-closed empty bands. This extension is
 host-tested only; it has not been compiled or run on CMS.
 
-M208 adds lightweight commit tags to the modern `GITREF2` store:
-`GIT TAG` and `GIT TAG -l`/`--list` list tag names, while
+M208 adds lightweight commit tags to the modern `GITREF2` store. M209 makes
+listing output tag names and accepts `-l`/`--list`; M210 adds `*` and `?`
+list-pattern wildcards (no bracket classes). `GIT TAG` and `GIT TAG -l`/
+`--list` list tag names, while
 `GIT TAG <name> <full-commit-oid>` creates a tag, and
 `GIT TAG -D <name> <expected-commit-oid>` deletes one using compare-and-swap.
 Creation verifies the target commit; deletion requires its exact old OID.

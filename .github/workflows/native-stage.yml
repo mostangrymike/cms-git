@@ -156,8 +156,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --yes regina-rexx
-      - name: Check M208 REF2 lightweight commit tags
-        run: sh tests/check-canonical-source.sh M208
+      - name: Check M210 REF2 tag listing and wildcard fixtures
+        run: sh tests/check-canonical-source.sh M210
       - name: Check M190 7736-object selective seek closure
         run: python3 tests/test-m203-bounded-batch.py M190S
       - name: Compare M190 indexed seek vs M188 two-pass host
