@@ -82,6 +82,13 @@ programs for every milestone. M206's real-CMS
 the preserved baseline; it is not a complete
 280-object reachable history walk.
 
+The in-place M207 extension raises the sampler limit
+to 128 disjoint bands in those same sources. Host C89
+and REXX source checks cover 2–128 bands, full SHA-1
+verification for every selected object, rejection at
+129, and fail-closed empty bands. This extension is
+host-tested only; it has not been compiled or run on CMS.
+
 ---
 
 ## M206 full 32-object CMS PASS and A-disk audit (October 13, 2026)
@@ -123,9 +130,9 @@ creating more M-numbered C/EXEC/ASSEMBLE files. The
 current stable reader sources are `GITP26M.C` and
 `GITC26.EXEC`. Preserve working MODULEs until new
 versions pass both host CI and real CMS; use GitHub
-history for rollback. A previously started M207
-numbered-file scratch branch remains unmerged and
-must not be deployed.
+history for rollback. The earlier numbered-file M207
+scratch branch remains separate and must not be deployed;
+the current in-place M207 update does not use it.
 
 See `docs/M201-M205_HISTORY.md` and
 `docs/M173_PERSISTENT_DISK_RUNBOOK.md`. Next safe cleanup commands
@@ -178,11 +185,12 @@ sixteen separated index regions. Console output
 was heavily interleaved, and final independent
 FILEDEF/STATE was not supplied.
 
-M206's **32-object real CMS gate remains pending**;
-do not replace the current M206 module before it.
-The separate unmerged M207 scratch branch is not
-part of the canonical build and no M207 files
-should be uploaded.
+The M206 32-object real CMS gate was subsequently
+completed as recorded above. The earlier unmerged
+M207 scratch branch remains outside the canonical build.
+The current in-place M207 source change is host-only
+and must pass full host CI and a real CMS compile,
+CHECK and RUN before replacing the proven module.
 
 After merge, Mac `ibm-sandbox/src`:
 

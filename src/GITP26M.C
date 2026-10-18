@@ -1,4 +1,4 @@
-/* M206: one complete index validation, stratified sample plans. */
+/* M206/M207: one complete index validation, stratified sample plans. */
 /* Read only validated PIDX1, never open STGIN or seek stage bytes. */
 #include <stdio.h>
 #include <stdlib.h>
@@ -114,7 +114,7 @@ done:
  */
 static int sample(unsigned long expected,unsigned long limit,
                   int count) {
- unsigned long n,rec=1,body,start,end,picked[32];
+  unsigned long n,rec=1,body,start,end,picked[128];
  long prior=-1;
  struct item *e;
  int k;
@@ -174,8 +174,8 @@ int main(int argc,char **argv) {
     !numeric(argv[4],&num)||
     expected==0||expected>MAXREC||
     limit==0||limit>64UL||
-    num<2UL||num>32UL) {
-  puts("Usage: GITP26M SAMPLE records max-body 2..32");
+     num<2UL||num>128UL) {
+   puts("Usage: GITP26M SAMPLE records max-body 2..128");
   return 4;
  }
  if(!indexread()) goto done;

@@ -148,7 +148,7 @@ jobs:
         run: python3 tests/test-m203-bounded-batch.py M204
       - name: Check M205 sampled Git objects and full SHA1
         run: python3 tests/test-m203-bounded-batch.py M205
-      - name: Check M206 up to 32 independently SHA-authenticated bands
+      - name: Check M206/M207 up to 128 independently SHA-authenticated bands
         run: python3 tests/test-m203-bounded-batch.py M206
       - name: Guard M206 explicit-object compatibility dispatch
         run: sh tests/check-canonical-source.sh M206BRIDGE
