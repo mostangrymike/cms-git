@@ -291,9 +291,8 @@ if command = 'BRANCH' then do
       exit 0
    end
    if verb='-D' | verb='--DELETE' then do
-      if brancharg2='' | brancharg3='' |,
-         brancharg4\='' | brancharg5\='' then do
-         say 'Usage: GIT BRANCH -d|--delete name expected-old-oid'
+      if brancharg2='' | brancharg4\='' | brancharg5\='' then do
+         say 'Usage: GIT BRANCH -d|--delete name [expected-old-oid]'
          exit 4
       end
       call validbranch brancharg2
@@ -302,7 +301,22 @@ if command = 'BRANCH' then do
          exit 4
       end
       branchref='refs/heads/'||brancharg2
-      branchoid=translate(brancharg3)
+      if brancharg3='' then do
+         call resolvestart branchref
+         branchoid=result
+         if branchoid='ERROR' | branchoid='HEAD' then do
+            say 'GIT: cannot resolve branch' branchref
+            exit 8
+         end
+      end
+      else do
+         branchoid=translate(brancharg3)
+         if length(branchoid)\=40 |,
+            verify(branchoid,'0123456789ABCDEF')\=0 then do
+            say 'GIT: invalid expected branch object-id'
+            exit 4
+         end
+      end
       address command 'EXEC GIT UPDATE-REF' branchref zeros branchoid
       if rc\=0 then exit rc
       say 'BRANCH DELETED' brancharg2 branchoid
@@ -311,7 +325,7 @@ if command = 'BRANCH' then do
    if brancharg1='' | brancharg3\='' |,
       brancharg4\='' | brancharg5\='' then do
       say 'Usage: GIT BRANCH name [start-point]'
-      say '       GIT BRANCH -d|--delete name expected-old-oid'
+      say '       GIT BRANCH -d|--delete name [expected-old-oid]'
       exit 4
    end
    call validbranch brancharg1

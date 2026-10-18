@@ -927,6 +927,81 @@ echo 'M233 SOURCE-DERIVED TAG DELETE FIXTURES PASS 6'
 exit $?
 fi
 
+# Resolve a branch's current OID before compare-and-swap deletion.
+if [ "${1:-}" = "M234" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M233
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GIT.EXEC" "$tmp/deletebranch.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+route=source[source.index("if command = 'BRANCH' then do"):
+             source.index("/* M218: change symbolic HEAD")]
+start=route.index("if verb='-D' | verb='--DELETE' then do")
+end=route.index("if brancharg1='' | brancharg3",start)
+block=route[start:end]
+command="address command 'EXEC GIT UPDATE-REF' branchref zeros branchoid"
+if command not in block:
+ raise SystemExit('M234 branch deletion lost its CAS update')
+if block.index('call resolvestart branchref') > block.index(command):
+ raise SystemExit('M234 submits deletion before resolving current branch OID')
+block=block.replace(command,
+ "rc=0\nsay 'SIMULATED UPDATE-REF' branchref zeros branchoid")
+vstart=source.index('validbranch: procedure')
+vend=source.index('resolvetagtarget: procedure',vstart)
+validator=source[vstart:vend]
+fixture=(
+ "parse arg brancharg1 brancharg2 brancharg3 brancharg4 brancharg5\n"
+ "verb=translate(brancharg1)\n"
+ "zeros='0000000000000000000000000000000000000000'\n"+
+ block+
+ "resolvestart: procedure\n parse arg wanted\n"
+ " if wanted='refs/heads/main' then return 'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
+ " return 'ERROR'\n"+validator)
+Path(sys.argv[2]).write_text(fixture)
+for token in ('call resolvestart branchref', 'branchoid=result',
+              "verify(branchoid,'0123456789ABCDEF')",
+              "SIMULATED UPDATE-REF' branchref zeros branchoid"):
+ if token not in block:
+  raise SystemExit(f'M234 delete path missing {token!r}')
+print('M234 BRANCH DELETE CAS SOURCE GUARDS PASS 4')
+PY
+rexx -c "$tmp/deletebranch.rexx" /dev/null
+check() {
+ expected_rc=$1
+ expected=$2
+ shift 2
+ if output=$(rexx "$tmp/deletebranch.rexx" "$@"); then
+  rc=0
+ else
+  rc=$?
+ fi
+ if [ "$rc" -ne "$expected_rc" ]; then
+  echo "branch delete $*: expected RC $expected_rc, got $rc" >&2
+  exit 1
+ fi
+ if [ "$output" != "$expected" ]; then
+  echo "branch delete $*: expected '$expected', got '$output'" >&2
+  exit 1
+ fi
+}
+oid=BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+check 0 "$(printf 'SIMULATED UPDATE-REF refs/heads/main 0000000000000000000000000000000000000000 %s\nBRANCH DELETED main %s' "$oid" "$oid")" -d main
+check 0 "$(printf 'SIMULATED UPDATE-REF refs/heads/main 0000000000000000000000000000000000000000 %s\nBRANCH DELETED main %s' "$oid" "$oid")" --delete main "$oid"
+check 8 'GIT: cannot resolve branch refs/heads/missing' -d missing
+check 4 'GIT: invalid branch name' -d 'bad|name'
+check 4 'GIT: invalid expected branch object-id' -d main nope
+check 4 'Usage: GIT BRANCH -d|--delete name [expected-old-oid]' -d main "$oid" extra
+echo 'M234 SOURCE-DERIVED BRANCH DELETE FIXTURES PASS 6'
+)
+exit $?
+fi
+
 # Isolated M206 explicit-object compatibility route: host source guard only.
 if [ "${1:-}" = "M206BRIDGE" ]; then
 (
@@ -1159,7 +1234,9 @@ for token in ("if command = 'BRANCH' then do", "'STATE GITREF2 REPO A'",
               'if rc=28 then do', "'EXEC GITREF BRANCH' rest",
               "EXEC GITVREF BRANCHES",
               "EXEC GIT UPDATE-REF' branchref branchoid zeros",
-              "EXEC GIT UPDATE-REF' branchref zeros branchoid"):
+              "EXEC GIT UPDATE-REF' branchref zeros branchoid",
+              "call resolvestart branchref",
+              "verify(branchoid,'0123456789ABCDEF')"):
  if token not in git:
   raise SystemExit(f'GIT.EXEC missing modern branch path: {token}')
 if "if command = 'BRANCH' | command = 'SHOW-REF'" in git:

@@ -109,7 +109,8 @@ M217 routes `GIT BRANCH` through `GITREF2` when that modern store exists, with
 the legacy M5 branch path retained when it does not. The modern path lists
 current/noncurrent branches, creates a branch from an explicit commit OID, and
 deletes with an expected-old-OID CAS; deletion of the current branch is refused
-by the updater. Host REXX checks pass; CMS behavior remains unverified.
+by the updater. M234 resolves the expected OID when omitted. Host REXX checks
+pass; CMS behavior remains unverified.
 
 M218 adds `GIT SWITCH <branch>` for modern REF2 branches. It verifies the
 symbolic HEAD and destination branch, and changes HEAD only when both branches
@@ -207,6 +208,11 @@ M233 allows `GIT TAG -d|--delete name` without an explicit OID. It resolves the
 exact tag ref and passes the observed OID to the existing compare-and-swap
 updater; supplying an expected OID remains supported. The delete still fails
 if the ref is absent, malformed, or stale. CMS behavior remains unverified.
+
+M234 allows `GIT BRANCH -d|--delete name` without an explicit expected OID. It
+resolves the exact branch ref, validates supplied OIDs, and passes the observed
+or supplied OID to the existing compare-and-swap updater. Current-branch
+deletion remains refused by that updater. CMS behavior remains unverified.
 
 ---
 

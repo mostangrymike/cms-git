@@ -15418,3 +15418,23 @@ an OID and passes that value to GIT UPDATE-REF. Six exact-source Regina REXX
 fixtures and the full preceding M208–M232 suite pass. The 42-source historical
 compile inventory, 80-column check, and `git diff --check` also pass. CMS
 behavior remains unverified; M233 commit and CI are pending.
+
+M233 CI follow-up: full native host workflow 39155330927 passed on commit
+`9a5159e9fdd0`. CMS behavior remains unverified.
+
+## 2026-10-18 — M234 branch deletion without an explicit OID
+
+Plan: resolve `refs/heads/<name>` when branch deletion omits its expected OID,
+then retain the existing CAS updater. Validate explicit OIDs before forwarding
+them. Cover resolution, missing refs, invalid names/OIDs, and argument count.
+
+Assumption: use the existing modern branch-delete behavior, including the
+updater's refusal to delete the current branch; this milestone adds operand
+resolution, not Git's merged-branch analysis.
+
+Progress: the branch delete path resolves the exact full branch ref when the
+expected OID is omitted and validates an explicit 40-character hexadecimal OID.
+Six exact-source Regina REXX fixtures, the accumulated preceding M208–M233
+suite, all 42 historical host-source compilations, REXX syntax, 80-column, and
+`git diff --check` validations pass. CMS behavior remains unverified; M234
+commit and CI are pending.
