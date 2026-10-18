@@ -1,4 +1,4 @@
-/* M165: exact CMS worktree checkout/status/add/commit. */
+/* M165: CMS worktree plumbing with staged multi-path tree rewrites. */
 address cms
 parse arg command rest
 command=translate(command)
@@ -213,28 +213,35 @@ if command='ACCEPT' then do
  end
  call loadmap
  if result\='OK' then exit 8
- if mapcount\=1 then do
-  say 'GITWT: M168 requires exactly one tracked path'
+ if mapcount<1 then do
+  say 'GITWT: no tracked paths to accept'
   exit 8
  end
- if mapstage.1=mapbase.1 then do
+ oldcount=mapcount
+ acceptedcount=0
+ do ai=1 to mapcount
+  oldbase.ai=mapbase.ai
+  if mapstage.ai\=mapbase.ai then acceptedcount=acceptedcount+1
+  'STATE' mapfn.ai mapft.ai mapfm.ai
+  if rc\=0 then do
+   say 'GITWT: mapped workfile is absent' mapfn.ai mapft.ai mapfm.ai
+   exit 8
+  end
+  call workoid mapfn.ai,mapft.ai,mapfm.ai,maplf.ai,0
+  accepted=result
+  if accepted='ERROR' then exit 8
+  if accepted\=mapstage.ai then do
+   say 'GITWT: workfile changed after commit' mapfn.ai mapft.ai mapfm.ai
+   exit 8
+  end
+ end
+ if acceptedcount=0 then do
   say 'GITWT: no staged change to accept'
   exit 8
  end
- 'STATE' mapfn.1 mapft.1 mapfm.1
- if rc\=0 then do
-  say 'GITWT: mapped workfile is absent'
-  exit 8
+ do ai=1 to mapcount
+  mapbase.ai=mapstage.ai
  end
- call workoid mapfn.1,mapft.1,mapfm.1,maplf.1,0
- accepted=result
- if accepted='ERROR' then exit 8
- if accepted\=mapstage.1 then do
-  say 'GITWT: workfile changed after commit'
-  exit 8
- end
- oldbase=mapbase.1
- mapbase.1=mapstage.1
  call savemap
  if result\='OK' then do
   call restoremap
@@ -242,14 +249,23 @@ if command='ACCEPT' then do
   exit 8
  end
  call loadmap
- if result\='OK' | mapcount\=1 |,
-    mapbase.1\=accepted | mapstage.1\=accepted then do
+ if result\='OK' | mapcount\=oldcount then do
   call restoremap
   say 'GITWT: accepted map verification failed'
   exit 8
  end
- say 'ACCEPTED WORKTREE OLD' oldbase
- say 'ACCEPTED WORKTREE NEW' accepted
+ do ai=1 to mapcount
+  if mapbase.ai\=mapstage.ai then do
+   call restoremap
+   say 'GITWT: accepted map verification failed'
+   exit 8
+  end
+  if oldbase.ai\=mapbase.ai then do
+   say 'ACCEPTED WORKTREE OLD' oldbase.ai
+   say 'ACCEPTED WORKTREE NEW' mapbase.ai
+  end
+ end
+ say 'ACCEPTED WORKTREE PATHS' acceptedcount
  exit 0
 end
 
@@ -281,24 +297,28 @@ if command='COMMIT' then do
  say 'GITWT COMMIT LEVEL M165'
  call loadmap
  if result\='OK' then exit 8
- if mapcount\=1 then do
-  say 'GITWT: M165 requires exactly one tracked path'
+ if mapcount<1 then do
+  say 'GITWT: no tracked paths to commit'
   exit 8
  end
- if mapstage.1=mapbase.1 then do
+ stagedcount=0
+ do mi=1 to mapcount
+  if mapstage.mi\=mapbase.mi then stagedcount=stagedcount+1
+  'STATE' mapfn.mi mapft.mi mapfm.mi
+  if rc\=0 then do
+   say 'GITWT: mapped workfile is absent' mapfn.mi mapft.mi mapfm.mi
+   exit 8
+  end
+  call workoid mapfn.mi,mapft.mi,mapfm.mi,maplf.mi,0
+  work=result
+  if work='ERROR' then exit 8
+  if work\=mapstage.mi then do
+   say 'GITWT: unstaged workfile change' mapfn.mi mapft.mi mapfm.mi
+   exit 8
+  end
+ end
+ if stagedcount=0 then do
   say 'GITWT: no staged change'
-  exit 8
- end
- 'STATE' mapfn.1 mapft.1 mapfm.1
- if rc\=0 then do
-  say 'GITWT: mapped workfile is absent'
-  exit 8
- end
- call workoid mapfn.1,mapft.1,mapfm.1,maplf.1,0
- work=result
- if work='ERROR' then exit 8
- if work\=mapstage.1 then do
-  say 'GITWT: unstaged workfile change'
   exit 8
  end
  call readrefs
@@ -311,39 +331,140 @@ if command='COMMIT' then do
  call rootfor parent
  root=result
  if root='ERROR' then exit 8
- call splitpath mappath.1
- if result\='OK' then exit 8
- current=root
- do cd=1 to pcnt
-  treeoid.cd=current
-  call readtree current,pcomp.cd
-  if result\='OK' then exit 8
-  childoid.cd=foundoid
-  childmode.cd=foundmode
-  if cd<pcnt & foundmode\='40000' then do
-   say 'GITWT: staged path ancestor is not a tree'
-   exit 8
+ drop nodeparent. nodename. nodeentry. nodeoid. nodedepth.
+ drop nodechanged. nodeentries. nodemode. nodenamehex. nodechildoid.
+ drop pathcomp.
+ nodecount=1
+ nodeparent.1=0
+ nodename.1=''
+ nodeentry.1=0
+ nodeoid.1=root
+ nodedepth.1=0
+ nodechanged.1=0
+ maxdepth=0
+ firstpath=0
+ do mi=1 to mapcount
+  if mapstage.mi\=mapbase.mi then do
+   firstpath=mi
+   leave
   end
-  current=foundoid
  end
- if childoid.pcnt\=mapbase.1 then do
-  say 'GITWT: checkout base is stale against HEAD'
+ call splitpath mappath.firstpath
+ if result\='OK' then exit 8
+ call loadnode 1,root,pcomp.1
+ if result\='OK' then do
+  say 'GITWT: cannot load commit root tree'
   exit 8
  end
- if childmode.pcnt='40000' | childmode.pcnt='160000' then do
-  say 'GITWT: staged path is not a local blob'
+ do mi=1 to mapcount
+  if mapstage.mi\=mapbase.mi then do
+   call splitpath mappath.mi
+   if result\='OK' then exit 8
+   if pcnt>maxdepth then maxdepth=pcnt
+   do cd=1 to pcnt
+    pathcomp.mi.cd=pcomp.cd
+   end
+   currentnode=1
+   do cd=1 to pcnt
+    entryindex=0
+    do ei=1 to nodeentries.currentnode
+     if nodenamehex.currentnode.ei=pathcomp.mi.cd then do
+      entryindex=ei
+      leave
+     end
+    end
+    if entryindex=0 then do
+     say 'GITWT: staged path entry missing' mi cd
+     exit 8
+    end
+    if cd<pcnt then do
+     if nodemode.currentnode.entryindex\='40000' then do
+      say 'GITWT: staged path ancestor is not a tree' mi cd
+      exit 8
+     end
+     childnode=0
+     do ni=2 to nodecount
+      if nodeparent.ni=currentnode &,
+         nodename.ni=pathcomp.mi.cd then do
+       childnode=ni
+       leave
+      end
+     end
+     if childnode=0 then do
+      nodecount=nodecount+1
+      childnode=nodecount
+      nodeparent.childnode=currentnode
+      nodename.childnode=pathcomp.mi.cd
+      nodeentry.childnode=entryindex
+      nodeoid.childnode=nodechildoid.currentnode.entryindex
+      nodedepth.childnode=cd
+      nodechanged.childnode=0
+      nextdepth=cd+1
+      nextcomp=pathcomp.mi.nextdepth
+      call loadnode childnode,nodeoid.childnode,nextcomp
+      if result\='OK' then do
+       say 'GITWT: cannot load staged path subtree' mi cd
+       exit 8
+      end
+     end
+     currentnode=childnode
+    end
+    else do
+     if nodechildoid.currentnode.entryindex\=mapbase.mi then do
+      say 'GITWT: checkout base is stale against HEAD' mi
+      exit 8
+     end
+     if nodemode.currentnode.entryindex='40000' |,
+        nodemode.currentnode.entryindex='160000' then do
+      say 'GITWT: staged path is not a local blob' mi
+      exit 8
+     end
+     address command 'EXEC GIT VERIFY-OBJECT' mapstage.mi
+     if rc\=0 then exit 8
+     nodechildoid.currentnode.entryindex=mapstage.mi
+     nodechanged.currentnode=1
+    end
+   end
+  end
+ end
+ do level=maxdepth to 1 by -1
+  do ni=2 to nodecount
+   if nodedepth.ni=level & nodechanged.ni=1 then do
+    raw=''
+    do ei=1 to nodeentries.ni
+     call modehex nodemode.ni.ei
+     mh=result
+     if mh='ERROR' then exit 8
+     raw=raw||mh||'20'||nodenamehex.ni.ei||'00'||,
+       nodechildoid.ni.ei
+    end
+    call writehex raw
+    treeoid=result
+    if treeoid='ERROR' then exit 8
+    nodeoid.ni=treeoid
+    parentnode=nodeparent.ni
+    parententry=nodeentry.ni
+    nodechildoid.parentnode.parententry=treeoid
+    nodechanged.parentnode=1
+    say 'COMMIT-STAGED TREE DEPTH' level treeoid
+   end
+  end
+ end
+ if nodechanged.1\=1 then do
+  say 'GITWT: no rewritten root tree'
   exit 8
  end
- address command 'EXEC GIT VERIFY-OBJECT' mapstage.1
- if rc\=0 then exit 8
- replacement=mapstage.1
- do cd=pcnt to 1 by -1
-  call rewritetree treeoid.cd,pcomp.cd,replacement
-  replacement=result
-  if replacement='ERROR' then exit 8
-  say 'COMMIT-STAGED TREE DEPTH' cd replacement
+ raw=''
+ do ei=1 to nodeentries.1
+  call modehex nodemode.1.ei
+  mh=result
+  if mh='ERROR' then exit 8
+  raw=raw||mh||'20'||nodenamehex.1.ei||'00'||nodechildoid.1.ei
  end
- newroot=replacement
+ call writehex raw
+ newroot=result
+ if newroot='ERROR' then exit 8
+ say 'COMMIT-STAGED ROOT TREE' newroot
  address command 'EXEC GIT IMPORT-OBJECT' parent
  if rc\=0 then exit 8
  drop co.
@@ -368,6 +489,7 @@ if command='COMMIT' then do
  say 'COMMIT-STAGED PARENT' parent
  say 'COMMIT-STAGED ROOT' newroot
  say 'COMMIT-STAGED COMMIT' commit
+ say 'COMMIT-STAGED PATHS' stagedcount
  say 'COMMIT-STAGED REFS UNCHANGED'
  exit 0
 end
@@ -549,35 +671,98 @@ readtree:
  parse arg toid,target
  drop tout. emode. enlen. eoid. ename.
  tout.0=0
- cmd='GITREC TREE GITFIX M15NEW' toid
- 'PIPE CMS' cmd '| STEM tout.'
- if rc\=0 then return 'ERROR'
  begin=0
  ending=0
  declared=-1
  ecount=0
  currente=0
- do ti=1 to tout.0
-  line=tout.ti
-  if line='TREE DATA BEGIN' then begin=begin+1
-  else if line='TREE DATA END' then ending=ending+1
-  else if word(line,1)='TREE' & word(line,2)='ENTRY' then do
-   if word(line,3)\='MODE' | word(line,5)\='NAMELEN' |,
-      word(line,7)\='OID' | words(line)\=8 then return 'ERROR'
+ fn=substr(toid,1,8)
+ 'STATE' fn 'GITOBJ A'
+ localrc=rc
+ if localrc=0 then do
+  address command 'EXEC GIT VERIFY-OBJECT' toid
+  if rc\=0 then return 'ERROR'
+  drop loose.
+  'EXECIO * DISKR' fn 'GITOBJ A 1 (STEM LOOSE. FINIS'
+  if rc\=0 | loose.0<3 then return 'ERROR'
+  if word(loose.1,1)\='OID' |,
+     translate(word(loose.1,2))\=toid |,
+     words(loose.1)\=2 | word(loose.2,1)\='TYPE' |,
+     word(loose.2,2)\='TREE' | words(loose.2)\=2 |,
+     word(loose.3,1)\='SIZE' | words(loose.3)\=2 then return 'ERROR'
+  treesize=word(loose.3,2)
+  if datatype(treesize,'W')\=1 then return 'ERROR'
+  raw=''
+  do ti=4 to loose.0
+   if word(loose.ti,1)\='DATA' | words(loose.ti)\=2 then,
+    return 'ERROR'
+   chunk=translate(word(loose.ti,2))
+   if chunk='' | length(chunk)>128 | length(chunk)//2\=0 |,
+      verify(chunk,'0123456789ABCDEF')\=0 then return 'ERROR'
+   raw=raw||chunk
+  end
+  if length(raw)%2\=treesize then return 'ERROR'
+  at=1
+  do while at<=length(raw)
+   modehex=''
+   do while at<=length(raw) & substr(raw,at,2)\='20'
+    modehex=modehex||substr(raw,at,2)
+    at=at+2
+   end
+   if modehex='' | at>length(raw) then return 'ERROR'
+   call asciitocms modehex
+   mode=result
+   if mode='ERROR' then return 'ERROR'
+   at=at+2
+   namehex=''
+   do while at<=length(raw) & substr(raw,at,2)\='00'
+    namehex=namehex||substr(raw,at,2)
+    at=at+2
+   end
+   if namehex='' | at>length(raw) then return 'ERROR'
+   at=at+2
+   if at+39>length(raw) then return 'ERROR'
+   oid=substr(raw,at,40)
+   if verify(oid,'0123456789ABCDEF')\=0 then return 'ERROR'
+   at=at+40
    ecount=ecount+1
-   currente=ecount
-   emode.ecount=word(line,4)
-   enlen.ecount=word(line,6)
-   eoid.ecount=translate(word(line,8))
-   ename.ecount=''
+   emode.ecount=mode
+   enlen.ecount=length(namehex)%2
+   eoid.ecount=oid
+   ename.ecount=namehex
+   if ecount>256 then return 'ERROR'
   end
-  else if word(line,1)='TREE' & word(line,2)='NAMEHEX' then do
-   if currente<1 | words(line)\=3 then return 'ERROR'
-   ename.currente=ename.currente||translate(word(line,3))
-  end
-  else if word(line,1)='TREE' & word(line,2)='ENTRIES' then do
-   if words(line)\=3 then return 'ERROR'
-   declared=word(line,3)
+  declared=ecount
+  begin=1
+  ending=1
+ end
+ else do
+  if localrc\=28 then return 'ERROR'
+  cmd='GITREC TREE GITFIX M15NEW' toid
+  'PIPE CMS' cmd '| STEM tout.'
+  if rc\=0 then return 'ERROR'
+  do ti=1 to tout.0
+   line=tout.ti
+   if line='TREE DATA BEGIN' then begin=begin+1
+   else if line='TREE DATA END' then ending=ending+1
+   else if word(line,1)='TREE' & word(line,2)='ENTRY' then do
+    if word(line,3)\='MODE' | word(line,5)\='NAMELEN' |,
+       word(line,7)\='OID' | words(line)\=8 then return 'ERROR'
+    ecount=ecount+1
+    currente=ecount
+    emode.ecount=word(line,4)
+    enlen.ecount=word(line,6)
+    eoid.ecount=translate(word(line,8))
+    ename.ecount=''
+   end
+   else if word(line,1)='TREE' & word(line,2)='NAMEHEX' then do
+    if currente<1 | words(line)\=3 then return 'ERROR'
+    ename.currente=ename.currente||translate(word(line,3))
+   end
+   else if word(line,1)='TREE' & word(line,2)='ENTRIES' then do
+    if words(line)\=3 then return 'ERROR'
+    declared=word(line,3)
+   end
   end
  end
  if begin\=1 | ending\=1 then return 'ERROR'
@@ -605,20 +790,17 @@ readtree:
  if matches\=1 then return 'ERROR'
  return 'OK'
 
-rewritetree:
- parse arg oldtree,target,newchild
- call readtree oldtree,target
+loadnode:
+ parse arg loadid,loadtree,loadtarget
+ call readtree loadtree,loadtarget
  if result\='OK' then return 'ERROR'
- eoid.foundindex=newchild
- raw=''
- do rti=1 to ecount
-  call modehex emode.rti
-  mh=result
-  if mh='ERROR' then return 'ERROR'
-  raw=raw||mh||'20'||ename.rti||'00'||eoid.rti
+ nodeentries.loadid=ecount
+ do li=1 to ecount
+  nodemode.loadid.li=emode.li
+  nodenamehex.loadid.li=ename.li
+  nodechildoid.loadid.li=eoid.li
  end
- call writehex raw
- return result
+ return 'OK'
 
 modehex:
  parse arg mode
