@@ -116,6 +116,8 @@ required={
  'GIT.EXEC': (g, ("if command = 'TAG' then do", "EXEC GITVREF TAGS",
      "verb='-L' | verb='--LIST'",
      "say 'Usage: GIT TAG [-l|--list [pattern]]'",
+     "verb='-D' | verb='--DELETE'",
+     "say 'Usage: GIT TAG -d|--delete name expected-commit-oid'",
      "ref='refs/tags/'||action", "ref='refs/tags/'||tagname",
      "EXEC GIT UPDATE-REF' ref oid zeros",
      "EXEC GIT UPDATE-REF' ref zeros oid")),

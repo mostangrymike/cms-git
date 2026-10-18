@@ -92,9 +92,9 @@ host-tested only; it has not been compiled or run on CMS.
 M208 adds lightweight commit tags to the modern `GITREF2` store. M209 makes
 listing output tag names and accepts `-l`/`--list`; M210 adds `*` and `?`
 list-pattern wildcards (no bracket classes). `GIT TAG` and `GIT TAG -l`/
-`--list` list tag names, while
-`GIT TAG <name> <full-commit-oid>` creates a tag, and
-`GIT TAG -D <name> <expected-commit-oid>` deletes one using compare-and-swap.
+`--list` list tag names. `GIT TAG <name> <full-commit-oid>` creates a tag;
+`GIT TAG -d|--delete <name> <expected-commit-oid>` deletes one using
+compare-and-swap.
 Creation verifies the target commit; deletion requires its exact old OID.
 Names use a safe ASCII subset and the stored full ref is limited to 35
 characters to fit the existing 80-column records. `GIT VERIFY-REF` resolves

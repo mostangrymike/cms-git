@@ -72,9 +72,9 @@ if command = 'TAG' then do
       address command 'EXEC GITVREF TAGS' tagname
       exit rc
    end
-   if verb='-D' then do
+   if verb='-D' | verb='--DELETE' then do
       if tagname='' | oid='' | extra\='' then do
-         say 'Usage: GIT TAG -D name expected-commit-oid'
+         say 'Usage: GIT TAG -d|--delete name expected-commit-oid'
          exit 4
       end
       oid=translate(oid)

@@ -14858,3 +14858,13 @@ M210 CI follow-up: full native host workflow 39149684842 passed on commit
 source-derived REXX wildcard cases and integration checks, and completed the
 existing native regression suite. The matcher is host-tested only; CMS
 compilation and live tag listing remain unverified.
+
+## 2026-10-18 — M211 tag-delete option aliases
+
+Plan: accept the common `-d` and `--delete` spellings while preserving the
+existing expected-old-OID compare-and-swap check. Add source/syntax coverage and
+keep CMS state untouched.
+
+Progress: added the long option; `-d` already normalizes to `-D` through the
+existing case folding. Expanded the canonical source guard and README. Focused
+validation and full Actions are pending.
