@@ -153,6 +153,11 @@ and `-`, while rejecting unsafe delimiters, empty or dot-prefixed components,
 and rejected names and require the three validator implementations to match;
 CMS behavior remains unverified.
 
+M224 checks branch operands in `GIT.EXEC` before they are interpolated into
+CMS command strings for create, delete, rename, or switch operations. The same
+CMS-safe name rules apply at this boundary; source-derived REXX cases and
+dispatch-order guards cover it. CMS behavior remains unverified.
+
 ---
 
 ## M206 full 32-object CMS PASS and A-disk audit (October 13, 2026)

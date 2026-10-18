@@ -169,6 +169,11 @@ if command = 'BRANCH' then do
          say 'Usage: GIT BRANCH -m|--move old-name new-name'
          exit 4
       end
+      call validbranch brancharg3
+      if result\='OK' then do
+         say 'GIT: invalid destination branch name'
+         exit 4
+      end
       call resolvestart brancharg2
       expectedoid=result
       if expectedoid='ERROR' | expectedoid='HEAD' then do
@@ -189,6 +194,11 @@ if command = 'BRANCH' then do
          say 'Usage: GIT BRANCH -d|--delete name expected-old-oid'
          exit 4
       end
+      call validbranch brancharg2
+      if result\='OK' then do
+         say 'GIT: invalid branch name'
+         exit 4
+      end
       branchref='refs/heads/'||brancharg2
       branchoid=translate(brancharg3)
       address command 'EXEC GIT UPDATE-REF' branchref zeros branchoid
@@ -200,6 +210,11 @@ if command = 'BRANCH' then do
       brancharg4\='' | brancharg5\='' then do
       say 'Usage: GIT BRANCH [name commit-oid]'
       say '       GIT BRANCH -d|--delete name expected-old-oid'
+      exit 4
+   end
+   call validbranch brancharg1
+   if result\='OK' then do
+      say 'GIT: invalid branch name'
       exit 4
    end
    branchref='refs/heads/'||brancharg1
@@ -219,6 +234,11 @@ if command = 'SWITCH' then do
          say 'Usage: GIT SWITCH -c|--create name [start-point]'
          exit 4
       end
+      call validbranch brancharg
+      if result\='OK' then do
+         say 'GIT: invalid branch name'
+         exit 4
+      end
       if startpoint='' then startpoint='HEAD'
       call resolvestart startpoint
       if result='ERROR' then do
@@ -232,6 +252,11 @@ if command = 'SWITCH' then do
       if branchname='' | brancharg\='' |,
          startpoint\='' | extra\='' then do
          say 'Usage: GIT SWITCH branch'
+         exit 4
+      end
+      call validbranch branchname
+      if result\='OK' then do
+         say 'GIT: invalid branch name'
          exit 4
       end
    end
@@ -1270,6 +1295,20 @@ hashstored: procedure
    pull oid
    'DROPBUF'
    return oid
+
+validbranch: procedure
+   parse arg vb
+   refchars='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+   refchars=refchars||'0123456789._/-'
+   if vb='' | length(vb)>24 | verify(vb,refchars)\=0 |,
+      pos('//',vb)>0 | pos('..',vb)>0 |,
+      left(vb,1)='/' | right(vb,1)='/' then return 'ERROR'
+   do vi=1 to words(translate(vb,' ','/'))
+      part=word(translate(vb,' ','/'),vi)
+      if part='' | part='.' | part='..' | left(part,1)='.' |,
+         right(part,1)='.' | right(part,5)='.lock' then return 'ERROR'
+   end
+   return 'OK'
 
 resolvestart: procedure expose rs.
    parse arg wanted

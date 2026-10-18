@@ -297,6 +297,60 @@ PY
 exit $?
 fi
 
+# Validate branch operands before GIT.EXEC interpolates them into CMS commands.
+if [ "${1:-}" = "M224" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M223
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GIT.EXEC" "$tmp/validbranch.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+start=source.index('validbranch: procedure')
+end=source.index('resolvestart: procedure',start)
+routine=source[start:end]
+Path(sys.argv[2]).write_text(
+ 'parse arg name\ncall validbranch name\nsay result\nexit 0\n'+routine+'\n')
+cli=source
+guards=(
+ ('call validbranch brancharg3', "oldref='refs/heads/'||brancharg2"),
+ ('call validbranch brancharg2', "branchref='refs/heads/'||brancharg2"),
+ ('call validbranch brancharg1', "branchref='refs/heads/'||brancharg1"),
+ ('call validbranch brancharg', "cmd='EXEC GITUPD CREATE-HEAD"),
+ ('call validbranch branchname', "cmd='EXEC GITUPD HEAD refs/heads/'||branchname"),
+)
+for guard, command in guards:
+ if cli.index(guard) >= cli.index(command):
+  raise SystemExit(f'branch command lacks early operand guard: {guard}')
+print('M224 EARLY BRANCH OPERAND GUARDS PASS 5')
+PY
+rexx -c "$tmp/validbranch.rexx" /dev/null
+check() {
+ expected=$1
+ name=$2
+ actual=$(rexx "$tmp/validbranch.rexx" "$name")
+ if [ "$actual" != "$expected" ]; then
+  echo "branch validator $name: expected $expected, got $actual" >&2
+  exit 1
+ fi
+}
+for name in main feature/x topic-1 under_score RC/ARM-64 a.b a; do
+ check OK "$name"
+done
+for name in '' 'bad|name' 'bad#name' 'bad name' .hidden a/.hidden a//b \
+            a/ main.lock a..b /main main/ trailing. \
+            1234567890123456789012345; do
+ check ERROR "$name"
+done
+echo 'M224 SOURCE-DERIVED BRANCH OPERAND FIXTURES PASS 21'
+)
+exit $?
+fi
+
 # Isolated M206 explicit-object compatibility route: host source guard only.
 if [ "${1:-}" = "M206BRIDGE" ]; then
 (

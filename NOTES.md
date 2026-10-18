@@ -15195,3 +15195,25 @@ names plus `|`, `#`, whitespace, hidden components, repeated/trailing slashes,
 all branch milestones M213 and M215-M222, REXX syntax/80-column checks, the 42
 preserved host-source compilations, and `git diff --check` pass locally. CMS
 behavior remains unverified; M223 commit and Actions are pending.
+
+
+M223 CI follow-up: full native host workflow 39153620601 passed on commit
+`84080e982d0139bd3233c9daefe38bf5104a21a7`. Strict branch-name validation
+fixtures and the existing host regressions passed. CMS behavior remains
+unverified.
+
+## 2026-10-18 — M224 guard branch command operands
+
+Plan: validate every branch operand in GIT.EXEC before constructing the
+command strings used for create, delete, rename, and switch. Test the exact
+REXX validator and statically verify each guard precedes its downstream command.
+
+Assumption: use the same 24-character short-name limit and ASCII component
+rules as the REF2 branch validator, so accepted porcelain names cannot become
+unsafe CMS command text or fail later in GITUPD.
+
+Progress: GIT.EXEC now applies the branch-name allowlist before forwarding
+operands in all five branch paths: create, delete, rename destination, switch
+to an existing branch, and create-and-switch. M224 adds exact-source Regina
+fixtures and five source-order guards, and adds the host CI step. Local tests and
+commit are pending; CMS behavior remains unverified.
