@@ -163,6 +163,12 @@ them to CMS commands. Tag names use the safe ASCII ref alphabet; list patterns
 also allow Git's `*` and `?` wildcards. Exact-source fixtures cover both forms
 and unsafe delimiters. CMS behavior remains unverified.
 
+M226 lets `GIT TAG name [start-point]` create a lightweight tag at `HEAD`, a
+full object ID, or a resolvable branch/tag ref. Omitting the start point uses
+`HEAD`; the resolved target still must verify as a commit. Host fixtures cover
+framing, missing refs, malformed OIDs, and unsafe input. CMS behavior remains
+unverified.
+
 ---
 
 ## M206 full 32-object CMS PASS and A-disk audit (October 13, 2026)

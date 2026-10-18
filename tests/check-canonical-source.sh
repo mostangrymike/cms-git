@@ -418,6 +418,78 @@ echo 'M225 SOURCE-DERIVED TAG OPERAND FIXTURES PASS 25'
 exit $?
 fi
 
+# Resolve lightweight-tag start points with verified REF2 output.
+if [ "${1:-}" = "M226" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M225
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GIT.EXEC" "$tmp/resolvetagtarget.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+tag_start=source.index('resolvetagtarget: procedure')
+start_end=source.index('resolvestart: procedure',tag_start)
+res_start=source.index('resolvestart: procedure',start_end)
+query_start=source.index('queryref: procedure',res_start)
+query_end=source.index('\n',source.index('return \'OK\'',query_start))
+helpers=source[tag_start:query_start]
+helpers=helpers.replace(
+ 'resolvetagtarget: procedure expose rs.',
+ 'resolvetagtarget: procedure expose rs. mode')
+program=(
+ 'parse arg mode wanted\ncall resolvetagtarget wanted\nsay result\nexit 0\n'+
+ helpers+
+ "queryref: procedure expose rs. mode\n"
+ " parse arg qspec\n drop rs.\n"
+ " if mode='missing' then do\n  rs.0=0\n  return 'ERROR'\n end\n"
+ " rs.0=1\n"
+ " if mode='badframe' then rs.1='BROKEN REF ' qspec\n"
+ " else if mode='wrongref' then rs.1='VERIFIED REF other AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ " else if mode='badoid' then rs.1='VERIFIED REF ' qspec ' SHORT'\n"
+ " else rs.1='VERIFIED REF ' qspec ' AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ " return 'OK'\n")
+Path(sys.argv[2]).write_text(program)
+tag=source[source.index("if command = 'TAG' then do"):]
+create=tag[tag.index("if action='' "):]
+for token in ("if tagstart='' then tagstart='HEAD'",
+              'call resolvetagtarget tagstart',
+              "if result\\='OK' | objtype\\='COMMIT' then do",
+              "address command 'EXEC GIT UPDATE-REF' ref oid zeros"):
+ if token not in create:
+  raise SystemExit(f'M226 tag creation missing {token!r}')
+if create.index('call resolvetagtarget tagstart') > create.index("address command 'EXEC GIT VERIFY-OBJECT' oid"):
+ raise SystemExit('M226 verifies target before resolving start point')
+print('M226 TAG START-POINT DISPATCH GUARDS PASS 5')
+PY
+rexx -c "$tmp/resolvetagtarget.rexx" /dev/null
+check() {
+ expected=$1
+ mode=$2
+ wanted=$3
+ actual=$(rexx "$tmp/resolvetagtarget.rexx" "$mode" "$wanted")
+ if [ "$actual" != "$expected" ]; then
+  echo "tag start resolver $mode / $wanted: expected $expected, got $actual" >&2
+  exit 1
+ fi
+}
+oid=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+check "$oid" good HEAD
+check "$oid" good main
+check "$oid" good refs/tags/v1
+check "$oid" good "$oid"
+for mode in missing badframe wrongref badoid; do
+ check ERROR "$mode" HEAD
+done
+check ERROR good 'bad|name'
+echo 'M226 SOURCE-DERIVED TAG START-POINT FIXTURES PASS 9'
+)
+exit $?
+fi
+
 # Isolated M206 explicit-object compatibility route: host source guard only.
 if [ "${1:-}" = "M206BRIDGE" ]; then
 (

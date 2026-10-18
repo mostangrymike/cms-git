@@ -15241,3 +15241,27 @@ fixtures, four dispatch-order guards, and a CI step. M225 and all preceding
 branch/tag checks, the 42 preserved host-source compilations, and
 `git diff --check` pass locally. CMS behavior remains unverified; M225 commit
 and Actions are pending.
+
+
+M225 CI follow-up: full native host workflow 39153998026 passed on commit
+`702e5d7f2698aa0a1546a3ab546fb57a112a2e46`. Tag-name and wildcard-pattern
+fixtures plus the existing host regressions passed. CMS behavior remains
+unverified.
+
+## 2026-10-18 — M226 resolve lightweight-tag start points
+
+Plan: allow `GIT TAG name [start-point]` to use HEAD by default and resolve a
+full commit OID, branch, or tag through the verified REF2 resolver. Keep the
+lightweight-tag requirement that the final target is a verified commit. Add
+source-derived resolver cases and CI coverage.
+
+Assumption: use M221's branch-before-tag short-name resolution and retain the
+current commit-only lightweight-tag behavior. Annotated tags remain separate.
+
+Progress: tag creation now defaults an omitted start point to `HEAD`, resolves
+HEAD through an exact correlated `VERIFIED REF` result, and accepts the existing
+full-OID or branch/tag resolver forms. The creation path still verifies the
+object and rejects non-commit targets. M226's nine resolver fixtures, five
+dispatch guards, M225 and earlier regressions, the 42 preserved host-source
+compilations, and `git diff --check` pass locally. CMS behavior remains
+unverified; M226 commit and Actions are pending.

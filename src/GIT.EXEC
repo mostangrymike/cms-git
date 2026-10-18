@@ -138,8 +138,9 @@ if command = 'TAG' then do
       say 'TAG DELETED' ref oid
       exit 0
    end
-   if action='' | tagname='' | oid\='' | extra\='' | fifth\='' then do
-      say 'Usage: GIT TAG [name commit-oid] | TAG -D name expected-commit-oid'
+   if action='' | oid\='' | extra\='' | fifth\='' then do
+      say 'Usage: GIT TAG name [start-point]'
+      say '       GIT TAG -d|--delete name expected-commit-oid'
       exit 4
    end
    call validtag action
@@ -147,9 +148,17 @@ if command = 'TAG' then do
       say 'GIT: invalid tag name'
       exit 4
    end
-   oid=translate(tagname)
+   tagstart=tagname
+   if tagstart='' then tagstart='HEAD'
+   call resolvetagtarget tagstart
+   tagoid=result
+   if tagoid='ERROR' then do
+      say 'GIT: cannot resolve tag start point' tagstart
+      exit 4
+   end
+   oid=tagoid
    if length(oid)\=40 | verify(oid,'0123456789ABCDEF')\=0 then do
-      say 'GIT: tag requires a full commit object-id'
+      say 'GIT: tag start point is not a valid object-id'
       exit 4
    end
    address command 'EXEC GIT VERIFY-OBJECT' oid
@@ -1347,6 +1356,24 @@ validbranch: procedure
          right(part,1)='.' | right(part,5)='.lock' then return 'ERROR'
    end
    return 'OK'
+
+resolvetagtarget: procedure expose rs.
+   parse arg wanted
+   if wanted='HEAD' then do
+      call queryref 'HEAD'
+      if result\='OK' | rs.0\=1 | words(rs.1)\=4 |,
+         word(rs.1,1)\='VERIFIED' | word(rs.1,2)\='REF' |,
+         word(rs.1,3)\='HEAD' then return 'ERROR'
+      resolvedoid=translate(word(rs.1,4))
+   end
+   else do
+      call resolvestart wanted
+      if result='ERROR' | result='HEAD' then return 'ERROR'
+      resolvedoid=translate(result)
+   end
+   if length(resolvedoid)\=40 |,
+      verify(resolvedoid,'0123456789ABCDEF')\=0 then return 'ERROR'
+   return resolvedoid
 
 resolvestart: procedure expose rs.
    parse arg wanted
