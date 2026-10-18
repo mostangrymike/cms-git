@@ -1,6 +1,8 @@
-/* M165: disposable staged commit object gate; refs stay unchanged. */
+/* M165: disposable multi-path staged commit; refs stay unchanged. */
 address cms
 call absent 'M165TST','DATA','A'
+if result\=0 then exit 8
+call absent 'M165TS2','DATA','A'
 if result\=0 then exit 8
 call absent 'GITWORK','REPO','A'
 if result\=0 then exit 8
@@ -15,48 +17,122 @@ if rc\=0 then do
  exit 8
 end
 
-cmd='EXEC GIT CHECKOUT-FILE HEAD src/GIT.EXEC M165TST DATA A'
+cmd='EXEC ZTMCAND1 CHECKOUT HEAD src/GIT.EXEC M165TST DATA A'
 address command cmd
 if rc\=0 then do
  call cleanup
- say 'M165 CHECKOUT FAIL'
+ say 'M165 CHECKOUT ONE FAIL'
+ exit 8
+end
+cmd='EXEC ZTMCAND1 CHECKOUT HEAD src/GIT42TEST.EXEC M165TS2 DATA A'
+address command cmd
+if rc\=0 then do
+ call cleanup
+ say 'M165 CHECKOUT TWO FAIL'
  exit 8
 end
 
+'ERASE M165TST DATA A'
+'STATE M165TST DATA A'
+if rc=28 then nop
+else do
+ call cleanup
+ say 'M165 RESET ONE FAIL STATE RC' rc
+ exit 8
+end
+'ERASE M165TS2 DATA A'
+'STATE M165TS2 DATA A'
+if rc=28 then nop
+else do
+ call cleanup
+ say 'M165 RESET TWO FAIL STATE RC' rc
+ exit 8
+end
 drop t.
-t.1='M165 COMMIT STAGED'
+t.1='M165 MULTI PATH ONE'
 t.0=1
 'EXECIO 1 DISKW M165TST DATA A 1 (STEM T. FINIS'
 if rc\=0 then do
  call cleanup
- say 'M165 MODIFY FAIL'
+ say 'M165 MODIFY ONE FAIL'
  exit 8
 end
-
-address command 'EXEC GIT ADD src/GIT.EXEC'
+drop t.
+t.1='M165 MULTI PATH TWO'
+t.0=1
+'EXECIO 1 DISKW M165TS2 DATA A 1 (STEM T. FINIS'
 if rc\=0 then do
  call cleanup
- say 'M165 ADD FAIL'
+ say 'M165 MODIFY TWO FAIL'
  exit 8
 end
-say 'M165 STAGED CHANGE PASS'
 
-address command 'EXEC GIT STATUS'
+address command 'EXEC ZTMCAND1 ADD src/GIT.EXEC'
+if rc\=0 then do
+ call cleanup
+ say 'M165 ADD ONE FAIL'
+ exit 8
+end
+address command 'EXEC ZTMCAND1 ADD src/GIT42TEST.EXEC'
+if rc\=0 then do
+ call cleanup
+ say 'M165 ADD TWO FAIL'
+ exit 8
+end
+say 'M165 STAGED PATHS 2 PASS'
+
+drop st.
+st.0=0
+'PIPE CMS EXEC ZTMCAND1 STATUS | STEM ST.'
 if rc\=0 then do
  call cleanup
  say 'M165 STAGED STATUS FAIL'
  exit 8
 end
 
-cmd='EXEC GIT COMMIT-STAGED -T 1 -Z +0000 -M M165_target'
-address command cmd
+drop co.
+co.0=0
+cmd='EXEC ZTMCAND1 COMMIT -T 1 -Z +0000 -M M165_multi'
+'PIPE CMS' cmd '| STEM CO.'
 crc=rc
 if crc\=0 then do
  call cleanup
- say 'M165 COMMIT FAIL RC' crc
+ say 'M165 MULTI COMMIT FAIL RC' crc
  exit 8
 end
-say 'M165 COMMIT DIRECT RC0'
+depthcount=0
+pathcount=0
+do ci=1 to co.0
+ if word(co.ci,1)='COMMIT-STAGED' &,
+    word(co.ci,2)='TREE' & word(co.ci,3)='DEPTH' then,
+  depthcount=depthcount+1
+ if co.ci='COMMIT-STAGED PATHS 2' then pathcount=pathcount+1
+end
+if depthcount\=1 | pathcount\=1 then do
+ call cleanup
+ say 'M165 MULTI COMMIT TREE/PATH COUNTS FAIL' depthcount pathcount
+ exit 8
+end
+say 'M165 MULTI COMMIT REBUILT SHARED SUBTREE ONCE'
+
+drop ac.
+ac.0=0
+'PIPE CMS EXEC ZTMCAND1 ACCEPT | STEM AC.'
+if rc\=0 then do
+ call cleanup
+ say 'M165 ACCEPT FAIL'
+ exit 8
+end
+acceptedcount=0
+do ci=1 to ac.0
+ if ac.ci='ACCEPTED WORKTREE PATHS 2' then,
+  acceptedcount=acceptedcount+1
+end
+if acceptedcount\=1 then do
+ call cleanup
+ say 'M165 ACCEPTED PATH COUNT FAIL' acceptedcount
+ exit 8
+end
 
 'STATE GITTREE REPO A'
 if rc=28 then nop
@@ -82,10 +158,22 @@ do ri=1 to rb.0
 end
 say 'M165 VERIFIED REFS UNCHANGED'
 
-address command 'EXEC GIT STATUS'
+drop st.
+st.0=0
+'PIPE CMS EXEC ZTMCAND1 STATUS | STEM ST.'
 if rc\=0 then do
  call cleanup
  say 'M165 POST COMMIT STATUS FAIL'
+ exit 8
+end
+cleanstatus=0
+do ci=1 to st.0
+ if st.ci='STATUS SUMMARY TRACKED 2 CHANGED 0 STAGED 0' then,
+  cleanstatus=cleanstatus+1
+end
+if cleanstatus\=1 then do
+ call cleanup
+ say 'M165 POST COMMIT STATUS NOT CLEAN'
  exit 8
 end
 
@@ -95,7 +183,7 @@ if result\=0 then do
  exit 8
 end
 say 'M165 LOOSE COMMIT CANDIDATE RETAINED FOR REF CAS'
-say 'M165 STAGED COMMIT TARGET GATE PASS'
+say 'M165 MULTI-PATH STAGED COMMIT TARGET GATE PASS'
 exit 0
 
 absent:
@@ -110,6 +198,12 @@ cleanup:
  'STATE M165TST DATA A'
  if rc=0 then do
   'ERASE M165TST DATA A'
+  if rc\=0 then crc=8
+ end
+ else if rc\=28 then crc=8
+ 'STATE M165TS2 DATA A'
+ if rc=0 then do
+  'ERASE M165TS2 DATA A'
   if rc\=0 then crc=8
  end
  else if rc\=28 then crc=8
