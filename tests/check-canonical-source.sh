@@ -117,7 +117,7 @@ required={
      "verb='-L' | verb='--LIST'",
      "say 'Usage: GIT TAG [-l|--list [pattern]]'",
      "verb='-F' | verb='--FORCE'",
-     "say 'Usage: GIT TAG -f|--force name new-oid expected-old-oid'",
+     "say 'Usage: GIT TAG -f|--force name new-oid [expected-old-oid]'",
      'if oldoid=zeros then do',
      "EXEC GIT UPDATE-REF' ref newoid oldoid",
      "verb='-D' | verb='--DELETE'",
@@ -1165,6 +1165,91 @@ check 8 'GIT: cannot resolve show revision missing' missing
 check 8 'GIT: cannot resolve show revision bad|name' 'bad|name'
 check 4 'Usage: GIT SHOW [revision]' main extra
 echo 'M236 SOURCE-DERIVED GIT SHOW FIXTURES PASS 6'
+)
+exit $?
+fi
+
+# Resolve an existing tag before compare-and-swap force update.
+if [ "${1:-}" = "M238" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M237
+sh "$0" M236
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GIT.EXEC" "$tmp/forcetag.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+tag=source[source.index("if command = 'TAG' then do"):
+           source.index('/* Bounded porcelain LOG')]
+start=tag.index("if verb='-F' | verb='--FORCE' then do")
+end=tag.index("if verb='-D' | verb='--DELETE' then do",start)
+block=tag[start:end]
+resolver='call resolvestart ref'
+verify="address command 'EXEC GIT VERIFY-OBJECT' newoid"
+update="address command 'EXEC GIT UPDATE-REF' ref newoid oldoid"
+readobj='call readobject newoid'
+for command in (resolver,verify,readobj,update):
+ if command not in block:
+  raise SystemExit(f'M238 force-tag path missing {command!r}')
+if not (block.index(resolver)<block.index(verify)<block.index(readobj)<block.index(update)):
+ raise SystemExit('M238 force-tag path violates resolution/verification/CAS order')
+block=block.replace(verify,'rc=0')
+block=block.replace(readobj,"result='OK'\nobjtype='COMMIT'")
+block=block.replace(update,
+ "rc=0\nsay 'SIMULATED UPDATE-REF' ref newoid oldoid")
+vstart=source.index('validtag: procedure')
+vend=source.index('validbranch: procedure',vstart)
+validator=source[vstart:vend]
+fixture=(
+ "parse arg action tagname oid extra fifth\n"
+ "verb=translate(action)\n"+block+
+ "resolvestart: procedure\n parse arg wanted\n"
+ " if wanted='refs/tags/v1' then return 'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
+ " return 'ERROR'\n"+validator)
+Path(sys.argv[2]).write_text(fixture)
+for token in (resolver, "oldoid=result",
+              "verify(newoid,'0123456789ABCDEF')",
+              'oldoid=translate(extra)',
+              "SIMULATED UPDATE-REF' ref newoid oldoid"):
+ if token not in block:
+  raise SystemExit(f'M238 force-tag source guard missing {token!r}')
+print('M238 TAG FORCE UPDATE SOURCE GUARDS PASS 5')
+PY
+rexx -c "$tmp/forcetag.rexx" /dev/null
+check() {
+ expected_rc=$1
+ expected=$2
+ shift 2
+ if output=$(rexx "$tmp/forcetag.rexx" "$@"); then
+  rc=0
+ else
+  rc=$?
+ fi
+ if [ "$rc" -ne "$expected_rc" ]; then
+  echo "tag force update $*: expected RC $expected_rc, got $rc" >&2
+  exit 1
+ fi
+ if [ "$output" != "$expected" ]; then
+  echo "tag force update $*: expected '$expected', got '$output'" >&2
+  exit 1
+ fi
+}
+new=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+old=BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+zeros=0000000000000000000000000000000000000000
+check 0 "$(printf 'SIMULATED UPDATE-REF refs/tags/v1 %s %s\nTAG UPDATED refs/tags/v1 %s %s' "$new" "$old" "$old" "$new")" -f v1 "$new"
+check 0 "$(printf 'SIMULATED UPDATE-REF refs/tags/v1 %s %s\nTAG UPDATED refs/tags/v1 %s %s' "$new" "$old" "$old" "$new")" --force v1 "$new" "$old"
+check 8 'GIT: cannot resolve existing tag refs/tags/missing' -f missing "$new"
+check 4 'GIT: invalid new tag object-id' -f v1 nope
+check 4 'GIT: invalid expected tag object-id' -f v1 "$new" nope
+check 4 'GIT: force update requires an existing tag OID' -f v1 "$new" "$zeros"
+check 4 'GIT: invalid tag name' -f 'bad|name' "$new"
+check 4 'Usage: GIT TAG -f|--force name new-oid [expected-old-oid]' --force v1 "$new" "$old" extra
+echo 'M238 SOURCE-DERIVED TAG FORCE UPDATE FIXTURES PASS 8'
 )
 exit $?
 fi

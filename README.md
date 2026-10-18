@@ -93,9 +93,9 @@ M208 adds lightweight commit tags to the modern `GITREF2` store. M209 makes
 listing output tag names and accepts `-l`/`--list`; M210 adds `*` and `?`
 list-pattern wildcards (no bracket classes). `GIT TAG` and `GIT TAG -l`/
 `--list` list tag names in lexical order. `GIT TAG <name> <full-commit-oid>` creates a tag;
-`GIT TAG -f|--force <name> <new-oid> <expected-old-oid>` updates an existing
-tag using compare-and-swap; the expected OID must be nonzero and match the
-current tag;
+`GIT TAG -f|--force <name> <new-oid> [expected-old-oid]` updates an existing
+tag using compare-and-swap; if the expected OID is omitted, the current tag OID
+is resolved first. A supplied OID must be nonzero and match the current tag;
 `GIT TAG -d|--delete <name> [expected-commit-oid]` deletes one using
 compare-and-swap. If omitted, the current tag OID is resolved first. Creation
 verifies the target commit; deletion still passes an exact old OID to the updater.
@@ -223,6 +223,11 @@ behavior remains unverified.
 M236 adds `GIT SHOW [revision]`, defaulting to `HEAD`. It resolves the revision
 before calling the existing full-object reader and rejects extra operands. CMS
 behavior remains unverified.
+
+M238 lets `GIT TAG -f|--force name new-oid` resolve the existing tag OID when
+the caller omits the CAS expectation. Explicit expectations remain supported;
+missing tags, invalid IDs, and zero expected IDs fail closed. CMS behavior
+remains unverified.
 
 ---
 

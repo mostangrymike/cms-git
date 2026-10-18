@@ -15501,3 +15501,24 @@ source-derived LOG cases, three GITREC inclusive-depth guards, and the full
 M208–M236 chain pass. The 42-source historical compile inventory, REXX syntax,
 80-column, and whitespace checks also pass. M237 commit and CI are pending;
 CMS behavior remains unverified.
+
+M237 CI follow-up: full native host workflow 39156119606 passed on commit
+`029f688e7342`. CMS behavior remains unverified.
+
+## 2026-10-18 — M238 tag force-update expected-OID resolution
+
+Plan: allow `GIT TAG -f|--force name new-oid` to resolve the current exact tag
+OID and retain the existing CAS update. Keep explicit expected OIDs, reject
+missing tags and zero/malformed expectations, and verify the new object is a
+commit before submitting the update.
+
+Assumption: force-update remains limited to an existing lightweight tag; new
+tag creation continues through `GIT TAG name start-point`.
+
+Progress: the force-update path resolves the full `refs/tags/<name>` ref when
+the expected OID is omitted and validates both object IDs before the existing
+verify/read/CAS sequence. Eight exact-source Regina REXX cases cover success,
+missing refs, invalid names/IDs, zero expectation, and excess operands. The
+M208–M238 chain, 42-source historical compile inventory, REXX syntax,
+80-column, and whitespace checks pass. M238 commit and CI are pending; CMS
+behavior remains unverified.
