@@ -15765,6 +15765,11 @@ guard expected the old in-place `mapbase.ai` assignment. Updated that guard to
 check the compacted `mapbase.keptcount` assignment; the exact M168 CI step now
 passes locally. A full rerun is pending.
 
+M250 follow-up: ACCEPT now explicitly erases GITWORK after taking its snapshot
+and before writing the shorter compacted map. This prevents stale tail records
+from surviving a map shrink; the failure path restores the snapshot. The
+source-derived acceptance fixture verifies erase-before-save ordering.
+
 ## 2026-10-18 — M251 conventional current-branch commit
 
 Plan: expose the existing compare-and-swap current-branch commit transaction

@@ -570,6 +570,14 @@ if command='ACCEPT' then do
   mapbase.keptcount=mapstage.ai
  end
  mapcount=keptcount
+ if deletecount>0 then do
+  'ERASE GITWORK REPO A'
+  if rc\=0 then do
+   call restoremap
+   say 'GITWT: cannot truncate accepted worktree map'
+   exit 8
+  end
+ end
  call savemap
  if result\='OK' then do
   call restoremap

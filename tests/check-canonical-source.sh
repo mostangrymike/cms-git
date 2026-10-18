@@ -1779,10 +1779,12 @@ end=source.index("if command='COMMIT' then do",start)
 block=source[start:end]
 for token in ('if mapstage.ai=zeros & mapbase.ai\\=zeros then do',
               'deleteflag.ai=1', 'if deleteflag.ai=1 then iterate',
-              'mapcount=keptcount', 'call savemap',
+              'mapcount=keptcount', "'ERASE GITWORK REPO A'", 'call savemap',
               "say 'ACCEPTED WORKTREE DELETED' deletepath.ai"):
  if token not in block:
   raise SystemExit(f'M250 delete acceptance source guard missing {token!r}')
+if not block.index("'ERASE GITWORK REPO A'")<block.index('call savemap'):
+ raise SystemExit('M250 must erase before shorter map write')
 block=block.replace("'EXECIO * DISKR GITWORK REPO A 1 (STEM BEFORE. FINIS'",
                     "before.0=1\nrc=0")
 block=block.replace("'STATE' mapfn.ai mapft.ai mapfm.ai",
@@ -1791,6 +1793,7 @@ block=block.replace('call workoid mapfn.ai,mapft.ai,mapfm.ai,maplf.ai,0',
  "if ai=2 then result='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\nelse result='CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC'")
 block=block.replace('call asciitocms mappath.ai',"result='deleted'")
 block=block.replace('call loadmap',"result='OK'")
+block=block.replace("'ERASE GITWORK REPO A'","say 'SIMULATED ERASE'\nrc=0")
 block=block.replace('call savemap',"result='OK'\nsay 'SIMULATED SAVE' mapcount")
 block=block.replace('call restoremap',"result='OK'")
 verify=("if mapcount\\=2 | mapfn.1\\='STAGED' | mapfn.2\\='CLEAN' then exit 12\n"
@@ -1816,7 +1819,7 @@ print('M250 WORKTREE MAP ACCEPT SOURCE GUARDS PASS 6')
 PY
 rexx -c "$tmp/accept.rexx" /dev/null
 rexx -c "$tmp/reappeared.rexx" /dev/null
-expected=$(printf 'GITWT ACCEPT LEVEL M168\nSIMULATED SAVE 2\nACCEPTED WORKTREE OLD AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\nACCEPTED WORKTREE NEW BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\nACCEPTED WORKTREE DELETED deleted\nACCEPTED WORKTREE PATHS 2\nACCEPTED WORKTREE DELETIONS 1')
+expected=$(printf 'GITWT ACCEPT LEVEL M168\nSIMULATED ERASE\nSIMULATED SAVE 2\nACCEPTED WORKTREE OLD AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\nACCEPTED WORKTREE NEW BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\nACCEPTED WORKTREE DELETED deleted\nACCEPTED WORKTREE PATHS 2\nACCEPTED WORKTREE DELETIONS 1')
 if output=$(rexx "$tmp/accept.rexx"); then rc=0; else rc=$?; fi
 if [ "$rc" -ne 0 ] || [ "$output" != "$expected" ]; then
  echo "M250 accept fixture mismatch RC $rc: $output" >&2
