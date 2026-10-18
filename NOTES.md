@@ -15056,3 +15056,8 @@ switch, missing target, different-tip refusal, and write-failure restoration.
 M218/M217/M216/M215/M213/M210 checks, REXX syntax and 80-column checks, all 42
 preserved host-source compilations, canonical guards, and `git diff --check`
 pass locally. CMS remains unverified; commit and Actions are pending.
+
+M218 CI follow-up: full native host workflow 39151897194 passed on commit
+`67385e15974935375090cad041ebd0e88ec54d72`. The five source-derived switch
+fixtures and all existing host regressions passed. CMS branch switching remains
+unverified.
