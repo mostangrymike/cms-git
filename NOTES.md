@@ -14984,3 +14984,9 @@ updated to assert collection plus sorted output. M216's eight comparator cases,
 M215/M213/M210 checks, 80-column and REXX syntax checks, canonical guard, all 42
 preserved host test-body compilations, and `git diff --check` pass. CMS remains
 unverified; commit and Actions are pending.
+
+
+M216 CI follow-up: full native host workflow 39150923191 passed on commit
+`efd7e477fe83297d4b83626e400f9cc5eae2b5ff`. Actions ran the eight exact-source
+ordering cases and all existing host regressions. CMS listing behavior is
+still unqualified.
