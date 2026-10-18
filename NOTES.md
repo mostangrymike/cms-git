@@ -15831,3 +15831,6 @@ ordering around a directory/file boundary, deletion marker movement, full-tree
 capacity rejection, capacity reuse after a staged deletion, accepted root
 additions, rejected nested and stale additions, and invalid blob rejection.
 The cumulative M253 suite passes; CMS behavior remains unverified.
+
+M253 native host Actions run 39178018389 passed on commit `26f0d78`.
+CMS behavior remains unverified.
