@@ -847,8 +847,9 @@ out=Path(sys.argv[4])
 switch_at=git.index("if command = 'SWITCH' then do")
 route=git[switch_at:git.index("/* M5D integration boundary",switch_at)]
 for token in ("switchmode='-C' | switchmode='--CREATE'",
-              "Usage: GIT SWITCH -c|--create name [commit-oid]",
+              "Usage: GIT SWITCH -c|--create name [start-point]",
               "if startpoint='' then startpoint='HEAD'",
+              "call resolvestart startpoint",
               "EXEC GITUPD CREATE-HEAD refs/heads/"):
     if token not in route:
         raise SystemExit(f'M220 switch router missing {token}')
@@ -946,6 +947,73 @@ for mode in unsafe existing stale race writefail; do
  fi
 done
 echo 'M220 SOURCE-DERIVED CREATE-AND-SWITCH FIXTURES PASS 9'
+)
+exit $?
+fi
+
+# Check safe revision-name resolution for switch -c start points.
+if [ "${1:-}" = "M221" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M220
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GIT.EXEC" "$tmp/resolvestart.rexx" <<'PY'
+from pathlib import Path
+import sys
+source=Path(sys.argv[1]).read_text()
+start=source.index('resolvestart: procedure expose rs.')
+end=source.index('\nqueryref:',start)
+routine=source[start:end]
+for token in ("if wanted='HEAD'", "length(direct)=40",
+              "startchars=startchars||'0123456789._/-'",
+              "call queryref wanted"):
+    if token not in source:
+        raise SystemExit(f'M221 start resolver missing validation: {token}')
+assert source.index('verify(wanted,startchars)') < source.index('call queryref wanted')
+qstart=source.index('queryref: procedure expose rs.')
+qend=source.find('\n',source.index("'PIPE CMS' cmd '| STEM RS.'",qstart))
+assert qend>qstart
+fixture=(
+    "parse arg mode wanted\nrs.0=0\n"
+    "call resolvestart wanted\n"
+    "if rs.0=0 then say 'RESOLVED' result 'QUERY'\n"
+    "else say 'RESOLVED' result 'QUERY' word(rs.1,3)\nexit 0\n"
+    +routine+
+    "queryref:\n parse arg qspec\ndrop rs.\nrs.0=0\n"
+    " if qspec='main' then rs.1='VERIFIED REF main AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+    " else if qspec='release/1' then rs.1='VERIFIED REF release/1 BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
+    " else if qspec='refs/tags/v1' then rs.1='VERIFIED REF refs/tags/v1 BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
+    " else if qspec='multiple' then rs.1='VERIFIED REF multiple AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+    " else if qspec='badrecord' then rs.1='VERIFIED TAG badrecord CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC'\n"
+    " else return 'ERROR'\n"
+    " if qspec='multiple' then do\nrs.2=rs.1\nrs.0=2\nend\n"
+    " else rs.0=1\nreturn 'OK'\n"
+)
+Path(sys.argv[2]).write_text(fixture)
+PY
+rexx -c "$tmp/resolvestart.rexx" /dev/null
+check() {
+ expected=$1
+ wanted=$2
+ shift 2
+ actual=$(rexx "$tmp/resolvestart.rexx" "$@" "$wanted")
+ if [ "$actual" != "$expected" ]; then
+  echo "start-point $wanted: expected $expected, got $actual" >&2
+  exit 1
+ fi
+}
+check 'RESOLVED HEAD QUERY' HEAD clean
+check 'RESOLVED CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC QUERY' CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC clean
+check 'RESOLVED AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA QUERY main' main clean
+check 'RESOLVED BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB QUERY release/1' release/1 clean
+check 'RESOLVED BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB QUERY refs/tags/v1' refs/tags/v1 clean
+check 'RESOLVED ERROR QUERY' missing clean
+check 'RESOLVED ERROR QUERY' 'bad|input' clean
+check 'RESOLVED ERROR QUERY badrecord' badrecord badrecord
+check 'RESOLVED ERROR QUERY multiple' multiple clean
+echo 'M221 SOURCE-DERIVED SWITCH START-POINT RESOLUTION FIXTURES PASS 9'
 )
 exit $?
 fi

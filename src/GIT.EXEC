@@ -196,18 +196,16 @@ if command = 'SWITCH' then do
    switchmode=translate(switcharg)
    if switchmode='-C' | switchmode='--CREATE' then do
       if brancharg='' | extra\='' then do
-         say 'Usage: GIT SWITCH -c|--create name [commit-oid]'
+         say 'Usage: GIT SWITCH -c|--create name [start-point]'
          exit 4
       end
       if startpoint='' then startpoint='HEAD'
-      else do
-         startpoint=translate(startpoint)
-         if length(startpoint)\=40 |,
-            verify(startpoint,'0123456789ABCDEF')\=0 then do
-            say 'GIT: create start point must be a full commit OID'
-            exit 4
-         end
+      call resolvestart startpoint
+      if result='ERROR' then do
+         say 'GIT: invalid branch start point' startpoint
+         exit 4
       end
+      startpoint=result
    end
    else do
       branchname=switcharg
@@ -1252,3 +1250,31 @@ hashstored: procedure
    pull oid
    'DROPBUF'
    return oid
+
+resolvestart: procedure expose rs.
+   parse arg wanted
+   if wanted='HEAD' then return 'HEAD'
+   direct=translate(wanted)
+   if length(direct)=40 &,
+      verify(direct,'0123456789ABCDEF')=0 then return direct
+   startchars='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+   startchars=startchars||'0123456789._/-'
+   if wanted='' | length(wanted)>35 |,
+      verify(wanted,startchars)\=0 then return 'ERROR'
+   call queryref wanted
+   if result\='OK' | rs.0\=1 | words(rs.1)\=4 |,
+      word(rs.1,1)\='VERIFIED' | word(rs.1,2)\='REF' |,
+      word(rs.1,3)\=wanted then return 'ERROR'
+   resolvedoid=translate(word(rs.1,4))
+   if length(resolvedoid)\=40 |,
+      verify(resolvedoid,'0123456789ABCDEF')\=0 then return 'ERROR'
+   return resolvedoid
+
+queryref: procedure expose rs.
+   parse arg qspec
+   drop rs.
+   rs.0=0
+   cmd='EXEC GITVREF RESOLVE' qspec
+   'PIPE CMS' cmd '| STEM RS.'
+   if rc\=0 then return 'ERROR'
+   return 'OK'

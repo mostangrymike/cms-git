@@ -132,6 +132,13 @@ creation and symbolic HEAD movement share one REF2 rewrite with rollback and
 readback checks. Branch or worktree conflicts leave REF2 unchanged. Host REXX
 checks pass; CMS behavior remains unverified.
 
+M221 extends the optional start point to short or full branch/tag refs using
+GITVREF's verified resolver. It also accepts `HEAD` and full 40-character
+object IDs. The argument is restricted to a safe ref-name alphabet before it
+enters CMS PIPE, and the returned record must match the requested ref and carry
+one full OID. Abbreviated OIDs are not accepted. Host REXX checks pass; CMS
+behavior remains unverified.
+
 ---
 
 ## M206 full 32-object CMS PASS and A-disk audit (October 13, 2026)

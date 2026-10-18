@@ -14985,7 +14985,6 @@ M215/M213/M210 checks, 80-column and REXX syntax checks, canonical guard, all 42
 preserved host test-body compilations, and `git diff --check` pass. CMS remains
 unverified; commit and Actions are pending.
 
-
 M216 CI follow-up: full native host workflow 39150923191 passed on commit
 `efd7e477fe83297d4b83626e400f9cc5eae2b5ff`. Actions ran the eight exact-source
 ordering cases and all existing host regressions. CMS listing behavior is
@@ -15115,4 +15114,32 @@ and explicit start points, different-tip success, unsafe preflight, existing
 branch, stale HEAD/race, invalid OID, and write rollback. M220 through M208
 checks, REXX/80-column checks, all 42 preserved host-source compilations,
 canonical/workflow guards, and `git diff --check` pass locally. CMS is
+unverified; commit and Actions are pending.
+
+M220 CI follow-up: full native host workflow 39152814116 passed on commit
+`b7e703f8c878476d5586d1e0d7fdcd01318ce206`. The nine create-and-switch
+fixtures and existing host regressions passed. CMS branch creation/switching
+remains unverified.
+
+## 2026-10-18 — M221 resolve switch start points
+
+Plan: let `GIT SWITCH -c|--create` accept `HEAD`, a full object ID, or a branch
+or tag name. Use the existing GITVREF verified resolver for refs, validate the
+argument's safe alphabet before constructing a CMS PIPE command, and accept
+only one correctly framed `VERIFIED REF` result for the exact input. Keep
+abbreviated OIDs out of scope. Add source-derived parser fixtures and the
+existing M215 resolver fixtures to CI.
+
+Assumption: the existing GITVREF branch-before-tag short-name precedence is
+the right behavior for ambiguous short names.
+
+Progress: `GIT SWITCH -c` now resolves `HEAD`, full object IDs, and short or
+full branch/tag refs. Resolver inputs are checked against a strict ASCII ref
+alphabet before entering CMS PIPE; captured output must contain exactly one
+`VERIFIED REF` record for the identical input and a full OID. Existing M215
+fixtures validate branch-before-tag resolution; M221 adds nine start-point
+fixtures for direct OIDs, HEAD, branch/tag names, invalid delimiters, missing
+refs, malformed output, and multiple records. M221 through M208 REXX fixtures
+and syntax/80-column checks, all 42 preserved host-source compilations,
+canonical/workflow guards, and `git diff --check` pass locally. CMS remains
 unverified; commit and Actions are pending.
