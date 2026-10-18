@@ -1,0 +1,56 @@
+{
+  "date": "2026-10-18",
+  "milestone": "M168 current symbolic branch commit and worktree reconciliation target gate",
+  "runner": "ZMD898D4",
+  "checker_target": "ZTDM168 EXEC A",
+  "upload": {
+    "source_sha256": "b9c40245cb0cf028961bdb31557777df92e662fc8bf702e8afe876cd68ec683e",
+    "input_bytes": 4968,
+    "record_count": 248,
+    "transferred_bytes": 20088,
+    "transfer_complete": true,
+    "target_present_after_transfer": true,
+    "content_readback_verified": false,
+    "cms_sha256": {
+      "program": "GITSHA4 MODULE A1 via FILEDEF HASHIN",
+      "logical_bytes": 4720,
+      "digest": "FE68D090E9F34BC3F4E4DBCDB082941D44CC7C34CD5E70C34F747D3852B0AC45",
+      "local_cp037_logical_record_digest": "FE68D090E9F34BC3F4E4DBCDB082941D44CC7C34CD5E70C34F747D3852B0AC45",
+      "match": true
+    }
+  },
+  "command": {
+    "command": "EXEC ZTDM168",
+    "capture_timeout_seconds": 300,
+    "capture_complete": false,
+    "integrity_verified": false,
+    "cms_rc": null,
+    "commit_oid": null,
+    "observed_marker": "ZM1 105FC1D01AB57F97 F 0 ACK",
+    "screen_prompt_after_marker": "Ready(00012)",
+    "result": "INCOMPLETE_CAPTURE",
+    "reason": "Bridge timed out before returning a complete correlated result; marker/screen observation does not establish checker output or return code."
+  },
+  "post_run_state_checks": {
+    "M168TST DATA A": 28,
+    "GITWORK REPO A": 28,
+    "GITTREE REPO A": 28,
+    "HEAD": "00D8D63229305230C8D37F884CE87F9E1A89468C",
+    "refs/heads/m168test": {
+      "cms_rc": 8,
+      "meaning": "verified ref absent"
+    },
+    "GIT_STATUS": {
+      "cms_rc": 0,
+      "records": [
+        "DMSSTT002E File GITWORK REPO A not found",
+        "STATUS NO TRACKED FILES"
+      ]
+    },
+    "meaning": "Separate correlated observations are consistent with checker cleanup; they do not establish the missing target-gate result."
+  },
+  "retained_on_cms": [
+    "ZTDM168 EXEC A"
+  ],
+  "target_gate_pass": false
+}
