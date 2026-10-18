@@ -15438,3 +15438,28 @@ Six exact-source Regina REXX fixtures, the accumulated preceding M208–M233
 suite, all 42 historical host-source compilations, REXX syntax, 80-column, and
 `git diff --check` validations pass. CMS behavior remains unverified; M234
 commit and CI are pending.
+
+M234 CI follow-up: full native host workflow 39155484380 passed on commit
+`8162f71e6333`. CMS behavior remains unverified.
+
+## 2026-10-18 — M235 bounded `GIT LOG` porcelain
+
+Plan: expose the existing verified REF2 history reader as `GIT LOG`, defaulting
+to HEAD and 16 commits. Support `-n N`, `-nN`, `--max-count N`, and
+`--max-count=N`, plus one optional revision. Resolve the revision before
+building the CMS command and reject counts outside the existing history limit.
+
+Assumptions: the common porcelain uses the current backend's maximum of 16
+commits because GITVREF LOG enforces that bound. The checkout has no local
+CHAT_STATE.md; the canonical main copy ends at an October 15 checkpoint, so this
+turn follows the later current-branch NOTES/README plus the operator's supplied
+October 18 AGENTS instructions.
+
+Progress: GIT.EXEC now resolves the selected revision through the guarded
+REF2 resolver and forwards only a verified full OID and bounded count to
+GITVREF LOG. Twelve source-derived Regina REXX cases pass, including default
+HEAD, lowercase branch resolution, all count spellings, invalid bounds,
+unknown refs, and excess operands. The M208–M234 suite, 42-source historical
+compile inventory, core REXX syntax, 80-column, and `git diff --check` checks
+pass. README tag deletion wording now reflects M233. CMS behavior remains
+unverified; M235 commit and CI are pending.

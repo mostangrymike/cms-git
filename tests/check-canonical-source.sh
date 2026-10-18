@@ -1002,6 +1002,78 @@ echo 'M234 SOURCE-DERIVED BRANCH DELETE FIXTURES PASS 6'
 exit $?
 fi
 
+# Expose bounded verified history through the common GIT LOG command.
+if [ "${1:-}" = "M235" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M234
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GIT.EXEC" "$tmp/log.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+start=source.index("if command = 'LOG' then do")
+end=source.index("/* Prefer modern REF2 branches",start)
+block=source[start:end]
+command="address command 'EXEC GITVREF LOG' logoid logdepth"
+resolver='call resolvetagtarget logstart'
+if command not in block or resolver not in block:
+ raise SystemExit('M235 LOG router lost its resolver/backend')
+if block.index(resolver) > block.index(command):
+ raise SystemExit('M235 sends LOG before resolving the revision')
+block=block.replace(resolver,
+ "if logstart='HEAD' then result='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "else if logstart='main' then result='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
+ "else result='ERROR'")
+block=block.replace(command,
+ "rc=0\nsay 'SIMULATED LOG' logoid logdepth")
+Path(sys.argv[2]).write_text("parse arg rest\ncommand='LOG'\n"+block)
+for token in ("logdepth='16'", "call resolvetagtarget logstart",
+              "verify(logdepth,'0123456789')",
+              'logdepth+0>16', command):
+ if token not in source[start:end]:
+  raise SystemExit(f'M235 LOG route missing {token!r}')
+print('M235 LOG ROUTE SOURCE GUARDS PASS 5')
+PY
+rexx -c "$tmp/log.rexx" /dev/null
+check() {
+ expected_rc=$1
+ expected=$2
+ shift 2
+ if output=$(rexx "$tmp/log.rexx" "$@"); then
+  rc=0
+ else
+  rc=$?
+ fi
+ if [ "$rc" -ne "$expected_rc" ]; then
+  echo "GIT LOG $*: expected RC $expected_rc, got $rc" >&2
+  exit 1
+ fi
+ if [ "$output" != "$expected" ]; then
+  echo "GIT LOG $*: expected '$expected', got '$output'" >&2
+  exit 1
+ fi
+}
+check 0 'SIMULATED LOG AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA 16'
+check 0 'SIMULATED LOG BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB 16' main
+check 0 'SIMULATED LOG AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA 5' --max-count 5
+check 0 'SIMULATED LOG BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB 3' -n 3 main
+check 0 'SIMULATED LOG BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB 7' --max-count=7 main
+check 0 'SIMULATED LOG BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB 5' -n5 main
+check 4 'GIT: log count must be between 1 and 16' --max-count 0
+check 4 'GIT: log count must be between 1 and 16' --max-count=17
+check 4 'GIT: log count must be between 1 and 16' -n nope
+check 8 'GIT: cannot resolve log revision missing' missing
+check 4 'Usage: GIT LOG [-n|--max-count count] [revision]' --max-count 5 main extra
+check 4 'Usage: GIT LOG [-n|--max-count count] [revision]' main extra
+echo 'M235 SOURCE-DERIVED GIT LOG FIXTURES PASS 12'
+)
+exit $?
+fi
+
 # Isolated M206 explicit-object compatibility route: host source guard only.
 if [ "${1:-}" = "M206BRIDGE" ]; then
 (

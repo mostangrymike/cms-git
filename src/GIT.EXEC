@@ -211,6 +211,62 @@ if command = 'TAG' then do
    exit 0
 end
 
+/* Bounded porcelain LOG over the verified REF2 revision resolver. */
+if command = 'LOG' then do
+   parse var rest logarg1 logarg2 logarg3 logarg4
+   logdepth='16'
+   logstart='HEAD'
+   logopt=translate(logarg1)
+   if logopt='-N' | logopt='--MAX-COUNT' then do
+      if logarg2='' | logarg4\='' then do
+         say 'Usage: GIT LOG [-n|--max-count count] [revision]'
+         exit 4
+      end
+      logdepth=logarg2
+      if logarg3\='' then logstart=logarg3
+   end
+   else if left(logopt,12)='--MAX-COUNT=' then do
+      if logarg3\='' | logarg4\='' then do
+         say 'Usage: GIT LOG [-n|--max-count count] [revision]'
+         exit 4
+      end
+      logdepth=substr(logarg1,13)
+      if logarg2\='' then logstart=logarg2
+   end
+   else if left(logopt,2)='-N' & logopt\='-N' then do
+      if logarg3\='' | logarg4\='' then do
+         say 'Usage: GIT LOG [-n|--max-count count] [revision]'
+         exit 4
+      end
+      logdepth=substr(logarg1,3)
+      if logarg2\='' then logstart=logarg2
+   end
+   else if logarg1\='' then do
+      if logarg2\='' | logarg3\='' | logarg4\='' then do
+         say 'Usage: GIT LOG [-n|--max-count count] [revision]'
+         exit 4
+      end
+      logstart=logarg1
+   end
+   if logdepth='' | length(logdepth)>2 |,
+      verify(logdepth,'0123456789')\=0 then do
+      say 'GIT: log count must be between 1 and 16'
+      exit 4
+   end
+   if logdepth+0<1 | logdepth+0>16 then do
+      say 'GIT: log count must be between 1 and 16'
+      exit 4
+   end
+   call resolvetagtarget logstart
+   logoid=result
+   if logoid='ERROR' then do
+      say 'GIT: cannot resolve log revision' logstart
+      exit 8
+   end
+   address command 'EXEC GITVREF LOG' logoid logdepth
+   exit rc
+end
+
 /* Prefer modern REF2 branches, retaining M5 refs when REF2 is absent. */
 if command = 'BRANCH' then do
    'STATE GITREF2 REPO A'

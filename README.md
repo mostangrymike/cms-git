@@ -96,9 +96,9 @@ list-pattern wildcards (no bracket classes). `GIT TAG` and `GIT TAG -l`/
 `GIT TAG -f|--force <name> <new-oid> <expected-old-oid>` updates an existing
 tag using compare-and-swap; the expected OID must be nonzero and match the
 current tag;
-`GIT TAG -d|--delete <name> <expected-commit-oid>` deletes one using
-compare-and-swap.
-Creation verifies the target commit; deletion requires its exact old OID.
+`GIT TAG -d|--delete <name> [expected-commit-oid]` deletes one using
+compare-and-swap. If omitted, the current tag OID is resolved first. Creation
+verifies the target commit; deletion still passes an exact old OID to the updater.
 Names use a safe ASCII subset and the stored full ref is limited to 35
 characters to fit the existing 80-column records. `GIT VERIFY-REF` resolves
 tag refs; worktree checkout remains branch-only. Annotated tags and tags of
@@ -213,6 +213,11 @@ M234 allows `GIT BRANCH -d|--delete name` without an explicit expected OID. It
 resolves the exact branch ref, validates supplied OIDs, and passes the observed
 or supplied OID to the existing compare-and-swap updater. Current-branch
 deletion remains refused by that updater. CMS behavior remains unverified.
+
+M235 adds `GIT LOG [-n|--max-count count] [revision]`. It defaults to `HEAD`
+and a 16-commit window, resolves the revision through the verified REF2 resolver,
+and accepts a maximum count from 1 through the CMS history limit of 16. CMS
+behavior remains unverified.
 
 ---
 
