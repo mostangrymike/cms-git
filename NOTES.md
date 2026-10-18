@@ -15000,3 +15000,9 @@ now executes the source-derived listing block against unsorted synthetic refs;
 plain listing emits Git lexical order and `v*` emits only matching tags. The
 comparator, listing, pattern, validator, resolver, width/syntax, canonical, and
 42 historical host-source checks pass locally. Full Actions is pending.
+
+
+M216 corrected-list CI follow-up: full native host workflow 39151297168 passed
+on commit `32325c147a7f925dc21a02e06784c901c4744bfd`. Its M216 step executed
+the actual tag-list block against deliberately unsorted refs; both default
+lexical ordering and wildcard filtering passed. No CMS state was used.
