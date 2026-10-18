@@ -15600,10 +15600,9 @@ Progress: GITWT recognizes both update aliases and loads/hashes all mapped
 files before its single map save. No mappings is a successful no-op; a missing
 CMS file or hash failure leaves the map unchanged. Six source-derived Regina
 fixtures cover both aliases, no mappings, missing files, hash failure, and
-rejected pathspecs;
-seven source guards verify validation and save ordering. The M242 cumulative
+rejected pathspecs; seven source guards verify validation and save ordering. The M242 cumulative
 suite, 42-source host compile inventory, REXX syntax/80-column checks, and
-`git diff --check` pass. GitHub CI is pending; CMS behavior remains unverified.
+`git diff --check` pass. CMS behavior remains unverified.
 
 M242 CI follow-up: full native host workflow 39157454981 passed on commit
 `85eb23c6d095`. CMS behavior remains unverified.
@@ -15622,8 +15621,7 @@ summary in short mode. Four source-derived Regina fixtures cover both aliases,
 staged/unstaged/both-column changes, deleted files, staged additions, empty
 maps, and unsupported options; eight source guards check the mapping. The M243
 cumulative suite, 42-source host compile inventory, REXX syntax/80-column
-checks, and `git diff --check` pass. GitHub CI is pending; CMS behavior remains
-unverified.
+checks, and `git diff --check` pass. CMS behavior remains unverified.
 
 M243 CI follow-up: full native host workflow 39157625495 passed on commit
 `cc1d5a0cfc4c`. CMS behavior remains unverified.
@@ -15643,4 +15641,23 @@ source-derived Regina fixtures cover clean, staged, unstaged, combined,
 addition, deletion, empty-map, alias, and invalid-argument cases; eight source
 guards check routing and state comparisons. The M244 cumulative source suite,
 42-source host compile inventory, REXX syntax/80-column checks, and
-`git diff --check` pass. GitHub CI is pending; CMS behavior remains unverified.
+`git diff --check` pass. CMS behavior remains unverified.
+
+M244 CI follow-up: full native host workflow 39168899872 passed on commit
+`7fb77ac5edb5`. CMS behavior remains unverified.
+
+## 2026-10-18 — M245 path-only staged reset
+
+Plan: add `GIT RESET [--] path...` to restore selected mapped stage OIDs to
+their base OIDs without changing CMS workfiles or symbolic HEAD.
+
+Assumption: support explicit mapped paths only, with a 16-path bound; reset
+modes that move HEAD and reset-all behavior are separate features.
+
+Progress: GIT routes RESET to GITWT. The worker validates every path and
+deduplicates aliases before updating the stage map once, with rollback of the
+in-memory OIDs if the save reports failure. Six source-derived Regina cases
+cover multi-path reset, duplicates, `--`, unknown paths, empty separator, and
+the path limit; eight source guards check dispatch and validation-before-save.
+The M245 cumulative suite, REXX syntax/80-column checks, and `git diff --check`
+pass. GitHub CI is pending; CMS behavior remains unverified.

@@ -402,6 +402,67 @@ if command='ADD' then do
  exit 0
 end
 
+if command='RESET' then do
+ resetstart=1
+ resetrequested=words(rest)
+ if word(rest,1)='--' then do
+  resetstart=2
+  resetrequested=resetrequested-1
+ end
+ else if left(word(rest,1),1)='-' then do
+  say 'Usage: GIT RESET [--] path [path ...]'
+  exit 4
+ end
+ if resetrequested<1 | resetrequested>16 then do
+  say 'Usage: GIT RESET [--] path [path ...] (maximum 16 paths)'
+  exit 4
+ end
+ call loadmap
+ if result\='OK' then exit 8
+ drop resetpi. resetpath. resetold.
+ resetcount=0
+ do ai=resetstart to words(rest)
+  path=word(rest,ai)
+  call toasciihex path
+  pathhex=result
+  if pathhex='ERROR' | length(pathhex)>60 then do
+   say 'GITWT: invalid path' path
+   exit 4
+  end
+  call findpath pathhex
+  pi=result
+  if pi=0 then do
+   say 'GITWT: path is not checked out' path
+   exit 4
+  end
+  duplicate=0
+  do aj=1 to resetcount
+   if resetpi.aj=pi then duplicate=1
+  end
+  if duplicate=1 then iterate
+  resetcount=resetcount+1
+  resetpi.resetcount=pi
+  resetpath.resetcount=path
+  resetold.resetcount=mapstage.pi
+ end
+ do ai=1 to resetcount
+  pi=resetpi.ai
+  mapstage.pi=mapbase.pi
+ end
+ call savemap
+ if result\='OK' then do
+  do ai=1 to resetcount
+   pi=resetpi.ai
+   mapstage.pi=resetold.ai
+  end
+  exit 8
+ end
+ do ai=1 to resetcount
+  say 'UNSTAGED' resetpath.ai
+ end
+ exit 0
+end
+
 if command='ACCEPT' then do
  if strip(rest)\='' then do
   say 'Usage: GITWT ACCEPT'

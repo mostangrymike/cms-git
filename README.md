@@ -259,6 +259,10 @@ M244 adds `GIT DIFF --name-only` for unstaged mapped changes and
 without patch content and does not include unmapped or untracked files. CMS
 behavior remains unverified.
 
+M245 adds `GIT RESET [--] path...` for up to 16 mapped paths. It restores each
+selected stage OID to its base OID in one worktree-map save; CMS workfiles and
+HEAD remain unchanged. CMS behavior remains unverified.
+
 ---
 
 ## M206 full 32-object CMS PASS and A-disk audit (October 13, 2026)

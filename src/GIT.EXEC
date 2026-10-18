@@ -828,6 +828,10 @@ if command = 'DIFF' then do
    'EXEC GITWT DIFF' rest
    exit rc
 end
+if command = 'RESET' then do
+   'EXEC GITWT RESET' rest
+   exit rc
+end
 if command = 'ADD' then do
    'EXEC GITWT ADD' rest
    exit rc

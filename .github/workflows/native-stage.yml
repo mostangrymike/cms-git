@@ -220,6 +220,8 @@ jobs:
         run: sh tests/check-canonical-source.sh M243
       - name: Check M244 mapped name-only diff
         run: sh tests/check-canonical-source.sh M244
+      - name: Check M245 path-only reset
+        run: sh tests/check-canonical-source.sh M245
       - name: Check M190 7736-object selective seek closure
         run: python3 tests/test-m203-bounded-batch.py M190S
       - name: Compare M190 indexed seek vs M188 two-pass host

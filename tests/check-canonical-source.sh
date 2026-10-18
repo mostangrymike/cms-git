@@ -1625,6 +1625,81 @@ echo 'M244 SOURCE-DERIVED GIT DIFF NAME-ONLY FIXTURES PASS 6'
 exit $?
 fi
 
+if [ "${1:-}" = "M245" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M244
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GIT.EXEC" "$root/src/GITWT.EXEC" "$tmp/reset.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+router=Path(sys.argv[1]).read_text()
+if "if command = 'RESET' then do\n   'EXEC GITWT RESET' rest\n   exit rc\nend" not in router:
+ raise SystemExit('M245 GIT RESET route missing')
+source=Path(sys.argv[2]).read_text()
+start=source.index("if command='RESET' then do")
+end=source.index("if command='ACCEPT' then do",start)
+block=source[start:end]
+required=('resetrequested=words(rest)', "if word(rest,1)='--' then do",
+          'call toasciihex path','call findpath pathhex',
+          'resetold.resetcount=mapstage.pi',
+          'mapstage.pi=mapbase.pi','call savemap',"say 'UNSTAGED'")
+for token in required:
+ if token not in block:
+  raise SystemExit(f'M245 reset source guard missing {token!r}')
+if not (block.index('call findpath pathhex')<block.index('mapstage.pi=mapbase.pi')<
+        block.index('call savemap')<block.index("say 'UNSTAGED'")):
+ raise SystemExit('M245 RESET mutates before validating all paths or reports early')
+state="'STATE' mapfn.pi mapft.pi mapfm.pi"
+work="call workoid mapfn.pi,mapft.pi,mapfm.pi,maplf.pi,1"
+block=block.replace('call loadmap',"result='OK'")
+block=block.replace('call savemap',"result='OK'\nsay 'SIMULATED SAVE'")
+fixture=(
+ "parse arg rest\ncommand='RESET'\nmapcount=4\n"
+ "mapfn.1='ALPHA'\nmapfn.2='BETA'\n"
+ "mapfn.3='STATEFAIL'\nmapfn.4='HASHFAIL'\n"
+ "do mi=1 to 4\n mapft.mi='DATA'\n mapfm.mi='A'\n"
+ " maplf.mi=1\n mapbase.mi='0000000000000000000000000000000000000000'\n"
+ " mapstage.mi='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\nend\n"
+ "mappath.1='616C706861'\nmappath.2='62657461'\n"
+ "mappath.3='67616D6D61'\nmappath.4='64656C7461'\n"+
+ block)
+fstart=source.index('\nfindpath:\n')+1
+fend=source.index('\nfindfile:\n',fstart)
+fixture+=source[fstart:fend]+"toasciihex:\n parse arg text\n return c2x(text)\n"
+Path(sys.argv[3]).write_text(fixture)
+print('M245 GIT RESET SOURCE GUARDS PASS 8')
+PY
+rexx -c "$tmp/reset.rexx" /dev/null
+check() {
+ expected_rc=$1
+ expected=$2
+ shift 2
+ if output=$(rexx "$tmp/reset.rexx" "$@"); then rc=0; else rc=$?; fi
+ if [ "$rc" -ne "$expected_rc" ]; then
+  echo "GIT RESET $*: expected RC $expected_rc, got $rc" >&2
+  exit 1
+ fi
+ if [ "$output" != "$expected" ]; then
+  echo "GIT RESET $*: expected '$expected', got '$output'" >&2
+  exit 1
+ fi
+}
+check 0 "$(printf 'SIMULATED SAVE\nUNSTAGED alpha\nUNSTAGED beta')" alpha beta
+check 0 "$(printf 'SIMULATED SAVE\nUNSTAGED alpha')" alpha alpha
+check 0 "$(printf 'SIMULATED SAVE\nUNSTAGED alpha\nUNSTAGED beta')" -- alpha beta
+check 4 'GITWT: path is not checked out unknown' alpha unknown
+check 4 'Usage: GIT RESET [--] path [path ...] (maximum 16 paths)' --
+many='a a a a a a a a a a a a a a a a a'
+check 4 'Usage: GIT RESET [--] path [path ...] (maximum 16 paths)' $many
+echo 'M245 SOURCE-DERIVED GIT RESET FIXTURES PASS 6'
+)
+exit $?
+fi
+
 # A bounded log count must stop cleanly when history reaches a root commit.
 if [ "${1:-}" = "M240" ]; then
 (
