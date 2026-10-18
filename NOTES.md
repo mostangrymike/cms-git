@@ -14790,3 +14790,9 @@ The inventory emits its existing Python invalid-escape `SyntaxWarning`, but
 returns zero and compiles all 42 preserved host test bodies. Current CMS MCP
 observation/connect calls returned `Transport closed`; no CMS action was
 performed. Full Actions and real CMS target validation remain pending.
+
+The first pushed Actions run failed only at M208 setup because the Ubuntu runner
+does not have `rexx` installed (`rexx: not found`). The M208 test must compile
+the REXX source; I added a workflow prerequisite to install Ubuntu's
+`regina-rexx` package before that test instead of weakening or skipping syntax
+validation. A rerun is pending.
