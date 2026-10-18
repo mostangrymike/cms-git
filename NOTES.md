@@ -14868,3 +14868,8 @@ keep CMS state untouched.
 Progress: added the long option; `-d` already normalizes to `-D` through the
 existing case folding. Expanded the canonical source guard and README. Focused
 validation and full Actions are pending.
+
+
+M211 validation: focused `M210` tag syntax/width, integration, and source-derived
+REXX matcher checks passed locally. Full native host workflow 39149852161 passed
+on commit `4610f9ff9ee61ad2095ef21b2ff85c1c16c0873b`; no CMS behavior was run.
