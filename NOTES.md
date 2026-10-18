@@ -14898,6 +14898,15 @@ source-derived wildcard cases passed locally. Full native host workflow
 The force-update path is host-validated only; CMS compile and REF2 behavior
 remain unverified.
 
+## 2026-10-18 — M214 require an existing tag for force update
+
+Plan: align the M212 force-update behavior with its documented intent by
+rejecting an all-zero expected OID. A missing tag remains creatable through the
+plain create form; force update must compare against an existing ref value.
+
+Assumption: reject zero explicitly at the porcelain boundary even though the
+underlying CAS updater uses zero to mean create-only.
+
 ## 2026-10-18 — M213 cross-caller REF2 name validation
 
 Plan: execute the exact tag/branch `validref` implementations extracted from
@@ -14922,3 +14931,9 @@ M213 CI follow-up: full native host workflow 39150220130 passed on commit
 source-derived validators and the 33 valid/invalid fixtures successfully.
 This validates only host REXX behavior; no CMS command or source deployment
 occurred.
+
+
+Progress: added a zero-OID rejection before calling `GIT UPDATE-REF`. Focused
+M213 checks, REXX syntax, all source widths, the canonical source guard, all 42
+preserved test-body compilations and `git diff --check` pass locally. CMS remains
+unverified; commit and full Actions are pending.

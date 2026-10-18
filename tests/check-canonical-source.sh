@@ -118,6 +118,7 @@ required={
      "say 'Usage: GIT TAG [-l|--list [pattern]]'",
      "verb='-F' | verb='--FORCE'",
      "say 'Usage: GIT TAG -f|--force name new-oid expected-old-oid'",
+     'if oldoid=zeros then do',
      "EXEC GIT UPDATE-REF' ref newoid oldoid",
      "verb='-D' | verb='--DELETE'",
      "say 'Usage: GIT TAG -d|--delete name expected-commit-oid'",

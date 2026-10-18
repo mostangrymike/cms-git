@@ -86,6 +86,11 @@ if command = 'TAG' then do
          say 'GIT: tag update requires full expected and new object-ids'
          exit 4
       end
+      zeros='0000000000000000000000000000000000000000'
+      if oldoid=zeros then do
+         say 'GIT: force update requires an existing tag OID'
+         exit 4
+      end
       address command 'EXEC GIT VERIFY-OBJECT' newoid
       if rc\=0 then exit 8
       call readobject newoid
