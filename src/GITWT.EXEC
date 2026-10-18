@@ -244,13 +244,20 @@ end
 end
 
 if command='ADD' then do
+ addall=0
  addstart=1
  addrequested=words(rest)
- if word(rest,1)='--' then do
+ if addrequested=1 & (translate(word(rest,1))='-U' |,
+    translate(word(rest,1))='--UPDATE') then addall=1
+ else if word(rest,1)='--' then do
   addstart=2
   addrequested=addrequested-1
  end
- if addrequested<1 | addrequested>16 then do
+ else if left(word(rest,1),1)='-' then do
+  say 'Usage: GIT ADD [-u|--update] | [--] path [path ...]'
+  exit 4
+ end
+ if addall=0 & (addrequested<1 | addrequested>16) then do
   say 'Usage: GIT ADD path [path ...] (maximum 16 paths)'
   exit 4
  end
@@ -258,28 +265,47 @@ if command='ADD' then do
  if result\='OK' then exit 8
  drop addpi. addpath. addold. addoid.
  addcount=0
- do ai=addstart to words(rest)
-  path=word(rest,ai)
-  call toasciihex path
-  pathhex=result
-  if pathhex='ERROR' | length(pathhex)>60 then do
-   say 'GITWT: invalid path' path
-   exit 4
+ if addall=1 then do
+  if mapcount=0 then do
+   say 'GITWT: no mapped paths to update'
+   exit 0
   end
-  call findpath pathhex
-  pi=result
-  if pi=0 then do
-   say 'GITWT: path is not checked out' path
-   exit 4
+  do ai=1 to mapcount
+   addcount=addcount+1
+   addpi.addcount=ai
+   call asciitocms mappath.ai
+   path=result
+   if path='ERROR' then do
+    say 'GITWT: invalid mapped path' mappath.ai
+    exit 8
+   end
+   addpath.addcount=path
   end
-  duplicate=0
-  do aj=1 to addcount
-   if addpi.aj=pi then duplicate=1
+ end
+ else do
+  do ai=addstart to words(rest)
+   path=word(rest,ai)
+   call toasciihex path
+   pathhex=result
+   if pathhex='ERROR' | length(pathhex)>60 then do
+    say 'GITWT: invalid path' path
+    exit 4
+   end
+   call findpath pathhex
+   pi=result
+   if pi=0 then do
+    say 'GITWT: path is not checked out' path
+    exit 4
+   end
+   duplicate=0
+   do aj=1 to addcount
+    if addpi.aj=pi then duplicate=1
+   end
+   if duplicate=1 then iterate
+   addcount=addcount+1
+   addpi.addcount=pi
+   addpath.addcount=path
   end
-  if duplicate=1 then iterate
-  addcount=addcount+1
-  addpi.addcount=pi
-  addpath.addcount=path
  end
  do ai=1 to addcount
   pi=addpi.ai

@@ -15583,3 +15583,24 @@ labels report all thirteen ADD cases and eight source guards. The focused M241
 chain, 42-source historical host compile inventory, REXX syntax/80-column
 checks, and `git diff --check` pass. The native host workflow is pending; CMS
 behavior remains unverified.
+
+M241 CI follow-up: full native host workflow 39157122989 passed on commit
+`a65fa8ae1951`. CMS behavior remains unverified.
+
+## 2026-10-18 — M242 update all mapped worktree files
+
+Plan: add `GIT ADD -u` and `GIT ADD --update` to hash all mapped workfiles,
+preflight every CMS file before changing the map, and save staged OIDs once.
+
+Assumption: update is limited to the existing worktree map (at most 50 paths),
+has no pathspec form, and treats a missing mapped CMS file as an error rather
+than a deletion. Deletion staging needs a separate tree rewrite.
+
+Progress: GITWT recognizes both update aliases and loads/hashes all mapped
+files before its single map save. No mappings is a successful no-op; a missing
+CMS file or hash failure leaves the map unchanged. Six source-derived Regina
+fixtures cover both aliases, no mappings, missing files, hash failure, and
+rejected pathspecs;
+seven source guards verify validation and save ordering. The M242 cumulative
+suite, 42-source host compile inventory, REXX syntax/80-column checks, and
+`git diff --check` pass. GitHub CI is pending; CMS behavior remains unverified.

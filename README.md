@@ -243,6 +243,12 @@ M241 lets multi-path `GIT ADD` use the conventional `--` separator before
 paths, so names beginning with a dash can be passed unambiguously. CMS behavior
 remains unverified.
 
+M242 adds `GIT ADD -u` and `GIT ADD --update` for all mapped worktree files
+(maximum 50). It hashes every mapped CMS file before updating the stage map
+once; if a mapped CMS file is absent, the command fails without changing the
+map. It does not stage deletions or accept update pathspecs. CMS behavior
+remains unverified.
+
 ---
 
 ## M206 full 32-object CMS PASS and A-disk audit (October 13, 2026)

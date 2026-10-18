@@ -1360,6 +1360,87 @@ echo 'M241 GIT ADD OPTION SEPARATOR PASS'
 exit $?
 fi
 
+if [ "${1:-}" = "M242" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M241
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GITWT.EXEC" "$tmp/update.rexx" "$tmp/missing.rexx" "$tmp/hashfail.rexx" "$tmp/empty.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+start=source.index("if command='ADD' then do")
+end=source.index("if command='ACCEPT' then do",start)
+block=source[start:end]
+required=("translate(word(rest,1))='-U'",
+          "translate(word(rest,1))='--UPDATE'",
+          'if addall=1 then do', 'do ai=1 to mapcount',
+          'call asciitocms mappath.ai', "say 'GITWT: no mapped paths to update'",
+          'call savemap')
+for token in required:
+ if token not in block:
+  raise SystemExit(f'M242 ADD update source guard missing {token!r}')
+if not (block.index("translate(word(rest,1))='-U'")<
+        block.index('if addall=0 & (addrequested<1')<
+        block.index('call loadmap')<block.index('do ai=1 to addcount')<
+        block.index('call savemap')):
+ raise SystemExit('M242 ADD update validation or save ordering changed')
+state="if mapfn.pi='MISSING' then rc=28\nelse rc=0"
+work=("if pi=1 then result='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+      "else result='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'")
+hashfailwork=("if pi=1 then result='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+              "else result='ERROR'")
+fixture=(
+ "parse arg rest\ncommand='ADD'\nmapcount=2\n"
+ "mapfn.1='ALPHA'\nmapfn.2='BETA'\n"
+ "do mi=1 to 2\n mapft.mi='DATA'\n mapfm.mi='A'\n"
+ " maplf.mi=1\n mapbase.mi='0000000000000000000000000000000000000000'\n"
+ " mapstage.mi=mapbase.mi\nend\n"
+ "mappath.1='616C706861'\nmappath.2='62657461'\n"+
+ block.replace('call loadmap',"result='OK'")
+      .replace("'STATE' mapfn.pi mapft.pi mapfm.pi",state)
+      .replace('call workoid mapfn.pi,mapft.pi,mapfm.pi,maplf.pi,1',work)
+      .replace('call savemap',"result='OK'\nsay 'SIMULATED SAVE'")+
+ "asciitocms:\n parse arg text\n return x2c(text)\n")
+Path(sys.argv[2]).write_text(fixture)
+Path(sys.argv[3]).write_text(fixture.replace("mapfn.2='BETA'", "mapfn.2='MISSING'"))
+Path(sys.argv[4]).write_text(fixture.replace(work,hashfailwork))
+Path(sys.argv[5]).write_text(fixture.replace('mapcount=2','mapcount=0'))
+print('M242 GIT ADD UPDATE SOURCE GUARDS PASS 7')
+PY
+rexx -c "$tmp/update.rexx" /dev/null
+check() {
+ fixture=$1
+ expected_rc=$2
+ expected=$3
+ shift 3
+ if output=$(rexx "$fixture" "$@"); then rc=0; else rc=$?; fi
+ if [ "$rc" -ne "$expected_rc" ]; then
+  echo "GIT ADD update $*: expected RC $expected_rc, got $rc" >&2
+  exit 1
+ fi
+ if [ "$output" != "$expected" ]; then
+  echo "GIT ADD update $*: expected '$expected', got '$output'" >&2
+  exit 1
+ fi
+}
+alpha=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+beta=BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+expected=$(printf 'SIMULATED SAVE\nADDED alpha %s\nSTAGE DIFFERS FROM BASE\nADDED beta %s\nSTAGE DIFFERS FROM BASE' "$alpha" "$beta")
+check "$tmp/update.rexx" 0 "$expected" -u
+check "$tmp/update.rexx" 0 "$expected" --update
+check "$tmp/missing.rexx" 8 'GITWT: mapped CMS file is absent beta' -u
+check "$tmp/hashfail.rexx" 8 '' -u
+check "$tmp/empty.rexx" 0 'GITWT: no mapped paths to update' -u
+check "$tmp/update.rexx" 4 'Usage: GIT ADD [-u|--update] | [--] path [path ...]' -u alpha
+echo 'M242 SOURCE-DERIVED GIT ADD UPDATE FIXTURES PASS 6'
+)
+exit $?
+fi
+
 # A bounded log count must stop cleanly when history reaches a root commit.
 if [ "${1:-}" = "M240" ]; then
 (

@@ -214,6 +214,8 @@ jobs:
         run: sh tests/check-canonical-source.sh M240
       - name: Check M241 GIT ADD option separator
         run: sh tests/check-canonical-source.sh M241
+      - name: Check M242 tracked worktree update staging
+        run: sh tests/check-canonical-source.sh M242
       - name: Check M190 7736-object selective seek closure
         run: python3 tests/test-m203-bounded-batch.py M190S
       - name: Compare M190 indexed seek vs M188 two-pass host
