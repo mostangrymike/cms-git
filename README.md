@@ -263,6 +263,10 @@ M245 adds `GIT RESET [--] path...` for up to 16 mapped paths. It restores each
 selected stage OID to its base OID in one worktree-map save; CMS workfiles and
 HEAD remain unchanged. CMS behavior remains unverified.
 
+M246 adds `GIT RESTORE --staged [--] path...` as a path-only alias for that
+mapped stage reset. Worktree restore and `--source` forms are unsupported;
+CMS behavior remains unverified.
+
 ---
 
 ## M206 full 32-object CMS PASS and A-disk audit (October 13, 2026)

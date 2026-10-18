@@ -15661,3 +15661,22 @@ cover multi-path reset, duplicates, `--`, unknown paths, empty separator, and
 the path limit; eight source guards check dispatch and validation-before-save.
 The M245 cumulative suite, REXX syntax/80-column checks, and `git diff --check`
 pass. GitHub CI is pending; CMS behavior remains unverified.
+
+M245 CI follow-up: full native host workflow 39169228082 is pending.
+CMS behavior remains unverified.
+
+## 2026-10-18 — M246 staged restore alias
+
+Plan: add `GIT RESTORE --staged [--] path...` as the conventional path-only
+alias for M245's safe mapped stage reset.
+
+Assumption: only `--staged` is supported. Worktree restore and `--source` are
+separate operations because they can replace CMS workfiles or require broader
+tree/object resolution.
+
+Progress: GIT validates the `--staged` mode and delegates the remaining
+operands to the tested RESET implementation. Four source-derived Regina cases
+cover lowercase/uppercase mode, `--` pass-through, unsupported `--worktree`,
+and a missing path; five source guards validate routing. The cumulative M246
+suite, host compile inventory, REXX syntax/80-column checks, and
+`git diff --check` pass. CMS behavior remains unverified.

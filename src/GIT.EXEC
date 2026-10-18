@@ -832,6 +832,15 @@ if command = 'RESET' then do
    'EXEC GITWT RESET' rest
    exit rc
 end
+if command = 'RESTORE' then do
+   parse var rest restoreopt restorepaths
+   if translate(restoreopt)\='--STAGED' | strip(restorepaths)='' then do
+      say 'Usage: GIT RESTORE --staged [--] path...'
+      exit 4
+   end
+   address command 'EXEC GITWT RESET' restorepaths
+   exit rc
+end
 if command = 'ADD' then do
    'EXEC GITWT ADD' rest
    exit rc

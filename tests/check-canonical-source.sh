@@ -1700,6 +1700,58 @@ echo 'M245 SOURCE-DERIVED GIT RESET FIXTURES PASS 6'
 exit $?
 fi
 
+if [ "${1:-}" = "M246" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M245
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GIT.EXEC" "$tmp/restore.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+start=source.index("if command = 'RESTORE' then do")
+end=source.index("if command = 'ADD' then do",start)
+block=source[start:end]
+required=('parse var rest restoreopt restorepaths',
+          "translate(restoreopt)\\='--STAGED'",
+          "say 'Usage: GIT RESTORE --staged [--] path...'",
+          "address command 'EXEC GITWT RESET' restorepaths",
+          'exit rc')
+for token in required:
+ if token not in block:
+  raise SystemExit(f'M246 restore source guard missing {token!r}')
+block=block.replace("address command 'EXEC GITWT RESET' restorepaths",
+                    "say 'SIMULATED RESET' restorepaths\nexit 0")
+Path(sys.argv[2]).write_text("parse arg rest\ncommand='RESTORE'\n"+block)
+print('M246 GIT RESTORE ROUTE SOURCE GUARDS PASS 5')
+PY
+rexx -c "$tmp/restore.rexx" /dev/null
+check() {
+ expected_rc=$1
+ expected=$2
+ shift 2
+ if output=$(rexx "$tmp/restore.rexx" "$@"); then rc=0; else rc=$?; fi
+ if [ "$rc" -ne "$expected_rc" ]; then
+  echo "GIT RESTORE $*: expected RC $expected_rc, got $rc" >&2
+  exit 1
+ fi
+ if [ "$output" != "$expected" ]; then
+  echo "GIT RESTORE $*: expected '$expected', got '$output'" >&2
+  exit 1
+ fi
+}
+check 0 'SIMULATED RESET alpha' --staged alpha
+check 0 'SIMULATED RESET -- alpha beta' --STAGED -- alpha beta
+check 4 'Usage: GIT RESTORE --staged [--] path...' --worktree alpha
+check 4 'Usage: GIT RESTORE --staged [--] path...' --staged
+echo 'M246 SOURCE-DERIVED RESTORE STAGED FIXTURES PASS 4'
+)
+exit $?
+fi
+
 # A bounded log count must stop cleanly when history reaches a root commit.
 if [ "${1:-}" = "M240" ]; then
 (
