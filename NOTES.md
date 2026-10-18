@@ -15025,3 +15025,10 @@ the previous GITREF route. The source-derived branch-list fixture, static route
 and CAS guards, Regina syntax/80-column checks, M216 tag suite, canonical source
 guard, 42 historical test-body compilations, and `git diff --check` pass locally.
 CMS remains unverified; commit and full Actions are pending.
+
+
+M217 CI follow-up: full native host workflow 39151566288 passed on commit
+`8a17ee8340361735283053d7827c096d4110077f`. The modern branch list fixture,
+REF2/legacy dispatch guards, REXX syntax and existing regression suite passed.
+Branch create/delete remain host-validated only; CMS target behavior is
+unverified.
