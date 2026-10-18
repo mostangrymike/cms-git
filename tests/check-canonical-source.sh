@@ -164,7 +164,8 @@ refs=Path(sys.argv[2]).read_text()
 for token in ("address command 'EXEC GITVREF TAGS' tagname",):
  if token not in cli:
   raise SystemExit(f'GIT.EXEC missing list-pattern forwarding: {token}')
-for token in ("tagchars=tagchars||'0123456789._/-*?'",
+for token in ("if spec='' then do",
+              "tagchars=tagchars||'0123456789._/-*?'",
               'call tagmatch tagpattern, tagcandidate',
               "if tagmatchresult='MATCH' then do",
               'call tagbefore taglist.tj, tagitem',
@@ -424,7 +425,55 @@ check YES _ a
 check YES v10 v2
 check YES a a/b
 check NO b a
-echo 'M216 SOURCE-DERIVED TAG ORDER FIXTURES PASS 8'
+python3 - "$root/src/GITVREF.EXEC" "$tmp/taglist.rexx" <<'PY'
+from pathlib import Path
+import sys
+source=Path(sys.argv[1]).read_text()
+start=source.index("if command='TAGS' then do")
+end=source.index("if command='CASE' then do",start)
+block=source[start:end]
+hstart=source.index('\ntagmatch:\n')+1
+hend=source.index('\nbindnative:\n',hstart)
+helpers=source[hstart:hend]
+prefix="""parse arg spec
+command='TAGS'
+depth=''
+extra=''
+"""
+fixture="""
+exit 4
+readrefs:
+ refcount=6
+ refname.1='refs/tags/v2'
+ refoid.1='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+ refname.2='refs/heads/main'
+ refoid.2='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'
+ refname.3='refs/tags/v10'
+ refoid.3='CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC'
+ refname.4='refs/tags/alpha'
+ refoid.4='DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD'
+ refname.5='refs/tags/Alpha'
+ refoid.5='EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE'
+ refname.6='refs/tags/-tag'
+ refoid.6='FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF'
+ return 'OK'
+"""
+Path(sys.argv[2]).write_text(prefix+block+fixture+helpers)
+PY
+rexx -c "$tmp/taglist.rexx" /dev/null
+actual=$(rexx "$tmp/taglist.rexx" '')
+expected=$(printf '%s\n' '-tag' 'Alpha' 'alpha' 'v10' 'v2')
+if [ "$actual" != "$expected" ]; then
+ echo "tag list order mismatch: $actual" >&2
+ exit 1
+fi
+actual=$(rexx "$tmp/taglist.rexx" 'v*')
+expected=$(printf '%s\n' 'v10' 'v2')
+if [ "$actual" != "$expected" ]; then
+ echo "tag pattern output mismatch: $actual" >&2
+ exit 1
+fi
+echo 'M216 SOURCE-DERIVED TAG ORDER/LIST FIXTURES PASS 10'
 )
 exit $?
 fi

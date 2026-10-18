@@ -16,7 +16,7 @@ if command='STAMP' then do
 end
 if command='TAGS' then do
  if depth\='' | extra\='' then exit 4
- if spec\='' then do
+ if spec='' then do
   tagpattern=''
  end
  else do
@@ -45,14 +45,14 @@ if command='TAGS' then do
    end
   end
  end
- gap=tagcount%2
+ gap=tagcount % 2
  do while gap>0
   do ti=gap+1 to tagcount
    tagitem=taglist.ti
    tj=ti-gap
    do while tj>0
     call tagbefore taglist.tj, tagitem
-    if result\='YES' then leave
+    if result='YES' then leave
     tk=tj+gap
     taglist.tk=taglist.tj
     tj=tj-gap
@@ -60,7 +60,7 @@ if command='TAGS' then do
    tk=tj+gap
    taglist.tk=tagitem
   end
-  gap=gap%2
+  gap=gap % 2
  end
  do ti=1 to tagcount
   say taglist.ti

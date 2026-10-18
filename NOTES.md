@@ -14990,3 +14990,13 @@ M216 CI follow-up: full native host workflow 39150923191 passed on commit
 `efd7e477fe83297d4b83626e400f9cc5eae2b5ff`. Actions ran the eight exact-source
 ordering cases and all existing host regressions. CMS listing behavior is
 still unqualified.
+
+
+M216 integrated-test follow-up: executing the full `TAGS` block uncovered three
+REXX integration defects the comparator-only checks missed: `%` lacked spaces
+and was parsed as a variable, the Shell-sort stop condition was reversed, and
+the empty-pattern test was inverted. Corrected all three. The expanded fixture
+now executes the source-derived listing block against unsorted synthetic refs;
+plain listing emits Git lexical order and `v*` emits only matching tags. The
+comparator, listing, pattern, validator, resolver, width/syntax, canonical, and
+42 historical host-source checks pass locally. Full Actions is pending.
