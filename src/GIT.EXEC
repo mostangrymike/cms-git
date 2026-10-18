@@ -267,6 +267,24 @@ if command = 'LOG' then do
    exit rc
 end
 
+/* Resolve a revision before exposing the full-object SHOW reader. */
+if command = 'SHOW' then do
+   parse var rest showstart showextra
+   if showextra\='' then do
+      say 'Usage: GIT SHOW [revision]'
+      exit 4
+   end
+   if showstart='' then showstart='HEAD'
+   call resolvetagtarget showstart
+   showoid=result
+   if showoid='ERROR' then do
+      say 'GIT: cannot resolve show revision' showstart
+      exit 8
+   end
+   address command 'EXEC GITVREF SHOW' showoid
+   exit rc
+end
+
 /* Prefer modern REF2 branches, retaining M5 refs when REF2 is absent. */
 if command = 'BRANCH' then do
    'STATE GITREF2 REPO A'

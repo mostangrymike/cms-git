@@ -15463,3 +15463,21 @@ unknown refs, and excess operands. The M208–M234 suite, 42-source historical
 compile inventory, core REXX syntax, 80-column, and `git diff --check` checks
 pass. README tag deletion wording now reflects M233. CMS behavior remains
 unverified; M235 commit and CI are pending.
+
+M235 CI follow-up: pending GitHub Actions run 39155793524 on commit
+`2f3978f14191`.
+
+## 2026-10-18 — M236 verified `GIT SHOW` porcelain
+
+Plan: expose the existing GITVREF full-object reader through `GIT SHOW
+[revision]`, default to HEAD, reject excess operands, and resolve a revision
+before command dispatch.
+
+Assumption: keep `GIT SHOW` read-only and limited to the existing full-object
+commit reader; path-specific and formatting options are separate work.
+
+Progress: GIT.EXEC now resolves HEAD, branch/tag refs, or a full object ID
+before calling GITVREF SHOW. Six source-derived Regina REXX cases pass for the
+default, branch, full-OID, missing/unsafe revisions, and argument arity. The
+accumulated M208–M236 REXX suite passes. CMS behavior remains unverified; M236
+commit and CI are pending.

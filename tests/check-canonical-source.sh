@@ -1074,6 +1074,72 @@ echo 'M235 SOURCE-DERIVED GIT LOG FIXTURES PASS 12'
 exit $?
 fi
 
+# Expose the verified full-object reader through GIT SHOW.
+if [ "${1:-}" = "M236" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M235
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GIT.EXEC" "$tmp/show.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+start=source.index("if command = 'SHOW' then do")
+end=source.index("/* Prefer modern REF2 branches",start)
+block=source[start:end]
+resolver='call resolvetagtarget showstart'
+command="address command 'EXEC GITVREF SHOW' showoid"
+if resolver not in block or command not in block:
+ raise SystemExit('M236 SHOW router lost its resolver/backend')
+if block.index(resolver)>block.index(command):
+ raise SystemExit('M236 sends SHOW before resolving the revision')
+block=block.replace(resolver,
+ "if showstart='HEAD' then result='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "else if showstart='main' then result='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
+ "else if length(showstart)=40 then result=translate(showstart)\n"
+ "else result='ERROR'")
+block=block.replace(command,"rc=0\nsay 'SIMULATED SHOW' showoid")
+Path(sys.argv[2]).write_text("parse arg rest\ncommand='SHOW'\n"+block)
+for token in ('showstart=\'HEAD\'', resolver,
+              "Usage: GIT SHOW [revision]", command):
+ if token not in source[start:end]:
+  raise SystemExit(f'M236 SHOW route missing {token!r}')
+print('M236 SHOW ROUTE SOURCE GUARDS PASS 4')
+PY
+rexx -c "$tmp/show.rexx" /dev/null
+check() {
+ expected_rc=$1
+ expected=$2
+ shift 2
+ if output=$(rexx "$tmp/show.rexx" "$@"); then
+  rc=0
+ else
+  rc=$?
+ fi
+ if [ "$rc" -ne "$expected_rc" ]; then
+  echo "GIT SHOW $*: expected RC $expected_rc, got $rc" >&2
+  exit 1
+ fi
+ if [ "$output" != "$expected" ]; then
+  echo "GIT SHOW $*: expected '$expected', got '$output'" >&2
+  exit 1
+ fi
+}
+check 0 'SIMULATED SHOW AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+check 0 'SIMULATED SHOW BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB' main
+oid=CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+check 0 "SIMULATED SHOW $oid" "$oid"
+check 8 'GIT: cannot resolve show revision missing' missing
+check 8 'GIT: cannot resolve show revision bad|name' 'bad|name'
+check 4 'Usage: GIT SHOW [revision]' main extra
+echo 'M236 SOURCE-DERIVED GIT SHOW FIXTURES PASS 6'
+)
+exit $?
+fi
+
 # Isolated M206 explicit-object compatibility route: host source guard only.
 if [ "${1:-}" = "M206BRIDGE" ]; then
 (

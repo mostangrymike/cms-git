@@ -219,6 +219,10 @@ and a 16-commit window, resolves the revision through the verified REF2 resolver
 and accepts a maximum count from 1 through the CMS history limit of 16. CMS
 behavior remains unverified.
 
+M236 adds `GIT SHOW [revision]`, defaulting to `HEAD`. It resolves the revision
+before calling the existing full-object reader and rejects extra operands. CMS
+behavior remains unverified.
+
 ---
 
 ## M206 full 32-object CMS PASS and A-disk audit (October 13, 2026)
