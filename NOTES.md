@@ -14966,3 +14966,21 @@ M215 CI follow-up: full native host workflow 39150617907 passed on commit
 `d37aa0650e4e0f53fa22aa7ca84c683034464b21`. The six extracted resolver
 fixtures passed in Actions. CMS execution and REF2 target behavior remain
 unverified.
+
+## 2026-10-18 — M216 deterministic tag-list ordering
+
+Plan: sort the filtered tag names in Git's bytewise ASCII lexical order before
+display, using a Shell sort suitable for the bounded CMS ref list. Execute the
+exact REXX comparator with punctuation/digit/case/prefix fixtures.
+
+Assumption: the current allowed tag alphabet is sufficient to reproduce ASCII
+order with an explicit rank table; version-aware sorting remains out of scope.
+
+
+Progress: tag listing now collects matching names, Shell-sorts them with an
+explicit Git ASCII rank comparator, and prints the sorted list. The first run
+found the older M208 static guard still expected immediate output; it was
+updated to assert collection plus sorted output. M216's eight comparator cases,
+M215/M213/M210 checks, 80-column and REXX syntax checks, canonical guard, all 42
+preserved host test-body compilations, and `git diff --check` pass. CMS remains
+unverified; commit and Actions are pending.

@@ -30,15 +30,40 @@ if command='TAGS' then do
  end
  call readrefs
  if result\='OK' then exit 8
+ tagcount=0
  do ti=1 to refcount
   if left(refname.ti,10)='refs/tags/' then do
    tagcandidate=substr(refname.ti,11)
-   if tagpattern='' then say tagcandidate
-   else do
+   tagmatchresult='MATCH'
+   if tagpattern\='' then do
     call tagmatch tagpattern, tagcandidate
-    if result='MATCH' then say tagcandidate
+    tagmatchresult=result
+   end
+   if tagmatchresult='MATCH' then do
+    tagcount=tagcount+1
+    taglist.tagcount=tagcandidate
    end
   end
+ end
+ gap=tagcount%2
+ do while gap>0
+  do ti=gap+1 to tagcount
+   tagitem=taglist.ti
+   tj=ti-gap
+   do while tj>0
+    call tagbefore taglist.tj, tagitem
+    if result\='YES' then leave
+    tk=tj+gap
+    taglist.tk=taglist.tj
+    tj=tj-gap
+   end
+   tk=tj+gap
+   taglist.tk=tagitem
+  end
+  gap=gap%2
+ end
+ do ti=1 to tagcount
+  say taglist.ti
  end
  exit 0
 end
@@ -5034,6 +5059,18 @@ tagmatch:
   tagp=tagp+1
  end
  if tagp>length(tagpattern) then return 'MATCH'
+ return 'NO'
+
+tagbefore:
+ parse arg tagleft, tagright
+ tagorder='-./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz'
+ do tagci=1 to min(length(tagleft),length(tagright))
+  taglc=pos(substr(tagleft,tagci,1),tagorder)
+  tagrc=pos(substr(tagright,tagci,1),tagorder)
+  if taglc<tagrc then return 'YES'
+  if taglc>tagrc then return 'NO'
+ end
+ if length(tagleft)<length(tagright) then return 'YES'
  return 'NO'
 
 bindnative:

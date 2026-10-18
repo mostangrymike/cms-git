@@ -131,7 +131,8 @@ required={
  'GITVREF.EXEC': (v, ("command='TAGS' then do",
      "left(refname.ti,10)='refs/tags/'", "left(wanted,10)\\='refs/tags/'",
      "wanted='refs/tags/'||shortname",
-     'tagcandidate=substr(refname.ti,11)', 'say tagcandidate',
+     'tagcandidate=substr(refname.ti,11)',
+     'taglist.tagcount=tagcandidate', 'say taglist.ti',
      'call validref name')),
  'GITWT.EXEC': (w, ('call validref name',
      "left(headref,11)\\='refs/heads/'", "left(wanted,11)\\='refs/heads/'")),
@@ -165,7 +166,9 @@ for token in ("address command 'EXEC GITVREF TAGS' tagname",):
   raise SystemExit(f'GIT.EXEC missing list-pattern forwarding: {token}')
 for token in ("tagchars=tagchars||'0123456789._/-*?'",
               'call tagmatch tagpattern, tagcandidate',
-              "if result='MATCH' then say tagcandidate"):
+              "if tagmatchresult='MATCH' then do",
+              'call tagbefore taglist.tj, tagitem',
+              'say taglist.ti'):
  if token not in refs:
   raise SystemExit(f'GITVREF.EXEC missing list-pattern behavior: {token}')
 print('M210 LIST-PATTERN INTEGRATION GUARDS PASS')
@@ -378,6 +381,50 @@ check 'DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD REF' RESOLVE release/1
 check 'DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD REF' RESOLVE refs/tags/release/1
 check ERROR RESOLVE refs/tags/missing
 echo 'M215 SOURCE-DERIVED REF2 RESOLUTION FIXTURES PASS 6'
+)
+exit $?
+fi
+
+# Test the source-derived ASCII ref-name ordering comparator.
+if [ "${1:-}" = "M216" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M215
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GITVREF.EXEC" "$tmp/tagbefore.rexx" <<'PY'
+from pathlib import Path
+import sys
+source=Path(sys.argv[1]).read_text()
+start=source.index('\ntagbefore:\n')+1
+end=source.index('\nbindnative:\n',start)
+routine=source[start:end]
+Path(sys.argv[2]).write_text(
+ 'parse arg leftname rightname\ncall tagbefore leftname, rightname\n'+
+ 'say result\nexit 0\n'+routine+'\n')
+PY
+rexx -c "$tmp/tagbefore.rexx" /dev/null
+check() {
+ expected=$1
+ leftname=$2
+ rightname=$3
+ rexx "$tmp/tagbefore.rexx" "$leftname" "$rightname" > "$tmp/result"
+ actual=$(tail -n 1 "$tmp/result")
+ if [ "$actual" != "$expected" ]; then
+  echo "tag order $leftname / $rightname: expected $expected, got $actual" >&2
+  exit 1
+ fi
+}
+check YES -a .a
+check YES .a /a
+check YES 9 A
+check YES A _
+check YES _ a
+check YES v10 v2
+check YES a a/b
+check NO b a
+echo 'M216 SOURCE-DERIVED TAG ORDER FIXTURES PASS 8'
 )
 exit $?
 fi
