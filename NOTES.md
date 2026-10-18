@@ -14757,6 +14757,8 @@ Progress: edited only the canonical `GITP26M.C` and `GITC26.EXEC`; the C planner
 
 Plan: retain the proven CMS MODULE and protected G stage/index until the M207 source passes CMS compile, CHECK and full RUN. Resume through the existing single serialized MCP terminal; do not start a second s3270 session. Track the exact target acceptance sequence in GitHub issue [#193](https://github.com/mostangrymike/ibm-sandbox/issues/193).
 
+Repository instructions: no `AGENTS.md` exists in this checkout; followed the operator-supplied instructions and the repository README/NOTES/history.
+
 Progress: retried observation with `cms_screen`; the registered CMS MCP transport still returns `Transport closed`. No CMS input, transfer, compile, target test, or disconnect was attempted. The completed full host workflow and M207 source/tests remain pushed. This is an access blocker for the remaining target gate, not a source or test failure.
 
 Assumption: the existing MCP terminal transport can be restored in the Codex environment while preserving its dedicated s3270 session. Until then, do not replace the current CMS module or claim CMS qualification.
