@@ -326,6 +326,86 @@ end
 end
 
 if command='ADD' then do
+ if translate(word(rest,1))='--NEW' then do
+  newwords=words(rest)
+  if newwords<4 | newwords>5 then do
+   say 'Usage: GIT ADD --new path fn ft [fm]'
+   exit 4
+  end
+  newpath=word(rest,2)
+  newfn=translate(word(rest,3))
+  newft=translate(word(rest,4))
+  if newwords=5 then newfm=translate(word(rest,5))
+  else newfm='A'
+  call validid newfn
+  if result\='OK' then exit 4
+  call validid newft
+  if result\='OK' then exit 4
+  call validmode newfm
+  if result\='OK' then exit 4
+  call toasciihex newpath
+  newhex=result
+  if newhex='ERROR' | length(newhex)>60 |,
+     pos('2F',newhex)>0 then do
+   say 'GITWT: new paths must be 1-30 ASCII bytes at repository root'
+   exit 4
+  end
+  call loadmap
+  if result\='OK' then exit 8
+  if mapcount>=50 then do
+   say 'GITWT: worktree map limit reached'
+   exit 8
+  end
+  call findpath newhex
+  if result>0 then do
+   say 'GITWT: path is already mapped' newpath
+   exit 4
+  end
+  call findfile newfn,newft,newfm
+  if result>0 then do
+   say 'GITWT: CMS file is already mapped' newfn newft newfm
+   exit 4
+  end
+  'STATE' newfn newft newfm
+  if rc\=0 then do
+   say 'GITWT: new CMS workfile is absent or unreadable',
+       newfn newft newfm 'RC' rc
+   exit 8
+  end
+  call workoid newfn,newft,newfm,1,1
+  newoid=result
+  if newoid='ERROR' then exit 8
+  'STATE GITWORK REPO A'
+  if rc=0 then do
+   drop before.
+   'EXECIO * DISKR GITWORK REPO A 1 (STEM BEFORE. FINIS'
+   if rc\=0 then exit 8
+   oldmap=1
+  end
+  else if rc=28 then do
+   before.0=0
+   oldmap=0
+  end
+  else exit 8
+  newindex=mapcount+1
+  mapfn.newindex=newfn
+  mapft.newindex=newft
+  mapfm.newindex=newfm
+  maplf.newindex=1
+  mapbase.newindex='0000000000000000000000000000000000000000'
+  mapstage.newindex=newoid
+  mappath.newindex=newhex
+  mapcount=newindex
+  call savemap
+  if result\='OK' then do
+   if oldmap=1 then call restoremap
+   else 'ERASE GITWORK REPO A'
+   exit 8
+  end
+  say 'ADDED' newpath newoid
+  say 'STAGE DIFFERS FROM BASE'
+  exit 0
+ end
  addall=0
  addstart=1
  addrequested=words(rest)

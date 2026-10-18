@@ -1270,6 +1270,7 @@ source=Path(sys.argv[1]).read_text()
 start=source.index("if command='ADD' then do")
 end=source.index("if command='ACCEPT' then do",start)
 block=source[start:end]
+block=block[block.index(' addall=0'):]
 state="'STATE' mapfn.pi mapft.pi mapfm.pi"
 work="call workoid mapfn.pi,mapft.pi,mapfm.pi,maplf.pi,1"
 for token in ('if word(rest,1)=\'--\' then do', 'call toasciihex path',
@@ -1296,6 +1297,7 @@ fend=source.index('\nfindfile:\n',fstart)
 findpath=source[fstart:fend]
 fixture=(
  "parse arg rest\ncommand='ADD'\nmapcount=5\n"
+ "if command='ADD' then do\n"
  "mapfn.1='ALPHA'\nmapfn.2='BETA'\n"
  "mapfn.3='STATEFAIL'\nmapfn.4='HASHFAIL'\nmapfn.5='DASH'\n"
  "do mi=1 to 5\n mapft.mi='DATA'\n mapfm.mi='A'\n"
@@ -1375,6 +1377,7 @@ source=Path(sys.argv[1]).read_text()
 start=source.index("if command='ADD' then do")
 end=source.index("if command='ACCEPT' then do",start)
 block=source[start:end]
+block=block[block.index(' addall=0'):]
 required=("translate(word(rest,1))='-U'",
           "translate(word(rest,1))='--UPDATE'",
           'if addall=1 then do', 'do ai=1 to mapcount',
@@ -1395,6 +1398,7 @@ hashfailwork=("if pi=1 then result='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
               "else result='ERROR'")
 fixture=(
  "parse arg rest\ncommand='ADD'\nmapcount=2\n"
+ "if command='ADD' then do\n"
  "mapfn.1='ALPHA'\nmapfn.2='BETA'\n"
  "do mi=1 to 2\n mapft.mi='DATA'\n mapfm.mi='A'\n"
  " maplf.mi=1\n mapbase.mi='0000000000000000000000000000000000000000'\n"
@@ -1758,6 +1762,133 @@ if [ "$(rexx "$tmp/parser.rexx" '-T 1700 -Z +0000 --message "message with spaces
  exit 1
 fi
 echo 'M251 SOURCE-DERIVED CURRENT COMMIT FIXTURES PASS 3'
+)
+exit $?
+fi
+
+if [ "${1:-}" = "M252" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M251
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GITWT.EXEC" "$tmp" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+out=Path(sys.argv[2])
+start=source.index(" if translate(word(rest,1))='--NEW' then do")
+end=source.index(' addall=0',start)
+block=source[start:end]
+for token in ("'GITWT: new paths must be 1-30 ASCII bytes at repository root'",
+              "call findpath newhex", "call findfile newfn,newft,newfm",
+              "'STATE' newfn newft newfm",
+              'call workoid newfn,newft,newfm,1,1',
+              "mapbase.newindex='0000000000000000000000000000000000000000'",
+              'mapstage.newindex=newoid', 'maplf.newindex=1',
+              'call savemap', 'if oldmap=1 then call restoremap'):
+ if token not in block:
+  raise SystemExit(f'M252 new-file ADD source guard missing {token!r}')
+if not block.index('call workoid') < block.index('mapfn.newindex=newfn'):
+ raise SystemExit('M252 must hash the file before changing the map')
+validid=source[source.index('validid:\n'):source.index('validmode:\n')]
+validmode=source[source.index('validmode:\n'):source.index('validtext:\n')]
+helpers=validid+validmode+"""
+toasciihex:
+ parse arg text
+ return c2x(text)
+"""
+block=block.replace("'STATE' newfn newft newfm",
+                    'call cmsstate newfn,newft,newfm')
+block=block.replace("'STATE GITWORK REPO A'", 'call mapstate')
+block=block.replace("'EXECIO * DISKR GITWORK REPO A 1 (STEM BEFORE. FINIS'",
+                    'before.0=1\n rc=0')
+block=block.replace("'ERASE GITWORK REPO A'", "say 'SIMULATED ERASE'\n rc=0")
+prefix="""parse arg rest
+command='ADD'
+mockmode='@MODE@'
+"""
+mocks="""
+exit 99
+loadmap:
+ if mockmode='loadfail' then return 'ERROR'
+ if mockmode='full' then mapcount=50
+ else mapcount=0
+ return 'OK'
+findpath:
+ if mockmode='pathdup' then return 1
+ return 0
+findfile:
+ if mockmode='filedup' then return 1
+ return 0
+cmsstate:
+ parse arg fn,ft,fm
+ say 'SIMULATED STATE' fn ft fm
+ if mockmode='missing' then rc=28
+ else if mockmode='unreadable' then rc=12
+ else rc=0
+ return
+mapstate:
+ if mockmode='savefail' then rc=0
+ else rc=28
+ return
+workoid:
+ if mockmode='hashfail' then return 'ERROR'
+ return 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+savemap:
+ say 'SIMULATED SAVE' mapcount mapfn.mapcount mapfm.mapcount,
+  maplf.mapcount mapbase.mapcount mapstage.mapcount mappath.mapcount
+ if mockmode='savefail' then return 'ERROR'
+ return 'OK'
+restoremap:
+ say 'SIMULATED RESTORE'
+ return 'OK'
+"""
+for mode in ('ok','pathdup','filedup','missing','unreadable','full',
+             'loadfail','hashfail','savefail'):
+ (out/f'add-{mode}.rexx').write_text(
+  prefix.replace('@MODE@',mode)+block+helpers+mocks)
+print('M252 NEW-FILE ADD SOURCE GUARDS PASS 10')
+PY
+for file in "$tmp"/add-*.rexx; do rexx -c "$file" /dev/null; done
+check() {
+ mode=$1 expected_rc=$2 expected=$3
+ shift 3
+ if output=$(rexx "$tmp/add-$mode.rexx" "$*"); then rc=0; else rc=$?; fi
+ if [ "$rc" -ne "$expected_rc" ] || [ "$output" != "$expected" ]; then
+  echo "M252 $mode fixture mismatch RC $rc: $output" >&2
+  exit 1
+ fi
+}
+oid=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+check ok 0 "SIMULATED STATE NEWFILE DATA A
+SIMULATED SAVE 1 NEWFILE A 1 0000000000000000000000000000000000000000 $oid 616C706861
+ADDED alpha $oid
+STAGE DIFFERS FROM BASE" --new alpha NEWFILE DATA
+check ok 0 "SIMULATED STATE NEWFILE TEXT B
+SIMULATED SAVE 1 NEWFILE B 1 0000000000000000000000000000000000000000 $oid 616C706861
+ADDED alpha $oid
+STAGE DIFFERS FROM BASE" --new alpha NEWFILE TEXT B
+check pathdup 4 'GITWT: path is already mapped alpha' --new alpha NEWFILE DATA
+check filedup 4 'GITWT: CMS file is already mapped NEWFILE DATA A' --new alpha NEWFILE DATA
+check missing 8 "SIMULATED STATE NEWFILE DATA A
+GITWT: new CMS workfile is absent or unreadable NEWFILE DATA A RC 28" --new alpha NEWFILE DATA
+check unreadable 8 "SIMULATED STATE NEWFILE DATA A
+GITWT: new CMS workfile is absent or unreadable NEWFILE DATA A RC 12" --new alpha NEWFILE DATA
+check full 8 'GITWT: worktree map limit reached' --new alpha NEWFILE DATA
+check loadfail 8 '' --new alpha NEWFILE DATA
+check hashfail 8 'SIMULATED STATE NEWFILE DATA A' --new alpha NEWFILE DATA
+check savefail 8 "SIMULATED STATE NEWFILE DATA A
+SIMULATED SAVE 1 NEWFILE A 1 0000000000000000000000000000000000000000 $oid 616C706861
+SIMULATED RESTORE" --new alpha NEWFILE DATA
+check ok 4 'GITWT: new paths must be 1-30 ASCII bytes at repository root' --new dir/alpha NEWFILE DATA
+check ok 4 'GITWT: new paths must be 1-30 ASCII bytes at repository root' --new abcdefghijklmnopqrstuvwxyzabcde1 NEWFILE DATA
+check ok 4 'Usage: GIT ADD --new path fn ft [fm]' --new
+check ok 4 '' --new alpha BAD-ID DATA
+check ok 4 '' --new alpha NEWFILE '%'
+echo 'M252 SOURCE-DERIVED NEW-FILE ADD FIXTURES PASS 14'
 )
 exit $?
 fi

@@ -15763,7 +15763,8 @@ and CI are pending. CMS behavior remains unverified.
 The first M250 Actions run (39170133153) failed because the existing M168
 guard expected the old in-place `mapbase.ai` assignment. Updated that guard to
 check the compacted `mapbase.keptcount` assignment; the exact M168 CI step now
-passes locally. A full rerun is pending.
+passes locally. The full rerun is complete: Actions run 39170667715 passed on
+commit `db5ccd35`.
 
 M250 follow-up: ACCEPT now explicitly erases GITWORK after taking its snapshot
 and before writing the shorter compacted map. This prevents stale tail records
@@ -15783,5 +15784,25 @@ Progress: `GIT COMMIT` now routes through `COMMIT-CURRENT`, which creates the
 commit, compare-and-swaps the current branch, verifies the ref, and accepts the
 worktree map. GITWT treats the message option as the remaining text and removes
 one matching outer quote pair. Source-derived Regina fixtures cover routing,
-quoted multiword `-m` and `--message`; the cumulative M251 suite is running.
-Host compile and CI are pending; CMS behavior remains unverified.
+quoted multiword `-m` and `--message`; the cumulative M251 suite passed. Host
+compile and CI run 39170457608 passed on commit `696b0c34`; CMS behavior remains
+unverified.
+
+## 2026-10-18 — M252 stage a new repository-root file
+
+Plan: add `GIT ADD --new path fn ft [fm]` for an existing CMS workfile not yet
+in the map, hash it, and stage it against the zero-OID base. Keep commit-tree
+insertion as the next step because the current tree rewrite only replaces or
+deletes existing entries.
+
+Assumption: this first addition accepts one ASCII path component at repository
+root, maps one existing CMS file ID, and defaults its CMS file mode to `A`.
+
+Progress: the worker validates path, file ID, and mode; rejects duplicate path
+or CMS mapping, unreadable/absent workfiles, and a full map; hashes before
+changing GITWORK; snapshots/restores the map around writes; then records the
+zero base and staged blob OID. Fourteen source-derived REXX fixtures and the
+cumulative M208–M252 checks pass. M239 and M242 regression fixtures were
+narrowed to their original mapped-file branch after the new branch changed
+their extraction boundary. CMS behavior remains unverified; root-tree insertion
+is still needed before a newly added file can be committed.

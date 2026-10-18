@@ -293,6 +293,13 @@ verifies the ref, and accepts the worktree map; quoted multiword messages are
 supported. The CMS clock and zone must be supplied explicitly. CMS behavior
 remains unverified.
 
+M252 adds `GIT ADD --new path fn ft [fm]` for an existing, previously unmapped
+CMS workfile at the repository root. It records a zero base OID and the
+verified workfile blob as the staged OID. New-file tree insertion during commit
+is a separate follow-up; this command alone does not make a new path
+committable yet. Host source-derived cases pass; CMS behavior remains
+unverified.
+
 ---
 
 ## M206 full 32-object CMS PASS and A-disk audit (October 13, 2026)
