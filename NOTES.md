@@ -31,12 +31,13 @@ Assumption: the requested destination is the standalone `cms-tooling` checkout; 
 
 - [x] M165 retained-commit handoff: local source now validates and reports exactly one commit OID; its focused host guard and M165 model pass.
 - [x] M166–M174 host models: REF2 CAS, integrated commit/ref, branch reconciliation, fetch discovery, upload PACK, generalized PACK storage/census/import, and stage-index models all pass.
-- [ ] Run the revised M165 checker and M166/M167 target gates on CMS. Existing M165 live evidence predates the new OID-reporting guard; no M166–M174 live qualification is claimed here.
+- [x] Run the revised M165 checker on CMS and retain its commit OID.
+- [ ] Run the M166/M167 target gates on CMS; no M166–M174 live qualification is claimed yet.
 - [ ] Continue with the next unimplemented milestone after M174.
 
 The M166–M174 results are local host-model results only. The dedicated `src/zvm-tooling` checkout has been removed from ibm-sandbox per operator direction; its separate Actions workflow was removed with it.
 - M166 now accepts the validated retained commit OID as an EXEC argument, while keeping the historical candidate as its no-argument fallback. Its host model and argument guard pass; no ref was changed by that local work.
-- The first revised M165 CMS run exposed a bad verifier dispatch (`ZTMCAND1 VERIFY-OBJECT`); it returned complete RC 8, and the disposable files were cleaned. The candidate object was retained, and no ref changed. Evidence: `cms-m165-multipath-oid-live-evidence-20261018.json`. The checker now routes verification through `GIT`; rerun with a fresh checker ID before claiming the new handoff passes.
+- The first revised M165 CMS run exposed a bad verifier dispatch (`ZTMCAND1 VERIFY-OBJECT`); it returned complete RC 8, and the disposable files were cleaned. The candidate object was retained, and no ref changed. After routing verification through `GIT`, fresh checker `ZTMDCHK5 EXEC A` returned correlated RC 0 and `M165 MULTI-PATH STAGED COMMIT TARGET GATE PASS`. It emitted and verified commit `58200E77B859296DB1B18121992229D57A5B56AA`, confirmed refs unchanged, and passed four post-run RC28 absence checks. Evidence: `cms-m165-multipath-oid-live-evidence-20261018.json`.
 
 ---
 
