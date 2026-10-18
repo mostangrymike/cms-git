@@ -224,6 +224,8 @@ jobs:
         run: sh tests/check-canonical-source.sh M245
       - name: Check M246 restore staged alias
         run: sh tests/check-canonical-source.sh M246
+      - name: Check M247 status branch output
+        run: sh tests/check-canonical-source.sh M247
       - name: Check M190 7736-object selective seek closure
         run: python3 tests/test-m203-bounded-batch.py M190S
       - name: Compare M190 indexed seek vs M188 two-pass host

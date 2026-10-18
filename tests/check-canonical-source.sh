@@ -1456,9 +1456,9 @@ source=Path(sys.argv[1]).read_text()
 start=source.index("if command='STATUS' then do")
 end=source.index('/* Read-only preflight for a branch switch',start)
 block=source[start:end]
-required=("statusopt=translate(strip(rest))", "statusopt='--SHORT'",
-          "statusopt='--PORCELAIN'", "if mapbase.i=zeros then x='A'",
-          "if state='DELETED' then y='D'",
+required=("statusopt=translate(word(rest,si))", "statusopt='--SHORT'",
+          "statusopt='--PORCELAIN'", "statusopt='--BRANCH'",
+          "if mapbase.i=zeros then x='A'", "if state='DELETED' then y='D'",
           "if state='MODIFIED' | state='STAGED+MODIFIED' then y='M'",
           "if x\\=' ' | y\\=' ' then say x||y||' '||p",
           "if shortstatus=0 then say 'STATUS SUMMARY TRACKED'")
@@ -1525,7 +1525,7 @@ expected=$(printf 'M  staged\n M modified\nMM both\n D gone\nA  added\nAD addgon
 check "$tmp/status.rexx" 0 "$expected" --short
 check "$tmp/status.rexx" 0 "$expected" --porcelain
 check "$tmp/empty.rexx" 0 '' --short
-check "$tmp/status.rexx" 4 'Usage: GIT STATUS [--short|--porcelain]' --branch
+check "$tmp/status.rexx" 4 'Usage: GIT STATUS [--short|--porcelain] [--branch]' --unknown
 echo 'M243 SOURCE-DERIVED SHORT STATUS FIXTURES PASS 4'
 )
 exit $?
@@ -1696,6 +1696,70 @@ check 4 'Usage: GIT RESET [--] path [path ...] (maximum 16 paths)' --
 many='a a a a a a a a a a a a a a a a a'
 check 4 'Usage: GIT RESET [--] path [path ...] (maximum 16 paths)' $many
 echo 'M245 SOURCE-DERIVED GIT RESET FIXTURES PASS 6'
+)
+exit $?
+fi
+
+if [ "${1:-}" = "M247" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M246
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GITWT.EXEC" "$tmp/status.rexx" "$tmp/empty.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+start=source.index("if command='STATUS' then do")
+end=source.index("if command='DIFF' then do",start)
+block=source[start:end]
+required=("statusopt='--SHORT'", "statusopt='--PORCELAIN'",
+          "statusopt='--BRANCH'", 'call readrefs',
+          "say '##' branchname", "say 'On branch' branchname",
+          "Usage: GIT STATUS [--short|--porcelain] [--branch]")
+for token in required:
+ if token not in block:
+  raise SystemExit(f'M247 status branch guard missing {token!r}')
+fixture=(
+ "parse arg rest\ncommand='STATUS'\nmapcount=1\n"
+ "mapfn.1='CLEAN'\nmapft.1='DATA'\nmapfm.1='A'\nmaplf.1=1\n"
+ "mapbase.1='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "mapstage.1='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "mappath.1='636C65616E'\n" +
+ block.replace('call loadmap',"result='OK'")
+      .replace("'STATE' mapfn.i mapft.i mapfm.i",'rc=0')
+      .replace('call workoid mapfn.i,mapft.i,mapfm.i,maplf.i,0',
+               "result='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'")
+ + "readrefs:\n headref='refs/heads/feature/status'\n return 'OK'\n"
+   "asciitocms:\n parse arg text\n return x2c(text)\n")
+Path(sys.argv[2]).write_text(fixture)
+Path(sys.argv[3]).write_text(fixture.replace('mapcount=1','mapcount=0'))
+print('M247 GIT STATUS BRANCH SOURCE GUARDS PASS 7')
+PY
+rexx -c "$tmp/status.rexx" /dev/null
+check() {
+ fixture=$1
+ expected_rc=$2
+ expected=$3
+ shift 3
+ if output=$(rexx "$fixture" "$@" 2>&1); then rc=0; else rc=$?; fi
+ if [ "$rc" -ne "$expected_rc" ]; then
+  echo "GIT STATUS --branch $*: expected RC $expected_rc, got $rc ($output)" >&2
+  exit 1
+ fi
+ if [ "$output" != "$expected" ]; then
+  echo "GIT STATUS --branch $*: output mismatch: '$output'" >&2
+  exit 1
+ fi
+}
+expected=$(printf 'On branch feature/status\nSTATUS NO TRACKED FILES')
+check "$tmp/empty.rexx" 0 "$expected" --branch
+check "$tmp/status.rexx" 0 '## feature/status' --short --branch
+check "$tmp/status.rexx" 0 '## feature/status' --branch --porcelain
+check "$tmp/status.rexx" 4 'Usage: GIT STATUS [--short|--porcelain] [--branch]' --branch --unknown
+echo 'M247 SOURCE-DERIVED STATUS BRANCH FIXTURES PASS 4'
 )
 exit $?
 fi

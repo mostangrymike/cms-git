@@ -15660,9 +15660,9 @@ in-memory OIDs if the save reports failure. Six source-derived Regina cases
 cover multi-path reset, duplicates, `--`, unknown paths, empty separator, and
 the path limit; eight source guards check dispatch and validation-before-save.
 The M245 cumulative suite, REXX syntax/80-column checks, and `git diff --check`
-pass. GitHub CI is pending; CMS behavior remains unverified.
+pass. GitHub CI passed; CMS behavior remains unverified.
 
-M245 CI follow-up: full native host workflow 39169228082 is pending.
+M245 CI follow-up: full native host workflow 39169228082 passed.
 CMS behavior remains unverified.
 
 ## 2026-10-18 — M246 staged restore alias
@@ -15680,3 +15680,22 @@ cover lowercase/uppercase mode, `--` pass-through, unsupported `--worktree`,
 and a missing path; five source guards validate routing. The cumulative M246
 suite, host compile inventory, REXX syntax/80-column checks, and
 `git diff --check` pass. CMS behavior remains unverified.
+
+M246 CI follow-up: full native host workflow 39169360249 passed.
+CMS behavior remains unverified.
+
+## 2026-10-18 — M247 current branch in status
+
+Plan: add `GIT STATUS --branch` and the short/porcelain combinations so the
+status report identifies its symbolic branch.
+
+Assumption: only attached `refs/heads/*` names are supported by this status
+format; detached HEAD and unborn branch presentation remain unsupported.
+
+Progress: STATUS now accepts options in either order, reads the validated
+GITREF2 HEAD symbolic name, and prints `On branch <name>` or `## <name>` for
+short status. Four source-derived Regina fixtures cover normal branch output,
+short/porcelain combinations, nested branch names, and invalid options; seven
+source guards check option parsing and validated-ref use. The cumulative M247
+suite passes; the native host workflow is pending. CMS behavior remains
+unverified.

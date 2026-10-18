@@ -267,6 +267,11 @@ M246 adds `GIT RESTORE --staged [--] path...` as a path-only alias for that
 mapped stage reset. Worktree restore and `--source` forms are unsupported;
 CMS behavior remains unverified.
 
+M247 adds `GIT STATUS --branch`, `--short --branch`, and
+`--porcelain --branch`. It reports the current symbolic branch before tracked
+worktree status; detached HEAD and unborn-branch formats remain unsupported.
+CMS behavior remains unverified.
+
 ---
 
 ## M206 full 32-object CMS PASS and A-disk audit (October 13, 2026)
