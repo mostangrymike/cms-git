@@ -1,0 +1,55 @@
+{
+  "date": "2026-10-18",
+  "milestone": "M169 generalized smart-HTTP discovery target gate",
+  "runner": "ZMD898D4",
+  "checker_target": "M169CHK EXEC A",
+  "checker_source": {
+    "logical_bytes": 361,
+    "cms_sha256": "BF2CEC511ABFA7A1DD55742D8F95FB4BEF87662FA7CE73F2B9BB5FF9B7BE1CD6",
+    "local_cp037_logical_record_sha256": "BF2CEC511ABFA7A1DD55742D8F95FB4BEF87662FA7CE73F2B9BB5FF9B7BE1CD6",
+    "match": true,
+    "hash_request_id": "074C8ADDCB41D3CD"
+  },
+  "initial_probe": {
+    "request_id": "03717FC9BAB9AD06",
+    "cms_rc": 8,
+    "records": [
+      "GITFETCH: connect target 192.168.200.1 8443",
+      "GITFETCH: connect RC 60 ETIMEDOUT Connection timed out",
+      "GITFETCH: discovery failed at CONNECT"
+    ],
+    "complete_and_integrity_verified": true
+  },
+  "bridge_recovery": {
+    "tap0_ipv4_before": false,
+    "tap0_ipv4_after": "192.168.200.1/24",
+    "stunnel_listener_after": "192.168.200.1:8443",
+    "verified_by_ssh": true,
+    "persistence_changed": false
+  },
+  "command": {
+    "command": "EXEC M169CHK",
+    "request_id": "946C50A620B0ADB4",
+    "cms_rc": 0,
+    "record_count": 9,
+    "byte_count": 338,
+    "adler32": "9eac0635",
+    "frames_verified": 32,
+    "screens_observed": 69,
+    "output_complete": true,
+    "integrity_verified": true,
+    "main_oid": "7A9B72EA68D865BC611A04E15BD55E0A76564275",
+    "advertised_refs": 382,
+    "http_bytes": 29076,
+    "capabilities": [
+      "side-band-64k",
+      "ofs-delta"
+    ],
+    "final_marker": "M169 GENERALIZED SMART HTTP DISCOVERY TARGET GATE PASS",
+    "result": "PASS"
+  },
+  "side_effects": {
+    "cms_file_changes": false,
+    "git_ref_changes": false
+  }
+}

@@ -10,47 +10,91 @@
     "transferred_bytes": 20088,
     "transfer_complete": true,
     "target_present_after_transfer": true,
-    "content_readback_verified": false,
+    "content_readback_verified": true,
     "cms_sha256": {
       "program": "GITSHA4 MODULE A1 via FILEDEF HASHIN",
       "logical_bytes": 4720,
       "digest": "FE68D090E9F34BC3F4E4DBCDB082941D44CC7C34CD5E70C34F747D3852B0AC45",
       "local_cp037_logical_record_digest": "FE68D090E9F34BC3F4E4DBCDB082941D44CC7C34CD5E70C34F747D3852B0AC45",
-      "match": true
+      "match": true,
+      "request_id": "5BDF1E9D2BCC3552"
     }
   },
   "command": {
     "command": "EXEC ZTDM168",
-    "capture_timeout_seconds": 300,
-    "capture_complete": false,
-    "integrity_verified": false,
-    "cms_rc": null,
-    "commit_oid": null,
-    "observed_marker": "ZM1 105FC1D01AB57F97 F 0 ACK",
-    "screen_prompt_after_marker": "Ready(00012)",
-    "result": "INCOMPLETE_CAPTURE",
-    "reason": "Bridge timed out before returning a complete correlated result; marker/screen observation does not establish checker output or return code."
+    "request_id": "9B3C99CC0BBCE10C",
+    "timeout_seconds": 900,
+    "cms_rc": 0,
+    "record_count": 54,
+    "byte_count": 2477,
+    "adler32": "0c52a43f",
+    "frames_verified": 179,
+    "screens_observed": 366,
+    "output_complete": true,
+    "integrity_verified": true,
+    "baseline_head": "00D8D63229305230C8D37F884CE87F9E1A89468C",
+    "retained_commit": "70BBE28ACAF4E835E4D71417D821D68060C2E71D",
+    "result": "PASS",
+    "note": "The local display truncated the long record list; the MCP command result reported RC0 and the checker exits 0 only after its final gate marker."
   },
-  "post_run_state_checks": {
-    "M168TST DATA A": 28,
-    "GITWORK REPO A": 28,
-    "GITTREE REPO A": 28,
-    "HEAD": "00D8D63229305230C8D37F884CE87F9E1A89468C",
+  "preflight": {
+    "M168TST DATA A": {
+      "cms_rc": 28,
+      "request_id": "C2294028E22D28E9"
+    },
+    "GITWORK REPO A": {
+      "cms_rc": 28,
+      "request_id": "081E6022B9961564"
+    },
+    "GITTREE REPO A": {
+      "cms_rc": 28,
+      "request_id": "F4EE0D39AB5FC2C4"
+    },
+    "HEAD": {
+      "oid": "00D8D63229305230C8D37F884CE87F9E1A89468C",
+      "request_id": "8A89F820ECD9A8A4"
+    },
     "refs/heads/m168test": {
       "cms_rc": 8,
-      "meaning": "verified ref absent"
-    },
-    "GIT_STATUS": {
+      "meaning": "absent",
+      "request_id": "8E86DFAAC5B0BC2C"
+    }
+  },
+  "post_run": {
+    "retained_commit_object": {
       "cms_rc": 0,
-      "records": [
-        "DMSSTT002E File GITWORK REPO A not found",
-        "STATUS NO TRACKED FILES"
-      ]
+      "request_id": "1167F85DDA4FF7F0"
     },
-    "meaning": "Separate correlated observations are consistent with checker cleanup; they do not establish the missing target-gate result."
+    "HEAD": {
+      "oid": "00D8D63229305230C8D37F884CE87F9E1A89468C",
+      "request_id": "D13D670717EB0ED7"
+    },
+    "refs/heads/m168test": {
+      "cms_rc": 8,
+      "meaning": "absent",
+      "request_id": "2FDB9DC9BDBEBC2C"
+    },
+    "M168TST DATA A": {
+      "cms_rc": 28,
+      "request_id": "DE0F20A704DB8BAE"
+    },
+    "GITWORK REPO A": {
+      "cms_rc": 28,
+      "request_id": "3593BA8723A432E9"
+    },
+    "GITTREE REPO A": {
+      "cms_rc": 28,
+      "request_id": "50CF8C5498AD1409"
+    },
+    "meaning": "Transient ref and all three scratch files absent; original HEAD preserved; new commit object retained."
   },
   "retained_on_cms": [
-    "ZTDM168 EXEC A"
+    "ZTDM168 EXEC A",
+    "commit 70BBE28ACAF4E835E4D71417D821D68060C2E71D"
   ],
-  "target_gate_pass": false
+  "first_capture_attempt": {
+    "timeout_seconds": 300,
+    "result": "INCOMPLETE_CAPTURE",
+    "counted_as_pass": false
+  }
 }
