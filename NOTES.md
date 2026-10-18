@@ -14890,3 +14890,10 @@ OID to `GIT UPDATE-REF`. `M210` (including M208 source/REXX checks and nine
 source-derived wildcard fixtures), all 42 preserved host test-body
 compilations, width checks, and `git diff --check` pass locally. CMS
 qualification is not claimed; commit and full Actions remain pending.
+
+
+M212 validation: focused M210/M208 syntax, width and source guards plus the
+source-derived wildcard cases passed locally. Full native host workflow
+39150028893 passed on commit `fda7df7245187a267fc63ab27ddccee3e62acbfd`.
+The force-update path is host-validated only; CMS compile and REF2 behavior
+remain unverified.
