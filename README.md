@@ -194,7 +194,14 @@ CMS behavior remains unverified.
 M231 adds `GIT CHECKOUT <branch>` and `GIT CHECKOUT -b|--branch name
 [start-point]` aliases to the guarded switch flow. `-B` is rejected because
 force-reset behavior is not implemented. Detached checkout and path restore are
-not part of the current symbolic-HEAD model. CMS behavior remains unverified.
+not part of the current symbolic-HEAD model. When REF2 is absent, plain branch
+checkout retains the legacy GITHEAD route; branch creation requires REF2. CMS
+behavior remains unverified.
+
+M232 guards the checkout alias selection: only a present REF2 store enters the
+modern switch path, and the absent-store result preserves the legacy path.
+Source-derived tests also require `checkout -b` to reject the legacy store.
+CMS behavior remains unverified.
 
 ---
 

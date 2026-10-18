@@ -14,9 +14,23 @@ if command='CHECKOUT' then do
       say 'GIT CHECKOUT -B is not supported'
       exit 4
    end
-   if checkoutarg='-b' | checkoutarg='--branch' then,
-      rest='-c'||substr(rest,length(checkoutarg)+1)
-   command='SWITCH'
+   'STATE GITREF2 REPO A'
+   checkoutrc=rc
+   if checkoutrc=28 then do
+      if checkoutarg='-b' | checkoutarg='--branch' then do
+         say 'GIT CHECKOUT -b requires modern REF2'
+         exit 8
+      end
+   end
+   else if checkoutrc=0 then do
+      if checkoutarg='-b' | checkoutarg='--branch' then,
+         rest='-c'||substr(rest,length(checkoutarg)+1)
+      command='SWITCH'
+   end
+   else do
+      say 'GIT CHECKOUT: cannot inspect REF2 RC' checkoutrc
+      exit checkoutrc
+   end
 end
 if command = 'VERSION' then do
    'GITCORE VERSION'

@@ -747,7 +747,8 @@ root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 sh "$0" M230
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT HUP INT TERM
-python3 - "$root/src/GIT.EXEC" "$tmp/checkout.rexx" <<'PY'
+python3 - "$root/src/GIT.EXEC" "$tmp/checkout.rexx" \
+ "$tmp/legacy.rexx" "$tmp/badrc.rexx" <<'PY'
 from pathlib import Path
 import sys
 
@@ -756,29 +757,55 @@ start=source.index("if command='CHECKOUT' then do")
 end=source.index("if command = 'VERSION' then do",start)
 block=source[start:end]
 for token in ("if checkoutarg='-B' then do",
+              "'STATE GITREF2 REPO A'", 'if checkoutrc=28 then do',
               "if checkoutarg='-b' | checkoutarg='--branch' then",
               "rest='-c'||substr(rest,length(checkoutarg)+1)",
               "command='SWITCH'"):
  if token not in block:
   raise SystemExit(f'M231 checkout alias missing {token!r}')
-Path(sys.argv[2]).write_text(
- 'parse arg command rest\ncommand=translate(command)\n'+block+
- 'say command\nsay strip(rest)\n')
-print('M231 CHECKOUT ALIAS SOURCE GUARDS PASS 4')
+prefix='parse arg command rest\ncommand=translate(command)\n'
+suffix='say command\nsay strip(rest)\n'
+state="'STATE GITREF2 REPO A'"
+if state not in block:
+ raise SystemExit('M231 state probe missing')
+for path, result in zip(sys.argv[2:], ('rc=0','rc=28','rc=8')):
+ Path(path).write_text(prefix+block.replace(state,result)+suffix)
+print('M231 CHECKOUT ALIAS SOURCE GUARDS PASS 6')
 PY
 rexx -c "$tmp/checkout.rexx" /dev/null
+rexx -c "$tmp/legacy.rexx" /dev/null
+rexx -c "$tmp/badrc.rexx" /dev/null
 check() {
- expected=$1
+ script=$1
+ expected=$2
  shift
- actual=$(rexx "$tmp/checkout.rexx" "$@")
+ shift
+ actual=$(rexx "$script" "$@")
  if [ "$actual" != "$expected" ]; then
   echo "checkout alias $*: expected $expected, got $actual" >&2
   exit 1
  fi
 }
-check "$(printf 'SWITCH\n-c topic main')" CHECKOUT -b topic main
-check "$(printf 'SWITCH\n-c topic main')" CHECKOUT --branch topic main
-check "$(printf 'SWITCH\ntopic')" CHECKOUT topic
+check "$tmp/checkout.rexx" "$(printf 'SWITCH\n-c topic main')" CHECKOUT -b topic main
+check "$tmp/checkout.rexx" "$(printf 'SWITCH\n-c topic main')" CHECKOUT --branch topic main
+check "$tmp/checkout.rexx" "$(printf 'SWITCH\ntopic')" CHECKOUT topic
+check "$tmp/legacy.rexx" "$(printf 'CHECKOUT\ntopic')" CHECKOUT topic
+if rexx "$tmp/legacy.rexx" CHECKOUT -b topic > "$tmp/legacy-create"; then
+ echo 'checkout -b unexpectedly used legacy refs' >&2
+ exit 1
+else
+ rc=$?
+ [ "$rc" -eq 8 ]
+fi
+grep -q 'requires modern REF2' "$tmp/legacy-create"
+if rexx "$tmp/badrc.rexx" CHECKOUT topic > "$tmp/badrc"; then
+ echo 'checkout ignored REF2 probe error' >&2
+ exit 1
+else
+ rc=$?
+ [ "$rc" -eq 8 ]
+fi
+grep -q 'cannot inspect REF2 RC 8' "$tmp/badrc"
 if rexx "$tmp/checkout.rexx" CHECKOUT -B topic > "$tmp/force"; then
  echo 'unsafe force checkout unexpectedly succeeded' >&2
  exit 1
@@ -787,7 +814,41 @@ else
  [ "$rc" -eq 4 ]
 fi
 grep -q 'GIT CHECKOUT -B is not supported' "$tmp/force"
-echo 'M231 SOURCE-DERIVED CHECKOUT FIXTURES PASS 4'
+echo 'M231 SOURCE-DERIVED CHECKOUT FIXTURES PASS 7'
+)
+exit $?
+fi
+
+# Preserve legacy GITHEAD checkout when modern REF2 is absent.
+if [ "${1:-}" = "M232" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M231
+python3 - "$root/src/GIT.EXEC" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+start=source.index("if command='CHECKOUT' then do")
+end=source.index('if command = \'VERSION\' then do',start)
+block=source[start:end]
+for token in ("'STATE GITREF2 REPO A'", 'checkoutrc=rc',
+              'if checkoutrc=28 then do',
+              "if checkoutarg='-b' | checkoutarg='--branch' then do",
+              "say 'GIT CHECKOUT -b requires modern REF2'",
+              "else if checkoutrc=0 then do", "command='SWITCH'"):
+ if token not in block:
+  raise SystemExit(f'M232 checkout fallback missing {token!r}')
+legacy=block[block.index('if checkoutrc=28 then do'):
+             block.index('else if checkoutrc=0 then do')]
+if "command='SWITCH'" in legacy:
+ raise SystemExit('M232 routes legacy checkout to modern REF2 updater')
+if block.index("'STATE GITREF2 REPO A'") > block.index("command='SWITCH'"):
+ raise SystemExit('M232 selects checkout implementation before checking REF2')
+print('M232 LEGACY CHECKOUT FALLBACK GUARDS PASS 8')
+PY
+echo 'M232 SOURCE-DERIVED LEGACY CHECKOUT FALLBACK PASS 1'
 )
 exit $?
 fi

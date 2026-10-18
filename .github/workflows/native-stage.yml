@@ -194,6 +194,8 @@ jobs:
         run: sh tests/check-canonical-source.sh M230
       - name: Check M231 checkout branch aliases
         run: sh tests/check-canonical-source.sh M231
+      - name: Check M232 legacy checkout fallback
+        run: sh tests/check-canonical-source.sh M232
       - name: Check M190 7736-object selective seek closure
         run: python3 tests/test-m203-bounded-batch.py M190S
       - name: Compare M190 indexed seek vs M188 two-pass host

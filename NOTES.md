@@ -15375,3 +15375,26 @@ Progress: GIT.EXEC now maps plain checkout to SWITCH and `checkout -b` or
 fixtures, the 42 preserved host-source compilations, REXX syntax/80-column
 checks, and `git diff --check`. CMS behavior remains unverified; M231 commit and
 Actions are pending.
+
+
+M231 CI follow-up: full native host workflow 39154876418 passed on commit
+`989b5a2e87426067887b42e6de1be4fdb52327e4`. The checkout alias fixtures and
+existing host regressions passed.
+
+## 2026-10-18 — M232 preserve legacy checkout fallback
+
+Plan: select the modern checkout alias only when GITREF2 exists. Preserve the
+legacy GITHEAD branch checkout when REF2 returns the absent-file RC, require
+REF2 for `checkout -b`, and propagate other state-query errors. Add regression
+fixtures for modern, legacy, and failed-probe outcomes.
+
+Assumption: use the documented CMS STATE RC 28 for absence; any other nonzero
+RC is a real probe failure.
+
+Progress: GIT.EXEC now probes REF2 before choosing an implementation. Plain
+checkout falls through to the legacy GITHEAD handler when REF2 is absent; branch
+creation refuses that store; other probe failures return their RC. Seven checkout
+fixtures and eight static source guards pass, together with all earlier
+branch/tag tests, the 42 preserved host-source compilations, syntax/80-column
+checks, and `git diff --check`. CMS behavior remains unverified; M232 commit and
+Actions are pending.
