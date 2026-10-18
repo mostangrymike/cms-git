@@ -139,6 +139,13 @@ enters CMS PIPE, and the returned record must match the requested ref and carry
 one full OID. Abbreviated OIDs are not accepted. Host REXX checks pass; CMS
 behavior remains unverified.
 
+M222 adds `GIT BRANCH -m|--move <old-name> <new-name>`. It resolves the old
+branch to an expected OID, refuses stale/missing sources and existing
+destinations, and updates REF2 with rollback/readback checks. Renaming the
+current branch moves symbolic HEAD in the same rewrite; renaming another branch
+preserves HEAD. No force-rename mode is provided. Host REXX checks pass; CMS
+behavior remains unverified.
+
 ---
 
 ## M206 full 32-object CMS PASS and A-disk audit (October 13, 2026)

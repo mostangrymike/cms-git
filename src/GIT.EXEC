@@ -163,6 +163,26 @@ if command = 'BRANCH' then do
    parse var rest brancharg1 brancharg2 brancharg3 brancharg4 brancharg5
    verb=translate(brancharg1)
    zeros='0000000000000000000000000000000000000000'
+   if brancharg1='-m' | verb='--MOVE' then do
+      if brancharg2='' | brancharg3='' |,
+         brancharg4\='' | brancharg5\='' then do
+         say 'Usage: GIT BRANCH -m|--move old-name new-name'
+         exit 4
+      end
+      call resolvestart brancharg2
+      expectedoid=result
+      if expectedoid='ERROR' | expectedoid='HEAD' then do
+         say 'GIT: cannot resolve old branch' brancharg2
+         exit 4
+      end
+      oldref='refs/heads/'||brancharg2
+      newref='refs/heads/'||brancharg3
+      cmd='EXEC GIT UPDATE-REF MOVE-REF' oldref newref expectedoid
+      address command cmd
+      if rc\=0 then exit rc
+      say 'BRANCH RENAMED' brancharg2 brancharg3
+      exit 0
+   end
    if verb='-D' | verb='--DELETE' then do
       if brancharg2='' | brancharg3='' |,
          brancharg4\='' | brancharg5\='' then do

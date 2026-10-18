@@ -174,6 +174,8 @@ jobs:
         run: sh tests/check-canonical-source.sh M220
       - name: Check M221 switch start-point resolution
         run: sh tests/check-canonical-source.sh M221
+      - name: Check M222 CAS branch rename
+        run: sh tests/check-canonical-source.sh M222
       - name: Check M190 7736-object selective seek closure
         run: python3 tests/test-m203-bounded-batch.py M190S
       - name: Compare M190 indexed seek vs M188 two-pass host

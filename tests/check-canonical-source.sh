@@ -1018,6 +1018,120 @@ echo 'M221 SOURCE-DERIVED SWITCH START-POINT RESOLUTION FIXTURES PASS 9'
 exit $?
 fi
 
+# Test compare-and-swap branch rename and current-HEAD preservation/update.
+if [ "${1:-}" = "M222" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M221
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GIT.EXEC" "$root/src/GITUPD.EXEC" \
+ "$tmp/moveref.rexx" <<'PY'
+from pathlib import Path
+import sys
+git=Path(sys.argv[1]).read_text()
+upd=Path(sys.argv[2]).read_text()
+route_at=git.index("if command = 'BRANCH' then do")
+route=git[route_at:git.index("/* M5D integration boundary",route_at)]
+for token in ("if brancharg1='-m' | verb='--MOVE' then do",
+              'call resolvestart brancharg2',
+              "EXEC GIT UPDATE-REF MOVE-REF' oldref newref expectedoid",
+              'brancharg4\\=\'\''):
+    if token not in route:
+        raise SystemExit(f'M222 branch router missing {token}')
+if "brancharg1='-M'" in route:
+    raise SystemExit('M222 accidentally enables force rename')
+start=upd.index("if ref='MOVE-REF' then do")
+end=upd.index("/* Atomically create a branch ref",start)
+block=upd[start:end]
+for token in ('currentoid\\=expectedoid', 'destination branch already exists',
+              'if headref=oldref then headref=newref',
+              'branch rename readback mismatch', 'call restore',
+              "say 'RENAMED' oldref newref expectedoid"):
+    if token not in block:
+        raise SystemExit(f'M222 updater missing CAS guard {token}')
+block=block.replace(
+    " say 'RENAMED' oldref newref expectedoid\n exit 0",
+    " say 'RENAMED' oldref newref expectedoid\n"
+    " say 'TEST HEAD' headref\n exit 0",
+)
+fixture=(
+    "parse arg mode\nreadcalls=0\nwritten=0\n"
+    "ref='MOVE-REF'\nnewoid='refs/heads/topic'\n"
+    "oldoid='refs/heads/renamed'\nextra='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
+    +block+
+    "exit 99\n"
+    "validref:\n parse arg vr\n"
+    " if left(vr,11)='refs/heads/' then return 'OK'\n"
+    " return 'ERROR'\n"
+    "readrefs:\n"
+    " readcalls=readcalls+1\n"
+    " headref='refs/heads/main'\n"
+    " if mode='current' then headref='refs/heads/topic'\n"
+    " if written=1 then do\n"
+    "  headref=storedhead\nrefcount=2\n"
+    "  refname.1='refs/heads/main'\n"
+    "  refoid.1='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+    "  refname.2='refs/heads/renamed'\nrefoid.2=storedoid\n"
+    " end\nelse do\n"
+    "  refcount=2\nrefname.1='refs/heads/main'\n"
+    "  refoid.1='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+    "  refname.2='refs/heads/topic'\n"
+    "  refoid.2='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
+    "  if mode='stale' then,\n"
+    "   refoid.2='CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC'\n"
+    "  if mode='missing' then refcount=1\n"
+    "  if mode='exists' then do\nrefcount=3\n"
+    "   refname.3='refs/heads/renamed'\n"
+    "   refoid.3='CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC'\nend\n"
+    " end\n"
+    " rr.0=2+refcount\nrr.1='REF2 1'\nrr.2='HEAD '||headref\n"
+    " do ri=1 to refcount\nrri=ri+2\n"
+    "  rr.rri='REF ' refname.ri refoid.ri\nend\n"
+    " return 'OK'\n"
+    "requirecommit:\n return 'OK'\n"
+    "writerefs:\n"
+    " if mode='writefail' then return 'ERROR'\n"
+    " storedhead=headref\nstoredoid=refoid.oldslot\n"
+    " if mode='corrupt' then storedoid='DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD'\n"
+    " written=1\nsay 'SIMULATED WRITE'\nreturn 'OK'\n"
+    "restore:\n written=0\nsay 'SIMULATED RESTORE'\nreturn 'OK'\n"
+)
+Path(sys.argv[3]).write_text(fixture)
+PY
+rexx -c "$tmp/moveref.rexx" /dev/null
+noncurrent=$(rexx "$tmp/moveref.rexx" noncurrent)
+echo "$noncurrent" | grep -q 'RENAMED refs/heads/topic refs/heads/renamed BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'
+echo "$noncurrent" | grep -q 'TEST HEAD refs/heads/main'
+current=$(rexx "$tmp/moveref.rexx" current)
+echo "$current" | grep -q 'TEST HEAD refs/heads/renamed'
+for mode in missing stale exists writefail corrupt; do
+ if rexx "$tmp/moveref.rexx" "$mode" >"$tmp/$mode"; then
+  echo "invalid branch rename unexpectedly succeeded: $mode" >&2
+  exit 1
+ else
+  rc=$?
+  [ "$rc" -eq 8 ]
+ fi
+done
+grep -q 'stale or missing branch' "$tmp/missing"
+grep -q 'stale or missing branch' "$tmp/stale"
+grep -q 'destination branch already exists' "$tmp/exists"
+grep -q 'SIMULATED RESTORE' "$tmp/writefail"
+grep -q 'branch rename readback mismatch' "$tmp/corrupt"
+grep -q 'SIMULATED RESTORE' "$tmp/corrupt"
+for mode in missing stale exists writefail; do
+ if grep -q 'SIMULATED WRITE' "$tmp/$mode"; then
+  echo "rejected branch rename wrote REF2: $mode" >&2
+  exit 1
+ fi
+done
+echo 'M222 SOURCE-DERIVED REF2 BRANCH RENAME FIXTURES PASS 7'
+)
+exit $?
+fi
+
 # Independent native C89 staging integration test retained verbatim.
 if [ "${1:-}" = "NATIVE" ]; then
 (

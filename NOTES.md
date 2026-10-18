@@ -14985,6 +14985,7 @@ M215/M213/M210 checks, 80-column and REXX syntax checks, canonical guard, all 42
 preserved host test-body compilations, and `git diff --check` pass. CMS remains
 unverified; commit and Actions are pending.
 
+
 M216 CI follow-up: full native host workflow 39150923191 passed on commit
 `efd7e477fe83297d4b83626e400f9cc5eae2b5ff`. Actions ran the eight exact-source
 ordering cases and all existing host regressions. CMS listing behavior is
@@ -15143,3 +15144,31 @@ refs, malformed output, and multiple records. M221 through M208 REXX fixtures
 and syntax/80-column checks, all 42 preserved host-source compilations,
 canonical/workflow guards, and `git diff --check` pass locally. CMS remains
 unverified; commit and Actions are pending.
+
+M221 CI follow-up: full native host workflow 39153155987 passed on commit
+`23ef7aa229c34589cd7fcf72f5a79afd121cd568`. The start-point resolver fixtures
+and existing host regressions passed. CMS branch start-point resolution remains
+unverified.
+
+## 2026-10-18 — M222 CAS branch rename
+
+Plan: add `GIT BRANCH -m|--move <old> <new>` for modern REF2 branches. Resolve
+the old branch through GITVREF, then rename with an expected-OID check. Refuse
+missing/stale sources and existing destinations. If the old branch is current,
+move symbolic HEAD in the same REF2 snapshot/rewrite; otherwise preserve HEAD.
+Verify post-write state and restore the prior snapshot on failure. Do not add a
+force-rename form. Add source-derived tests for current/noncurrent rename and
+all reject/rollback paths.
+
+Assumption: short branch names are the porcelain operands, matching existing
+`GIT BRANCH` list/create/delete syntax.
+
+Progress: modern `GIT BRANCH -m|--move` resolves the source OID through
+GITVREF, then routes to GITUPD `MOVE-REF`. The updater requires a matching
+expected OID, an existing commit, and an absent destination; it changes HEAD
+only when the renamed branch is current. Snapshot, write, readback, and restore
+paths cover the ref plus HEAD together. Seven source-derived REXX fixtures cover
+current/noncurrent success, missing/stale source, destination collision, and
+write/readback failures. M222 through M208 tests and all 42 preserved
+host-source compilations, canonical/workflow guards, syntax/width, and diff
+checks pass locally. CMS remains unverified; commit and Actions are pending.

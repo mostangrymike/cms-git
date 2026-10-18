@@ -2,6 +2,89 @@
 address cms
 parse arg ref newoid oldoid extra
 
+/* Rename one branch with an expected-OID check and optional HEAD move. */
+if ref='MOVE-REF' then do
+ if newoid='' | oldoid='' | extra='' then do
+  say 'Usage: GITUPD MOVE-REF old-ref new-ref expected-old-oid'
+  exit 4
+ end
+ oldref=newoid
+ newref=oldoid
+ expectedoid=translate(extra)
+ call validref oldref
+ if result\='OK' | left(oldref,11)\='refs/heads/' then exit 4
+ call validref newref
+ if result\='OK' | left(newref,11)\='refs/heads/' then exit 4
+ if length(expectedoid)\=40 |,
+    verify(expectedoid,'0123456789ABCDEF')\=0 then do
+  say 'GITUPD: invalid expected branch OID'
+  exit 4
+ end
+ call readrefs
+ if result\='OK' then exit 8
+ oldslot=0
+ oldcount=0
+ newcount=0
+ currentoid=''
+ do i=1 to refcount
+  if refname.i=oldref then do
+   oldcount=oldcount+1
+   oldslot=i
+   currentoid=refoid.i
+  end
+  if refname.i=newref then newcount=newcount+1
+ end
+ if oldcount\=1 | currentoid\=expectedoid then do
+  say 'GITUPD: stale or missing branch' oldref
+  exit 8
+ end
+ if newcount\=0 then do
+  say 'GITUPD: destination branch already exists' newref
+  exit 8
+ end
+ call requirecommit currentoid
+ if result\='OK' then exit 8
+ oldhead=headref
+ drop bak.
+ bak.0=rr.0
+ do bi=1 to rr.0
+  bak.bi=rr.bi
+ end
+ refname.oldslot=newref
+ if headref=oldref then headref=newref
+ call writerefs
+ if result\='OK' then do
+  call restore
+  exit 8
+ end
+ call readrefs
+ if result\='OK' then do
+  say 'GITUPD: branch rename verification failed'
+  call restore
+  exit 8
+ end
+ oldcount=0
+ newcount=0
+ renamedoid=''
+ do i=1 to refcount
+  if refname.i=oldref then oldcount=oldcount+1
+  if refname.i=newref then do
+   newcount=newcount+1
+   renamedoid=refoid.i
+  end
+ end
+ expectedhead=oldhead
+ if oldhead=oldref then expectedhead=newref
+ if oldcount\=0 | newcount\=1 |,
+    renamedoid\=expectedoid | headref\=expectedhead then do
+  say 'GITUPD: branch rename readback mismatch'
+  call restore
+  exit 8
+ end
+ say 'RENAMED' oldref newref expectedoid
+ exit 0
+end
+
 /* Atomically create a branch ref and point symbolic HEAD at it. */
 if ref='CREATE-HEAD' then do
  if newoid='' | oldoid='' | extra='' then do
