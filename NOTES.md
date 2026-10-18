@@ -14796,3 +14796,11 @@ does not have `rexx` installed (`rexx: not found`). The M208 test must compile
 the REXX source; I added a workflow prerequisite to install Ubuntu's
 `regina-rexx` package before that test instead of weakening or skipping syntax
 validation. A rerun is pending.
+
+
+M208 CI follow-up: the Regina installation fix passed in full Actions run
+39149257392 on commit `b7b833417f23dd9903c5f0203027f197ed6a94e7`; both the
+package-install step and M208 source/REXX syntax gate passed. The run concluded
+successfully. A fresh `cms_status` observation still returned `Transport
+closed`; no CMS connection or input was attempted after that response. The
+M208 ref behavior remains host-source-checked and CMS-unqualified.
