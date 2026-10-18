@@ -15699,3 +15699,23 @@ short/porcelain combinations, nested branch names, and invalid options; seven
 source guards check option parsing and validated-ref use. The cumulative M247
 suite passes; the native host workflow is pending. CMS behavior remains
 unverified.
+
+M247 CI follow-up: full native host workflow 39169583791 passed.
+CMS behavior remains unverified.
+
+## 2026-10-18 — M248 stage tracked deletions
+
+Plan: let `GIT ADD -u|--update` stage mapped files that are absent from CMS,
+and make status/name-only diff compare them against the empty staged state.
+
+Assumption: deletion staging uses the all-zero OID as the absent-tree-entry
+sentinel; commit-tree removal and acceptance of the committed map are separate
+steps and are not yet available in this milestone.
+
+Progress: ADD now stages absent mapped files with the zero OID; short status
+uses the `D` index column and reports worktree additions against a staged
+deletion; cached and unstaged name-only diff handle the zero sentinel. Existing
+update tests now cover one deletion, and three source-derived Regina fixtures
+cover staged deletion, unstaged deletion, restoration against staged deletion,
+and both diff views. The cumulative M248 suite passes; host compile and CI are
+pending. CMS behavior remains unverified.

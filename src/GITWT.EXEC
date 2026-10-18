@@ -142,9 +142,13 @@ if command='STATUS' then do
   if p='ERROR' then exit 8
   'STATE' mapfn.i mapft.i mapfm.i
   if rc=28 then do
-   state='DELETED'
-   work='-'
-   changed=changed+1
+   work=zeros
+   if mapstage.i=zeros then state='CLEAN'
+   else do
+    state='DELETED'
+    changed=changed+1
+   end
+   if mapstage.i\=mapbase.i then staged=staged+1
   end
   else if rc\=0 then exit 8
   else do
@@ -160,7 +164,8 @@ if command='STATUS' then do
    end
    else do
     changed=changed+1
-    if mapstage.i=mapbase.i then state='MODIFIED'
+    if mapstage.i=zeros then state='ADDED'
+    else if mapstage.i=mapbase.i then state='MODIFIED'
     else do
      state='STAGED+MODIFIED'
      staged=staged+1
@@ -171,11 +176,13 @@ if command='STATUS' then do
    x=' '
    y=' '
    if mapstage.i\=mapbase.i then do
-    if mapbase.i=zeros then x='A'
+    if mapstage.i=zeros then x='D'
+    else if mapbase.i=zeros then x='A'
     else x='M'
    end
    if state='DELETED' then y='D'
    else if state='MODIFIED' | state='STAGED+MODIFIED' then y='M'
+   else if state='ADDED' then y='A'
    if x\=' ' | y\=' ' then say x||y||' '||p
   end
   else do
@@ -207,6 +214,7 @@ if command='DIFF' then do
  end
  call loadmap
  if result\='OK' then exit 8
+ zeros='0000000000000000000000000000000000000000'
  do i=1 to mapcount
   changed=0
   if cached=1 then do
@@ -214,7 +222,9 @@ if command='DIFF' then do
   end
   else do
    'STATE' mapfn.i mapft.i mapfm.i
-   if rc=28 then changed=1
+   if rc=28 then do
+    if mapstage.i\=zeros then changed=1
+   end
    else if rc\=0 then exit 8
    else do
     call workoid mapfn.i,mapft.i,mapfm.i,maplf.i,0
@@ -335,6 +345,7 @@ if command='ADD' then do
  end
  call loadmap
  if result\='OK' then exit 8
+ zeros='0000000000000000000000000000000000000000'
  drop addpi. addpath. addold. addoid.
  addcount=0
  if addall=1 then do
@@ -382,14 +393,17 @@ if command='ADD' then do
  do ai=1 to addcount
   pi=addpi.ai
   'STATE' mapfn.pi mapft.pi mapfm.pi
-  if rc\=0 then do
-   say 'GITWT: mapped CMS file is absent' addpath.ai
+  if rc=28 then addoid.ai=zeros
+  else if rc\=0 then do
+   say 'GITWT: cannot inspect mapped CMS file' addpath.ai
    exit 8
   end
-  call workoid mapfn.pi,mapft.pi,mapfm.pi,maplf.pi,1
-  wo=result
-  if wo='ERROR' then exit 8
-  addoid.ai=wo
+  else do
+   call workoid mapfn.pi,mapft.pi,mapfm.pi,maplf.pi,1
+   wo=result
+   if wo='ERROR' then exit 8
+   addoid.ai=wo
+  end
   addold.ai=mapstage.pi
  end
  do ai=1 to addcount
@@ -406,9 +420,13 @@ if command='ADD' then do
  end
  do ai=1 to addcount
   pi=addpi.ai
-  say 'ADDED' addpath.ai addoid.ai
-  if addoid.ai=mapbase.pi then say 'STAGE MATCHES BASE'
-  else say 'STAGE DIFFERS FROM BASE'
+  if addoid.ai=zeros & mapbase.pi\=zeros then,
+   say 'STAGED DELETION' addpath.ai
+  else do
+   say 'ADDED' addpath.ai addoid.ai
+   if addoid.ai=mapbase.pi then say 'STAGE MATCHES BASE'
+   else say 'STAGE DIFFERS FROM BASE'
+  end
  end
  exit 0
 end

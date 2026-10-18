@@ -272,6 +272,11 @@ M247 adds `GIT STATUS --branch`, `--short --branch`, and
 worktree status; detached HEAD and unborn-branch formats remain unsupported.
 CMS behavior remains unverified.
 
+M248 lets `GIT ADD -u|--update` stage missing mapped CMS files as deletions.
+Short status and name-only diff distinguish staged deletion from an unstaged
+worktree deletion. Commit-tree deletion and post-commit map acceptance are
+still being implemented. CMS behavior remains unverified.
+
 ---
 
 ## M206 full 32-object CMS PASS and A-disk audit (October 13, 2026)

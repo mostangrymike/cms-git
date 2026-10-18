@@ -1285,7 +1285,7 @@ if block.index("if word(rest,1)='--' then do") > block.index('path=word(rest,ai)
  raise SystemExit('M241 option separator is not consumed before path validation')
 block=block.replace('call loadmap',"result='OK'")
 block=block.replace(state,
- "if mapfn.pi='STATEFAIL' then rc=28\nelse rc=0")
+ "if mapfn.pi='STATEFAIL' then rc=12\nelse rc=0")
 block=block.replace(work,
  "if mapfn.pi='HASHFAIL' then result='ERROR'\n"
  "else if pi=1 then result='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
@@ -1338,7 +1338,7 @@ check 0 "$(printf 'SIMULATED SAVE\nADDED alpha %s\nSTAGE DIFFERS FROM BASE' "$al
 check 4 'GITWT: path is not checked out unknown' unknown
 check 4 'GITWT: path is not checked out bad|path' 'bad|path'
 check 4 'GITWT: invalid path abcdefghijklmnopqrstuvwxyzabcde1' abcdefghijklmnopqrstuvwxyzabcde1
-check 8 'GITWT: mapped CMS file is absent gamma' gamma
+check 8 'GITWT: cannot inspect mapped CMS file gamma' gamma
 check 8 '' delta
 many='a a a a a a a a a a a a a a a a a'
 check 4 'Usage: GIT ADD path [path ...] (maximum 16 paths)' $many
@@ -1406,7 +1406,9 @@ fixture=(
       .replace('call savemap',"result='OK'\nsay 'SIMULATED SAVE'")+
  "asciitocms:\n parse arg text\n return x2c(text)\n")
 Path(sys.argv[2]).write_text(fixture)
-Path(sys.argv[3]).write_text(fixture.replace("mapfn.2='BETA'", "mapfn.2='MISSING'"))
+missing=fixture.replace("mapfn.2='BETA'", "mapfn.2='MISSING'")
+missing=missing.replace("mappath.1='616C706861'", "mapbase.2='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\nmapstage.2=mapbase.2\nmappath.1='616C706861'")
+Path(sys.argv[3]).write_text(missing)
 Path(sys.argv[4]).write_text(fixture.replace(work,hashfailwork))
 Path(sys.argv[5]).write_text(fixture.replace('mapcount=2','mapcount=0'))
 print('M242 GIT ADD UPDATE SOURCE GUARDS PASS 7')
@@ -1432,7 +1434,8 @@ beta=BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
 expected=$(printf 'SIMULATED SAVE\nADDED alpha %s\nSTAGE DIFFERS FROM BASE\nADDED beta %s\nSTAGE DIFFERS FROM BASE' "$alpha" "$beta")
 check "$tmp/update.rexx" 0 "$expected" -u
 check "$tmp/update.rexx" 0 "$expected" --update
-check "$tmp/missing.rexx" 8 'GITWT: mapped CMS file is absent beta' -u
+expected_missing=$(printf 'SIMULATED SAVE\nADDED alpha %s\nSTAGE DIFFERS FROM BASE\nSTAGED DELETION beta' "$alpha")
+check "$tmp/missing.rexx" 0 "$expected_missing" -u
 check "$tmp/hashfail.rexx" 8 '' -u
 check "$tmp/empty.rexx" 0 'GITWT: no mapped paths to update' -u
 check "$tmp/update.rexx" 4 'Usage: GIT ADD [-u|--update] | [--] path [path ...]' -u alpha
@@ -1696,6 +1699,79 @@ check 4 'Usage: GIT RESET [--] path [path ...] (maximum 16 paths)' --
 many='a a a a a a a a a a a a a a a a a'
 check 4 'Usage: GIT RESET [--] path [path ...] (maximum 16 paths)' $many
 echo 'M245 SOURCE-DERIVED GIT RESET FIXTURES PASS 6'
+)
+exit $?
+fi
+
+if [ "${1:-}" = "M248" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M247
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GITWT.EXEC" "$tmp/status.rexx" "$tmp/diff.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+start=source.index("if command='STATUS' then do")
+end=source.index("if command='DIFF' then do",start)
+status=source[start:end]
+start=end
+end=source.index('/* Read-only preflight for a branch switch',start)
+diff=source[start:end]
+for token in ('if rc=28 then addoid.ai=zeros', "say 'STAGED DELETION'",
+              'if mapstage.i=zeros then x=\'D\''):
+ if token not in source:
+  raise SystemExit(f'M248 deletion staging source guard missing {token!r}')
+if 'if mapstage.i\\=zeros then changed=1' not in diff:
+ raise SystemExit('M248 unstaged diff does not compare missing workfile to empty staged blob')
+state=("if mapfn.i='STAGEDDEL' | mapfn.i='WORKDEL' then rc=28\n"
+       "else rc=0")
+work=("if mapfn.i='RESTORED' then\n"
+      " result='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
+      "else result='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'")
+prefix=(
+ "parse arg rest\nmapcount=3\n"
+ "mapfn.1='STAGEDDEL'\nmapfn.2='WORKDEL'\nmapfn.3='RESTORED'\n"
+ "do mi=1 to 3\n mapft.mi='DATA'\n mapfm.mi='A'\n maplf.mi=1\n"
+ " mapbase.mi='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\nend\n"
+ "mapstage.1='0000000000000000000000000000000000000000'\n"
+ "mapstage.2='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "mapstage.3='0000000000000000000000000000000000000000'\n"
+ "mappath.1='737461676564676F6E65'\n"
+ "mappath.2='776F726B676F6E65'\n"
+ "mappath.3='726573746F726564'\n")
+for command,block,path in (('STATUS',status,sys.argv[2]),('DIFF',diff,sys.argv[3])):
+ fixture=(prefix+f"command='{command}'\n"+
+  block.replace('call loadmap',"result='OK'")
+       .replace("'STATE' mapfn.i mapft.i mapfm.i",state)
+       .replace('call workoid mapfn.i,mapft.i,mapfm.i,maplf.i,0',work)+
+  "readrefs:\n headref='refs/heads/test'\n return 'OK'\n"
+  "asciitocms:\n parse arg text\n return x2c(text)\n")
+ Path(path).write_text(fixture)
+print('M248 STAGED-DELETION STATUS/DIFF SOURCE GUARDS PASS 4')
+PY
+rexx -c "$tmp/status.rexx" /dev/null
+rexx -c "$tmp/diff.rexx" /dev/null
+check() {
+ fixture=$1
+ expected=$2
+ shift 2
+ output=$(rexx "$fixture" "$@")
+ if [ "$output" != "$expected" ]; then
+  echo "M248 $*: expected '$expected', got '$output'" >&2
+  exit 1
+ fi
+}
+status=$(printf 'D  stagedgone\n D workgone\nDA restored')
+cached=$(printf 'stagedgone\nrestored')
+unstaged=$(printf 'workgone\nrestored')
+check "$tmp/status.rexx" "$status" --short
+check "$tmp/diff.rexx" "$cached" --cached --name-only
+check "$tmp/diff.rexx" "$unstaged" --name-only
+echo 'M248 SOURCE-DERIVED STAGED DELETION STATUS/DIFF FIXTURES PASS 3'
 )
 exit $?
 fi
