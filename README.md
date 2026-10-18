@@ -105,6 +105,12 @@ tag refs; worktree checkout remains branch-only. Annotated tags and tags of
 non-commit objects are not supported. Host source/REXX checks pass; CMS
 compilation and target behavior remain unverified.
 
+M217 routes `GIT BRANCH` through `GITREF2` when that modern store exists, with
+the legacy M5 branch path retained when it does not. The modern path lists
+current/noncurrent branches, creates a branch from an explicit commit OID, and
+deletes with an expected-old-OID CAS; deletion of the current branch is refused
+by the updater. Host REXX checks pass; CMS behavior remains unverified.
+
 ---
 
 ## M206 full 32-object CMS PASS and A-disk audit (October 13, 2026)

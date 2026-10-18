@@ -478,6 +478,74 @@ echo 'M216 SOURCE-DERIVED TAG ORDER/LIST FIXTURES PASS 10'
 exit $?
 fi
 
+# Exercise modern branch-list dispatch while preserving the legacy fallback.
+if [ "${1:-}" = "M217" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M216
+python3 - "$root/src/GIT.EXEC" "$root/src/GITVREF.EXEC" <<'PY'
+from pathlib import Path
+import sys
+git=Path(sys.argv[1]).read_text()
+refs=Path(sys.argv[2]).read_text()
+for token in ("if command = 'BRANCH' then do", "'STATE GITREF2 REPO A'",
+              'if rc=28 then do', "'EXEC GITREF BRANCH' rest",
+              "EXEC GITVREF BRANCHES",
+              "EXEC GIT UPDATE-REF' branchref branchoid zeros",
+              "EXEC GIT UPDATE-REF' branchref zeros branchoid"):
+ if token not in git:
+  raise SystemExit(f'GIT.EXEC missing modern branch path: {token}')
+if "if command = 'BRANCH' | command = 'SHOW-REF'" in git:
+ raise SystemExit('legacy router still captures modern BRANCH command')
+for token in ("if command='BRANCHES' then do",
+              "left(refname.bi,11)='refs/heads/'",
+              'if refname.bi=headref then say', "say '*' branchname"):
+ if token not in refs:
+  raise SystemExit(f'GITVREF.EXEC missing branch list behavior: {token}')
+print('M217 MODERN BRANCH ROUTE/UPDATE GUARDS PASS')
+PY
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GITVREF.EXEC" "$tmp/branches.rexx" <<'PY'
+from pathlib import Path
+import sys
+source=Path(sys.argv[1]).read_text()
+start=source.index("if command='BRANCHES' then do")
+end=source.index("if command='TAGS' then do",start)
+block=source[start:end]
+prefix="""parse arg
+command='BRANCHES'
+spec=''
+depth=''
+extra=''
+"""
+fixture="""exit 4
+readrefs:
+ headref='refs/heads/main'
+ refcount=3
+ refname.1='refs/tags/v1'
+ refoid.1='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+ refname.2='refs/heads/feature/x'
+ refoid.2='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'
+ refname.3='refs/heads/main'
+ refoid.3='CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC'
+ return 'OK'
+"""
+Path(sys.argv[2]).write_text(prefix+block+fixture)
+PY
+rexx -c "$tmp/branches.rexx" /dev/null
+actual=$(rexx "$tmp/branches.rexx")
+expected=$(printf '%s\n' '  feature/x' '* main')
+if [ "$actual" != "$expected" ]; then
+ echo "branch list mismatch: $actual" >&2
+ exit 1
+fi
+echo 'M217 SOURCE-DERIVED REF2 BRANCH LIST FIXTURE PASS 1'
+)
+exit $?
+fi
+
 # Independent native C89 staging integration test retained verbatim.
 if [ "${1:-}" = "NATIVE" ]; then
 (

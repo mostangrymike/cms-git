@@ -15006,3 +15006,22 @@ M216 corrected-list CI follow-up: full native host workflow 39151297168 passed
 on commit `32325c147a7f925dc21a02e06784c901c4744bfd`. Its M216 step executed
 the actual tag-list block against deliberately unsorted refs; both default
 lexical ordering and wildcard filtering passed. No CMS state was used.
+
+## 2026-10-18 — M217 modern REF2 branch porcelain
+
+Plan: route `GIT BRANCH` to `GITREF2` when present, preserving the legacy M5
+fallback only when REF2 is absent. Add modern list/create/guarded-delete forms
+using the existing validated CAS updater. Test list output from a synthetic
+REF2 snapshot and statically guard branch create/delete routing.
+
+Assumption: create requires an explicit full commit OID; delete requires the
+expected old OID. Branch switching is a separate step.
+
+
+Progress: modern `GIT BRANCH` now checks for `GITREF2 REPO A`, lists current
+and noncurrent branches through GITVREF, creates with a full commit OID, and
+deletes through GITUPD using the expected old OID. With no REF2 file, it keeps
+the previous GITREF route. The source-derived branch-list fixture, static route
+and CAS guards, Regina syntax/80-column checks, M216 tag suite, canonical source
+guard, 42 historical test-body compilations, and `git diff --check` pass locally.
+CMS remains unverified; commit and full Actions are pending.

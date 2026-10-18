@@ -145,10 +145,54 @@ if command = 'TAG' then do
    exit 0
 end
 
+/* Prefer modern REF2 branches, retaining M5 refs when REF2 is absent. */
+if command = 'BRANCH' then do
+   'STATE GITREF2 REPO A'
+   if rc=28 then do
+      'EXEC GITREF BRANCH' rest
+      exit rc
+   end
+   if rc\=0 then do
+      say 'GIT: cannot inspect modern REF2 branch store RC' rc
+      exit rc
+   end
+   if strip(rest)='' then do
+      address command 'EXEC GITVREF BRANCHES'
+      exit rc
+   end
+   parse var rest brancharg1 brancharg2 brancharg3 brancharg4 brancharg5
+   verb=translate(brancharg1)
+   zeros='0000000000000000000000000000000000000000'
+   if verb='-D' | verb='--DELETE' then do
+      if brancharg2='' | brancharg3='' |,
+         brancharg4\='' | brancharg5\='' then do
+         say 'Usage: GIT BRANCH -d|--delete name expected-old-oid'
+         exit 4
+      end
+      branchref='refs/heads/'||brancharg2
+      branchoid=translate(brancharg3)
+      address command 'EXEC GIT UPDATE-REF' branchref zeros branchoid
+      if rc\=0 then exit rc
+      say 'BRANCH DELETED' brancharg2 branchoid
+      exit 0
+   end
+   if brancharg1='' | brancharg2='' | brancharg3\='' |,
+      brancharg4\='' | brancharg5\='' then do
+      say 'Usage: GIT BRANCH [name commit-oid]'
+      say '       GIT BRANCH -d|--delete name expected-old-oid'
+      exit 4
+   end
+   branchref='refs/heads/'||brancharg1
+   branchoid=translate(brancharg2)
+   address command 'EXEC GIT UPDATE-REF' branchref branchoid zeros
+   if rc\=0 then exit rc
+   say 'BRANCH CREATED' brancharg1 branchoid
+   exit 0
+end
+
 /* M5D integration boundary.  Keep the target-proven M4 object core below
- * unchanged while routing ref/HEAD commands through the independently proven
- * M5A/M5B/M5C implementations. */
-if command = 'BRANCH' | command = 'SHOW-REF' |,
+ * unchanged while routing remaining legacy ref commands through M5A/M5B/M5C. */
+if command = 'SHOW-REF' |,
    command = 'SYMBOLIC-REF' | command = 'REV-PARSE' then do
    'EXEC GITREF' command rest
    exit rc

@@ -14,6 +14,19 @@ if command='STAMP' then do
  say 'GITVREF INTERNAL STAMP P2'
  exit 0
 end
+if command='BRANCHES' then do
+ if spec\='' | depth\='' | extra\='' then exit 4
+ call readrefs
+ if result\='OK' then exit 8
+ do bi=1 to refcount
+  if left(refname.bi,11)='refs/heads/' then do
+   branchname=substr(refname.bi,12)
+   if refname.bi=headref then say '*' branchname
+   else say ' ' branchname
+  end
+ end
+ exit 0
+end
 if command='TAGS' then do
  if depth\='' | extra\='' then exit 4
  if spec='' then do
