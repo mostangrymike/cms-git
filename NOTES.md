@@ -15086,3 +15086,8 @@ parsing. M219 and its M218-through-M208 dependency checks, the 42 preserved
 host-source compilations, canonical/workflow guards, source-width checks, and
 `git diff --check` pass locally. CMS remains unverified; commit and Actions are
 pending.
+
+M219 CI follow-up: full native host workflow 39152398821 passed on commit
+`c4db6b0f3ed7a0cd760280a68a877c8facb9a243`. The mapped-worktree preflight and
+path-output parser fixtures passed with the existing host regressions. CMS
+branch switching remains unverified.
