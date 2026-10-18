@@ -208,6 +208,8 @@ jobs:
         run: sh tests/check-canonical-source.sh M237
       - name: Check M238 tag force update CAS resolution
         run: sh tests/check-canonical-source.sh M238
+      - name: Check M239 multi-path mapped worktree add
+        run: sh tests/check-canonical-source.sh M239
       - name: Check M190 7736-object selective seek closure
         run: python3 tests/test-m203-bounded-batch.py M190S
       - name: Compare M190 indexed seek vs M188 two-pass host

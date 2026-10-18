@@ -244,40 +244,69 @@ end
 end
 
 if command='ADD' then do
- parse var rest path extra
- if path='' | extra\='' then do
-  say 'Usage: GIT ADD path'
+ addrequested=words(rest)
+ if addrequested<1 | addrequested>16 then do
+  say 'Usage: GIT ADD path [path ...] (maximum 16 paths)'
   exit 4
  end
- call toasciihex path
- pathhex=result
- if pathhex='ERROR' | length(pathhex)>60 then exit 4
  call loadmap
  if result\='OK' then exit 8
- call findpath pathhex
- pi=result
- if pi=0 then do
-  say 'GITWT: path is not checked out' path
-  exit 4
+ drop addpi. addpath. addold. addoid.
+ addcount=0
+ do ai=1 to addrequested
+  path=word(rest,ai)
+  call toasciihex path
+  pathhex=result
+  if pathhex='ERROR' | length(pathhex)>60 then do
+   say 'GITWT: invalid path' path
+   exit 4
+  end
+  call findpath pathhex
+  pi=result
+  if pi=0 then do
+   say 'GITWT: path is not checked out' path
+   exit 4
+  end
+  duplicate=0
+  do aj=1 to addcount
+   if addpi.aj=pi then duplicate=1
+  end
+  if duplicate=1 then iterate
+  addcount=addcount+1
+  addpi.addcount=pi
+  addpath.addcount=path
  end
- 'STATE' mapfn.pi mapft.pi mapfm.pi
- if rc\=0 then do
-  say 'GITWT: mapped CMS file is absent' path
-  exit 8
+ do ai=1 to addcount
+  pi=addpi.ai
+  'STATE' mapfn.pi mapft.pi mapfm.pi
+  if rc\=0 then do
+   say 'GITWT: mapped CMS file is absent' addpath.ai
+   exit 8
+  end
+  call workoid mapfn.pi,mapft.pi,mapfm.pi,maplf.pi,1
+  wo=result
+  if wo='ERROR' then exit 8
+  addoid.ai=wo
+  addold.ai=mapstage.pi
  end
- call workoid mapfn.pi,mapft.pi,mapfm.pi,maplf.pi,1
- wo=result
- if wo='ERROR' then exit 8
- oldstage=mapstage.pi
- mapstage.pi=wo
+ do ai=1 to addcount
+  pi=addpi.ai
+  mapstage.pi=addoid.ai
+ end
  call savemap
  if result\='OK' then do
-  mapstage.pi=oldstage
+  do ai=1 to addcount
+   pi=addpi.ai
+   mapstage.pi=addold.ai
+  end
   exit 8
  end
- say 'ADDED' path wo
- if wo=mapbase.pi then say 'STAGE MATCHES BASE'
- else say 'STAGE DIFFERS FROM BASE'
+ do ai=1 to addcount
+  pi=addpi.ai
+  say 'ADDED' addpath.ai addoid.ai
+  if addoid.ai=mapbase.pi then say 'STAGE MATCHES BASE'
+  else say 'STAGE DIFFERS FROM BASE'
+ end
  exit 0
 end
 

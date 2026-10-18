@@ -229,6 +229,12 @@ the caller omits the CAS expectation. Explicit expectations remain supported;
 missing tags, invalid IDs, and zero expected IDs fail closed. CMS behavior
 remains unverified.
 
+M239 lets `GIT ADD path1 [path2 ...]` stage up to 16 already mapped worktree
+paths. It validates and looks up every path, hashes all selected workfiles,
+then updates GITWORK once; duplicate paths are collapsed. Unmapped or missing
+CMS files fail without saving the map. Directory and wildcard adds remain
+unsupported. CMS behavior remains unverified.
+
 ---
 
 ## M206 full 32-object CMS PASS and A-disk audit (October 13, 2026)

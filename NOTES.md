@@ -15522,3 +15522,24 @@ missing refs, invalid names/IDs, zero expectation, and excess operands. The
 M208–M238 chain, 42-source historical compile inventory, REXX syntax,
 80-column, and whitespace checks pass. M238 commit and CI are pending; CMS
 behavior remains unverified.
+
+M238 CI follow-up: full native host workflow 39156294698 passed on commit
+`0b742d5a95d8`. CMS behavior remains unverified.
+
+## 2026-10-18 — M239 multi-path mapped worktree add
+
+Plan: accept multiple explicit mapped paths in `GIT ADD`, preflight all names
+and mapped CMS file presence, hash every workfile, then save the updated
+GITWORK stage map once. Bound one command to 16 paths and collapse duplicates.
+
+Assumption: `git add .`, wildcards, directories, and untracked-file discovery
+remain unsupported; this path stages only files already present in GITWORK.
+
+Progress: GITWT ADD now validates/looks up all requested paths before reading
+files, hashes all selected workfiles before changing map entries, and performs
+one map save. Eight executable source-derived Regina REXX fixtures cover one
+and multiple paths, duplicates, unknown/unsafe/overlength paths, missing CMS
+files, hash failure, and the 16-path cap. The accumulated M208–M239 checks,
+REXX syntax/80-column checks, `git diff --check`, and 42-source historical host
+compile inventory pass. CMS behavior remains unverified; M239 commit and CI are
+pending.

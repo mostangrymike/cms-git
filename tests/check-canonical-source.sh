@@ -1254,6 +1254,93 @@ echo 'M238 SOURCE-DERIVED TAG FORCE UPDATE FIXTURES PASS 8'
 exit $?
 fi
 
+# Stage multiple explicitly named mapped CMS workfiles in one map update.
+if [ "${1:-}" = "M239" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M238
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GITWT.EXEC" "$tmp/add.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+start=source.index("if command='ADD' then do")
+end=source.index("if command='ACCEPT' then do",start)
+block=source[start:end]
+state="'STATE' mapfn.pi mapft.pi mapfm.pi"
+work="call workoid mapfn.pi,mapft.pi,mapfm.pi,maplf.pi,1"
+for token in ('call toasciihex path','call findpath pathhex',state,work,
+              'mapstage.pi=addoid.ai','call savemap',"say 'ADDED'"):
+ if token not in block:
+  raise SystemExit(f'M239 multi-add block missing {token!r}')
+if not (block.index('call toasciihex path')<block.index('call findpath pathhex')<
+        block.index(state)<block.index(work)<block.index('mapstage.pi=addoid.ai')<
+        block.index('call savemap')<block.index("say 'ADDED'")):
+ raise SystemExit('M239 add preflight/save/output order changed')
+block=block.replace('call loadmap',"result='OK'")
+block=block.replace(state,
+ "if mapfn.pi='STATEFAIL' then rc=28\nelse rc=0")
+block=block.replace(work,
+ "if mapfn.pi='HASHFAIL' then result='ERROR'\n"
+ "else if pi=1 then result='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "else result='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'")
+block=block.replace('call savemap',"result='OK'\nsay 'SIMULATED SAVE'")
+fstart=source.index('\nfindpath:\n')+1
+fend=source.index('\nfindfile:\n',fstart)
+findpath=source[fstart:fend]
+fixture=(
+ "parse arg rest\ncommand='ADD'\nmapcount=4\n"
+ "mapfn.1='ALPHA'\nmapfn.2='BETA'\n"
+ "mapfn.3='STATEFAIL'\nmapfn.4='HASHFAIL'\n"
+ "do mi=1 to 4\n mapft.mi='DATA'\n mapfm.mi='A'\n"
+ " maplf.mi=1\n mapbase.mi='0000000000000000000000000000000000000000'\n"
+ " mapstage.mi=mapbase.mi\nend\n"
+ "mappath.1='616C706861'\nmappath.2='62657461'\n"
+ "mappath.3='67616D6D61'\nmappath.4='64656C7461'\n"+
+ block+findpath+
+ "toasciihex:\n parse arg text\n return c2x(text)\n")
+Path(sys.argv[2]).write_text(fixture)
+print('M239 MULTI-ADD SOURCE GUARDS PASS 7')
+PY
+rexx -c "$tmp/add.rexx" /dev/null
+check() {
+ expected_rc=$1
+ expected=$2
+ shift 2
+ if output=$(rexx "$tmp/add.rexx" "$@"); then
+  rc=0
+ else
+  rc=$?
+ fi
+ if [ "$rc" -ne "$expected_rc" ]; then
+  echo "GIT ADD $*: expected RC $expected_rc, got $rc" >&2
+  exit 1
+ fi
+ if [ "$output" != "$expected" ]; then
+  echo "GIT ADD $*: expected '$expected', got '$output'" >&2
+  exit 1
+ fi
+}
+alpha=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+beta=BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+check 0 "$(printf 'SIMULATED SAVE\nADDED alpha %s\nSTAGE DIFFERS FROM BASE' "$alpha")" alpha
+check 0 "$(printf 'SIMULATED SAVE\nADDED alpha %s\nSTAGE DIFFERS FROM BASE\nADDED beta %s\nSTAGE DIFFERS FROM BASE' "$alpha" "$beta")" alpha beta
+check 0 "$(printf 'SIMULATED SAVE\nADDED alpha %s\nSTAGE DIFFERS FROM BASE' "$alpha")" alpha alpha
+check 4 'GITWT: path is not checked out unknown' unknown
+check 4 'GITWT: path is not checked out bad|path' 'bad|path'
+check 4 'GITWT: invalid path abcdefghijklmnopqrstuvwxyzabcde1' abcdefghijklmnopqrstuvwxyzabcde1
+check 8 'GITWT: mapped CMS file is absent gamma' gamma
+check 8 '' delta
+many='a a a a a a a a a a a a a a a a a'
+check 4 'Usage: GIT ADD path [path ...] (maximum 16 paths)' $many
+echo 'M239 SOURCE-DERIVED MULTI-PATH ADD FIXTURES PASS 8'
+)
+exit $?
+fi
+
 # Isolated M206 explicit-object compatibility route: host source guard only.
 if [ "${1:-}" = "M206BRIDGE" ]; then
 (
