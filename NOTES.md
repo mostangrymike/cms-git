@@ -14822,3 +14822,12 @@ name-only output. Regina syntax and 80-column checks, the canonical source
 guard, all 42 preserved host test-body compilations, and `git diff --check`
 pass locally. CMS remains unavailable through the MCP transport; these changes
 have not been run on CMS.
+
+
+M209 CI follow-up: full native host workflow 39149430266 passed on commit
+`41ccf90708fb172f428ccd70cba9ca8c5ada8193`. The M208/M209 source, Regina
+REXX syntax, and fixed-record width gate passed. `cms_status` still fails at the
+MCP transport boundary (`Transport closed`). Process inspection shows the
+existing bridge and its single s3270 process are still present, with one
+established connection to 127.0.0.1:3271; I did not restart or terminate them.
+No CMS input or target validation occurred.
