@@ -274,17 +274,23 @@ CMS behavior remains unverified.
 
 M248 lets `GIT ADD -u|--update` stage missing mapped CMS files as deletions.
 Short status and name-only diff distinguish staged deletion from an unstaged
-worktree deletion. Commit-tree deletion and post-commit map acceptance are
-still being implemented. CMS behavior remains unverified.
+worktree deletion. Commit-tree deletion and map acceptance were added in M249
+and M250. CMS behavior remains unverified.
 
 M249 lets staged deletions pass `GIT COMMIT` preflight, removes their leaf
 entries from rewritten trees, and prunes newly empty subtrees. CMS workfiles
-must remain absent while committing. Post-commit worktree-map acceptance is
-still separate; CMS behavior remains unverified.
+must remain absent while committing. M250 adds post-commit worktree-map
+acceptance; CMS behavior remains unverified.
 
 M250 lets `GIT ACCEPT` verify absent staged deletions and remove those paths
 from the worktree map after commit, while advancing remaining map baselines.
 It rejects a deleted workfile that reappears before acceptance. CMS behavior
+remains unverified.
+
+M251 adds the conventional `GIT COMMIT -T seconds -Z zone -m message` entry
+point. It updates the currently checked out branch with compare-and-swap,
+verifies the ref, and accepts the worktree map; quoted multiword messages are
+supported. The CMS clock and zone must be supplied explicitly. CMS behavior
 remains unverified.
 
 ---

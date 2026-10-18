@@ -15764,3 +15764,19 @@ The first M250 Actions run (39170133153) failed because the existing M168
 guard expected the old in-place `mapbase.ai` assignment. Updated that guard to
 check the compacted `mapbase.keptcount` assignment; the exact M168 CI step now
 passes locally. A full rerun is pending.
+
+## 2026-10-18 — M251 conventional current-branch commit
+
+Plan: expose the existing compare-and-swap current-branch commit transaction
+through `GIT COMMIT`, and accept quoted multiword `-m`/`--message` text.
+
+Assumption: CMS local date/time-zone conversion is not introduced here. The
+operator supplies `-T` epoch seconds and `-Z` offset explicitly; commit
+continues to verify and update only the symbolic current branch.
+
+Progress: `GIT COMMIT` now routes through `COMMIT-CURRENT`, which creates the
+commit, compare-and-swaps the current branch, verifies the ref, and accepts the
+worktree map. GITWT treats the message option as the remaining text and removes
+one matching outer quote pair. Source-derived Regina fixtures cover routing,
+quoted multiword `-m` and `--message`; the cumulative M251 suite is running.
+Host compile and CI are pending; CMS behavior remains unverified.

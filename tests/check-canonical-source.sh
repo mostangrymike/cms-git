@@ -1703,6 +1703,65 @@ echo 'M245 SOURCE-DERIVED GIT RESET FIXTURES PASS 6'
 exit $?
 fi
 
+if [ "${1:-}" = "M251" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M250
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GIT.EXEC" "$root/src/GITWT.EXEC" "$tmp/router.rexx" "$tmp/parser.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+git=Path(sys.argv[1]).read_text()
+start=git.index("if command = 'COMMIT' then do")
+end=git.index("if command = 'COMMIT-STAGED-REF' then do",start)
+route=git[start:end]
+if "'EXEC GIT COMMIT-CURRENT' rest" not in route:
+ raise SystemExit('M251 GIT COMMIT current-branch route missing')
+route=route.replace("'EXEC GIT COMMIT-CURRENT' rest",
+                    "say 'SIMULATED CURRENT' rest")
+Path(sys.argv[3]).write_text(
+ "parse arg command rest\ncommand=translate(command)\n"+route)
+wt=Path(sys.argv[2]).read_text()
+start=wt.index("if command='COMMIT' then do")
+end=wt.index("say 'GITWT COMMIT LEVEL M165'",start)
+parser=wt[start:end]
+for token in ("opt='-M' | opt='--MESSAGE'", 'wordindex(rest,ci+1)',
+              "message=substr(message,2,length(message)-2)",
+              "if stamp='' | zone='' | message='' then do"):
+ if token not in parser:
+  raise SystemExit(f'M251 commit message parser guard missing {token!r}')
+parser=parser[parser.index(" stamp=''"):]
+parser=parser.replace("say 'Usage: GIT COMMIT-STAGED -T seconds -Z zone -M message'",
+                      "say 'Usage: GIT COMMIT -T seconds -Z zone -m message'")
+Path(sys.argv[4]).write_text(
+ "parse arg rest\ncommand='COMMIT'\n"+parser+
+ "say 'STAMP' stamp 'ZONE' zone 'MESSAGE' message\nexit 0\n")
+print('M251 COMMIT ROUTE/MESSAGE SOURCE GUARDS PASS 5')
+PY
+rexx -c "$tmp/router.rexx" /dev/null
+rexx -c "$tmp/parser.rexx" /dev/null
+if [ "$(rexx "$tmp/router.rexx" COMMIT -T 1700 -Z +0000 -m test)" != \
+     'SIMULATED CURRENT -T 1700 -Z +0000 -m test' ]; then
+ echo 'M251 GIT COMMIT route fixture failed' >&2
+ exit 1
+fi
+expected='STAMP 1700 ZONE +0000 MESSAGE message with spaces'
+if [ "$(rexx "$tmp/parser.rexx" '-T 1700 -Z +0000 -m "message with spaces"')" != "$expected" ]; then
+ echo 'M251 quoted multiword commit message fixture failed' >&2
+ exit 1
+fi
+if [ "$(rexx "$tmp/parser.rexx" '-T 1700 -Z +0000 --message "message with spaces"')" != "$expected" ]; then
+ echo 'M251 long message option fixture failed' >&2
+ exit 1
+fi
+echo 'M251 SOURCE-DERIVED CURRENT COMMIT FIXTURES PASS 3'
+)
+exit $?
+fi
+
 if [ "${1:-}" = "M250" ]; then
 (
 set -eu

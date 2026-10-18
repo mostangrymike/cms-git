@@ -849,6 +849,10 @@ if command = 'COMMIT-STAGED' then do
    'EXEC GITWT COMMIT' rest
    exit rc
 end
+if command = 'COMMIT' then do
+   'EXEC GIT COMMIT-CURRENT' rest
+   exit rc
+end
 if command = 'COMMIT-STAGED-REF' then do
    parse var rest cref expected copts
    cref=strip(cref)

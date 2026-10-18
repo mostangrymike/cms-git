@@ -609,15 +609,28 @@ if command='COMMIT' then do
  message=''
  ci=1
  do while ci<=words(rest)
+  opt=translate(word(rest,ci))
+  if opt='-M' | opt='--MESSAGE' then do
+   if ci=words(rest) then do
+    say 'Usage: GIT COMMIT -T seconds -Z zone -m message'
+    exit 4
+   end
+   msgstart=wordindex(rest,ci+1)
+   message=strip(substr(rest,msgstart))
+   if left(message,1)='"' & right(message,1)='"' then,
+    message=substr(message,2,length(message)-2)
+   else if left(message,1)="'" & right(message,1)="'" then,
+    message=substr(message,2,length(message)-2)
+   ci=words(rest)+1
+   iterate
+  end
   if ci=words(rest) then do
    say 'Usage: GIT COMMIT-STAGED -T seconds -Z zone -M message'
    exit 4
   end
-  opt=translate(word(rest,ci))
   val=word(rest,ci+1)
   if opt='-T' then stamp=val
   else if opt='-Z' then zone=val
-  else if opt='-M' then message=val
   else do
    say 'GITWT: unknown COMMIT-STAGED option' word(rest,ci)
    exit 4
