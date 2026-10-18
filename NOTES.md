@@ -15398,3 +15398,23 @@ fixtures and eight static source guards pass, together with all earlier
 branch/tag tests, the 42 preserved host-source compilations, syntax/80-column
 checks, and `git diff --check`. CMS behavior remains unverified; M232 commit and
 Actions are pending.
+
+M232 CI follow-up: full native host workflow 39155047906 passed on commit
+`39f49c069624`. CMS behavior remains unverified.
+
+## 2026-10-18 — M233 tag deletion without an explicit OID
+
+Plan: allow `GIT TAG -d|--delete name` to resolve the exact tag ref, then use
+the observed object ID as the existing compare-and-swap expectation. Keep the
+explicit expected-OID form available and test missing refs, unsafe names,
+malformed OIDs, excess arguments, and successful deletion routing.
+
+Assumption: lightweight tags point directly to commits, as required by the
+current native REF2 tag implementation. Deletion still depends on the updater's
+compare-and-swap check; resolution alone is not treated as atomic.
+
+Progress: the delete path now resolves `refs/tags/<name>` when the caller omits
+an OID and passes that value to GIT UPDATE-REF. Six exact-source Regina REXX
+fixtures and the full preceding M208–M232 suite pass. The 42-source historical
+compile inventory, 80-column check, and `git diff --check` also pass. CMS
+behavior remains unverified; M233 commit and CI are pending.

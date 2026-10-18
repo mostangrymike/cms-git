@@ -121,10 +121,10 @@ required={
      'if oldoid=zeros then do',
      "EXEC GIT UPDATE-REF' ref newoid oldoid",
      "verb='-D' | verb='--DELETE'",
-     "say 'Usage: GIT TAG -d|--delete name expected-commit-oid'",
+     "say '       GIT TAG -d|--delete name [expected-commit-oid]'",
      "ref='refs/tags/'||action", "ref='refs/tags/'||tagname",
      "EXEC GIT UPDATE-REF' ref oid zeros",
-     "EXEC GIT UPDATE-REF' ref zeros oid")),
+     "EXEC GIT UPDATE-REF' ref zeros expectedoid")),
  'GITUPD.EXEC': (u, ("left(vr,11)='refs/heads/'",
      "left(vr,10)='refs/tags/'", "EXEC GIT VERIFY-OBJECT' newoid",
      'current\\=oldoid', 'call restore')),
@@ -849,6 +849,80 @@ if block.index("'STATE GITREF2 REPO A'") > block.index("command='SWITCH'"):
 print('M232 LEGACY CHECKOUT FALLBACK GUARDS PASS 8')
 PY
 echo 'M232 SOURCE-DERIVED LEGACY CHECKOUT FALLBACK PASS 1'
+)
+exit $?
+fi
+
+# Resolve a tag's current OID before compare-and-swap deletion.
+if [ "${1:-}" = "M233" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M232
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GIT.EXEC" "$tmp/deletetag.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+tag=source[source.index("if command = 'TAG' then do"):
+           source.index('/* Prefer modern REF2 branches')]
+start=tag.index("if verb='-D' | verb='--DELETE' then do")
+end=tag.index("if action=''",start)
+block=tag[start:end]
+command="address command 'EXEC GIT UPDATE-REF' ref zeros expectedoid"
+if command not in block:
+ raise SystemExit('M233 tag deletion lost its CAS update')
+if block.index('call resolvestart ref') > block.index(command):
+ raise SystemExit('M233 submits deletion before resolving current tag OID')
+block=block.replace(command,
+ "rc=0\nsay 'SIMULATED UPDATE-REF' ref zeros expectedoid")
+vstart=source.index('validtag: procedure')
+vend=source.index('validbranch: procedure',vstart)
+validator=source[vstart:vend]
+fixture=(
+ 'parse arg action tagname oid extra fifth\n'
+ 'verb=translate(action)\n'
+ "zeros='0000000000000000000000000000000000000000'\n"+
+ block+
+ "resolvestart: procedure\n parse arg wanted\n"
+ " if wanted='refs/tags/v1' then return 'CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC'\n"
+ " return 'ERROR'\n"+validator)
+Path(sys.argv[2]).write_text(fixture)
+for token in ("call resolvestart ref", 'expectedoid=result',
+              "SIMULATED UPDATE-REF' ref zeros expectedoid"):
+ if token not in block:
+  raise SystemExit(f'M233 delete path missing {token!r}')
+print('M233 TAG DELETE CAS SOURCE GUARDS PASS 4')
+PY
+rexx -c "$tmp/deletetag.rexx" /dev/null
+check() {
+ expected_rc=$1
+ expected=$2
+ shift 2
+ if output=$(rexx "$tmp/deletetag.rexx" "$@"); then
+  rc=0
+ else
+  rc=$?
+ fi
+ if [ "$rc" -ne "$expected_rc" ]; then
+  echo "tag delete $*: expected RC $expected_rc, got $rc" >&2
+  exit 1
+ fi
+ if [ "$output" != "$expected" ]; then
+  echo "tag delete $*: expected '$expected', got '$output'" >&2
+  exit 1
+ fi
+}
+oid=CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+check 0 "$(printf 'SIMULATED UPDATE-REF refs/tags/v1 0000000000000000000000000000000000000000 %s\nTAG DELETED refs/tags/v1 %s' "$oid" "$oid")" -d v1
+check 0 "$(printf 'SIMULATED UPDATE-REF refs/tags/v1 0000000000000000000000000000000000000000 %s\nTAG DELETED refs/tags/v1 %s' "$oid" "$oid")" --delete v1 "$oid"
+check 8 'GIT: cannot resolve tag refs/tags/missing' -d missing
+check 4 'GIT: invalid tag name' -d 'bad|name'
+check 4 'GIT: invalid expected tag object-id' -d v1 nope
+check 4 'Usage: GIT TAG -d|--delete name [expected-commit-oid]' -d v1 "$oid" extra
+echo 'M233 SOURCE-DERIVED TAG DELETE FIXTURES PASS 6'
 )
 exit $?
 fi

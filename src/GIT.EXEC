@@ -141,8 +141,8 @@ if command = 'TAG' then do
       exit 0
    end
    if verb='-D' | verb='--DELETE' then do
-      if tagname='' | oid='' | extra\='' | fifth\='' then do
-         say 'Usage: GIT TAG -d|--delete name expected-commit-oid'
+      if tagname='' | extra\='' | fifth\='' then do
+         say 'Usage: GIT TAG -d|--delete name [expected-commit-oid]'
          exit 4
       end
       call validtag tagname
@@ -150,21 +150,32 @@ if command = 'TAG' then do
          say 'GIT: invalid tag name'
          exit 4
       end
-      oid=translate(oid)
-      if length(oid)\=40 | verify(oid,'0123456789ABCDEF')\=0 then do
-         say 'GIT: invalid expected tag object-id'
-         exit 4
+      ref='refs/tags/'||tagname
+      if oid='' then do
+         call resolvestart ref
+         expectedoid=result
+         if expectedoid='ERROR' | expectedoid='HEAD' then do
+            say 'GIT: cannot resolve tag' ref
+            exit 8
+         end
+      end
+      else do
+         expectedoid=translate(oid)
+         if length(expectedoid)\=40 |,
+            verify(expectedoid,'0123456789ABCDEF')\=0 then do
+            say 'GIT: invalid expected tag object-id'
+            exit 4
+         end
       end
       zeros='0000000000000000000000000000000000000000'
-      ref='refs/tags/'||tagname
-      address command 'EXEC GIT UPDATE-REF' ref zeros oid
+      address command 'EXEC GIT UPDATE-REF' ref zeros expectedoid
       if rc\=0 then exit rc
-      say 'TAG DELETED' ref oid
+      say 'TAG DELETED' ref expectedoid
       exit 0
    end
    if action='' | oid\='' | extra\='' | fifth\='' then do
       say 'Usage: GIT TAG name [start-point]'
-      say '       GIT TAG -d|--delete name expected-commit-oid'
+      say '       GIT TAG -d|--delete name [expected-commit-oid]'
       exit 4
    end
    call validtag action

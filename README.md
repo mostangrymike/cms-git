@@ -203,6 +203,11 @@ modern switch path, and the absent-store result preserves the legacy path.
 Source-derived tests also require `checkout -b` to reject the legacy store.
 CMS behavior remains unverified.
 
+M233 allows `GIT TAG -d|--delete name` without an explicit OID. It resolves the
+exact tag ref and passes the observed OID to the existing compare-and-swap
+updater; supplying an expected OID remains supported. The delete still fails
+if the ref is absent, malformed, or stale. CMS behavior remains unverified.
+
 ---
 
 ## M206 full 32-object CMS PASS and A-disk audit (October 13, 2026)
