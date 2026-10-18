@@ -733,6 +733,8 @@ for forbidden in ('DISKW', 'ERASE', 'WRITE-WORKFILE', 'UPDATE-REF'):
 fixture=(
     "parse arg mode\ncommand='CHECK-SWITCH'\n"
     "rest='refs/heads/main refs/heads/topic'\n"
+    "if mode='oidtarget' then,\n"
+    " rest='refs/heads/main CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC'\n"
     +block+
     "exit 99\n"
     "validref:\n parse arg vr\n"
@@ -801,6 +803,8 @@ invalid=$(rexx "$tmp/parsepath.rexx" bad)
 [ "$invalid" = 'ERROR' ]
 safe=$(rexx "$tmp/checkswitch.rexx" clean)
 echo "$safe" | grep -q 'SWITCH PREFLIGHT SAFE MAPPED 1'
+oidtarget=$(rexx "$tmp/checkswitch.rexx" oidtarget)
+echo "$oidtarget" | grep -q 'SWITCH PREFLIGHT SAFE MAPPED 1'
 unmapped=$(rexx "$tmp/checkswitch.rexx" unmapped)
 echo "$unmapped" | grep -q 'SWITCH PREFLIGHT SAFE UNMAPPED 0'
 for mode in staged dirty missingfile currentstale changed missingpath stale; do
@@ -819,7 +823,129 @@ grep -q 'worktree base is stale against current branch' "$tmp/currentstale"
 grep -q 'destination changes mapped path' "$tmp/changed"
 grep -q 'destination changes mapped path' "$tmp/missingpath"
 grep -q 'symbolic HEAD changed during switch preflight' "$tmp/stale"
-echo 'M219 SOURCE-DERIVED WORKTREE SWITCH PREFLIGHT/PATH FIXTURES PASS 11'
+echo 'M219 SOURCE-DERIVED WORKTREE SWITCH PREFLIGHT/PATH FIXTURES PASS 12'
+)
+exit $?
+fi
+
+# Test atomic create-and-switch behavior through the exact updater branch.
+if [ "${1:-}" = "M220" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M219
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GIT.EXEC" "$root/src/GITUPD.EXEC" \
+ "$root/src/GITWT.EXEC" "$tmp/createhead.rexx" <<'PY'
+from pathlib import Path
+import sys
+git=Path(sys.argv[1]).read_text()
+upd=Path(sys.argv[2]).read_text()
+wt=Path(sys.argv[3]).read_text()
+out=Path(sys.argv[4])
+switch_at=git.index("if command = 'SWITCH' then do")
+route=git[switch_at:git.index("/* M5D integration boundary",switch_at)]
+for token in ("switchmode='-C' | switchmode='--CREATE'",
+              "Usage: GIT SWITCH -c|--create name [commit-oid]",
+              "if startpoint='' then startpoint='HEAD'",
+              "EXEC GITUPD CREATE-HEAD refs/heads/"):
+    if token not in route:
+        raise SystemExit(f'M220 switch router missing {token}')
+assert route.index("GITVREF HEAD") < route.index("GITUPD CREATE-HEAD")
+ustart=upd.index("if ref='CREATE-HEAD' then do")
+uend=upd.index("/* HEAD changes require",ustart)
+block=upd[ustart:uend]
+for token in ("branch already exists", "call requirecommit targetoid",
+              "call checkswitch oldhead,targetoid", "call writerefs",
+              "branch creation readback mismatch", "call restore",
+              "HEAD CREATED"):
+    if token not in block:
+        raise SystemExit(f'M220 updater missing atomic guard {token}')
+if block.index('call checkswitch oldhead,targetoid') > block.index('call writerefs'):
+    raise SystemExit('M220 writes REF2 before destination preflight')
+helper=upd[upd.index('checkswitch:\n'):upd.index('validref:\n',upd.index('checkswitch:\n'))]
+if 'parse arg csold,csnew' not in helper:
+    raise SystemExit('M220 preflight helper may overwrite caller state')
+if "length(targetref)=40" not in wt:
+    raise SystemExit('GITWT does not accept a pinned destination commit')
+fixture=(
+    "parse arg mode\nreadcalls=0\nwritten=0\n"
+    "ref='CREATE-HEAD'\nnewoid='refs/heads/new/topic'\n"
+    "oldoid='refs/heads/main'\nextra='HEAD'\n"
+    "if mode='sameoid' then extra='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+    "if mode='different' | mode='unsafe' | mode='race' then,\n"
+    " extra='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
+    "if mode='invalid' then extra='short'\n"
+    +block+
+    "exit 99\n"
+    "validref:\n parse arg vr\n"
+    " if left(vr,11)='refs/heads/' then return 'OK'\n"
+    " return 'ERROR'\n"
+    "readrefs:\n"
+    " readcalls=readcalls+1\n"
+    " headref='refs/heads/main'\n"
+    " if mode='stale' then headref='refs/heads/other'\n"
+    " if mode='race' & readcalls>1 then headref='refs/heads/other'\n"
+    " refcount=1\nrefname.1='refs/heads/main'\n"
+    " refoid.1='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+    " if mode='existing' then do\n"
+    "  refcount=2\nrefname.2='refs/heads/new/topic'\n"
+    "  refoid.2=refoid.1\nend\n"
+    " if written=1 then do\n"
+    "  refcount=2\nrefname.2='refs/heads/new/topic'\n"
+    "  refoid.2=storedtarget\nheadref=storedhead\nend\n"
+    " rr.0=3\nrr.1='REF2 1'\nrr.2='HEAD '||headref\n"
+    " rr.3='REF refs/heads/main '||refoid.1\n"
+    " if refcount=2 then do\nrr.0=4\n"
+    "  rr.4='REF refs/heads/new/topic '||refoid.2\nend\n"
+    " return 'OK'\n"
+    "requirecommit:\n return 'OK'\n"
+    "checkswitch:\n say 'SIMULATED SWITCH PREFLIGHT'\n"
+    " if mode='unsafe' then return 'ERROR'\nreturn 'OK'\n"
+    "writerefs:\n"
+    " if mode='writefail' then return 'ERROR'\n"
+    " storedhead=headref\nstoredtarget=refoid.refcount\nwritten=1\n"
+    " say 'SIMULATED WRITE'\nreturn 'OK'\n"
+    "restore:\n written=0\nstoredhead='refs/heads/main'\n"
+    " say 'SIMULATED RESTORE'\nreturn 'OK'\n"
+)
+out.write_text(fixture)
+PY
+rexx -c "$tmp/createhead.rexx" /dev/null
+created=$(rexx "$tmp/createhead.rexx" head)
+echo "$created" | grep -q 'HEAD CREATED refs/heads/new/topic AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+if echo "$created" | grep -q 'SIMULATED SWITCH PREFLIGHT'; then
+ echo 'same-tip create unexpectedly required a worktree transition' >&2
+ exit 1
+fi
+sameoid=$(rexx "$tmp/createhead.rexx" sameoid)
+echo "$sameoid" | grep -q 'HEAD CREATED refs/heads/new/topic AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+different=$(rexx "$tmp/createhead.rexx" different)
+echo "$different" | grep -q 'HEAD CREATED refs/heads/new/topic BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'
+echo "$different" | grep -q 'SIMULATED SWITCH PREFLIGHT'
+for mode in unsafe existing stale race writefail invalid; do
+ if rexx "$tmp/createhead.rexx" "$mode" >"$tmp/$mode"; then
+  echo "unsafe create-and-switch unexpectedly succeeded: $mode" >&2
+  exit 1
+ else
+  rc=$?
+  case "$mode" in invalid) [ "$rc" -eq 4 ] ;; *) [ "$rc" -eq 8 ] ;; esac
+ fi
+done
+grep -q 'destination worktree preflight failed' "$tmp/unsafe"
+grep -q 'branch already exists' "$tmp/existing"
+grep -q 'stale symbolic HEAD for branch creation' "$tmp/stale"
+grep -q 'symbolic HEAD changed during branch creation' "$tmp/race"
+grep -q 'SIMULATED RESTORE' "$tmp/writefail"
+grep -q 'invalid branch start commit OID' "$tmp/invalid"
+for mode in unsafe existing stale race writefail; do
+ if grep -q 'SIMULATED WRITE' "$tmp/$mode"; then
+  echo "rejected create-and-switch wrote REF2: $mode" >&2
+  exit 1
+ fi
+done
+echo 'M220 SOURCE-DERIVED CREATE-AND-SWITCH FIXTURES PASS 9'
 )
 exit $?
 fi

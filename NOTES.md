@@ -15081,7 +15081,7 @@ cleanliness, mapped file presence and hash, the current commit's blob for each
 mapped path, and the destination commit's blob. It performs no writes. GITUPD
 calls that preflight for different tips, rereads REF2, and verifies HEAD and
 both branch OIDs still match before its snapshot/rewrite. The source-derived
-Regina fixtures cover nine preflight cases plus valid/malformed path-output
+Regina fixtures cover ten preflight cases plus valid/malformed path-output
 parsing. M219 and its M218-through-M208 dependency checks, the 42 preserved
 host-source compilations, canonical/workflow guards, source-width checks, and
 `git diff --check` pass locally. CMS remains unverified; commit and Actions are
@@ -15091,3 +15091,28 @@ M219 CI follow-up: full native host workflow 39152398821 passed on commit
 `c4db6b0f3ed7a0cd760280a68a877c8facb9a243`. The mapped-worktree preflight and
 path-output parser fixtures passed with the existing host regressions. CMS
 branch switching remains unverified.
+
+## 2026-10-18 — M220 create-and-switch branch
+
+Plan: add `GIT SWITCH -c|--create <name> [full-commit-oid]`. Default the start
+point to the current HEAD; when a different commit is supplied, reuse the
+read-only mapped-worktree preflight. Add the new ref and symbolic HEAD in one
+REF2 rewrite with snapshot restoration and post-write verification. Reject an
+existing branch, malformed start OID, stale HEAD, or unsafe mapped worktree.
+Test the exact switch router/updater decisions and preserve all previous
+milestone checks.
+
+Assumption: M220 accepts only a full commit OID as an explicit start point;
+branch-name and tag-name start-point resolution remains a later enhancement.
+
+Progress: `GIT SWITCH -c|--create` now defaults to HEAD or accepts one full
+commit OID. GITUPD rejects an existing destination, validates both commits and
+the expected HEAD, calls M219's read-only worktree preflight for a different
+tip, rereads refs, then adds the branch and moves HEAD in one REF2 rewrite. It
+verifies the new HEAD/ref and original branch tip, restoring the previous
+snapshot on write/readback failure. Nine source-derived fixtures cover default
+and explicit start points, different-tip success, unsafe preflight, existing
+branch, stale HEAD/race, invalid OID, and write rollback. M220 through M208
+checks, REXX/80-column checks, all 42 preserved host-source compilations,
+canonical/workflow guards, and `git diff --check` pass locally. CMS is
+unverified; commit and Actions are pending.

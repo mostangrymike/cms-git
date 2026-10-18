@@ -125,6 +125,13 @@ destination commits that change a mapped path. Unmapped CMS files are preserved;
 the command does not materialize paths that are absent from the current map.
 Host REXX checks pass; CMS behavior remains unverified.
 
+M220 adds `GIT SWITCH -c|--create <name> [<full-commit-oid>]`. Without an OID,
+the new branch starts at current HEAD; with an OID, it starts at that verified
+commit and uses the M219 worktree preflight when the tip differs. Branch
+creation and symbolic HEAD movement share one REF2 rewrite with rollback and
+readback checks. Branch or worktree conflicts leave REF2 unchanged. Host REXX
+checks pass; CMS behavior remains unverified.
+
 ---
 
 ## M206 full 32-object CMS PASS and A-disk audit (October 13, 2026)

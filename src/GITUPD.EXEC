@@ -2,6 +2,112 @@
 address cms
 parse arg ref newoid oldoid extra
 
+/* Atomically create a branch ref and point symbolic HEAD at it. */
+if ref='CREATE-HEAD' then do
+ if newoid='' | oldoid='' | extra='' then do
+  say 'Usage: GITUPD CREATE-HEAD refs/heads/name expected-head start-oid|HEAD'
+  exit 4
+ end
+ newhead=newoid
+ expectedhead=oldoid
+ startpoint=translate(extra)
+ call validref newhead
+ if result\='OK' | left(newhead,11)\='refs/heads/' then exit 4
+ call validref expectedhead
+ if result\='OK' | left(expectedhead,11)\='refs/heads/' then exit 4
+ call readrefs
+ if result\='OK' then exit 8
+ if headref\=expectedhead then do
+  say 'GITUPD: stale symbolic HEAD for branch creation'
+  exit 8
+ end
+ oldhead=headref
+ currentoid=''
+ existing=0
+ do i=1 to refcount
+  if refname.i=oldhead then currentoid=refoid.i
+  if refname.i=newhead then existing=existing+1
+ end
+ if currentoid='' then do
+  say 'GITUPD: current branch is unresolved'
+  exit 8
+ end
+ if existing\=0 then do
+  say 'GITUPD: branch already exists' newhead
+  exit 8
+ end
+ if startpoint='HEAD' then targetoid=currentoid
+ else do
+  if length(startpoint)\=40 |,
+     verify(startpoint,'0123456789ABCDEF')\=0 then do
+   say 'GITUPD: invalid branch start commit OID'
+   exit 4
+  end
+  targetoid=startpoint
+ end
+ call requirecommit targetoid
+ if result\='OK' then exit 8
+ if targetoid\=currentoid then do
+  call requirecommit currentoid
+  if result\='OK' then exit 8
+  call checkswitch oldhead,targetoid
+  if result\='OK' then do
+   say 'GITUPD: destination worktree preflight failed'
+   exit 8
+  end
+ end
+ call readrefs
+ if result\='OK' | headref\=oldhead then do
+  say 'GITUPD: symbolic HEAD changed during branch creation'
+  exit 8
+ end
+ checkcurrent=''
+ existing=0
+ do i=1 to refcount
+  if refname.i=oldhead then checkcurrent=refoid.i
+  if refname.i=newhead then existing=existing+1
+ end
+ if checkcurrent\=currentoid | existing\=0 then do
+  say 'GITUPD: refs changed during branch creation'
+  exit 8
+ end
+ drop bak.
+ bak.0=rr.0
+ do bi=1 to rr.0
+  bak.bi=rr.bi
+ end
+ refcount=refcount+1
+ refname.refcount=newhead
+ refoid.refcount=targetoid
+ headref=newhead
+ call writerefs
+ if result\='OK' then do
+  call restore
+  exit 8
+ end
+ call readrefs
+ if result\='OK' then do
+  say 'GITUPD: branch creation verification failed'
+  call restore
+  exit 8
+ end
+ verifyhead=0
+ verifynew=0
+ verifycurrent=''
+ do i=1 to refcount
+  if refname.i=newhead & refoid.i=targetoid then verifynew=verifynew+1
+  if refname.i=oldhead then verifycurrent=refoid.i
+ end
+ if headref\=newhead | verifynew\=1 |,
+    verifycurrent\=currentoid then do
+  say 'GITUPD: branch creation readback mismatch'
+  call restore
+  exit 8
+ end
+ say 'HEAD CREATED' newhead targetoid
+ exit 0
+end
+
 /* HEAD changes require a verified, unchanged mapped worktree. */
 if ref='HEAD' then do
  if newoid='' | oldoid='' | extra\='' then do
@@ -217,8 +323,8 @@ end
 exit 0
 
 checkswitch:
- parse arg oldhead,newhead
- address command 'EXEC GITWT CHECK-SWITCH' oldhead newhead
+ parse arg csold,csnew
+ address command 'EXEC GITWT CHECK-SWITCH' csold csnew
  if rc\=0 then return 'ERROR'
  return 'OK'
 

@@ -192,10 +192,30 @@ end
 
 /* M218: change symbolic HEAD only when the branch tips are identical. */
 if command = 'SWITCH' then do
-   parse var rest branchname extra
-   if branchname='' | extra\='' then do
-      say 'Usage: GIT SWITCH branch'
-      exit 4
+   parse var rest switcharg brancharg startpoint extra
+   switchmode=translate(switcharg)
+   if switchmode='-C' | switchmode='--CREATE' then do
+      if brancharg='' | extra\='' then do
+         say 'Usage: GIT SWITCH -c|--create name [commit-oid]'
+         exit 4
+      end
+      if startpoint='' then startpoint='HEAD'
+      else do
+         startpoint=translate(startpoint)
+         if length(startpoint)\=40 |,
+            verify(startpoint,'0123456789ABCDEF')\=0 then do
+            say 'GIT: create start point must be a full commit OID'
+            exit 4
+         end
+      end
+   end
+   else do
+      branchname=switcharg
+      if branchname='' | brancharg\='' |,
+         startpoint\='' | extra\='' then do
+         say 'Usage: GIT SWITCH branch'
+         exit 4
+      end
    end
    drop currenthead.
    currenthead.0=0
@@ -210,7 +230,13 @@ if command = 'SWITCH' then do
       say 'GIT: invalid current symbolic HEAD'
       exit 8
    end
-   cmd='EXEC GITUPD HEAD refs/heads/'||branchname||' '||headref
+   if switchmode='-C' | switchmode='--CREATE' then do
+      cmd='EXEC GITUPD CREATE-HEAD refs/heads/'||brancharg||' '||,
+          headref||' '||startpoint
+   end
+   else do
+      cmd='EXEC GITUPD HEAD refs/heads/'||branchname||' '||headref
+   end
    address command cmd
    exit rc
 end

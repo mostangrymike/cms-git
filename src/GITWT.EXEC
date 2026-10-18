@@ -170,8 +170,15 @@ if command='CHECK-SWITCH' then do
  end
  call validref expectedref
  if result\='OK' | left(expectedref,11)\='refs/heads/' then exit 4
- call validref targetref
- if result\='OK' | left(targetref,11)\='refs/heads/' then exit 4
+ targetoid=''
+ if length(targetref)=40 &,
+    verify(translate(targetref),'0123456789ABCDEF')=0 then do
+  targetoid=translate(targetref)
+ end
+ else do
+  call validref targetref
+  if result\='OK' | left(targetref,11)\='refs/heads/' then exit 4
+end
  call readrefs
  if result\='OK' then do
   say 'GITWT: cannot read REF2 for switch preflight'
@@ -184,8 +191,11 @@ if command='CHECK-SWITCH' then do
  call resolve expectedref
  currentcommit=result
  if currentcommit='ERROR' then exit 8
- call resolve targetref
- targetcommit=result
+ if targetoid='' then do
+  call resolve targetref
+  targetcommit=result
+ end
+ else targetcommit=targetoid
  if targetcommit='ERROR' then exit 8
  call loadmap
  if result\='OK' then do

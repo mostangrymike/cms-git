@@ -170,6 +170,8 @@ jobs:
         run: sh tests/check-canonical-source.sh M218
       - name: Check M219 mapped worktree switch preflight
         run: sh tests/check-canonical-source.sh M219
+      - name: Check M220 create-and-switch branch flow
+        run: sh tests/check-canonical-source.sh M220
       - name: Check M190 7736-object selective seek closure
         run: python3 tests/test-m203-bounded-batch.py M190S
       - name: Compare M190 indexed seek vs M188 two-pass host
