@@ -380,13 +380,13 @@ record metadata, followed by an explicitly authorized, guarded upload design.
   app-server discovery returned all thirteen tools with tools_error=null. Fourteen
   current evidence/edit/plan artifacts were checked to contain neither local
   credential value, including native bytes decoded as EBCDIC.
-- Read the local ../CHAT_STATE.md handoff for mostangrymike/ibm-sandbox. The latest
+- Read the local ../NOTES.md handoff for mostangrymike/ibm-sandbox. The latest
   recorded checkpoint is the GITC23 thin compatibility wrapper pending final
   host CI and real CMS validation; those external gates were not reverified in
   this tooling turn. Recorded the GitHub-first project and protected G generation,
   modules/disks and rollback requirements in AGENTS.md. Adapted manual web-chat
   handoff rules for authorized direct Codex CLI editing, testing, Git and MCP use.
-  CHAT_STATE.md and production project source were not changed.
+  NOTES.md and production project source were not changed.
 
 ## Create-only upload validation
 

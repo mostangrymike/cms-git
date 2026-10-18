@@ -155,7 +155,7 @@
   zvm-upload-native-qualified-evidence.json. Production replacement/build
   boundaries are specified in PIPELINE-READINESS.md; exact target, recipe and
   operator-established writer exclusion remain required.
-- Main project: mostangrymike/ibm-sandbox. Read ../../CHAT_STATE.md and ../../README.md
+- Main project: mostangrymike/ibm-sandbox. Read ../../NOTES.md and ../../README.md
   before resuming production work. Finish z/VM tooling first. GitHub is canonical.
   Codex CLI may perform direct local edits/tests/Git work and verified MCP actions;
   older web-chat manual handoff steps may be adapted to these capabilities.

@@ -508,7 +508,7 @@ unerased. The corrected padding comparison has offline coverage; the file was
 not uploaded again because that target already exists.
 
 The main Git project is `mostangrymike/ibm-sandbox`; its handoff is
-`../../CHAT_STATE.md`. GitHub remains canonical. Codex CLI can replace manual
+`../../NOTES.md`. GitHub remains canonical. Codex CLI can replace manual
 web-chat editing/testing/transfer handoffs with direct local work and verified
 MCP operations as those capabilities become ready and authorized. Protected
 production stage/index, modules and disks remain unchanged by tooling demos.

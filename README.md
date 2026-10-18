@@ -223,7 +223,7 @@ The authenticated objects were Git index ordinals
 three commits, four blobs and one tree; 8,043 decoded
 bytes overall. All eight expected OIDs and physical
 record coordinates are preserved in
-`docs/M201-M205_HISTORY.md` and `CHAT_STATE.md`.
+`docs/M201-M205_HISTORY.md` and `NOTES.md`.
 The original protected G stage/index remained read-only.
 No final independent FILEDEF listing was supplied.
 
@@ -1655,7 +1655,7 @@ through it while G holds data.
 
 Detailed current checkpoints and instructions:
 `docs/M173_PERSISTENT_DISK_RUNBOOK.md` and
-`CHAT_STATE.md`. Historical status farther down
+`NOTES.md`. Historical status farther down
 is retained as chronological context.
 
 ---
@@ -1691,7 +1691,7 @@ Current GitHub uses an ECC Sectigo certificate chain that the old z/VM 6.3
 service level cannot currently validate/import with the installed crypto
 facilities, so it is no longer the practical blocker for GitHub transport.
 
-See `docs/NATIVE_REF.md`, `docs/CURRENT_STATE.md`, and `CHAT_STATE.md`.
+See `docs/NATIVE_REF.md`, `docs/CURRENT_STATE.md`, and `NOTES.md`.
 
 ## Native PACK checkpoint: staging and index prototypes
 
@@ -1956,7 +1956,7 @@ standard compact GITRUN and preserves independent original audits,
 all negative/recovery tests and all protected original files. Source
 record and runner static checks have passed; independent complete
 GitHub Actions and real CMS execution of M38 remain unconfirmed.
-See `docs/NATIVE_REF.md` and the last section of `CHAT_STATE.md`.
+See `docs/NATIVE_REF.md` and the last section of `NOTES.md`.
 
 ## September 28 follow-on: M38/M39 host-CI-complete
 
@@ -1987,19 +1987,19 @@ selector pointers and captured PACK remain immutable.
 
 M39 completed its actual CMS regression on September 28: two independent 1,808-object full-generation audits, verified batched nested links, fail-closed negatives, older-slot recovery, newer-slot restoration and protected originals. The complete run used 454.77 seconds CPU and 464.18 seconds elapsed.
 
-Further host-tested work adds M40 atomic terminal-directory parsing for PATH/LSDIR, M41 LSDIRV to authenticate immediate directory references, and M42 LSDIRDEPTH to authenticate referenced local subtrees to caller-selected depth 0–4. Full native C89 integration, source-guard and staging/index/REF PACK Actions suite passed: https://github.com/mostangrymike/ibm-sandbox/actions/runs/36484134487 . M40–M42 require one combined actual CMS M42 test before target-proof claims. See docs/NATIVE_REF.md and CHAT_STATE.md.
+Further host-tested work adds M40 atomic terminal-directory parsing for PATH/LSDIR, M41 LSDIRV to authenticate immediate directory references, and M42 LSDIRDEPTH to authenticate referenced local subtrees to caller-selected depth 0–4. Full native C89 integration, source-guard and staging/index/REF PACK Actions suite passed: https://github.com/mostangrymike/ibm-sandbox/actions/runs/36484134487 . M40–M42 require one combined actual CMS M42 test before target-proof claims. See docs/NATIVE_REF.md and NOTES.md.
 
 ## Latest: M42 native CMS and M43/M44 full host CI
 
 On September 28 M42's actual CMS compile and complete compact gate passed both independent original 1,808-object generation audits, authentic historical `src` directory to depth one, all recovery/fail-closed cases and protected-file checks (522.41 CPU / 533.40 elapsed seconds). M40–M42 are target-proven.
 
-M43 fixes the 256-tree-entry bound to count external Gitlinks without trying to dereference their external commits. M44 introduces iterative, bounded `GITREC CLOSURE`, which SHA-authenticates and validates all local tree/blob descendants of a commit and every parent root without the former depth-four ceiling, within a shared 1,024-tree-visit limit. Host synthetic regressions test deep missing/mis-typed objects, 256/257 external Gitlinks and exactly 1024/1025 visited-tree budget boundaries. Strict C89 complete native-stage Actions passed: https://github.com/mostangrymike/ibm-sandbox/actions/runs/36487140427 . M43/M44 are host-proven, not yet CMS-proven. The standard M44 `GITRUN.EXEC` batches one actual target gate. Consult `CHAT_STATE.md` and `docs/NATIVE_REF.md` for exact two-file upload and read-only CMS commands.
+M43 fixes the 256-tree-entry bound to count external Gitlinks without trying to dereference their external commits. M44 introduces iterative, bounded `GITREC CLOSURE`, which SHA-authenticates and validates all local tree/blob descendants of a commit and every parent root without the former depth-four ceiling, within a shared 1,024-tree-visit limit. Host synthetic regressions test deep missing/mis-typed objects, 256/257 external Gitlinks and exactly 1024/1025 visited-tree budget boundaries. Strict C89 complete native-stage Actions passed: https://github.com/mostangrymike/ibm-sandbox/actions/runs/36487140427 . M43/M44 are host-proven, not yet CMS-proven. The standard M44 `GITRUN.EXEC` batches one actual target gate. Consult `NOTES.md` and `docs/NATIVE_REF.md` for exact two-file upload and read-only CMS commands.
 
 ## M44 native proof; M45 complete directory closure
 
 Actual z/VM CMS compiled and passed the entire M44 compact regression, including independent original 1,808-object audits, complete child/parent tree closure, recovery/fail-closed cases and final protected files (638.32 CPU, 652.08 elapsed seconds). M43 and M44 are target-proven.
 
-M45 adds read-only `GITREC LSDIRFULL`, which authenticates every local tree/blob descendant beneath an explicitly requested commit-relative directory before revealing directory metadata or listing; traversal is iterative with the established 256 entries/tree and 1,024 tree visits bounds. All source and synthetic deep failure tests, including older fallback and both-invalid rejection, passed full native host CI: https://github.com/mostangrymike/ibm-sandbox/actions/runs/36489401717 . M45 has not yet run on actual CMS. The one standard M45 compact GITRUN tests the real historical `src` directory and preserves all original full-generation/protection checks. Only GITREC.C and GITRUN.EXEC need transferring; see `CHAT_STATE.md` and `docs/NATIVE_REF.md`.
+M45 adds read-only `GITREC LSDIRFULL`, which authenticates every local tree/blob descendant beneath an explicitly requested commit-relative directory before revealing directory metadata or listing; traversal is iterative with the established 256 entries/tree and 1,024 tree visits bounds. All source and synthetic deep failure tests, including older fallback and both-invalid rejection, passed full native host CI: https://github.com/mostangrymike/ibm-sandbox/actions/runs/36489401717 . M45 has not yet run on actual CMS. The one standard M45 compact GITRUN tests the real historical `src` directory and preserves all original full-generation/protection checks. Only GITREC.C and GITRUN.EXEC need transferring; see `NOTES.md` and `docs/NATIVE_REF.md`.
 
 ## Current native proof and M46 follow-on
 
