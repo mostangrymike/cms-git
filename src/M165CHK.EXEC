@@ -102,17 +102,38 @@ if crc\=0 then do
 end
 depthcount=0
 pathcount=0
+commitcount=0
+commit=''
 do ci=1 to co.0
  if word(co.ci,1)='COMMIT-STAGED' &,
     word(co.ci,2)='TREE' & word(co.ci,3)='DEPTH' then,
   depthcount=depthcount+1
  if co.ci='COMMIT-STAGED PATHS 2' then pathcount=pathcount+1
+ if word(co.ci,1)='COMMIT-STAGED' &,
+    word(co.ci,2)='COMMIT' then do
+  commitcount=commitcount+1
+  commit=translate(word(co.ci,3))
+ end
 end
-if depthcount\=1 | pathcount\=1 then do
+if depthcount\=1 | pathcount\=1 | commitcount\=1 then do
  call cleanup
- say 'M165 MULTI COMMIT TREE/PATH COUNTS FAIL' depthcount pathcount
+ say 'M165 MULTI COMMIT OUTPUT COUNTS FAIL',
+  depthcount pathcount commitcount
  exit 8
 end
+if length(commit)\=40 |,
+   verify(commit,'0123456789ABCDEF')\=0 then do
+ call cleanup
+ say 'M165 MULTI COMMIT OID INVALID'
+ exit 8
+end
+address command 'EXEC ZTMCAND1 VERIFY-OBJECT' commit
+if rc\=0 then do
+ call cleanup
+ say 'M165 MULTI COMMIT OBJECT VERIFY FAIL RC' rc
+ exit 8
+end
+say 'M165 MULTI COMMIT CANDIDATE' commit
 say 'M165 MULTI COMMIT REBUILT SHARED SUBTREE ONCE'
 
 drop ac.

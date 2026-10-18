@@ -18,6 +18,15 @@
 - The active branch is `codex/m165-multipath`; pre-existing unrelated changes and evidence remain untouched.
 - The rename/reference change is committed locally; no push was made.
 
+## 2026-10-18 continuation plan
+
+- [ ] Complete M165's retained commit OID handoff and add a CI regression guard.
+- [ ] Validate and commit that local source/test step.
+- [ ] Remove `src/zvm-tooling` from ibm-sandbox as requested; the operator says its contents now live in the standalone tooling repository.
+- [ ] Validate and commit that repository cleanup separately.
+
+Assumption: the requested destination is the standalone `cms-tooling` checkout; the explicit removal request covers tracked and untracked contents under `src/zvm-tooling`.
+
 ---
 
 # CMS/zVM Native Git Client — Chat State
