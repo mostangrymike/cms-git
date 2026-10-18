@@ -190,6 +190,31 @@ if command = 'BRANCH' then do
    exit 0
 end
 
+/* M218: change symbolic HEAD only when the branch tips are identical. */
+if command = 'SWITCH' then do
+   parse var rest branchname extra
+   if branchname='' | extra\='' then do
+      say 'Usage: GIT SWITCH branch'
+      exit 4
+   end
+   drop currenthead.
+   currenthead.0=0
+   'PIPE CMS EXEC GITVREF HEAD | STEM CURRENTHEAD.'
+   hrc=rc
+   if hrc\=0 | currenthead.0\=1 then do
+      say 'GIT: cannot resolve current symbolic HEAD'
+      exit 8
+   end
+   headref=strip(currenthead.1)
+   if left(headref,11)\='refs/heads/' then do
+      say 'GIT: invalid current symbolic HEAD'
+      exit 8
+   end
+   cmd='EXEC GITUPD HEAD refs/heads/'||branchname||' '||headref
+   address command cmd
+   exit rc
+end
+
 /* M5D integration boundary.  Keep the target-proven M4 object core below
  * unchanged while routing remaining legacy ref commands through M5A/M5B/M5C. */
 if command = 'SHOW-REF' |,

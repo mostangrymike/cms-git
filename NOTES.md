@@ -15032,3 +15032,27 @@ M217 CI follow-up: full native host workflow 39151566288 passed on commit
 REF2/legacy dispatch guards, REXX syntax and existing regression suite passed.
 Branch create/delete remain host-validated only; CMS target behavior is
 unverified.
+
+## 2026-10-18 — M218 guarded REF2 branch switching
+
+Plan: add `GIT SWITCH <branch>` to the modern REF2 path. Expose the current
+symbolic HEAD through GITVREF, then have GITUPD validate both branch refs and
+their commit objects before changing HEAD. Refuse different-tip switches until
+the client can perform a complete guarded CMS worktree transition. Add exact
+source-derived REXX fixtures for same-tip success, missing branch rejection,
+and different-tip rejection; run the full host workflow and record its result.
+
+Assumption: branches at the same verified commit have identical Git tree
+content, so changing the symbolic name preserves tracked workfile/index state.
+This milestone does not change CMS workfiles and does not claim support for
+switching across different commits.
+
+Progress: GITVREF now reports the validated symbolic HEAD. `GIT SWITCH` passes
+the requested branch and expected current HEAD to GITUPD. The updater rejects
+missing branches, stale HEAD, and differing commit OIDs; it verifies the shared
+commit, snapshots REF2, rewrites HEAD, reads it back, and restores the snapshot
+if write or readback fails. Source-derived Regina fixtures cover successful
+switch, missing target, different-tip refusal, and write-failure restoration.
+M218/M217/M216/M215/M213/M210 checks, REXX syntax and 80-column checks, all 42
+preserved host-source compilations, canonical guards, and `git diff --check`
+pass locally. CMS remains unverified; commit and Actions are pending.

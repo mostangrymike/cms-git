@@ -111,6 +111,13 @@ current/noncurrent branches, creates a branch from an explicit commit OID, and
 deletes with an expected-old-OID CAS; deletion of the current branch is refused
 by the updater. Host REXX checks pass; CMS behavior remains unverified.
 
+M218 adds `GIT SWITCH <branch>` for modern REF2 branches. It verifies the
+symbolic HEAD and destination branch, and changes HEAD only when both branches
+resolve to the same verified commit. Switching between different tips is
+refused until the client can update mapped CMS workfiles and stage state as one
+guarded worktree transition. Host REXX checks pass; CMS behavior remains
+unverified.
+
 ---
 
 ## M206 full 32-object CMS PASS and A-disk audit (October 13, 2026)

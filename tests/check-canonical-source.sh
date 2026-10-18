@@ -546,6 +546,127 @@ echo 'M217 SOURCE-DERIVED REF2 BRANCH LIST FIXTURE PASS 1'
 exit $?
 fi
 
+# Exercise guarded REF2 branch switching and its exact updater decision path.
+if [ "${1:-}" = "M218" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M217
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GIT.EXEC" "$root/src/GITUPD.EXEC" \
+ "$root/src/GITVREF.EXEC" "$tmp" <<'PY'
+from pathlib import Path
+import sys
+git=Path(sys.argv[1]).read_text()
+upd=Path(sys.argv[2]).read_text()
+refs=Path(sys.argv[3]).read_text()
+tmp=Path(sys.argv[4])
+for token in ("if command = 'SWITCH' then do",
+              "PIPE CMS EXEC GITVREF HEAD | STEM CURRENTHEAD.",
+              "EXEC GITUPD HEAD refs/heads/",
+              "if ref='HEAD' then do",
+              "if oldoid\\=newoid then do",
+              "switch requires a worktree transition",
+              "HEAD switch verification failed",
+              "if command='HEAD' then do",
+              "say headref"):
+    source=git+upd+refs
+    if token not in source:
+        raise SystemExit(f'M218 source missing guard: {token}')
+switch=git[git.index("if command = 'SWITCH' then do"):]
+assert switch.index("PIPE CMS EXEC GITVREF HEAD") < switch.index("EXEC GITUPD HEAD")
+assert "headref=strip(currenthead.1)" in switch
+
+vstart=refs.index("if command='HEAD' then do")
+vend=refs.index("if command='BRANCHES' then do",vstart)
+vblock=refs[vstart:vend]
+head_test=(
+    "parse arg command spec depth extra\n"
+    "command='HEAD'\nspec=''\ndepth=''\nextra=''\n"
+    +vblock+
+    "exit 99\nreadrefs:\n headref='refs/heads/topic'\n"
+    " return 'OK'\n"
+)
+(tmp/'head.rexx').write_text(head_test)
+
+ustart=upd.index("if ref='HEAD' then do")
+uend=upd.index("zeros='0000000000000000000000000000000000000000'",ustart)
+ublock=upd[ustart:uend]
+fixture=(
+    "parse arg mode\nref='HEAD'\nnewheadarg='refs/heads/topic'\n"
+    "newoid=newheadarg\noldoid='refs/heads/main'\nextra=''\n"
+    +ublock+
+    "exit 99\n"
+    "validref:\n parse arg vr\n"
+    " if left(vr,11)='refs/heads/' then return 'OK'\n"
+    " return 'ERROR'\n"
+    "readrefs:\n"
+    " if written=1 then headref=storedhead\n"
+    " else headref='refs/heads/main'\n"
+    " refcount=2\nrefname.1='refs/heads/main'\n"
+    " refname.2='refs/heads/topic'\n"
+    " refoid.1='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+    " refoid.2=refoid.1\n"
+    " if mode='different' then,\n"
+    "  refoid.2='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
+    " if mode='missing' then refcount=1\n"
+    " rr.0=4\nrr.1='REF2 1'\nrr.2='HEAD '||headref\n"
+    " rr.3='REF refs/heads/main '||refoid.1\n"
+    " rr.4='REF refs/heads/topic '||refoid.2\n"
+    " return 'OK'\n"
+    "requirecommit:\n return 'OK'\n"
+    "writerefs:\n"
+    " if mode='writefail' then return 'ERROR'\n"
+    " storedhead=headref\nwritten=1\nsay 'SIMULATED WRITE'\nreturn 'OK'\n"
+    "restore:\n storedhead='refs/heads/main'\nwritten=0\n"
+    " say 'SIMULATED RESTORE'\nreturn 'OK'\n"
+)
+(tmp/'switch.rexx').write_text(fixture)
+PY
+rexx -c "$tmp/head.rexx" /dev/null
+head=$(rexx "$tmp/head.rexx")
+[ "$head" = 'refs/heads/topic' ]
+rexx -c "$tmp/switch.rexx" /dev/null
+ok=$(rexx "$tmp/switch.rexx" same)
+[ "$?" -eq 0 ]
+echo "$ok" | grep -q 'HEAD UPDATED refs/heads/main refs/heads/topic'
+echo "$ok" | grep -q 'SIMULATED WRITE'
+same=$(rexx "$tmp/switch.rexx" same)
+echo "$same" | grep -q 'HEAD UPDATED'
+if rexx "$tmp/switch.rexx" different >"$tmp/different"; then
+ echo 'different-tip switch unexpectedly succeeded' >&2
+ exit 1
+else
+ rc=$?
+ [ "$rc" -eq 8 ]
+fi
+grep -q 'switch requires a worktree transition' "$tmp/different"
+if rexx "$tmp/switch.rexx" missing >"$tmp/missing"; then
+ echo 'missing branch switch unexpectedly succeeded' >&2
+ exit 1
+else
+ rc=$?
+ [ "$rc" -eq 8 ]
+fi
+grep -q 'switch branch is missing' "$tmp/missing"
+if rexx "$tmp/switch.rexx" writefail >"$tmp/writefail"; then
+ echo 'failed HEAD write unexpectedly succeeded' >&2
+ exit 1
+else
+ rc=$?
+ [ "$rc" -eq 8 ]
+fi
+grep -q 'SIMULATED RESTORE' "$tmp/writefail"
+if grep -q 'SIMULATED WRITE' "$tmp/different" "$tmp/missing" "$tmp/writefail"; then
+ echo 'rejected HEAD switch attempted a write' >&2
+ exit 1
+fi
+echo 'M218 SOURCE-DERIVED REF2 SWITCH FIXTURES PASS 5'
+)
+exit $?
+fi
+
 # Independent native C89 staging integration test retained verbatim.
 if [ "${1:-}" = "NATIVE" ]; then
 (

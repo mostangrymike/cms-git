@@ -2,6 +2,68 @@
 address cms
 parse arg ref newoid oldoid extra
 
+/* HEAD changes are limited to branches with the same verified commit. */
+if ref='HEAD' then do
+ if newoid='' | oldoid='' | extra\='' then do
+  say 'Usage: GITUPD HEAD refs/heads/name expected-head-ref'
+  exit 4
+ end
+ newhead=newoid
+ expectedhead=oldoid
+ call validref newhead
+ if result\='OK' | left(newhead,11)\='refs/heads/' then exit 4
+ call validref expectedhead
+ if result\='OK' | left(expectedhead,11)\='refs/heads/' then exit 4
+ call readrefs
+ if result\='OK' then exit 8
+ if headref\=expectedhead then do
+  say 'GITUPD: stale symbolic HEAD'
+  say 'EXPECTED' expectedhead
+  say 'ACTUAL' headref
+  exit 8
+ end
+ oldhead=headref
+ oldoid=''
+ newoid=''
+ do i=1 to refcount
+  if refname.i=oldhead then oldoid=refoid.i
+  if refname.i=newhead then newoid=refoid.i
+ end
+ if oldoid='' | newoid='' then do
+  say 'GITUPD: switch branch is missing'
+  exit 8
+ end
+ if oldoid\=newoid then do
+  say 'GITUPD: switch requires a worktree transition'
+  exit 8
+ end
+ call requirecommit newoid
+ if result\='OK' then exit 8
+ if newhead=oldhead then do
+  say 'Already on' substr(newhead,12)
+  exit 0
+ end
+ drop bak.
+ bak.0=rr.0
+ do bi=1 to rr.0
+  bak.bi=rr.bi
+ end
+ headref=newhead
+ call writerefs
+ if result\='OK' then do
+  call restore
+  exit 8
+ end
+ call readrefs
+ if result\='OK' | headref\=newhead then do
+  say 'GITUPD: HEAD switch verification failed'
+  call restore
+  exit 8
+ end
+ say 'HEAD UPDATED' oldhead newhead
+ exit 0
+end
+
 zeros='0000000000000000000000000000000000000000'
 if ref='' | newoid='' | oldoid='' | extra\='' then do
  say 'Usage: GITUPD refs/heads|tags/name new-oid expected-old-oid'

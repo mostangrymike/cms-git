@@ -14,6 +14,13 @@ if command='STAMP' then do
  say 'GITVREF INTERNAL STAMP P2'
  exit 0
 end
+if command='HEAD' then do
+ if spec\='' | depth\='' | extra\='' then exit 4
+ call readrefs
+ if result\='OK' then exit 8
+ say headref
+ exit 0
+end
 if command='BRANCHES' then do
  if spec\='' | depth\='' | extra\='' then exit 4
  call readrefs
