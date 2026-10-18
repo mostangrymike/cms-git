@@ -27,6 +27,16 @@
 
 Assumption: the requested destination is the standalone `cms-tooling` checkout; the explicit removal request covers tracked and untracked contents under `src/zvm-tooling`.
 
+## 2026-10-18 — M165–M174 milestone checkpoint
+
+- [x] M165 retained-commit handoff: local source now validates and reports exactly one commit OID; its focused host guard and M165 model pass.
+- [x] M166–M174 host models: REF2 CAS, integrated commit/ref, branch reconciliation, fetch discovery, upload PACK, generalized PACK storage/census/import, and stage-index models all pass.
+- [ ] Run the revised M165 checker and M166/M167 target gates on CMS. Existing M165 live evidence predates the new OID-reporting guard; no M166–M174 live qualification is claimed here.
+- [ ] Continue with the next unimplemented milestone after M174.
+
+The M166–M174 results are local host-model results only. The dedicated `src/zvm-tooling` checkout has been removed from ibm-sandbox per operator direction; its separate Actions workflow was removed with it.
+- M166 now accepts the validated retained commit OID as an EXEC argument, while keeping the historical candidate as its no-argument fallback. Its host model and argument guard pass; no ref was changed by that local work.
+
 ---
 
 # CMS/zVM Native Git Client — Chat State

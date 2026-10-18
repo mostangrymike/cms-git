@@ -74,6 +74,8 @@ jobs:
         run: python3 tests/test-m165-commit-candidate.py
       - name: Check M166 modern REF2 compare-and-swap
         run: python3 tests/test-m203-bounded-batch.py PMODEL M166
+      - name: Check M166 accepts the retained M165 commit OID
+        run: python3 tests/test-m166-candidate-argument.py
       - name: Check M167 integrated commit to ref
         run: python3 tests/test-m203-bounded-batch.py PMODEL M167
       - name: Check M168 current branch reconciliation
