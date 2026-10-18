@@ -127,7 +127,7 @@ if length(commit)\=40 |,
  say 'M165 MULTI COMMIT OID INVALID'
  exit 8
 end
-address command 'EXEC ZTMCAND1 VERIFY-OBJECT' commit
+address command 'EXEC GIT VERIFY-OBJECT' commit
 if rc\=0 then do
  call cleanup
  say 'M165 MULTI COMMIT OBJECT VERIFY FAIL RC' rc

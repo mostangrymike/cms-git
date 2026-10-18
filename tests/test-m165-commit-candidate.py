@@ -12,13 +12,13 @@ for required in (
     "word(co.ci,2)='COMMIT'",
     "length(commit)\\=40",
     "verify(commit,'0123456789ABCDEF')\\=0",
-    "EXEC ZTMCAND1 VERIFY-OBJECT",
+    "EXEC GIT VERIFY-OBJECT",
     "M165 MULTI COMMIT CANDIDATE",
 ):
     if required not in text:
         raise SystemExit("M165 commit candidate guard missing: " + required)
 
-verified = text.index("EXEC ZTMCAND1 VERIFY-OBJECT")
+verified = text.index("EXEC GIT VERIFY-OBJECT")
 reported = text.index("M165 MULTI COMMIT CANDIDATE")
 accepted = text.index("EXEC ZTMCAND1 ACCEPT")
 if not verified < reported < accepted:

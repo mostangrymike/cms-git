@@ -36,6 +36,7 @@ Assumption: the requested destination is the standalone `cms-tooling` checkout; 
 
 The M166–M174 results are local host-model results only. The dedicated `src/zvm-tooling` checkout has been removed from ibm-sandbox per operator direction; its separate Actions workflow was removed with it.
 - M166 now accepts the validated retained commit OID as an EXEC argument, while keeping the historical candidate as its no-argument fallback. Its host model and argument guard pass; no ref was changed by that local work.
+- The first revised M165 CMS run exposed a bad verifier dispatch (`ZTMCAND1 VERIFY-OBJECT`); it returned complete RC 8, and the disposable files were cleaned. The candidate object was retained, and no ref changed. Evidence: `cms-m165-multipath-oid-live-evidence-20261018.json`. The checker now routes verification through `GIT`; rerun with a fresh checker ID before claiming the new handoff passes.
 
 ---
 
