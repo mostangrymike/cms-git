@@ -174,6 +174,11 @@ tag listing, while preserving the current-branch marker. The host fixture starts
 from deliberately unsorted refs and checks the exact rendered order. CMS
 behavior remains unverified.
 
+M228 adds `GIT BRANCH --show-current`. It reads the symbolic HEAD through
+GITVREF, requires one valid branch ref, and prints the short branch name. The
+host fixtures cover nested and malformed HEAD values. CMS behavior remains
+unverified.
+
 ---
 
 ## M206 full 32-object CMS PASS and A-disk audit (October 13, 2026)

@@ -186,6 +186,8 @@ jobs:
         run: sh tests/check-canonical-source.sh M226
       - name: Check M227 branch listing order
         run: sh tests/check-canonical-source.sh M227
+      - name: Check M228 current branch output
+        run: sh tests/check-canonical-source.sh M228
       - name: Check M190 7736-object selective seek closure
         run: python3 tests/test-m203-bounded-batch.py M190S
       - name: Compare M190 indexed seek vs M188 two-pass host

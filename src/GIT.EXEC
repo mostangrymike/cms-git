@@ -194,6 +194,27 @@ if command = 'BRANCH' then do
    parse var rest brancharg1 brancharg2 brancharg3 brancharg4 brancharg5
    verb=translate(brancharg1)
    zeros='0000000000000000000000000000000000000000'
+   if verb='--SHOW-CURRENT' then do
+      if brancharg2\='' | brancharg3\='' |,
+         brancharg4\='' | brancharg5\='' then do
+         say 'Usage: GIT BRANCH --show-current'
+         exit 4
+      end
+      drop showhead.
+      showhead.0=0
+      'PIPE CMS EXEC GITVREF HEAD | STEM SHOWHEAD.'
+      if rc\=0 | showhead.0\=1 then do
+         say 'GIT: cannot resolve current symbolic HEAD'
+         exit 8
+      end
+      call branchnamefromhead showhead.1
+      if result='ERROR' then do
+         say 'GIT: invalid current symbolic HEAD'
+         exit 8
+      end
+      say result
+      exit 0
+   end
    if brancharg1='-m' | verb='--MOVE' then do
       if brancharg2='' | brancharg3='' |,
          brancharg4\='' | brancharg5\='' then do
@@ -1326,6 +1347,15 @@ hashstored: procedure
    pull oid
    'DROPBUF'
    return oid
+
+branchnamefromhead: procedure
+   parse arg headline
+   headref=strip(headline)
+   if left(headref,11)\='refs/heads/' then return 'ERROR'
+   branchname=substr(headref,12)
+   call validbranch branchname
+   if result\='OK' then return 'ERROR'
+   return branchname
 
 validtag: procedure
    parse arg vt, mode

@@ -534,6 +534,63 @@ echo 'M227 SOURCE-DERIVED BRANCH ORDER FIXTURE PASS 1'
 exit $?
 fi
 
+# Return the verified symbolic HEAD as a short modern branch name.
+if [ "${1:-}" = "M228" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M227
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GIT.EXEC" "$tmp/branchname.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+route=source[source.index("if command = 'BRANCH' then do"):
+             source.index("/* M218: change symbolic HEAD")]
+start=source.index('branchnamefromhead: procedure')
+end=source.index('validtag: procedure',start)
+branch_helper=source[start:end]
+start=source.index('validbranch: procedure')
+end=source.index('resolvetagtarget: procedure',start)
+valid_helper=source[start:end]
+fixture=(
+ 'parse arg candidate\ncall branchnamefromhead candidate\n'
+ 'say result\nexit 0\n'+branch_helper+valid_helper)
+Path(sys.argv[2]).write_text(fixture)
+start=route.index("if verb='--SHOW-CURRENT' then do")
+end=route.index("if brancharg1='-m'",start)
+show=route[start:end]
+if show.index("Usage: GIT BRANCH --show-current") > show.index('PIPE CMS EXEC GITVREF HEAD'):
+ raise SystemExit('M228 queries HEAD before checking command arguments')
+for token in ('showhead.0\\=1', 'call branchnamefromhead showhead.1',
+              'say result', 'exit 0'):
+ if token not in show:
+  raise SystemExit(f'M228 route missing {token!r}')
+print('M228 BRANCH --SHOW-CURRENT ROUTE GUARDS PASS 4')
+PY
+rexx -c "$tmp/branchname.rexx" /dev/null
+check() {
+ expected=$1
+ candidate=$2
+ actual=$(rexx "$tmp/branchname.rexx" "$candidate")
+ if [ "$actual" != "$expected" ]; then
+  echo "branch HEAD parser $candidate: expected $expected, got $actual" >&2
+  exit 1
+ fi
+}
+check main refs/heads/main
+check feature/x ' refs/heads/feature/x '
+for candidate in HEAD refs/tags/v1 refs/heads/ refs/heads/bad\|name \
+                 refs/heads/.hidden refs/heads/a//b; do
+ check ERROR "$candidate"
+done
+echo 'M228 SOURCE-DERIVED CURRENT BRANCH FIXTURES PASS 8'
+)
+exit $?
+fi
+
 # Isolated M206 explicit-object compatibility route: host source guard only.
 if [ "${1:-}" = "M206BRIDGE" ]; then
 (

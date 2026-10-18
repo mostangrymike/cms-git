@@ -15287,3 +15287,20 @@ source fixture passes with numeric and nested names; M227 and the M217 branch
 fixture pass. REXX syntax/80-column checks, the 42 preserved host-source
 compilations, and `git diff --check` pass locally. CMS behavior remains
 unverified; M227 commit and Actions are pending.
+
+
+## 2026-10-18 — M228 show current branch
+
+Plan: implement `GIT BRANCH --show-current` for modern REF2 repositories. Read
+symbolic HEAD once, require exactly one valid `refs/heads/` record, and print
+only its short name. Exercise the exact parser and guard invalid command arity and
+HEAD framing.
+
+Assumption: detached HEAD is not represented by the current REF2 format, so
+this command reports an error if HEAD is not a valid symbolic branch ref.
+
+Progress: GIT.EXEC now reads HEAD through GITVREF, checks one record, validates
+the full ref, and prints its short branch name. M228's eight exact-source cases,
+all prior branch/tag fixtures, the 42 preserved host-source compilations, and
+`git diff --check` pass locally. CMS behavior remains unverified; M228 commit
+and Actions are pending. M227 Actions are still running.
