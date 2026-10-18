@@ -216,7 +216,8 @@ deletion remains refused by that updater. CMS behavior remains unverified.
 
 M235 adds `GIT LOG [-n|--max-count count] [revision]`. It defaults to `HEAD`
 and a 16-commit window, resolves the revision through the verified REF2 resolver,
-and accepts a maximum count from 1 through the CMS history limit of 16. CMS
+and accepts a maximum count from 0 through the CMS history limit of 16. M237
+adjusts the backend's inclusive depth to return the exact requested count. CMS
 behavior remains unverified.
 
 M236 adds `GIT SHOW [revision]`, defaulting to `HEAD`. It resolves the revision

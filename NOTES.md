@@ -15457,15 +15457,17 @@ October 18 AGENTS instructions.
 
 Progress: GIT.EXEC now resolves the selected revision through the guarded
 REF2 resolver and forwards only a verified full OID and bounded count to
-GITVREF LOG. Twelve source-derived Regina REXX cases pass, including default
+GITVREF LOG. Fifteen source-derived Regina REXX cases pass, including default
 HEAD, lowercase branch resolution, all count spellings, invalid bounds,
 unknown refs, and excess operands. The M208–M234 suite, 42-source historical
 compile inventory, core REXX syntax, 80-column, and `git diff --check` checks
 pass. README tag deletion wording now reflects M233. CMS behavior remains
 unverified; M235 commit and CI are pending.
 
-M235 CI follow-up: pending GitHub Actions run 39155793524 on commit
-`2f3978f14191`.
+M235 CI follow-up: full native host workflow 39155793524 passed on commit
+`2f3978f14191`. A later backend audit found that GITREC depth is inclusive, so
+the first M235 implementation would return one extra commit. M237 corrects the
+count mapping and adds tests for zero and the inclusive upper bound.
 
 ## 2026-10-18 — M236 verified `GIT SHOW` porcelain
 
@@ -15481,3 +15483,21 @@ before calling GITVREF SHOW. Six source-derived Regina REXX cases pass for the
 default, branch, full-OID, missing/unsafe revisions, and argument arity. The
 accumulated M208–M236 REXX suite passes. CMS behavior remains unverified; M236
 commit and CI are pending.
+
+M236 CI follow-up: full native host workflow 39155886448 passed on commit
+`ac435c702b6f`. CMS behavior remains unverified.
+
+## 2026-10-18 — M237 exact `GIT LOG --max-count` behavior
+
+Plan: map Git's requested commit count to GITREC's inclusive depth, return no
+output for count zero, and add fixtures for counts zero, one, and sixteen.
+
+Assumption: retain the CMS backend ceiling of 16 commits; a request above that
+bound fails explicitly instead of silently returning a shorter history.
+
+Progress: the LOG router now resolves the revision, returns cleanly for zero,
+and passes count minus one to GITVREF/GITREC for positive counts. Fifteen
+source-derived LOG cases, three GITREC inclusive-depth guards, and the full
+M208–M236 chain pass. The 42-source historical compile inventory, REXX syntax,
+80-column, and whitespace checks also pass. M237 commit and CI are pending;
+CMS behavior remains unverified.

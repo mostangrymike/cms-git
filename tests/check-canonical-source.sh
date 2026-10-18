@@ -1018,7 +1018,7 @@ source=Path(sys.argv[1]).read_text()
 start=source.index("if command = 'LOG' then do")
 end=source.index("/* Prefer modern REF2 branches",start)
 block=source[start:end]
-command="address command 'EXEC GITVREF LOG' logoid logdepth"
+command="address command 'EXEC GITVREF LOG' logoid backenddepth"
 resolver='call resolvetagtarget logstart'
 if command not in block or resolver not in block:
  raise SystemExit('M235 LOG router lost its resolver/backend')
@@ -1029,11 +1029,12 @@ block=block.replace(resolver,
  "else if logstart='main' then result='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
  "else result='ERROR'")
 block=block.replace(command,
- "rc=0\nsay 'SIMULATED LOG' logoid logdepth")
+ "rc=0\nsay 'SIMULATED LOG' logoid backenddepth")
 Path(sys.argv[2]).write_text("parse arg rest\ncommand='LOG'\n"+block)
 for token in ("logdepth='16'", "call resolvetagtarget logstart",
               "verify(logdepth,'0123456789')",
-              'logdepth+0>16', command):
+              'logdepth+0>16', 'if logdepth+0=0 then exit 0',
+              'backenddepth=logdepth-1', command):
  if token not in source[start:end]:
   raise SystemExit(f'M235 LOG route missing {token!r}')
 print('M235 LOG ROUTE SOURCE GUARDS PASS 5')
@@ -1057,19 +1058,47 @@ check() {
   exit 1
  fi
 }
-check 0 'SIMULATED LOG AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA 16'
-check 0 'SIMULATED LOG BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB 16' main
-check 0 'SIMULATED LOG AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA 5' --max-count 5
-check 0 'SIMULATED LOG BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB 3' -n 3 main
-check 0 'SIMULATED LOG BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB 7' --max-count=7 main
-check 0 'SIMULATED LOG BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB 5' -n5 main
-check 4 'GIT: log count must be between 1 and 16' --max-count 0
-check 4 'GIT: log count must be between 1 and 16' --max-count=17
-check 4 'GIT: log count must be between 1 and 16' -n nope
+check 0 'SIMULATED LOG AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA 15'
+check 0 'SIMULATED LOG BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB 15' main
+check 0 'SIMULATED LOG AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA 4' --max-count 5
+check 0 'SIMULATED LOG BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB 2' -n 3 main
+check 0 'SIMULATED LOG BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB 6' --max-count=7 main
+check 0 'SIMULATED LOG BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB 4' -n5 main
+check 0 '' --max-count 0
+check 0 '' --max-count=0 main
+check 0 'SIMULATED LOG BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB 0' -n 1 main
+check 0 'SIMULATED LOG AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA 15' --max-count 16
+check 4 'GIT: log count must be between 0 and 16' --max-count=17
+check 4 'GIT: log count must be between 0 and 16' -n nope
 check 8 'GIT: cannot resolve log revision missing' missing
 check 4 'Usage: GIT LOG [-n|--max-count count] [revision]' --max-count 5 main extra
 check 4 'Usage: GIT LOG [-n|--max-count count] [revision]' main extra
-echo 'M235 SOURCE-DERIVED GIT LOG FIXTURES PASS 12'
+echo 'M235 SOURCE-DERIVED GIT LOG FIXTURES PASS 15'
+)
+exit $?
+fi
+
+if [ "${1:-}" = "M237" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M235
+python3 - "$root/src/GITREC.C" <<'PY'
+from pathlib import Path
+import sys
+source=Path(sys.argv[1]).read_text()
+start=source.index('static int rec_logfull(')
+end=source.index('\nstatic int ',start+1)
+routine=source[start:end]
+required=('for(hop=0;hop<=depth;hop++)',
+          'for(j=0;j<=depth;j++)',
+          'printf("LOG NODES %u\\n",depth+1);')
+for token in required:
+ if token not in routine:
+  raise SystemExit(f'M237 GITREC depth semantics missing {token!r}')
+print('M237 GITREC INCLUSIVE DEPTH SOURCE GUARDS PASS 3')
+PY
+echo 'M237 EXACT MAX-COUNT SEMANTICS PASS'
 )
 exit $?
 fi

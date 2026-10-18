@@ -250,11 +250,11 @@ if command = 'LOG' then do
    end
    if logdepth='' | length(logdepth)>2 |,
       verify(logdepth,'0123456789')\=0 then do
-      say 'GIT: log count must be between 1 and 16'
+      say 'GIT: log count must be between 0 and 16'
       exit 4
    end
-   if logdepth+0<1 | logdepth+0>16 then do
-      say 'GIT: log count must be between 1 and 16'
+   if logdepth+0<0 | logdepth+0>16 then do
+      say 'GIT: log count must be between 0 and 16'
       exit 4
    end
    call resolvetagtarget logstart
@@ -263,7 +263,9 @@ if command = 'LOG' then do
       say 'GIT: cannot resolve log revision' logstart
       exit 8
    end
-   address command 'EXEC GITVREF LOG' logoid logdepth
+   if logdepth+0=0 then exit 0
+   backenddepth=logdepth-1
+   address command 'EXEC GITVREF LOG' logoid backenddepth
    exit rc
 end
 
