@@ -345,9 +345,23 @@ if command='ADD' then do
   if result\='OK' then exit 4
   call toasciihex newpath
   newhex=result
-  if newhex='ERROR' | length(newhex)>60 |,
-     pos('2F',newhex)>0 then do
-   say 'GITWT: new paths must be 1-30 ASCII bytes at repository root'
+  if newhex='ERROR' | length(newhex)>60 then do
+   say 'GITWT: new path must be 1-30 ASCII bytes with relative components'
+   exit 4
+  end
+  call splitpath newhex
+  if result\='OK' then do
+   say 'GITWT: new path must be 1-30 ASCII bytes with relative components'
+   exit 4
+  end
+  do npi=1 to pcnt
+   if pcomp.npi='2E' | pcomp.npi='2E2E' then do
+    say 'GITWT: new path must be 1-30 ASCII bytes with relative components'
+    exit 4
+   end
+  end
+  if pcnt>16 then do
+   say 'GITWT: new path must be 1-30 ASCII bytes with relative components'
    exit 4
   end
   call loadmap
@@ -779,7 +793,7 @@ if command='COMMIT' then do
  call rootfor parent
  root=result
  if root='ERROR' then exit 8
- drop nodeparent. nodename. nodeentry. nodeoid. nodedepth.
+ drop nodeparent. nodename. nodeentry. nodeoid. nodedepth. nodeisnew.
  drop nodechanged. nodeentries. nodemode. nodenamehex. nodechildoid.
  drop nodeentrydeleted.
  drop pathcomp.
@@ -790,6 +804,7 @@ if command='COMMIT' then do
  nodeoid.1=root
  nodedepth.1=0
  nodechanged.1=0
+ nodeisnew.1=0
  maxdepth=0
  firstpath=0
  do mi=1 to mapcount
@@ -806,7 +821,7 @@ if command='COMMIT' then do
   exit 8
  end
  newrootcount=0
- drop newrootname. newrootoid.
+ drop newrootparent. newrootname. newrootmode. newrootoid.
  do mi=1 to mapcount
   if mapstage.mi\=mapbase.mi then do
    call splitpath mappath.mi
@@ -825,21 +840,48 @@ if command='COMMIT' then do
      end
     end
     if entryindex=0 then do
-     if cd=pcnt & pcnt=1 & mapbase.mi=zeros &,
-        mapstage.mi\=zeros then do
-      address command 'EXEC GIT VERIFY-OBJECT' mapstage.mi
-      if rc\=0 then do
-       say 'GITWT: staged new blob is not verified' mi
-       exit 8
+     if mapbase.mi=zeros & mapstage.mi\=zeros then do
+      if cd=pcnt then do
+       address command 'EXEC GIT VERIFY-OBJECT' mapstage.mi
+       if rc\=0 then do
+        say 'GITWT: staged new blob is not verified' mi
+        exit 8
+       end
+       newrootcount=newrootcount+1
+       newrootparent.newrootcount=currentnode
+       newrootname.newrootcount=pathcomp.mi.cd
+       newrootmode.newrootcount='100644'
+       newrootoid.newrootcount=mapstage.mi
+       nodechanged.currentnode=1
+       leave
       end
-      newrootcount=newrootcount+1
-      newrootname.newrootcount=pathcomp.mi.cd
-      newrootoid.newrootcount=mapstage.mi
-      nodechanged.1=1
-      leave
+      childnode=0
+      do ni=2 to nodecount
+       if nodeparent.ni=currentnode & nodename.ni=pathcomp.mi.cd &,
+          nodeisnew.ni=1 then do
+        childnode=ni
+        leave
+       end
+      end
+      if childnode=0 then do
+       nodecount=nodecount+1
+       childnode=nodecount
+       nodeparent.childnode=currentnode
+       nodename.childnode=pathcomp.mi.cd
+       nodeentry.childnode=0
+       nodeoid.childnode=''
+       nodedepth.childnode=cd
+       nodechanged.childnode=1
+       nodeentries.childnode=0
+       nodeisnew.childnode=1
+      end
+      currentnode=childnode
+      iterate
      end
-     say 'GITWT: staged path entry missing' mi cd
-     exit 8
+     else do
+      say 'GITWT: staged path entry missing' mi cd
+      exit 8
+     end
     end
     if cd<pcnt then do
      if nodemode.currentnode.entryindex\='40000' then do
@@ -863,6 +905,7 @@ if command='COMMIT' then do
       nodeoid.childnode=nodechildoid.currentnode.entryindex
       nodedepth.childnode=cd
       nodechanged.childnode=0
+      nodeisnew.childnode=0
       nextdepth=cd+1
       nextcomp=pathcomp.mi.nextdepth
       call loadnode childnode,nodeoid.childnode,nextcomp
@@ -898,7 +941,7 @@ if command='COMMIT' then do
  end
  call insertrootadds
  if result\='OK' then do
-  say 'GITWT: cannot insert new root tree entries'
+  say 'GITWT: cannot insert new tree entries'
   exit 8
  end
  do level=maxdepth to 1 by -1
@@ -910,14 +953,27 @@ if command='COMMIT' then do
     parentnode=nodeparent.ni
     parententry=nodeentry.ni
     if buildcount=0 then do
-     nodeentrydeleted.parentnode.parententry=1
+     if nodeisnew.ni\=1 then,
+      nodeentrydeleted.parentnode.parententry=1
     end
     else do
      call writehex raw
      treeoid=result
      if treeoid='ERROR' then exit 8
      nodeoid.ni=treeoid
-     nodechildoid.parentnode.parententry=treeoid
+     if nodeisnew.ni=1 then do
+      newrootcount=1
+      newrootparent.1=parentnode
+      newrootname.1=nodename.ni
+      newrootmode.1='40000'
+      newrootoid.1=treeoid
+      call insertrootadds
+      if result\='OK' then do
+       say 'GITWT: cannot insert new directory tree'
+       exit 8
+      end
+     end
+     else nodechildoid.parentnode.parententry=treeoid
     end
     nodechanged.parentnode=1
     if buildcount=0 then say 'COMMIT-STAGED PRUNED EMPTY TREE' level
@@ -986,20 +1042,23 @@ buildraw:
 
 insertrootadds:
  do nai=1 to newrootcount
+  parentid=newrootparent.nai
   liveentries=0
-  do lei=1 to nodeentries.1
-   if nodeentrydeleted.1.lei\=1 then liveentries=liveentries+1
+  do lei=1 to nodeentries.parentid
+   if nodeentrydeleted.parentid.lei\=1 then liveentries=liveentries+1
   end
   if liveentries>=256 then return 'ERROR'
-  insertat=nodeentries.1+1
-  do nej=1 to nodeentries.1
-   compare=nodenamehex.1.nej
-   if nodemode.1.nej='40000' then compare=compare||'2F'
+  insertat=nodeentries.parentid+1
+  newcompare=newrootname.nai
+  if newrootmode.nai='40000' then newcompare=newcompare||'2F'
+  do nej=1 to nodeentries.parentid
+   compare=nodenamehex.parentid.nej
+   if nodemode.parentid.nej='40000' then compare=compare||'2F'
    sortbefore=0
    sortdone=0
-   commonlen=min(length(newrootname.nai),length(compare))
+   commonlen=min(length(newcompare),length(compare))
    do cbi=1 to commonlen by 2
-    newbyte=x2d(substr(newrootname.nai,cbi,2))
+    newbyte=x2d(substr(newcompare,cbi,2))
     oldbyte=x2d(substr(compare,cbi,2))
     if newbyte<oldbyte then do
      sortbefore=1
@@ -1015,25 +1074,30 @@ insertrootadds:
     insertat=nej
     leave
    end
-   if sortdone=0 & length(newrootname.nai)=length(compare) then,
+   if sortdone=0 & length(newcompare)=length(compare) then,
     return 'ERROR'
-   if sortdone=0 & length(newrootname.nai)<length(compare) then do
+   if sortdone=0 & length(newcompare)<length(compare) then do
     insertat=nej
     leave
    end
   end
-  do nej=nodeentries.1 to insertat by -1
+  do nej=nodeentries.parentid to insertat by -1
    next=nej+1
-   nodemode.1.next=nodemode.1.nej
-   nodenamehex.1.next=nodenamehex.1.nej
-   nodechildoid.1.next=nodechildoid.1.nej
-   nodeentrydeleted.1.next=nodeentrydeleted.1.nej
+   nodemode.parentid.next=nodemode.parentid.nej
+   nodenamehex.parentid.next=nodenamehex.parentid.nej
+   nodechildoid.parentid.next=nodechildoid.parentid.nej
+   nodeentrydeleted.parentid.next=nodeentrydeleted.parentid.nej
   end
-  nodeentries.1=nodeentries.1+1
-  nodemode.1.insertat='100644'
-  nodenamehex.1.insertat=newrootname.nai
-  nodechildoid.1.insertat=newrootoid.nai
-  nodeentrydeleted.1.insertat=0
+  do nji=2 to nodecount
+   if nodeparent.nji=parentid & nodeisnew.nji\=1 &,
+      nodeentry.nji>=insertat then nodeentry.nji=nodeentry.nji+1
+  end
+  nodeentries.parentid=nodeentries.parentid+1
+  nodemode.parentid.insertat=newrootmode.nai
+  nodenamehex.parentid.insertat=newrootname.nai
+  nodechildoid.parentid.insertat=newrootoid.nai
+  nodeentrydeleted.parentid.insertat=0
+  nodechanged.parentid=1
  end
  return 'OK'
 

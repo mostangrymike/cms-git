@@ -234,6 +234,12 @@ jobs:
         run: sh tests/check-canonical-source.sh M250
       - name: Check M251 current-branch commit command
         run: sh tests/check-canonical-source.sh M251
+      - name: Check M252 staged new-file map entries
+        run: sh tests/check-canonical-source.sh M252
+      - name: Check M253 root-level new-file commits
+        run: sh tests/check-canonical-source.sh M253
+      - name: Check M254 nested new-file commits
+        run: sh tests/check-canonical-source.sh M254
       - name: Check M190 7736-object selective seek closure
         run: python3 tests/test-m203-bounded-batch.py M190S
       - name: Compare M190 indexed seek vs M188 two-pass host

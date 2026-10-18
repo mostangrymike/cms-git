@@ -15834,3 +15834,25 @@ The cumulative M253 suite passes; CMS behavior remains unverified.
 
 M253 native host Actions run 39178018389 passed on commit `26f0d78`.
 CMS behavior remains unverified.
+
+## 2026-10-18 — M254 commit nested new-file paths
+
+Plan: let `GIT ADD --new` stage safe nested relative paths, create missing
+directory trees during commit, and insert those trees in Git byte-sort order.
+
+Assumption: nested additions retain the existing 30-byte total path limit and
+16-component bound. Paths are relative, reject empty, `.` and `..` components,
+and do not create empty directories.
+
+Progress: new-file staging now validates nested path components. COMMIT reuses
+in-memory nodes for shared missing directories, stages new blobs into their
+parent trees, serializes new directory trees bottom-up, and inserts each
+directory with Git's trailing-slash ordering. Sorted insertions also advance
+the saved tree-entry indexes of existing subtrees so later rewrites update the
+correct parent entry. The 256 live-entry cap applies to each target tree. Four
+source-derived nested-tree fixtures cover shared directory creation, nested
+file ordering, insertion beside an existing directory, parent-index movement,
+and capacity rejection. CMS behavior remains unverified.
+
+The cumulative M254 source-derived suite passes locally; native host CI is
+pending. CMS behavior remains unverified.

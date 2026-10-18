@@ -1782,7 +1782,8 @@ out=Path(sys.argv[2])
 start=source.index(" if translate(word(rest,1))='--NEW' then do")
 end=source.index(' addall=0',start)
 block=source[start:end]
-for token in ("'GITWT: new paths must be 1-30 ASCII bytes at repository root'",
+for token in ("'GITWT: new path must be 1-30 ASCII bytes with relative components'",
+              'call splitpath newhex',
               "call findpath newhex", "call findfile newfn,newft,newfm",
               "'STATE' newfn newft newfm",
               'call workoid newfn,newft,newfm,1,1',
@@ -1795,11 +1796,12 @@ if not block.index('call workoid') < block.index('mapfn.newindex=newfn'):
  raise SystemExit('M252 must hash the file before changing the map')
 validid=source[source.index('validid:\n'):source.index('validmode:\n')]
 validmode=source[source.index('validmode:\n'):source.index('validtext:\n')]
+splitpath=source[source.index('splitpath:\n'):source.index('readtree:\n')]
 helpers=validid+validmode+"""
 toasciihex:
  parse arg text
  return c2x(text)
-"""
+"""+splitpath
 block=block.replace("'STATE' newfn newft newfm",
                     'call cmsstate newfn,newft,newfm')
 block=block.replace("'STATE GITWORK REPO A'", 'call mapstate')
@@ -1883,12 +1885,16 @@ check hashfail 8 'SIMULATED STATE NEWFILE DATA A' --new alpha NEWFILE DATA
 check savefail 8 "SIMULATED STATE NEWFILE DATA A
 SIMULATED SAVE 1 NEWFILE A 1 0000000000000000000000000000000000000000 $oid 616C706861
 SIMULATED RESTORE" --new alpha NEWFILE DATA
-check ok 4 'GITWT: new paths must be 1-30 ASCII bytes at repository root' --new dir/alpha NEWFILE DATA
-check ok 4 'GITWT: new paths must be 1-30 ASCII bytes at repository root' --new abcdefghijklmnopqrstuvwxyzabcde1 NEWFILE DATA
+check ok 0 "SIMULATED STATE NEWFILE DATA A
+SIMULATED SAVE 1 NEWFILE A 1 0000000000000000000000000000000000000000 $oid 6469722F616C706861
+ADDED dir/alpha $oid
+STAGE DIFFERS FROM BASE" --new dir/alpha NEWFILE DATA
+check ok 4 'GITWT: new path must be 1-30 ASCII bytes with relative components' --new abcdefghijklmnopqrstuvwxyzabcde1 NEWFILE DATA
+check ok 4 'GITWT: new path must be 1-30 ASCII bytes with relative components' --new ../alpha NEWFILE DATA
 check ok 4 'Usage: GIT ADD --new path fn ft [fm]' --new
 check ok 4 '' --new alpha BAD-ID DATA
 check ok 4 '' --new alpha NEWFILE '%'
-echo 'M252 SOURCE-DERIVED NEW-FILE ADD FIXTURES PASS 14'
+echo 'M252/M254 SOURCE-DERIVED NEW-FILE ADD FIXTURES PASS 15'
 )
 exit $?
 fi
@@ -1907,18 +1913,21 @@ import sys
 source=Path(sys.argv[1]).read_text()
 commit=source[source.index("if command='COMMIT' then do"):
                source.index("say 'GITWT: unknown command'")]
-for token in ('if cd=pcnt & pcnt=1 & mapbase.mi=zeros &',
+for token in ('if mapbase.mi=zeros & mapstage.mi\\=zeros then do',
+              'if cd=pcnt then do',
               'newrootname.newrootcount=pathcomp.mi.cd',
               'newrootoid.newrootcount=mapstage.mi',
               "address command 'EXEC GIT VERIFY-OBJECT' mapstage.mi",
               'call insertrootadds',
               "if matches=0 then return 'MISSING'",
               "if result\\='OK' & result\\='MISSING' then return 'ERROR'",
-              "if nodemode.1.nej='40000' then compare=compare||'2F'",
-              'nodeentrydeleted.1.next=nodeentrydeleted.1.nej',
-              "nodemode.1.insertat='100644'",
-              'if nodeentrydeleted.1.lei\\=1 then liveentries=liveentries+1',
-              "if liveentries>=256 then return 'ERROR'"):
+              "if nodemode.parentid.nej='40000' then compare=compare||'2F'",
+              "if newrootmode.nai='40000' then newcompare=newcompare||'2F'",
+              'nodeentrydeleted.parentid.next=nodeentrydeleted.parentid.nej',
+              'nodemode.parentid.insertat=newrootmode.nai',
+              'if nodeentrydeleted.parentid.lei\\=1 then liveentries=liveentries+1',
+              "if liveentries>=256 then return 'ERROR'",
+              'nodeentry.nji=nodeentry.nji+1'):
  if token not in source:
   raise SystemExit(f'M253 root-file commit guard missing {token!r}')
 if not (commit.index("address command 'EXEC GIT VERIFY-OBJECT' mapstage.mi")<
@@ -1934,7 +1943,9 @@ entry=commit[entry_start:entry_end]
 entry=entry.replace("address command 'EXEC GIT VERIFY-OBJECT' mapstage.mi",
  "if scenario='VERIFYFAIL' then rc=8\nelse do\n say 'SIMULATED VERIFY'\n rc=0\nend")
 prefix="""parse arg scenario
+nodecount=1
 nodeentries.1=2
+nodeisnew.1=0
 nodemode.1.1='40000'
 nodenamehex.1.1='616C706861'
 nodechildoid.1.1='CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC'
@@ -1944,17 +1955,24 @@ nodenamehex.1.2='62657461'
 nodechildoid.1.2='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'
 nodeentrydeleted.1.2=0
 newrootcount=3
+newrootparent.1=1
 newrootname.1='616172647661726B'
+newrootmode.1='100644'
 newrootoid.1='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+newrootparent.2=1
 newrootname.2='616C7068612E747874'
+newrootmode.2='100644'
 newrootoid.2='DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD'
+newrootparent.3=1
 newrootname.3='7A657461'
+newrootmode.3='100644'
 newrootoid.3='EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE'
 """
 main="""
 if scenario='OVERFLOW' | scenario='DELETEDCAP' then do
  nodeentries.1=256
  newrootcount=1
+ newrootparent.1=1
  do fi=3 to 256
   nodemode.1.fi='100644'
   nodenamehex.1.fi='66'||right(d2x(fi),4,'0')
@@ -1991,19 +2009,25 @@ branch="""parse arg scenario
 pcnt=1
 if scenario='NESTED' then pcnt=2
 cd=1
+currentnode=1
 entryindex=0
 mi=1
 zeros='0000000000000000000000000000000000000000'
+nodecount=1
+nodeisnew.1=0
 newrootcount=0
 nodechanged.1=0
+nodechanged.2=0
 mapbase.1='0000000000000000000000000000000000000000'
 if scenario='STALE' then mapbase.1='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'
 mapstage.1='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
 pathcomp.1.1='616C706861'
+pathcomp.1.2='66696C65'
 do cd=1 to pcnt
 """+entry+"""
 end
-say 'NEWROOT' newrootcount newrootname.1 newrootoid.1 nodechanged.1
+say 'NEWENTRY' newrootcount newrootparent.1 newrootname.1,
+ newrootoid.1 nodechanged.1 nodechanged.2 nodecount
 exit 0
 """
 Path(sys.argv[4]).write_text(branch)
@@ -2026,14 +2050,14 @@ if [ "$(rexx "$tmp/insert.rexx" DELETEDCAP)" != 'COUNT 256' ]; then
  echo 'M253 deleted-entry capacity fixture failed' >&2
  exit 1
 fi
-expected_branch=$(printf 'SIMULATED VERIFY\nNEWROOT 1 616C706861 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA 1')
+expected_branch=$(printf 'SIMULATED VERIFY\nNEWENTRY 1 1 616C706861 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA 1 0 1')
 if [ "$(rexx "$tmp/branch.rexx" OK)" != "$expected_branch" ]; then
  echo "M253 new-root commit decision fixture failed: $(rexx "$tmp/branch.rexx" OK)" >&2
  exit 1
 fi
-if output=$(rexx "$tmp/branch.rexx" NESTED); then rc=0; else rc=$?; fi
-if [ "$rc" -ne 8 ] || [ "$output" != 'GITWT: staged path entry missing 1 1' ]; then
- echo "M253 nested addition rejection mismatch RC $rc: $output" >&2
+expected_nested=$(printf 'SIMULATED VERIFY\nNEWENTRY 1 2 66696C65 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA 0 1 2')
+if [ "$(rexx "$tmp/branch.rexx" NESTED)" != "$expected_nested" ]; then
+ echo "M254 nested path creation fixture failed: $(rexx "$tmp/branch.rexx" NESTED)" >&2
  exit 1
 fi
 if output=$(rexx "$tmp/branch.rexx" STALE); then rc=0; else rc=$?; fi
@@ -2047,6 +2071,150 @@ if [ "$rc" -ne 8 ] || [ "$output" != 'GITWT: staged new blob is not verified 1' 
  exit 1
 fi
 echo 'M253 SOURCE-DERIVED NEW-ROOT TREE FIXTURES PASS 7'
+)
+exit $?
+fi
+
+if [ "${1:-}" = "M254" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M253
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GITWT.EXEC" "$tmp/nested.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+commit=source[source.index("if command='COMMIT' then do"):
+               source.index("say 'GITWT: unknown command'")]
+for token in ('call splitpath newhex', 'nodeisnew.childnode=1',
+              'newrootparent.newrootcount=currentnode',
+              "newrootmode.newrootcount='100644'",
+              "if nodeisnew.ni=1 then do", "newrootmode.1='40000'",
+              'if newrootmode.nai=\'40000\' then newcompare=newcompare||\'2F\'',
+              'nodeentry.nji=nodeentry.nji+1',
+              'nodechildoid.parentnode.parententry=treeoid',
+              'do lei=1 to nodeentries.parentid'):
+ if token not in source:
+  raise SystemExit(f'M254 nested-tree guard missing {token!r}')
+scan_start=commit.index('    entryindex=0\n')
+scan_end=commit.index('    if entryindex=0 then do',scan_start)
+scan=commit[scan_start:scan_end]
+entry_start=scan_end
+entry_end=commit.index('    if cd<pcnt then do',entry_start)
+entry=commit[entry_start:entry_end]
+entry=entry.replace("address command 'EXEC GIT VERIFY-OBJECT' mapstage.mi",
+ "say 'SIMULATED VERIFY' mapstage.mi\nrc=0")
+insert=source[source.index('insertrootadds:\n'):source.index('parsepathout:\n')]
+build=source[source.index('buildraw:\n'):source.index('insertrootadds:\n')]
+mode=source[source.index('modehex:\n'):source.index('writehex:\n')]
+prefix="""parse arg scenario
+nodecount=3
+nodeentries.1=2
+nodeisnew.1=0
+nodemode.1.1='100644'
+nodenamehex.1.1='646F63732E726561646D65'
+nodechildoid.1.1='1111111111111111111111111111111111111111'
+nodeentrydeleted.1.1=0
+nodemode.1.2='40000'
+nodenamehex.1.2='737263'
+nodechildoid.1.2='2222222222222222222222222222222222222222'
+nodeentrydeleted.1.2=0
+nodeparent.3=1
+nodename.3='737263'
+nodeentry.3=2
+nodeoid.3='2222222222222222222222222222222222222222'
+nodedepth.3=1
+nodechanged.3=0
+nodeisnew.3=0
+nodeentries.3=1
+nodemode.3.1='100644'
+nodenamehex.3.1='6F6C64'
+nodechildoid.3.1='3333333333333333333333333333333333333333'
+nodeentrydeleted.3.1=0
+nodechanged.1=0
+mapcount=2
+zeros='0000000000000000000000000000000000000000'
+mapbase.1=zeros
+mapstage.1='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+pathcomp.1.1='646F6373'
+pathcomp.1.2='61'
+mapbase.2=zeros
+mapstage.2='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'
+pathcomp.2.1='646F6373'
+pathcomp.2.2='62'
+newrootcount=0
+"""
+main="""
+do mi=1 to mapcount
+ pcnt=2
+ currentnode=1
+ do cd=1 to pcnt
+"""+scan+entry+"""
+ end
+end
+if nodecount\\=4 | newrootcount\\=2 |,
+   newrootparent.1\\=4 | newrootparent.2\\=4 then exit 12
+call insertrootadds
+if result\\='OK' then exit 12
+call buildraw 4
+if result='ERROR' | buildcount\\=2 then exit 12
+say 'FILES' result buildcount
+newrootcount=1
+newrootparent.1=3
+newrootname.1='6E6577'
+newrootmode.1='100644'
+newrootoid.1='EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE'
+call insertrootadds
+if result\\='OK' then exit 12
+call buildraw 3
+if result='ERROR' | buildcount\\=2 then exit 12
+say 'EXISTING' result buildcount
+newrootcount=1
+newrootparent.1=1
+newrootname.1='646F6373'
+newrootmode.1='40000'
+newrootoid.1='CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC'
+call insertrootadds
+if result\\='OK' | nodeentry.3\\=3 then exit 12
+parentnode=nodeparent.3
+parententry=nodeentry.3
+treeoid='FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF'
+nodechildoid.parentnode.parententry=treeoid
+call buildraw 1
+if result='ERROR' | buildcount\\=3 then exit 12
+say 'ROOT' result 'INDEX' nodeentry.3
+nodeentries.4=256
+newrootcount=1
+newrootparent.1=4
+newrootname.1='7A'
+newrootmode.1='100644'
+newrootoid.1='DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD'
+call insertrootadds
+say 'CAPACITY' result
+exit 0
+"""
+Path(sys.argv[2]).write_text(prefix+main+insert+build+mode)
+print('M254 NESTED TREE SOURCE GUARDS PASS 10')
+PY
+rexx -c "$tmp/nested.rexx" /dev/null
+aa=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+bb=BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+ee=EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
+ff=FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+old=1111111111111111111111111111111111111111
+expected_files="313030363434206100${aa}313030363434206200${bb}"
+expected_existing="313030363434206E657700${ee}313030363434206F6C64003333333333333333333333333333333333333333"
+expected_root="31303036343420646F63732E726561646D6500${old}343030303020646F637300CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC34303030302073726300${ff}"
+expected=$(printf 'SIMULATED VERIFY AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\nSIMULATED VERIFY BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\nFILES %s 2\nEXISTING %s 2\nROOT %s INDEX 3\nCAPACITY ERROR' "$expected_files" "$expected_existing" "$expected_root")
+if output=$(rexx "$tmp/nested.rexx" NORMAL); then rc=0; else rc=$?; fi
+if [ "$rc" -ne 0 ] || [ "$output" != "$expected" ]; then
+ echo "M254 nested-tree fixture mismatch RC $rc: $output" >&2
+ exit 1
+fi
+echo 'M254 SOURCE-DERIVED NESTED TREE FIXTURES PASS 4'
 )
 exit $?
 fi

@@ -308,6 +308,15 @@ deletion frees capacity for an addition in the same tree rewrite. Host
 source-derived serialization and rejection cases pass; CMS behavior remains
 unverified.
 
+M254 extends `GIT ADD --new` to safe nested relative paths up to 30 ASCII bytes
+and 16 components. `GIT COMMIT` creates missing directory tree objects from
+the leaves upward, reuses shared missing directories for multiple staged
+files, and inserts directories using Git's trailing-slash sort rule. It keeps
+the 256 live-entry limit at every tree level and rejects absolute, empty, `.`
+and `..` path components. Empty directories are not recorded. Host
+source-derived tree serialization and path validation pass; CMS behavior
+remains unverified.
+
 ---
 
 ## M206 full 32-object CMS PASS and A-disk audit (October 13, 2026)
