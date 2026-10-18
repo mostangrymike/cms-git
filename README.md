@@ -90,7 +90,8 @@ verification for every selected object, rejection at
 host-tested only; it has not been compiled or run on CMS.
 
 M208 adds lightweight commit tags to the modern `GITREF2` store:
-`GIT TAG` lists tags, `GIT TAG <name> <full-commit-oid>` creates a tag, and
+`GIT TAG` and `GIT TAG -l`/`--list` list tag names, while
+`GIT TAG <name> <full-commit-oid>` creates a tag, and
 `GIT TAG -D <name> <expected-commit-oid>` deletes one using compare-and-swap.
 Creation verifies the target commit; deletion requires its exact old OID.
 Names use a safe ASCII subset and the stored full ref is limited to 35

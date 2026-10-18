@@ -20,7 +20,7 @@ if command='TAGS' then do
  if result\='OK' then exit 8
  do ti=1 to refcount
   if left(refname.ti,10)='refs/tags/' then,
-   say refoid.ti refname.ti
+   say substr(refname.ti,11)
  end
  exit 0
 end

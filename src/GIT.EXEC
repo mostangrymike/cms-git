@@ -64,6 +64,14 @@ if command = 'TAG' then do
    end
    parse var rest action tagname oid extra
    verb=translate(action)
+   if verb='-L' | verb='--LIST' then do
+      if tagname\='' | oid\='' | extra\='' then do
+         say 'Usage: GIT TAG [-l|--list]'
+         exit 4
+      end
+      address command 'EXEC GITVREF TAGS'
+      exit rc
+   end
    if verb='-D' then do
       if tagname='' | oid='' | extra\='' then do
          say 'Usage: GIT TAG -D name expected-commit-oid'

@@ -114,6 +114,7 @@ v=(root/'src/GITVREF.EXEC').read_text()
 w=(root/'src/GITWT.EXEC').read_text()
 required={
  'GIT.EXEC': (g, ("if command = 'TAG' then do", "EXEC GITVREF TAGS",
+     "verb='-L' | verb='--LIST'", "say 'Usage: GIT TAG [-l|--list]'",
      "ref='refs/tags/'||action", "ref='refs/tags/'||tagname",
      "EXEC GIT UPDATE-REF' ref oid zeros",
      "EXEC GIT UPDATE-REF' ref zeros oid")),
@@ -122,7 +123,8 @@ required={
      'current\\=oldoid', 'call restore')),
  'GITVREF.EXEC': (v, ("command='TAGS' then do",
      "left(refname.ti,10)='refs/tags/'", "left(wanted,10)\\='refs/tags/'",
-     "wanted='refs/tags/'||shortname", 'call validref name')),
+     "wanted='refs/tags/'||shortname", 'say substr(refname.ti,11)',
+     'call validref name')),
  'GITWT.EXEC': (w, ('call validref name',
      "left(headref,11)\\='refs/heads/'", "left(wanted,11)\\='refs/heads/'")),
 }

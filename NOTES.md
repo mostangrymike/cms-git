@@ -14804,3 +14804,21 @@ package-install step and M208 source/REXX syntax gate passed. The run concluded
 successfully. A fresh `cms_status` observation still returned `Transport
 closed`; no CMS connection or input was attempted after that response. The
 M208 ref behavior remains host-source-checked and CMS-unqualified.
+
+## 2026-10-18 — M209 tag-list porcelain follow-up
+
+Plan: align default tag listing with Git's name-only output and accept the
+`-l`/`--list` spellings, without changing REF2 storage, branch resolution,
+or CMS state. Extend the M208 source/syntax regression and documentation.
+
+Assumption: wildcard filtering and annotated tags are separate future work;
+this step covers basic list aliases only. Preserve all user-provided
+untracked evidence and transfer-script changes.
+
+
+Progress: M209 changes the list output to names only and accepts `-l` and
+`--list` as list aliases. Expanded the M208 guard to cover the aliases and
+name-only output. Regina syntax and 80-column checks, the canonical source
+guard, all 42 preserved host test-body compilations, and `git diff --check`
+pass locally. CMS remains unavailable through the MCP transport; these changes
+have not been run on CMS.
