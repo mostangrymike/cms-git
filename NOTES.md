@@ -14960,3 +14960,9 @@ field in the synthetic driver; after initializing it and printing only the
 error result, all six source-derived resolution cases pass. M213/M210 checks,
 canonical guard, all 42 preserved test-body compilations, and `git diff
 --check` pass. CMS remains untouched; commit and full Actions are pending.
+
+
+M215 CI follow-up: full native host workflow 39150617907 passed on commit
+`d37aa0650e4e0f53fa22aa7ca84c683034464b21`. The six extracted resolver
+fixtures passed in Actions. CMS execution and REF2 target behavior remain
+unverified.
