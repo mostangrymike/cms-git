@@ -179,6 +179,12 @@ GITVREF, requires one valid branch ref, and prints the short branch name. The
 host fixtures cover nested and malformed HEAD values. CMS behavior remains
 unverified.
 
+M229 adds `GIT BRANCH -l|--list [pattern]`. It filters the sorted modern branch
+listing with the same `*`/`?` matcher used for tags and keeps pattern characters
+inside the validated ASCII alphabet. Fixtures cover nested matches, ordering,
+current-branch marking, and unsafe direct input. CMS behavior remains
+unverified.
+
 ---
 
 ## M206 full 32-object CMS PASS and A-disk audit (October 13, 2026)

@@ -591,6 +591,86 @@ echo 'M228 SOURCE-DERIVED CURRENT BRANCH FIXTURES PASS 8'
 exit $?
 fi
 
+# Filter sorted modern branch listing using the shared wildcard matcher.
+if [ "${1:-}" = "M229" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M228
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GIT.EXEC" "$root/src/GITVREF.EXEC" \
+ "$tmp/validbranch.rexx" "$tmp/branches.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+git=Path(sys.argv[1]).read_text()
+refs=Path(sys.argv[2]).read_text()
+branch_start=refs.index("if command='BRANCHES' then do")
+branch_end=refs.index("if command='TAGS' then do",branch_start)
+branch_block=refs[branch_start:branch_end]
+match_start=refs.index('tagmatch:\n')
+match_end=refs.index('bindnative:\n',match_start)
+matcher=refs[match_start:match_end]
+start=git.index('validbranch: procedure')
+end=git.index('resolvetagtarget: procedure',start)
+Path(sys.argv[3]).write_text(
+ 'parse arg name mode\ncall validbranch name, mode\nsay result\nexit 0\n'+
+ git[start:end])
+branch_route=git[git.index("if command = 'BRANCH' then do"):
+                 git.index("/* M218: change symbolic HEAD")]
+list_start=branch_route.index("if verb='-L' | verb='--LIST'")
+list_end=branch_route.index("if verb='--SHOW-CURRENT'",list_start)
+listing=branch_route[list_start:list_end]
+if listing.index("call validbranch brancharg2, 'PATTERN'") > listing.index(
+        "address command 'EXEC GITVREF BRANCHES' brancharg2"):
+ raise SystemExit('M229 forwards branch pattern before validation')
+for token in ("branchchars=branchchars||'0123456789._/-*?'",
+              'call tagmatch branchpattern, branchcandidate',
+              r"if result\='MATCH' then iterate"):
+ if token not in refs:
+  raise SystemExit(f'M229 GITVREF pattern handling missing {token!r}')
+fixture=(
+ "parse arg pattern\ncommand='BRANCHES'\nspec=pattern\ndepth=''\nextra=''\n"
+ "headref='refs/heads/feature/x'\nrefcount=6\n"
+ "refname.1='refs/heads/z'\nrefname.2='refs/heads/2'\n"
+ "refname.3='refs/heads/main'\nrefname.4='refs/heads/feature/x'\n"
+ "refname.5='refs/heads/feature/a'\nrefname.6='refs/heads/topic/1'\n"
+ +branch_block+
+ "exit 99\nreadrefs:\n return 'OK'\n"+matcher)
+Path(sys.argv[4]).write_text(fixture)
+print('M229 BRANCH PATTERN DISPATCH GUARDS PASS 5')
+PY
+rexx -c "$tmp/validbranch.rexx" /dev/null
+rexx -c "$tmp/branches.rexx" /dev/null
+for name in main 'feature/*' 'topic/?' '*'; do
+ rexx "$tmp/validbranch.rexx" "$name" PATTERN | grep -qx OK
+done
+for name in 'bad|name' 'bad#name' a//b a/ .hidden a..b main.lock \
+            1234567890123456789012345; do
+ if rexx "$tmp/validbranch.rexx" "$name" PATTERN | grep -qx OK; then
+  echo "unsafe branch pattern accepted: $name" >&2
+  exit 1
+ fi
+done
+printf '  feature/a\n* feature/x\n' > "$tmp/expected"
+rexx "$tmp/branches.rexx" 'feature/*' > "$tmp/actual"
+cmp "$tmp/expected" "$tmp/actual"
+printf '  topic/1\n' > "$tmp/expected"
+rexx "$tmp/branches.rexx" 'topic/?' > "$tmp/actual"
+cmp "$tmp/expected" "$tmp/actual"
+if rexx "$tmp/branches.rexx" 'bad|name' > "$tmp/invalid"; then
+ echo 'unsafe direct GITVREF branch pattern unexpectedly succeeded' >&2
+ exit 1
+else
+ rc=$?
+ [ "$rc" -eq 4 ]
+fi
+echo 'M229 SOURCE-DERIVED BRANCH PATTERN FIXTURES PASS 15'
+)
+exit $?
+fi
+
 # Isolated M206 explicit-object compatibility route: host source guard only.
 if [ "${1:-}" = "M206BRIDGE" ]; then
 (

@@ -15304,3 +15304,30 @@ the full ref, and prints its short branch name. M228's eight exact-source cases,
 all prior branch/tag fixtures, the 42 preserved host-source compilations, and
 `git diff --check` pass locally. CMS behavior remains unverified; M228 commit
 and Actions are pending. M227 Actions are still running.
+
+
+M227 CI follow-up: full native host workflow 39154309460 passed on commit
+`d208c7d7b9f6b8f29399da9b62fba19e21d09744`. The exact sorted branch listing
+fixture and existing host regressions passed. CMS behavior remains unverified.
+
+M228 CI follow-up: full native host workflow 39154389870 passed on commit
+`8a3ff9e86a9afc2778dd909cc4e78967ea62e5bc`. Current-branch parser cases and
+existing host regressions passed. CMS behavior remains unverified.
+
+## 2026-10-18 — M229 filtered branch listing
+
+Plan: add `GIT BRANCH -l|--list [pattern]`, validate patterns in both GIT.EXEC
+and GITVREF, and filter the already-sorted branch list with the tag-list
+`*`/`?` matcher. Cover dispatch ordering, wildcard results, sorting, current
+marker output, and unsafe patterns.
+
+Assumption: patterns match short branch names and use the existing bytewise
+ref-name ordering. Git's options for remote and detached refs remain outside
+the current REF2 data model.
+
+Progress: the branch router and resolver now accept a validated optional glob
+pattern, filter refs, sort the matches, and retain the current marker. Fifteen
+source-derived cases and five dispatch guards pass, as do M228 and earlier
+branch/tag tests, the 42 preserved host-source compilations, syntax/80-column
+checks, and `git diff --check`. CMS behavior remains unverified; M229 commit and
+Actions are pending.

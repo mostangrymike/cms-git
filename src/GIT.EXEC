@@ -194,6 +194,21 @@ if command = 'BRANCH' then do
    parse var rest brancharg1 brancharg2 brancharg3 brancharg4 brancharg5
    verb=translate(brancharg1)
    zeros='0000000000000000000000000000000000000000'
+   if verb='-L' | verb='--LIST' then do
+      if brancharg3\='' | brancharg4\='' | brancharg5\='' then do
+         say 'Usage: GIT BRANCH [-l|--list [pattern]]'
+         exit 4
+      end
+      if brancharg2\='' then do
+         call validbranch brancharg2, 'PATTERN'
+         if result\='OK' then do
+            say 'GIT: invalid branch-list pattern'
+            exit 4
+         end
+      end
+      address command 'EXEC GITVREF BRANCHES' brancharg2
+      exit rc
+   end
    if verb='--SHOW-CURRENT' then do
       if brancharg2\='' | brancharg3\='' |,
          brancharg4\='' | brancharg5\='' then do
@@ -1374,9 +1389,10 @@ validtag: procedure
    return 'OK'
 
 validbranch: procedure
-   parse arg vb
+   parse arg vb, mode
    refchars='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
    refchars=refchars||'0123456789._/-'
+   if mode='PATTERN' then refchars=refchars||'*?'
    if vb='' | length(vb)>24 | verify(vb,refchars)\=0 |,
       pos('//',vb)>0 | pos('..',vb)>0 |,
       left(vb,1)='/' | right(vb,1)='/' then return 'ERROR'

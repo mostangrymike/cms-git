@@ -22,14 +22,39 @@ if command='HEAD' then do
  exit 0
 end
 if command='BRANCHES' then do
- if spec\='' | depth\='' | extra\='' then exit 4
+ if depth\='' | extra\='' then exit 4
+ branchpattern=spec
+ if branchpattern\='' then do
+  branchchars='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+  branchchars=branchchars||'0123456789._/-*?'
+  if length(branchpattern)>24 | verify(branchpattern,branchchars)\=0 |,
+     pos('//',branchpattern)>0 | pos('..',branchpattern)>0 |,
+     left(branchpattern,1)='/' | right(branchpattern,1)='/' |,
+     right(branchpattern,1)='.' | right(branchpattern,5)='.lock' then do
+   say 'GITVREF: invalid branch-list pattern' branchpattern
+   exit 4
+  end
+  do pi=1 to words(translate(branchpattern,' ','/'))
+   part=word(translate(branchpattern,' ','/'),pi)
+   if part='' | part='.' | part='..' | left(part,1)='.' |,
+      right(part,1)='.' | right(part,5)='.lock' then do
+    say 'GITVREF: invalid branch-list component' part
+    exit 4
+   end
+  end
+ end
  call readrefs
  if result\='OK' then exit 8
  branchcount=0
  do bi=1 to refcount
   if left(refname.bi,11)='refs/heads/' then do
+   branchcandidate=substr(refname.bi,12)
+   if branchpattern\='' then do
+    call tagmatch branchpattern, branchcandidate
+    if result\='MATCH' then iterate
+   end
    branchcount=branchcount+1
-   branchlist.branchcount=substr(refname.bi,12)
+   branchlist.branchcount=branchcandidate
   end
  end
  gap=branchcount % 2
