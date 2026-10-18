@@ -351,6 +351,73 @@ echo 'M224 SOURCE-DERIVED BRANCH OPERAND FIXTURES PASS 21'
 exit $?
 fi
 
+# Validate lightweight-tag operands before GIT.EXEC forwards CMS commands.
+if [ "${1:-}" = "M225" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M224
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GIT.EXEC" "$tmp/validtag.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+start=source.index('validtag: procedure')
+end=source.index('validbranch: procedure',start)
+routine=source[start:end]
+Path(sys.argv[2]).write_text(
+ 'parse arg input\nmode=left(input,1)\nname=substr(input,3)\n' +
+ "if mode='P' then mode='PATTERN'\n" +
+ 'call validtag name, mode\nsay result\nexit 0\n'+
+ routine+'\n')
+tag=source[source.index("if command = 'TAG' then do"):]
+checks=(
+ ("if verb='-L'", "call validtag tagname, 'PATTERN'",
+  "address command 'EXEC GITVREF TAGS' tagname"),
+ ("if verb='-F'", 'call validtag tagname', "ref='refs/tags/'||tagname"),
+ ("if verb='-D'", 'call validtag tagname', "ref='refs/tags/'||tagname"),
+ ("if action=''", 'call validtag action', "ref='refs/tags/'||action"),
+)
+for marker, guard, command in checks:
+ section=tag[tag.index(marker):]
+ if section.index(guard) >= section.index(command):
+  raise SystemExit(f'tag command lacks early operand guard: {marker}')
+print('M225 EARLY TAG OPERAND GUARDS PASS 4')
+PY
+rexx -c "$tmp/validtag.rexx" /dev/null
+check() {
+ expected=$1
+ name=$2
+ mode=${3:-NAME}
+ prefix=N
+ if [ "$mode" = PATTERN ]; then prefix=P; fi
+ actual=$(rexx "$tmp/validtag.rexx" "$prefix:$name")
+ if [ "$actual" != "$expected" ]; then
+  echo "tag validator $name ($mode): expected $expected, got $actual" >&2
+  exit 1
+ fi
+}
+for name in v1.2 release/2026.10 with-underscore_1 topic-2 a; do
+ check OK "$name"
+done
+for name in 'v*' 'v?.*' 'release/*'; do
+ check OK "$name" PATTERN
+done
+for name in 'bad|name' 'bad#name' 'bad name' .hidden a/.hidden \
+            a//b a/ . .. a..b main.lock trailing. /tag \
+            12345678901234567890123456; do
+ check ERROR "$name"
+done
+check ERROR 'bad*' NAME
+check ERROR 'bad?' NAME
+check ERROR 'bad|*' PATTERN
+echo 'M225 SOURCE-DERIVED TAG OPERAND FIXTURES PASS 25'
+)
+exit $?
+fi
+
 # Isolated M206 explicit-object compatibility route: host source guard only.
 if [ "${1:-}" = "M206BRIDGE" ]; then
 (

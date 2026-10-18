@@ -69,12 +69,24 @@ if command = 'TAG' then do
          say 'Usage: GIT TAG [-l|--list [pattern]]'
          exit 4
       end
+      if tagname\='' then do
+         call validtag tagname, 'PATTERN'
+         if result\='OK' then do
+            say 'GIT: invalid tag pattern'
+            exit 4
+         end
+      end
       address command 'EXEC GITVREF TAGS' tagname
       exit rc
    end
    if verb='-F' | verb='--FORCE' then do
       if tagname='' | oid='' | extra='' | fifth\='' then do
          say 'Usage: GIT TAG -f|--force name new-oid expected-old-oid'
+         exit 4
+      end
+      call validtag tagname
+      if result\='OK' then do
+         say 'GIT: invalid tag name'
          exit 4
       end
       newoid=translate(oid)
@@ -109,6 +121,11 @@ if command = 'TAG' then do
          say 'Usage: GIT TAG -d|--delete name expected-commit-oid'
          exit 4
       end
+      call validtag tagname
+      if result\='OK' then do
+         say 'GIT: invalid tag name'
+         exit 4
+      end
       oid=translate(oid)
       if length(oid)\=40 | verify(oid,'0123456789ABCDEF')\=0 then do
          say 'GIT: invalid expected tag object-id'
@@ -123,6 +140,11 @@ if command = 'TAG' then do
    end
    if action='' | tagname='' | oid\='' | extra\='' | fifth\='' then do
       say 'Usage: GIT TAG [name commit-oid] | TAG -D name expected-commit-oid'
+      exit 4
+   end
+   call validtag action
+   if result\='OK' then do
+      say 'GIT: invalid tag name'
       exit 4
    end
    oid=translate(tagname)
@@ -1295,6 +1317,22 @@ hashstored: procedure
    pull oid
    'DROPBUF'
    return oid
+
+validtag: procedure
+   parse arg vt, mode
+   tagchars='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+   tagchars=tagchars||'0123456789._/-'
+   if mode='PATTERN' then tagchars=tagchars||'*?'
+   if vt='' | length(vt)>25 | verify(vt,tagchars)\=0 |,
+      pos('//',vt)>0 | pos('..',vt)>0 |,
+      left(vt,1)='/' | right(vt,1)='/' |,
+      right(vt,1)='.' | right(vt,5)='.lock' then return 'ERROR'
+   do vi=1 to words(translate(vt,' ','/'))
+      part=word(translate(vt,' ','/'),vi)
+      if part='' | part='.' | part='..' | left(part,1)='.' |,
+         right(part,1)='.' | right(part,5)='.lock' then return 'ERROR'
+   end
+   return 'OK'
 
 validbranch: procedure
    parse arg vb

@@ -15217,3 +15217,27 @@ operands in all five branch paths: create, delete, rename destination, switch
 to an existing branch, and create-and-switch. M224 adds exact-source Regina
 fixtures and five source-order guards, and adds the host CI step. Local tests and
 commit are pending; CMS behavior remains unverified.
+
+
+M224 CI follow-up: full native host workflow 39153837946 passed on commit
+`d6e5f6b5ad0111f8aa62c479a49d65f1fc7f09be`. The five pre-dispatch guards,
+21 branch-name cases, and existing host regressions passed. CMS behavior remains
+unverified.
+
+## 2026-10-18 — M225 guard lightweight-tag command operands
+
+Plan: validate tag names before update/create/delete forwarding and validate
+list patterns before forwarding to GITVREF. Keep `*` and `?` limited to list
+patterns. Exercise the exact helper and ensure each dispatch guard comes before
+its CMS command or ref construction.
+
+Assumption: preserve the current CMS-safe tag alphabet and 25-character short
+name limit. Pattern mode adds only `*` and `?`, as used by the existing tag
+list matcher.
+
+Progress: GIT.EXEC now checks tag create, update, delete, and list-pattern
+operands before passing them to command handlers. M225 adds exact-source REXX
+fixtures, four dispatch-order guards, and a CI step. M225 and all preceding
+branch/tag checks, the 42 preserved host-source compilations, and
+`git diff --check` pass locally. CMS behavior remains unverified; M225 commit
+and Actions are pending.

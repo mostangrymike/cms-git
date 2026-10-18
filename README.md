@@ -158,6 +158,11 @@ CMS command strings for create, delete, rename, or switch operations. The same
 CMS-safe name rules apply at this boundary; source-derived REXX cases and
 dispatch-order guards cover it. CMS behavior remains unverified.
 
+M225 validates lightweight tag names and list patterns before GIT.EXEC forwards
+them to CMS commands. Tag names use the safe ASCII ref alphabet; list patterns
+also allow Git's `*` and `?` wildcards. Exact-source fixtures cover both forms
+and unsafe delimiters. CMS behavior remains unverified.
+
 ---
 
 ## M206 full 32-object CMS PASS and A-disk audit (October 13, 2026)
