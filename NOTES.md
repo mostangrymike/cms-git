@@ -33,13 +33,15 @@ Assumption: the requested destination is the standalone `cms-tooling` checkout; 
 - [x] M166–M174 host models: REF2 CAS, integrated commit/ref, branch reconciliation, fetch discovery, upload PACK, generalized PACK storage/census/import, and stage-index models all pass.
 - [x] Run the revised M165 checker on CMS and retain its commit OID.
 - [x] Run the M166 REF2 CAS target gate on CMS using the commit OID retained by M165.
-- [ ] Run the M167 integrated commit-to-ref target gate; M168–M174 remain host-model-only here.
-- [ ] Continue with the next unimplemented milestone after M174.
+- [x] Run the M167 integrated commit-to-ref target gate and verify its transient CMS state was removed.
+- [ ] Continue M168–M174 target gates where their isolated effects and restoration checks are established.
 
 The M166–M174 results are local host-model results only. The dedicated `src/zvm-tooling` checkout has been removed from ibm-sandbox per operator direction; its separate Actions workflow was removed with it.
 - M166 now accepts the validated retained commit OID as an EXEC argument, while keeping the historical candidate as its no-argument fallback. Its host model and argument guard pass; no ref was changed by that local work.
 - The first revised M165 CMS run exposed a bad verifier dispatch (`ZTMCAND1 VERIFY-OBJECT`); it returned complete RC 8, and the disposable files were cleaned. The candidate object was retained, and no ref changed. After routing verification through `GIT`, fresh checker `ZTMDCHK5 EXEC A` returned correlated RC 0 and `M165 MULTI-PATH STAGED COMMIT TARGET GATE PASS`. It emitted and verified commit `58200E77B859296DB1B18121992229D57A5B56AA`, confirmed refs unchanged, and passed four post-run RC28 absence checks. Evidence: `cms-m165-multipath-oid-live-evidence-20261018.json`.
 - Fresh checker `ZTDM166 EXEC A` accepted that OID as its EXEC argument. CMS SHA-256 matched the local CP037 logical-record digest. M166 created only `refs/heads/m166test`, proved stale CAS returns RC8 without changing REF2, deleted that transient ref, and restored the complete GITREF2 snapshot byte-for-byte. Correlated CMS RC0: `M166 REF CAS TARGET GATE PASS`. Evidence: `cms-m166-cas-live-evidence-20261018.json`.
+- Fresh checker `ZTDM167 EXEC A` passed the integrated commit-to-ref gate with correlated request `B619498DEFFC9C1F`, CMS RC0, 49 records / 2,233 bytes, and complete output integrity. The checker created only `refs/heads/m167test`, checked out and changed `M167TST`, committed `93E05DA32194B9C61E26418F1A8E2417564C18AE`, verified the commit, deleted the transient ref, and restored GITREF2 byte-for-byte. Post-run `STATE` returned RC28 for `M167TST DATA A`, `GITWORK REPO A`, and `GITTREE REPO A`. Retain `ZTDM167 EXEC A` and the commit object; no cleanup or source overwrite was performed. Evidence: `cms-m167-commit-ref-live-evidence-20261018.json`.
+- M168 is the next live gate. Its checker temporarily points the current symbolic HEAD at the isolated `refs/heads/m168test`, commits one disposable `M168TST` change, then restores the original GITREF2 bytes and removes only its three preflight-absent scratch files. Run only after these exact preflight and final absence checks remain in place.
 
 ---
 
