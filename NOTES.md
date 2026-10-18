@@ -15354,3 +15354,24 @@ path. Five generated source cases and three dispatch guards pass, along with
 M229 and prior branch/tag fixtures, all 42 preserved host-source compilations,
 syntax/80-column checks, and `git diff --check`. CMS behavior remains
 unverified; M230 commit and Actions are pending.
+
+
+M230 CI follow-up: full native host workflow 39154744535 passed on commit
+`a08baecdb65ac18d426184fb795d282280e62308`. Branch start-point fixtures and
+existing host regressions passed. CMS behavior remains unverified.
+
+## 2026-10-18 — M231 checkout branch aliases
+
+Plan: route `GIT CHECKOUT <branch>` to the guarded switch flow and translate
+`-b`/`--branch` to `SWITCH -c`. Reject `-B` because that option resets an
+existing branch. Test the exact alias code and reuse the existing switch tests.
+
+Assumption: detached checkout and path restore remain unsupported by the
+current REF2 symbolic-HEAD model; the alias is limited to branch operations.
+
+Progress: GIT.EXEC now maps plain checkout to SWITCH and `checkout -b` or
+`checkout --branch` to the guarded create-and-switch route. It explicitly rejects
+`-B`. Four source-derived cases pass alongside all prior switch, branch, and tag
+fixtures, the 42 preserved host-source compilations, REXX syntax/80-column
+checks, and `git diff --check`. CMS behavior remains unverified; M231 commit and
+Actions are pending.

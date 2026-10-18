@@ -739,6 +739,59 @@ echo 'M230 SOURCE-DERIVED BRANCH CREATE FIXTURES PASS 5'
 exit $?
 fi
 
+# Alias safe checkout operations to the guarded modern switch implementation.
+if [ "${1:-}" = "M231" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M230
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GIT.EXEC" "$tmp/checkout.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+start=source.index("if command='CHECKOUT' then do")
+end=source.index("if command = 'VERSION' then do",start)
+block=source[start:end]
+for token in ("if checkoutarg='-B' then do",
+              "if checkoutarg='-b' | checkoutarg='--branch' then",
+              "rest='-c'||substr(rest,length(checkoutarg)+1)",
+              "command='SWITCH'"):
+ if token not in block:
+  raise SystemExit(f'M231 checkout alias missing {token!r}')
+Path(sys.argv[2]).write_text(
+ 'parse arg command rest\ncommand=translate(command)\n'+block+
+ 'say command\nsay strip(rest)\n')
+print('M231 CHECKOUT ALIAS SOURCE GUARDS PASS 4')
+PY
+rexx -c "$tmp/checkout.rexx" /dev/null
+check() {
+ expected=$1
+ shift
+ actual=$(rexx "$tmp/checkout.rexx" "$@")
+ if [ "$actual" != "$expected" ]; then
+  echo "checkout alias $*: expected $expected, got $actual" >&2
+  exit 1
+ fi
+}
+check "$(printf 'SWITCH\n-c topic main')" CHECKOUT -b topic main
+check "$(printf 'SWITCH\n-c topic main')" CHECKOUT --branch topic main
+check "$(printf 'SWITCH\ntopic')" CHECKOUT topic
+if rexx "$tmp/checkout.rexx" CHECKOUT -B topic > "$tmp/force"; then
+ echo 'unsafe force checkout unexpectedly succeeded' >&2
+ exit 1
+else
+ rc=$?
+ [ "$rc" -eq 4 ]
+fi
+grep -q 'GIT CHECKOUT -B is not supported' "$tmp/force"
+echo 'M231 SOURCE-DERIVED CHECKOUT FIXTURES PASS 4'
+)
+exit $?
+fi
+
 # Isolated M206 explicit-object compatibility route: host source guard only.
 if [ "${1:-}" = "M206BRIDGE" ]; then
 (

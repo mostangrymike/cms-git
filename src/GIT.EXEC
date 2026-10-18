@@ -8,6 +8,16 @@ if command = '' then do
    say 'Usage: GIT command [arguments]'
    exit 4
 end
+if command='CHECKOUT' then do
+   parse var rest checkoutarg checkoutrest
+   if checkoutarg='-B' then do
+      say 'GIT CHECKOUT -B is not supported'
+      exit 4
+   end
+   if checkoutarg='-b' | checkoutarg='--branch' then,
+      rest='-c'||substr(rest,length(checkoutarg)+1)
+   command='SWITCH'
+end
 if command = 'VERSION' then do
    'GITCORE VERSION'
    exit rc

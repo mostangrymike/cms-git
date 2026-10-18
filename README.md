@@ -191,6 +191,11 @@ expected-absent ref compare-and-swap path. Source-derived fixtures cover the
 default, resolved ref, unsafe name, missing start point, and extra arguments.
 CMS behavior remains unverified.
 
+M231 adds `GIT CHECKOUT <branch>` and `GIT CHECKOUT -b|--branch name
+[start-point]` aliases to the guarded switch flow. `-B` is rejected because
+force-reset behavior is not implemented. Detached checkout and path restore are
+not part of the current symbolic-HEAD model. CMS behavior remains unverified.
+
 ---
 
 ## M206 full 32-object CMS PASS and A-disk audit (October 13, 2026)
