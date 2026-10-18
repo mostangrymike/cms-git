@@ -490,6 +490,50 @@ echo 'M226 SOURCE-DERIVED TAG START-POINT FIXTURES PASS 9'
 exit $?
 fi
 
+# Sort modern branch listing with the shared REF2 name ordering.
+if [ "${1:-}" = "M227" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M226
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GITVREF.EXEC" "$tmp/branches.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+start=source.index("if command='BRANCHES' then do")
+end=source.index("if command='TAGS' then do",start)
+branch_block=source[start:end]
+sort_start=source.index('tagbefore:\n')
+sort_end=source.index('bindnative:\n',sort_start)
+sorter=source[sort_start:sort_end]
+fixture=(
+ "parse arg\ncommand='BRANCHES'\nspec=''\ndepth=''\nextra=''\n"
+ "headref='refs/heads/main'\nrefcount=5\n"
+ "refname.1='refs/heads/z'\nrefname.2='refs/heads/2'\n"
+ "refname.3='refs/heads/main'\nrefname.4='refs/heads/feature/x'\n"
+ "refname.5='refs/heads/10'\n"
+ +branch_block+
+ "exit 99\nreadrefs:\n return 'OK'\n"+sorter)
+Path(sys.argv[2]).write_text(fixture)
+if branch_block.index('call tagbefore') > branch_block.index('do bi=1 to branchcount'):
+ raise SystemExit('M227 emits branches before sorting')
+print('M227 BRANCH LIST SORT SOURCE GUARD PASS')
+PY
+rexx -c "$tmp/branches.rexx" /dev/null
+rexx "$tmp/branches.rexx" > "$tmp/actual"
+printf '  10\n  2\n  feature/x\n* main\n  z\n' > "$tmp/expected"
+if ! cmp -s "$tmp/expected" "$tmp/actual"; then
+ diff -u "$tmp/expected" "$tmp/actual" >&2
+ exit 1
+fi
+echo 'M227 SOURCE-DERIVED BRANCH ORDER FIXTURE PASS 1'
+)
+exit $?
+fi
+
 # Isolated M206 explicit-object compatibility route: host source guard only.
 if [ "${1:-}" = "M206BRIDGE" ]; then
 (
@@ -729,7 +773,8 @@ if "if command = 'BRANCH' | command = 'SHOW-REF'" in git:
  raise SystemExit('legacy router still captures modern BRANCH command')
 for token in ("if command='BRANCHES' then do",
               "left(refname.bi,11)='refs/heads/'",
-              'if refname.bi=headref then say', "say '*' branchname"):
+              "if headref='refs/heads/'||branchname then say",
+              "say '*' branchname", 'call tagbefore branchlist.bj'):
  if token not in refs:
   raise SystemExit(f'GITVREF.EXEC missing branch list behavior: {token}')
 print('M217 MODERN BRANCH ROUTE/UPDATE GUARDS PASS')
@@ -743,6 +788,9 @@ source=Path(sys.argv[1]).read_text()
 start=source.index("if command='BRANCHES' then do")
 end=source.index("if command='TAGS' then do",start)
 block=source[start:end]
+sort_start=source.index('tagbefore:\n')
+sort_end=source.index('bindnative:\n',sort_start)
+sorter=source[sort_start:sort_end]
 prefix="""parse arg
 command='BRANCHES'
 spec=''
@@ -761,7 +809,7 @@ readrefs:
  refoid.3='CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC'
  return 'OK'
 """
-Path(sys.argv[2]).write_text(prefix+block+fixture)
+Path(sys.argv[2]).write_text(prefix+block+fixture+sorter)
 PY
 rexx -c "$tmp/branches.rexx" /dev/null
 actual=$(rexx "$tmp/branches.rexx")

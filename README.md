@@ -169,6 +169,11 @@ full object ID, or a resolvable branch/tag ref. Omitting the start point uses
 framing, missing refs, malformed OIDs, and unsafe input. CMS behavior remains
 unverified.
 
+M227 sorts modern `GIT BRANCH` output with the same ref-name comparator used by
+tag listing, while preserving the current-branch marker. The host fixture starts
+from deliberately unsorted refs and checks the exact rendered order. CMS
+behavior remains unverified.
+
 ---
 
 ## M206 full 32-object CMS PASS and A-disk audit (October 13, 2026)

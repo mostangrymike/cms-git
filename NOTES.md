@@ -15265,3 +15265,25 @@ object and rejects non-commit targets. M226's nine resolver fixtures, five
 dispatch guards, M225 and earlier regressions, the 42 preserved host-source
 compilations, and `git diff --check` pass locally. CMS behavior remains
 unverified; M226 commit and Actions are pending.
+
+
+M226 CI follow-up: full native host workflow 39154179325 passed on commit
+`9f6a86af818b04fcfbcc38b2a2ec641ffdea7d38`. The tag-target resolver fixtures
+and the existing host regressions passed. CMS behavior remains unverified.
+
+## 2026-10-18 — M227 sort modern branch listing
+
+Plan: sort modern branch names with the existing ref-name comparator and retain
+the current-branch marker. Add an exact-source fixture with deliberately
+unsorted branch refs and run all previous branch/tag and historical source
+checks.
+
+Assumption: reuse the comparator and order already used by lightweight tag
+listing so branch and tag names have consistent ASCII ordering.
+
+Progress: GITVREF now gathers branch names, sorts them using the shared ref-name
+comparator, then emits the current marker alongside the sorted names. The exact
+source fixture passes with numeric and nested names; M227 and the M217 branch
+fixture pass. REXX syntax/80-column checks, the 42 preserved host-source
+compilations, and `git diff --check` pass locally. CMS behavior remains
+unverified; M227 commit and Actions are pending.

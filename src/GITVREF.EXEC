@@ -25,12 +25,34 @@ if command='BRANCHES' then do
  if spec\='' | depth\='' | extra\='' then exit 4
  call readrefs
  if result\='OK' then exit 8
+ branchcount=0
  do bi=1 to refcount
   if left(refname.bi,11)='refs/heads/' then do
-   branchname=substr(refname.bi,12)
-   if refname.bi=headref then say '*' branchname
-   else say ' ' branchname
+   branchcount=branchcount+1
+   branchlist.branchcount=substr(refname.bi,12)
   end
+ end
+ gap=branchcount % 2
+ do while gap>0
+  do bi=gap+1 to branchcount
+   branchitem=branchlist.bi
+   bj=bi-gap
+   do while bj>0
+    call tagbefore branchlist.bj, branchitem
+    if result='YES' then leave
+    bk=bj+gap
+    branchlist.bk=branchlist.bj
+    bj=bj-gap
+   end
+   bk=bj+gap
+   branchlist.bk=branchitem
+  end
+  gap=gap % 2
+ end
+ do bi=1 to branchcount
+  branchname=branchlist.bi
+  if headref='refs/heads/'||branchname then say '*' branchname
+  else say ' ' branchname
  end
  exit 0
 end
