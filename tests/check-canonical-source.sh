@@ -321,6 +321,67 @@ echo 'M206 EXPLICIT ROUTE SOURCE GUARDS PASS (CMS UNVERIFIED)'
 exit $?
 fi
 
+# Exercise modern short-name/HEAD resolution against a synthetic REF2 map.
+if [ "${1:-}" = "M215" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M213
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GITVREF.EXEC" "$tmp/resolve.rexx" <<'PY'
+from pathlib import Path
+import sys
+source=Path(sys.argv[1]).read_text()
+start=source.index('\nresolve:\n')+1
+end=source.index('\nvalidref:\n',start)
+routine=source[start:end]
+prefix="""parse arg command wanted
+headref='refs/heads/main'
+reskind=''
+refcount=4
+refname.1='refs/heads/main'
+refoid.1='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+refname.2='refs/heads/v1'
+refoid.2='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'
+refname.3='refs/tags/v1'
+refoid.3='CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC'
+refname.4='refs/tags/release/1'
+refoid.4='DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD'
+call resolve wanted
+if result='ERROR' then say 'ERROR'
+else say result reskind
+exit 0
+"""
+stub="""
+directinput:
+ return 0
+"""
+Path(sys.argv[2]).write_text(prefix+routine+stub)
+PY
+rexx -c "$tmp/resolve.rexx" /dev/null
+check() {
+ expected=$1
+ command=$2
+ wanted=$3
+ rexx "$tmp/resolve.rexx" "$command" "$wanted" > "$tmp/result"
+ actual=$(tail -n 1 "$tmp/result")
+ if [ "$actual" != "$expected" ]; then
+  echo "resolve $command $wanted: expected $expected, got $actual" >&2
+  exit 1
+ fi
+}
+check 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA REF' RESOLVE HEAD
+check 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA REF' RESOLVE main
+check 'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB REF' RESOLVE v1
+check 'DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD REF' RESOLVE release/1
+check 'DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD REF' RESOLVE refs/tags/release/1
+check ERROR RESOLVE refs/tags/missing
+echo 'M215 SOURCE-DERIVED REF2 RESOLUTION FIXTURES PASS 6'
+)
+exit $?
+fi
+
 # Independent native C89 staging integration test retained verbatim.
 if [ "${1:-}" = "NATIVE" ]; then
 (

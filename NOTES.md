@@ -14944,3 +14944,19 @@ validator cases), syntax/width checks, canonical source guard and historical
 host test compilation passed. Full native host workflow 39150390362 passed on
 commit `c09377e9f9f0c82580eee8daa0fdf678c7183377`. CMS qualification remains
 unavailable.
+
+## 2026-10-18 — M215 REF2 revision resolution fixtures
+
+Plan: execute the actual `GITVREF.EXEC` resolver against a synthetic REF2 map
+under Regina. Cover HEAD, short branch/tag names, full tag names, branch
+precedence, and missing refs. Keep this as host-only test data.
+
+Assumption: short names resolve branches before tags, matching the current
+resolver's deliberate lookup order.
+
+
+Progress: the initial missing-ref fixture exposed an uninitialized `reskind`
+field in the synthetic driver; after initializing it and printing only the
+error result, all six source-derived resolution cases pass. M213/M210 checks,
+canonical guard, all 42 preserved test-body compilations, and `git diff
+--check` pass. CMS remains untouched; commit and full Actions are pending.

@@ -160,6 +160,8 @@ jobs:
         run: sh tests/check-canonical-source.sh M210
       - name: Check M213 REF2 ref-name validator parity
         run: sh tests/check-canonical-source.sh M213
+      - name: Check M215 REF2 revision resolution
+        run: sh tests/check-canonical-source.sh M215
       - name: Check M190 7736-object selective seek closure
         run: python3 tests/test-m203-bounded-batch.py M190S
       - name: Compare M190 indexed seek vs M188 two-pass host
