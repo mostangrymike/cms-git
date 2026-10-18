@@ -14851,3 +14851,10 @@ M210 integration assertions, nine source-derived matcher cases, the canonical
 source guard, all 42 preserved test-body compilations, and `git diff --check`
 pass locally. CMS target validation remains unavailable; commit and Actions
 validation are pending.
+
+
+M210 CI follow-up: full native host workflow 39149684842 passed on commit
+`40788cd32dcee2a12e6a73bcddfe30d78e8545af`. Actions installed Regina, ran the
+source-derived REXX wildcard cases and integration checks, and completed the
+existing native regression suite. The matcher is host-tested only; CMS
+compilation and live tag listing remain unverified.
