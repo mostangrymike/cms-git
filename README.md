@@ -93,6 +93,8 @@ M208 adds lightweight commit tags to the modern `GITREF2` store. M209 makes
 listing output tag names and accepts `-l`/`--list`; M210 adds `*` and `?`
 list-pattern wildcards (no bracket classes). `GIT TAG` and `GIT TAG -l`/
 `--list` list tag names. `GIT TAG <name> <full-commit-oid>` creates a tag;
+`GIT TAG -f|--force <name> <new-oid> <expected-old-oid>` updates an existing
+tag using compare-and-swap;
 `GIT TAG -d|--delete <name> <expected-commit-oid>` deletes one using
 compare-and-swap.
 Creation verifies the target commit; deletion requires its exact old OID.

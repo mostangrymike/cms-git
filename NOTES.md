@@ -14873,3 +14873,20 @@ validation and full Actions are pending.
 M211 validation: focused `M210` tag syntax/width, integration, and source-derived
 REXX matcher checks passed locally. Full native host workflow 39149852161 passed
 on commit `4610f9ff9ee61ad2095ef21b2ff85c1c16c0873b`; no CMS behavior was run.
+
+## 2026-10-18 — M212 compare-and-swap tag updates
+
+Plan: add `-f`/`--force` tag updates that require the caller's expected old
+commit OID, verify the new commit, and delegate to the existing REF2
+compare-and-swap updater. Preserve create-only behavior without the option.
+
+Assumption: the explicit expected-old-OID operand is retained even though
+stock Git does not require it; this keeps force updates race-detecting.
+
+
+Progress: M212 adds lowercase/long force aliases, validates both full OIDs,
+verifies that the new object is a commit, and passes the caller's expected old
+OID to `GIT UPDATE-REF`. `M210` (including M208 source/REXX checks and nine
+source-derived wildcard fixtures), all 42 preserved host test-body
+compilations, width checks, and `git diff --check` pass locally. CMS
+qualification is not claimed; commit and full Actions remain pending.

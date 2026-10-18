@@ -62,18 +62,45 @@ if command = 'TAG' then do
       address command 'EXEC GITVREF TAGS'
       exit rc
    end
-   parse var rest action tagname oid extra
+   parse var rest action tagname oid extra fifth
    verb=translate(action)
    if verb='-L' | verb='--LIST' then do
-      if oid\='' | extra\='' then do
+      if oid\='' | extra\='' | fifth\='' then do
          say 'Usage: GIT TAG [-l|--list [pattern]]'
          exit 4
       end
       address command 'EXEC GITVREF TAGS' tagname
       exit rc
    end
+   if verb='-F' | verb='--FORCE' then do
+      if tagname='' | oid='' | extra='' | fifth\='' then do
+         say 'Usage: GIT TAG -f|--force name new-oid expected-old-oid'
+         exit 4
+      end
+      newoid=translate(oid)
+      oldoid=translate(extra)
+      if length(newoid)\=40 |,
+         verify(newoid,'0123456789ABCDEF')\=0 |,
+         length(oldoid)\=40 |,
+         verify(oldoid,'0123456789ABCDEF')\=0 then do
+         say 'GIT: tag update requires full expected and new object-ids'
+         exit 4
+      end
+      address command 'EXEC GIT VERIFY-OBJECT' newoid
+      if rc\=0 then exit 8
+      call readobject newoid
+      if result\='OK' | objtype\='COMMIT' then do
+         say 'GIT: lightweight tags require a verified COMMIT object'
+         exit 8
+      end
+      ref='refs/tags/'||tagname
+      address command 'EXEC GIT UPDATE-REF' ref newoid oldoid
+      if rc\=0 then exit rc
+      say 'TAG UPDATED' ref oldoid newoid
+      exit 0
+   end
    if verb='-D' | verb='--DELETE' then do
-      if tagname='' | oid='' | extra\='' then do
+      if tagname='' | oid='' | extra\='' | fifth\='' then do
          say 'Usage: GIT TAG -d|--delete name expected-commit-oid'
          exit 4
       end
@@ -89,7 +116,7 @@ if command = 'TAG' then do
       say 'TAG DELETED' ref oid
       exit 0
    end
-   if action='' | tagname='' | oid\='' | extra\='' then do
+   if action='' | tagname='' | oid\='' | extra\='' | fifth\='' then do
       say 'Usage: GIT TAG [name commit-oid] | TAG -D name expected-commit-oid'
       exit 4
    end
