@@ -15720,6 +15720,9 @@ cover staged deletion, unstaged deletion, restoration against staged deletion,
 and both diff views. The cumulative M248 suite passes; host compile and CI are
 pending. CMS behavior remains unverified.
 
+M248 CI follow-up: full native host workflow 39169780862 passed.
+CMS behavior remains unverified.
+
 ## 2026-10-18 — M249 commit staged deletions
 
 Plan: teach `GIT COMMIT` to accept absent workfiles whose staged OID is zero,
@@ -15736,3 +15739,23 @@ serialized tree bytes with a removed entry and the empty-tree case; eight
 source guards cover preflight, leaf removal, pruning, and root write. The
 cumulative M249 suite passes; host compile and CI are pending. CMS behavior
 remains unverified.
+
+M249 CI follow-up: full native host workflow 39169941711 passed.
+CMS behavior remains unverified.
+
+## 2026-10-18 — M250 accept committed deletions
+
+Plan: let `GIT ACCEPT` verify absent committed deletions, compact those paths
+out of GITWORK, and advance the base OIDs of remaining mapped paths.
+
+Assumption: this is the existing post-commit local map acceptance operation;
+it does not update refs, remove CMS files, or independently prove that a
+commit/ref update succeeded.
+
+Progress: ACCEPT now checks staged deletions are still absent, removes their
+map entries, compacts retained entries, advances their base OIDs, writes once,
+and verifies the resulting map count and clean stage/base pairs. It rejects a
+deletion whose CMS workfile reappeared. Two source-derived Regina fixtures
+cover successful compaction and the reappeared-file failure; six source guards
+check validation and save order. The cumulative M250 suite passes; host compile
+and CI are pending. CMS behavior remains unverified.

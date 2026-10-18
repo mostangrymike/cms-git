@@ -512,10 +512,32 @@ if command='ACCEPT' then do
  end
  oldcount=mapcount
  acceptedcount=0
+ deletecount=0
+ drop deleteflag. deletepath. oldbase. oldstage. oldpath.
+ zeros='0000000000000000000000000000000000000000'
  do ai=1 to mapcount
   oldbase.ai=mapbase.ai
+  oldstage.ai=mapstage.ai
+  oldpath.ai=mappath.ai
   if mapstage.ai\=mapbase.ai then acceptedcount=acceptedcount+1
   'STATE' mapfn.ai mapft.ai mapfm.ai
+  if mapstage.ai=zeros & mapbase.ai\=zeros then do
+   if rc=28 then do
+    deleteflag.ai=1
+    deletecount=deletecount+1
+    call asciitocms mappath.ai
+    deletepath.deletecount=result
+    iterate
+   end
+   if rc=0 then do
+    say 'GITWT: deleted workfile reappeared before accept',
+        mapfn.ai mapft.ai mapfm.ai
+    exit 8
+   end
+   say 'GITWT: cannot inspect deleted workfile',
+       mapfn.ai mapft.ai mapfm.ai
+   exit 8
+  end
   if rc\=0 then do
    say 'GITWT: mapped workfile is absent' mapfn.ai mapft.ai mapfm.ai
    exit 8
@@ -524,7 +546,8 @@ if command='ACCEPT' then do
   accepted=result
   if accepted='ERROR' then exit 8
   if accepted\=mapstage.ai then do
-   say 'GITWT: workfile changed after commit' mapfn.ai mapft.ai mapfm.ai
+   say 'GITWT: workfile changed after commit',
+       mapfn.ai mapft.ai mapfm.ai
    exit 8
   end
  end
@@ -532,9 +555,21 @@ if command='ACCEPT' then do
   say 'GITWT: no staged change to accept'
   exit 8
  end
- do ai=1 to mapcount
-  mapbase.ai=mapstage.ai
+ keptcount=0
+ do ai=1 to oldcount
+  if deleteflag.ai=1 then iterate
+  keptcount=keptcount+1
+  if keptcount\=ai then do
+   mapfn.keptcount=mapfn.ai
+   mapft.keptcount=mapft.ai
+   mapfm.keptcount=mapfm.ai
+   maplf.keptcount=maplf.ai
+   mappath.keptcount=mappath.ai
+   mapstage.keptcount=mapstage.ai
+  end
+  mapbase.keptcount=mapstage.ai
  end
+ mapcount=keptcount
  call savemap
  if result\='OK' then do
   call restoremap
@@ -542,7 +577,7 @@ if command='ACCEPT' then do
   exit 8
  end
  call loadmap
- if result\='OK' | mapcount\=oldcount then do
+ if result\='OK' | mapcount\=keptcount then do
   call restoremap
   say 'GITWT: accepted map verification failed'
   exit 8
@@ -553,12 +588,18 @@ if command='ACCEPT' then do
    say 'GITWT: accepted map verification failed'
    exit 8
   end
-  if oldbase.ai\=mapbase.ai then do
+ end
+ do ai=1 to oldcount
+  if oldstage.ai\=oldbase.ai & deleteflag.ai\=1 then do
    say 'ACCEPTED WORKTREE OLD' oldbase.ai
-   say 'ACCEPTED WORKTREE NEW' mapbase.ai
+   say 'ACCEPTED WORKTREE NEW' oldstage.ai
   end
  end
+ do ai=1 to deletecount
+  say 'ACCEPTED WORKTREE DELETED' deletepath.ai
+ end
  say 'ACCEPTED WORKTREE PATHS' acceptedcount
+ say 'ACCEPTED WORKTREE DELETIONS' deletecount
  exit 0
 end
 

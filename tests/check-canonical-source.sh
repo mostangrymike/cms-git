@@ -1703,6 +1703,77 @@ echo 'M245 SOURCE-DERIVED GIT RESET FIXTURES PASS 6'
 exit $?
 fi
 
+if [ "${1:-}" = "M250" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M249
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GITWT.EXEC" "$tmp/accept.rexx" "$tmp/reappeared.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+start=source.index("if command='ACCEPT' then do")
+end=source.index("if command='COMMIT' then do",start)
+block=source[start:end]
+for token in ('if mapstage.ai=zeros & mapbase.ai\\=zeros then do',
+              'deleteflag.ai=1', 'if deleteflag.ai=1 then iterate',
+              'mapcount=keptcount', 'call savemap',
+              "say 'ACCEPTED WORKTREE DELETED' deletepath.ai"):
+ if token not in block:
+  raise SystemExit(f'M250 delete acceptance source guard missing {token!r}')
+block=block.replace("'EXECIO * DISKR GITWORK REPO A 1 (STEM BEFORE. FINIS'",
+                    "before.0=1\nrc=0")
+block=block.replace("'STATE' mapfn.ai mapft.ai mapfm.ai",
+ "if mapfn.ai='DELETED' then rc=28\nelse rc=0")
+block=block.replace('call workoid mapfn.ai,mapft.ai,mapfm.ai,maplf.ai,0',
+ "if ai=2 then result='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\nelse result='CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC'")
+block=block.replace('call asciitocms mappath.ai',"result='deleted'")
+block=block.replace('call loadmap',"result='OK'")
+block=block.replace('call savemap',"result='OK'\nsay 'SIMULATED SAVE' mapcount")
+block=block.replace('call restoremap',"result='OK'")
+verify=("if mapcount\\=2 | mapfn.1\\='STAGED' | mapfn.2\\='CLEAN' then exit 12\n"
+        "if mapbase.1\\='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB' then exit 12\n"
+        "if mapbase.2\\='CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC' then exit 12\n")
+block=block.replace("say 'ACCEPTED WORKTREE DELETIONS' deletecount\n exit 0",
+ "say 'ACCEPTED WORKTREE DELETIONS' deletecount\n"+verify+" exit 0")
+prefix=("parse arg rest\ncommand='ACCEPT'\nmapcount=3\n"
+ "mapfn.1='DELETED'\nmapfn.2='STAGED'\nmapfn.3='CLEAN'\n"
+ "do mi=1 to 3\n mapft.mi='DATA'\n mapfm.mi='A'\n maplf.mi=1\nend\n"
+ "mapbase.1='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "mapstage.1='0000000000000000000000000000000000000000'\n"
+ "mapbase.2='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "mapstage.2='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
+ "mapbase.3='CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC'\n"
+ "mapstage.3='CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC'\n"
+ "mappath.1='64656C65746564'\nmappath.2='737461676564'\n"
+ "mappath.3='636C65616E'\n")
+Path(sys.argv[2]).write_text(prefix+block)
+reappeared=block.replace("if mapfn.ai='DELETED' then rc=28\nelse rc=0",'rc=0')
+Path(sys.argv[3]).write_text(prefix+reappeared)
+print('M250 WORKTREE MAP ACCEPT SOURCE GUARDS PASS 6')
+PY
+rexx -c "$tmp/accept.rexx" /dev/null
+rexx -c "$tmp/reappeared.rexx" /dev/null
+expected=$(printf 'GITWT ACCEPT LEVEL M168\nSIMULATED SAVE 2\nACCEPTED WORKTREE OLD AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\nACCEPTED WORKTREE NEW BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\nACCEPTED WORKTREE DELETED deleted\nACCEPTED WORKTREE PATHS 2\nACCEPTED WORKTREE DELETIONS 1')
+if output=$(rexx "$tmp/accept.rexx"); then rc=0; else rc=$?; fi
+if [ "$rc" -ne 0 ] || [ "$output" != "$expected" ]; then
+ echo "M250 accept fixture mismatch RC $rc: $output" >&2
+ exit 1
+fi
+if output=$(rexx "$tmp/reappeared.rexx"); then rc=0; else rc=$?; fi
+if [ "$rc" -ne 8 ] || [ "$output" != 'GITWT ACCEPT LEVEL M168
+GITWT: deleted workfile reappeared before accept DELETED DATA A' ]; then
+ echo "M250 reappeared deletion guard mismatch RC $rc: $output" >&2
+ exit 1
+fi
+echo 'M250 SOURCE-DERIVED DELETE ACCEPTANCE FIXTURES PASS 2'
+)
+exit $?
+fi
+
 if [ "${1:-}" = "M249" ]; then
 (
 set -eu

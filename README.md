@@ -282,6 +282,11 @@ entries from rewritten trees, and prunes newly empty subtrees. CMS workfiles
 must remain absent while committing. Post-commit worktree-map acceptance is
 still separate; CMS behavior remains unverified.
 
+M250 lets `GIT ACCEPT` verify absent staged deletions and remove those paths
+from the worktree map after commit, while advancing remaining map baselines.
+It rejects a deleted workfile that reappears before acceptance. CMS behavior
+remains unverified.
+
 ---
 
 ## M206 full 32-object CMS PASS and A-disk audit (October 13, 2026)
