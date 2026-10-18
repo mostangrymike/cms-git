@@ -249,6 +249,11 @@ once; if a mapped CMS file is absent, the command fails without changing the
 map. It does not stage deletions or accept update pathspecs. CMS behavior
 remains unverified.
 
+M243 adds `GIT STATUS --short` and `GIT STATUS --porcelain`, reporting staged
+and unstaged additions, modifications, and deletions in two-column status
+form. It reports mapped worktree paths only; untracked-file discovery remains
+unsupported. CMS behavior remains unverified.
+
 ---
 
 ## M206 full 32-object CMS PASS and A-disk audit (October 13, 2026)

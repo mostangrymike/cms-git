@@ -1441,6 +1441,96 @@ echo 'M242 SOURCE-DERIVED GIT ADD UPDATE FIXTURES PASS 6'
 exit $?
 fi
 
+if [ "${1:-}" = "M243" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M242
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GITWT.EXEC" "$tmp/status.rexx" "$tmp/empty.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+start=source.index("if command='STATUS' then do")
+end=source.index('/* Read-only preflight for a branch switch',start)
+block=source[start:end]
+required=("statusopt=translate(strip(rest))", "statusopt='--SHORT'",
+          "statusopt='--PORCELAIN'", "if mapbase.i=zeros then x='A'",
+          "if state='DELETED' then y='D'",
+          "if state='MODIFIED' | state='STAGED+MODIFIED' then y='M'",
+          "if x\\=' ' | y\\=' ' then say x||y||' '||p",
+          "if shortstatus=0 then say 'STATUS SUMMARY TRACKED'")
+for token in required:
+ if token not in block:
+  raise SystemExit(f'M243 short status source guard missing {token!r}')
+state="if mapfn.i='GONE' | mapfn.i='ADDGONE' then rc=28\nelse rc=0"
+work=("if mapfn.i='CLEAN' | mapfn.i='ADD' then\n"
+      " result='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+      "else if mapfn.i='STAGED' | mapfn.i='MODIFIED' then\n"
+      " result='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
+      "else if mapfn.i='BOTH' then\n"
+      " result='CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC'\n"
+      "else result='ERROR'")
+fixture=(
+ "parse arg rest\ncommand='STATUS'\nmapcount=7\n"
+ "mapfn.1='CLEAN'\nmapfn.2='STAGED'\nmapfn.3='MODIFIED'\n"
+ "mapfn.4='BOTH'\nmapfn.5='GONE'\nmapfn.6='ADD'\n"
+ "mapfn.7='ADDGONE'\n"
+ "do mi=1 to 7\n mapft.mi='DATA'\n mapfm.mi='A'\n maplf.mi=1\nend\n"
+ "mapbase.1='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "mapstage.1='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "mapbase.2='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "mapstage.2='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
+ "mapbase.3='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "mapstage.3='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "mapbase.4='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "mapstage.4='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
+ "mapbase.5='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "mapstage.5='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "mapbase.6='0000000000000000000000000000000000000000'\n"
+ "mapstage.6='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "mapbase.7='0000000000000000000000000000000000000000'\n"
+ "mapstage.7='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "mappath.1='636C65616E'\nmappath.2='737461676564'\n"
+ "mappath.3='6D6F646966696564'\nmappath.4='626F7468'\n"
+ "mappath.5='676F6E65'\nmappath.6='6164646564'\n"
+ "mappath.7='616464676F6E65'\n"+
+ block.replace('call loadmap',"result='OK'")
+      .replace("'STATE' mapfn.i mapft.i mapfm.i",state)
+      .replace('call workoid mapfn.i,mapft.i,mapfm.i,maplf.i,0',work)+
+ "asciitocms:\n parse arg text\n return x2c(text)\n")
+Path(sys.argv[2]).write_text(fixture)
+Path(sys.argv[3]).write_text(fixture.replace('mapcount=7','mapcount=0'))
+print('M243 SHORT STATUS SOURCE GUARDS PASS 8')
+PY
+rexx -c "$tmp/status.rexx" /dev/null
+check() {
+ fixture=$1
+ expected_rc=$2
+ expected=$3
+ shift 3
+ if output=$(rexx "$fixture" "$@"); then rc=0; else rc=$?; fi
+ if [ "$rc" -ne "$expected_rc" ]; then
+  echo "GIT STATUS $*: expected RC $expected_rc, got $rc" >&2
+  exit 1
+ fi
+ if [ "$output" != "$expected" ]; then
+  echo "GIT STATUS $*: expected '$expected', got '$output'" >&2
+  exit 1
+ fi
+}
+expected=$(printf 'M  staged\n M modified\nMM both\n D gone\nA  added\nAD addgone')
+check "$tmp/status.rexx" 0 "$expected" --short
+check "$tmp/status.rexx" 0 "$expected" --porcelain
+check "$tmp/empty.rexx" 0 '' --short
+check "$tmp/status.rexx" 4 'Usage: GIT STATUS [--short|--porcelain]' --branch
+echo 'M243 SOURCE-DERIVED SHORT STATUS FIXTURES PASS 4'
+)
+exit $?
+fi
+
 # A bounded log count must stop cleanly when history reaches a root commit.
 if [ "${1:-}" = "M240" ]; then
 (

@@ -108,18 +108,23 @@ if command='CHECKOUT' then do
 end
 
 if command='STATUS' then do
- if strip(rest)\='' then do
-  say 'Usage: GIT STATUS'
+ statusopt=translate(strip(rest))
+ shortstatus=0
+ if statusopt='--SHORT' | statusopt='--PORCELAIN' then,
+  shortstatus=1
+ else if statusopt\='' then do
+  say 'Usage: GIT STATUS [--short|--porcelain]'
   exit 4
  end
  call loadmap
  if result\='OK' then exit 8
  if mapcount=0 then do
-  say 'STATUS NO TRACKED FILES'
+  if shortstatus=0 then say 'STATUS NO TRACKED FILES'
   exit 0
  end
  changed=0
  staged=0
+ zeros='0000000000000000000000000000000000000000'
  do i=1 to mapcount
   call asciitocms mappath.i
   p=result
@@ -151,12 +156,25 @@ if command='STATUS' then do
     end
    end
   end
-  say 'STATUS' p state
-  say 'BASE' mapbase.i
-  say 'STAGE' mapstage.i
-  say 'WORK' work
+  if shortstatus=1 then do
+   x=' '
+   y=' '
+   if mapstage.i\=mapbase.i then do
+    if mapbase.i=zeros then x='A'
+    else x='M'
+   end
+   if state='DELETED' then y='D'
+   else if state='MODIFIED' | state='STAGED+MODIFIED' then y='M'
+   if x\=' ' | y\=' ' then say x||y||' '||p
+  end
+  else do
+   say 'STATUS' p state
+   say 'BASE' mapbase.i
+   say 'STAGE' mapstage.i
+   say 'WORK' work
+  end
  end
- say 'STATUS SUMMARY TRACKED' mapcount,
+ if shortstatus=0 then say 'STATUS SUMMARY TRACKED' mapcount,
      'CHANGED' changed 'STAGED' staged
  exit 0
 end

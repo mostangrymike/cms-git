@@ -15604,3 +15604,23 @@ rejected pathspecs;
 seven source guards verify validation and save ordering. The M242 cumulative
 suite, 42-source host compile inventory, REXX syntax/80-column checks, and
 `git diff --check` pass. GitHub CI is pending; CMS behavior remains unverified.
+
+M242 CI follow-up: full native host workflow 39157454981 passed on commit
+`85eb23c6d095`. CMS behavior remains unverified.
+
+## 2026-10-18 — M243 short porcelain status
+
+Plan: add `GIT STATUS --short` and `GIT STATUS --porcelain`, mapping the
+existing base/index/workfile states to Git's two status columns.
+
+Assumption: only paths already present in GITWORK are reported; untracked-file
+discovery, rename detection, and porcelain version selectors are unsupported.
+
+Progress: STATUS now emits `M`, `A`, and `D` index/worktree columns for staged
+and unstaged changes, omits clean mapped paths, and suppresses the verbose
+summary in short mode. Four source-derived Regina fixtures cover both aliases,
+staged/unstaged/both-column changes, deleted files, staged additions, empty
+maps, and unsupported options; eight source guards check the mapping. The M243
+cumulative suite, 42-source host compile inventory, REXX syntax/80-column
+checks, and `git diff --check` pass. GitHub CI is pending; CMS behavior remains
+unverified.
