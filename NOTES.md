@@ -15547,8 +15547,6 @@ pending.
 M239 CI follow-up: full native host workflow 39156665548 passed on commit
 `702eccaaf57b`. CMS behavior remains unverified.
 
-M239 CI follow-up: pending GitHub Actions after the M239 push.
-
 ## 2026-10-18 — M240 short-history `GIT LOG` completion
 
 Plan: make `LOGFULL` treat depth as an upper bound. When a verified commit has
@@ -15563,5 +15561,25 @@ the read loop cleanly; closure checks and `LOG NODES` framing then use the
 actual available count. Six source guards check the clamp, loop ordering, and
 node count. The accumulated M208–M240 source-derived suite, 42-source
 historical C compilation inventory, REXX syntax/80-column checks, and
-`git diff --check` pass. M240 commit and CI are pending; CMS behavior remains
-unverified.
+`git diff --check` pass. CMS behavior remains unverified.
+
+M240 CI follow-up: full native host workflow 39156844360 passed on commit
+`9331a54ea863`. CMS behavior remains unverified.
+
+## 2026-10-18 — M241 `GIT ADD --` option separator
+
+Plan: accept the conventional `--` separator before one or more explicit
+worktree paths. Count only paths against the 16-path bound and leave all
+existing path validation and map-save behavior intact.
+
+Assumption: `--` is recognized only as the first ADD operand; further option
+parsing and wildcard/directory staging remain unsupported.
+
+Progress: GITWT ADD consumes a leading separator before path validation. The
+source-derived Regina fixture invokes `GIT ADD -- alpha beta` and `GIT ADD --
+-dash`, exercising the two-path bound, map update, and a leading-dash path.
+It also checks the empty-delimiter and post-delimiter 16-path bounds. Fixture
+labels report all thirteen ADD cases and eight source guards. The focused M241
+chain, 42-source historical host compile inventory, REXX syntax/80-column
+checks, and `git diff --check` pass. The native host workflow is pending; CMS
+behavior remains unverified.

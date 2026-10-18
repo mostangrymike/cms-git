@@ -244,7 +244,12 @@ end
 end
 
 if command='ADD' then do
+ addstart=1
  addrequested=words(rest)
+ if word(rest,1)='--' then do
+  addstart=2
+  addrequested=addrequested-1
+ end
  if addrequested<1 | addrequested>16 then do
   say 'Usage: GIT ADD path [path ...] (maximum 16 paths)'
   exit 4
@@ -253,7 +258,7 @@ if command='ADD' then do
  if result\='OK' then exit 8
  drop addpi. addpath. addold. addoid.
  addcount=0
- do ai=1 to addrequested
+ do ai=addstart to words(rest)
   path=word(rest,ai)
   call toasciihex path
   pathhex=result

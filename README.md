@@ -239,6 +239,10 @@ M240 makes `GIT LOG` treat its maximum as a limit: if the selected history
 reaches a root before the requested count, it returns the available commits
 instead of failing. CMS behavior remains unverified.
 
+M241 lets multi-path `GIT ADD` use the conventional `--` separator before
+paths, so names beginning with a dash can be passed unambiguously. CMS behavior
+remains unverified.
+
 ---
 
 ## M206 full 32-object CMS PASS and A-disk audit (October 13, 2026)
