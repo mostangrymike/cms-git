@@ -15875,4 +15875,4 @@ zero-base entry and saves the map once, restoring the prior map if the save
 fails. Eight source-derived Regina fixtures cover two-file staging, default and
 explicit file modes, in-batch duplicates, missing and failed hashes, capacity,
 save rollback, and the 16-file limit. The cumulative M255 suite passes locally;
-native host CI is pending. CMS behavior remains unverified.
+GitHub Actions native host workflow 39179583152 passed on commit `eba196b`; CMS behavior remains unverified.
