@@ -834,6 +834,14 @@ if command = 'RESET' then do
 end
 if command = 'RESTORE' then do
    parse var rest restoreopt restorepaths
+   if translate(restoreopt)='--WORKTREE' then do
+      if strip(restorepaths)='' then do
+         say 'Usage: GIT RESTORE --worktree [--] path...'
+         exit 4
+      end
+      address command 'EXEC GITWT RESTORE-WORKTREE' restorepaths
+      exit rc
+   end
    if translate(restoreopt)\='--STAGED' | strip(restorepaths)='' then do
       say 'Usage: GIT RESTORE --staged [--] path...'
       exit 4

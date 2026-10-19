@@ -266,8 +266,10 @@ selected stage OID to its base OID in one worktree-map save; CMS workfiles and
 HEAD remain unchanged. CMS behavior remains unverified.
 
 M246 adds `GIT RESTORE --staged [--] path...` as a path-only alias for that
-mapped stage reset. Worktree restore and `--source` forms are unsupported;
-CMS behavior remains unverified.
+mapped stage reset. M259 adds `GIT RESTORE --worktree [--] path...`, restoring
+selected CMS files from their staged blobs or removing files staged for
+deletion. Arbitrary `--source` revisions remain unsupported; CMS behavior
+remains unverified.
 
 M247 adds `GIT STATUS --branch`, `--short --branch`, and
 `--porcelain --branch`. It reports the current symbolic branch before tracked
@@ -344,6 +346,14 @@ supported, up to 16 input pathspecs. The branch heading is still shown when
 requested, and the verbose summary counts only selected paths. Unmatched
 pathspecs fail; host source-derived fixtures pass. CMS behavior remains
 unverified.
+
+M259 adds `GIT RESTORE --worktree [--] path...`, restoring up to 16 selected
+mapped CMS workfiles to their staged content. Staged deletion removes the CMS
+file; restored text blobs must fit CMS's 80-byte records. It validates every
+target before writing, verifies restored blob OIDs, rolls back file writes on
+failure, and updates final-newline metadata in one worktree-map save. Exact
+and wildcard paths are supported. Host source-derived fixtures pass; CMS
+behavior remains unverified.
 
 ---
 

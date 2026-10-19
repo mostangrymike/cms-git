@@ -2599,6 +2599,134 @@ echo 'M258 SOURCE-DERIVED SELECTED STATUS FIXTURES PASS 8'
 exit $?
 fi
 
+if [ "${1:-}" = "M259" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M258
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GIT.EXEC" "$root/src/GITWT.EXEC" "$tmp/restore.rexx" "$tmp/router.rexx" "$tmp/failure.rexx" "$tmp/base.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+router=Path(sys.argv[1]).read_text()
+rstart=router.index("if command = 'RESTORE' then do")
+rend=router.index("if command = 'ADD' then do",rstart)
+rblock=router[rstart:rend]
+for token in ("restoreopt)='--WORKTREE'", "'EXEC GITWT RESTORE-WORKTREE'",
+              "'EXEC GITWT RESET'"):
+ if token not in rblock:
+  raise SystemExit(f'M259 GIT RESTORE route guard missing {token!r}')
+rblock=rblock.replace("address command 'EXEC GITWT RESTORE-WORKTREE' restorepaths",
+                      "say 'SIMULATED WORKTREE' restorepaths\nexit 0")
+rblock=rblock.replace("address command 'EXEC GITWT RESET' restorepaths",
+                      "say 'SIMULATED STAGED' restorepaths\nexit 0")
+Path(sys.argv[4]).write_text("parse arg command rest\ncommand=translate(command)\n"+rblock)
+
+source=Path(sys.argv[2]).read_text()
+start=source.index("if command='RESTORE-WORKTREE' then do")
+end=source.index("if command='STATUS' then do",start)
+block=source[start:end]
+for token in ('call readrestoreblob mapstage.pi',
+              'call pathoidfor headcommit,mappath.pi',
+              'call bodyrecords restorebody.restorearg',
+              'call rollbackrestore', 'call workoid mapfn.pi,mapft.pi,mapfm.pi,restorefinal.restorearg,0',
+              'call savemap', 'restoreoldline.restorearg.restoreline'):
+ if token not in block:
+  raise SystemExit(f'M259 worktree restore source guard missing {token!r}')
+if not (block.index('call addselected')<block.index('call bodyrecords')<
+        block.index('call writework')<block.index('call savemap')):
+ raise SystemExit('M259 must resolve and validate all staged blobs before writing')
+helperstart=source.index('\naddselected:\n')+1
+helperend=source.index("\nif command='RESET' then do",helperstart)
+helpers=source[helperstart:helperend]
+findstart=source.index('\nfindpath:\n')+1
+findend=source.index('\nfindfile:\n',findstart)
+findpath=source[findstart:findend]
+block=block.replace('call loadmap',"result='OK'")
+block=block.replace("'STATE' mapfn.pi mapft.pi mapfm.pi",'rc=0')
+block=block.replace("'EXECIO * DISKR' mapfn.pi mapft.pi mapfm.pi '1 (STEM RESTOREOLD. FINIS'",
+                    "restoreold.0=1\nrestoreold.1='old-data'\nrc=0")
+block=block.replace("'STATE GITWORK REPO A'",'rc=0')
+block=block.replace("'EXECIO * DISKR GITWORK REPO A 1 (STEM BEFORE. FINIS'",
+                    "before.0=1\nbefore.1='WORK1 2'\nrc=0")
+block=block.replace('call readrestoreblob mapstage.pi',"result='6E65770A'")
+block=block.replace('call bodyrecords restorebody.restorearg',
+                    "rec.0=1\nrec.1='new'\nfinal=1\nresult='OK'")
+block=block.replace("'ERASE' mapfn.pi mapft.pi mapfm.pi",
+                    "say 'SIMULATED ERASE' mapfn.pi\nrc=0")
+block=block.replace('call writework mapfn.pi,mapft.pi,mapfm.pi',
+                    "result='OK'\nsay 'SIMULATED WRITE' mapfn.pi")
+block=block.replace('call workoid mapfn.pi,mapft.pi,mapfm.pi,restorefinal.restorearg,0',
+                    'result=mapstage.pi')
+block=block.replace('call savemap',"result='OK'\nsay 'SIMULATED SAVE'")
+fixture=(
+ "parse arg rest\ncommand='RESTORE-WORKTREE'\nmapcount=2\n"
+ "mapfn.1='MOD'\nmapfn.2='DEL'\n"
+ "do mi=1 to 2\n mapft.mi='DATA'\n mapfm.mi='A'\n maplf.mi=0\nend\n"
+ "mapbase.1='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "mapstage.1='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
+ "mapbase.2='CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC'\n"
+ "mapstage.2='0000000000000000000000000000000000000000'\n"
+ "mappath.1='616C706861'\nmappath.2='676F6E65'\n"+
+ block+helpers+findpath+
+ "toasciihex:\n parse arg text\n return c2x(text)\n"
+ "asciitocms:\n parse arg text\n return x2c(text)\n")
+Path(sys.argv[3]).write_text(fixture)
+Path(sys.argv[5]).write_text(
+ fixture.replace('result=mapstage.pi', "result='ERROR'")+
+ "writework:\n parse arg wfn,wft,wfm\n"
+ "say 'SIMULATED BACKUP RESTORE' wfn\n return 'OK'\n")
+basefixture=fixture.replace(
+ "mapstage.1='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'",
+ "mapstage.1='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'")
+Path(sys.argv[6]).write_text(
+ basefixture+
+ "readrefs:\n headref='refs/heads/main'\n return 'OK'\n"
+ "resolve:\n return 'HEADOID'\n"
+ "bindnative:\n return 'OK'\n"
+ "pathoidfor:\n parse arg pcommit,ppath\n"
+ "pathoid='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "body='6E65770A'\n return pathoid\n")
+print('M259 WORKTREE RESTORE SOURCE GUARDS PASS 9')
+PY
+rexx -c "$tmp/restore.rexx" /dev/null
+rexx -c "$tmp/failure.rexx" /dev/null
+rexx -c "$tmp/base.rexx" /dev/null
+rexx -c "$tmp/router.rexx" /dev/null
+check() {
+ fixture=$1
+ expected_rc=$2
+ expected=$3
+ shift 3
+ if output=$(rexx "$fixture" "$@"); then rc=0; else rc=$?; fi
+ if [ "$rc" -ne "$expected_rc" ] || [ "$output" != "$expected" ]; then
+  echo "M259 GIT RESTORE $*: expected RC $expected_rc '$expected', got RC $rc '$output'" >&2
+  exit 1
+ fi
+}
+check "$tmp/router.rexx" 0 'SIMULATED WORKTREE -- alpha' RESTORE --worktree -- alpha
+check "$tmp/router.rexx" 0 'SIMULATED STAGED alpha' RESTORE --staged alpha
+expected=$(printf 'SIMULATED WRITE MOD\nSIMULATED ERASE DEL\nSIMULATED SAVE\nRESTORED WORKTREE alpha BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\nRESTORED WORKTREE DELETION gone')
+check "$tmp/restore.rexx" 0 "$expected" alpha gone
+expected=$(printf 'SIMULATED WRITE MOD\nSIMULATED SAVE\nRESTORED WORKTREE alpha BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB')
+check "$tmp/restore.rexx" 0 "$expected" 'a*'
+check "$tmp/restore.rexx" 0 "$expected" alpha 'a*'
+check "$tmp/restore.rexx" 0 "$expected" -- alpha
+expected=$(printf 'SIMULATED WRITE MOD\nSIMULATED SAVE\nRESTORED WORKTREE alpha AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA')
+check "$tmp/base.rexx" 0 "$expected" alpha
+check "$tmp/restore.rexx" 4 'GITWT: pathspec did not match any checked out path missing' missing
+check "$tmp/restore.rexx" 4 'Usage: GIT RESTORE --worktree [--] path [path ...]' --bogus
+many='alpha alpha alpha alpha alpha alpha alpha alpha alpha alpha alpha alpha alpha alpha alpha alpha alpha'
+check "$tmp/restore.rexx" 4 'Usage: GIT RESTORE --worktree [--] path [path ...] (maximum 16 paths)' $many
+expected=$(printf 'SIMULATED WRITE MOD\nSIMULATED BACKUP RESTORE MOD\nSIMULATED BACKUP RESTORE DEL\nGITWT: workfile verification failed; restore rollback RC OK')
+check "$tmp/failure.rexx" 8 "$expected" alpha gone
+echo 'M259 SOURCE-DERIVED WORKTREE RESTORE FIXTURES PASS 10'
+)
+exit $?
+fi
+
 if [ "${1:-}" = "M250" ]; then
 (
 set -eu
@@ -2888,11 +3016,15 @@ block=source[start:end]
 required=('parse var rest restoreopt restorepaths',
           "translate(restoreopt)\\='--STAGED'",
           "say 'Usage: GIT RESTORE --staged [--] path...'",
+          "translate(restoreopt)='--WORKTREE'",
+          "address command 'EXEC GITWT RESTORE-WORKTREE' restorepaths",
           "address command 'EXEC GITWT RESET' restorepaths",
           'exit rc')
 for token in required:
  if token not in block:
   raise SystemExit(f'M246 restore source guard missing {token!r}')
+block=block.replace("address command 'EXEC GITWT RESTORE-WORKTREE' restorepaths",
+                    "say 'SIMULATED WORKTREE' restorepaths\nexit 0")
 block=block.replace("address command 'EXEC GITWT RESET' restorepaths",
                     "say 'SIMULATED RESET' restorepaths\nexit 0")
 Path(sys.argv[2]).write_text("parse arg rest\ncommand='RESTORE'\n"+block)
@@ -2915,9 +3047,11 @@ check() {
 }
 check 0 'SIMULATED RESET alpha' --staged alpha
 check 0 'SIMULATED RESET -- alpha beta' --STAGED -- alpha beta
-check 4 'Usage: GIT RESTORE --staged [--] path...' --worktree alpha
+check 0 'SIMULATED WORKTREE alpha' --worktree alpha
+check 0 'SIMULATED WORKTREE -- alpha beta' --worktree -- alpha beta
 check 4 'Usage: GIT RESTORE --staged [--] path...' --staged
-echo 'M246 SOURCE-DERIVED RESTORE STAGED FIXTURES PASS 4'
+check 4 'Usage: GIT RESTORE --staged [--] path...' --bogus alpha
+echo 'M246 SOURCE-DERIVED RESTORE STAGED/WORKTREE FIXTURES PASS 6'
 )
 exit $?
 fi

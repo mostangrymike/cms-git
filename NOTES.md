@@ -15924,3 +15924,20 @@ wildcard filters, duplicate collapse, the separator, unmatched paths, and
 skipping an inaccessible unselected file. The cumulative M258 suite passes
 locally. GitHub Actions native host workflow 39260919753 passed on commit
 `3567536`; CMS behavior remains unverified.
+
+## 2026-10-19 — M259 restore CMS workfiles from staged content
+
+Plan: implement `GIT RESTORE --worktree [--] path...` for mapped files, using
+the staged blob as the source and preserving the staged map entries.
+
+Progress: restore accepts up to 16 exact or wildcard mapped paths. It restores
+staged blobs, removes workfiles whose staged OID is zero, and supports staged
+blobs equal to the base by reading their path from the authenticated current
+HEAD closure. Changed staged blobs are read from the verified loose-object
+store. All target files and source content are preflighted before mutation;
+workfile snapshots support rollback after write, verification, or map-save
+failure. Final-newline metadata is saved once after successful writes. Ten
+source-derived Regina fixtures cover router forms, changed and deleted paths,
+wildcards, duplicate collapse, separators, argument bounds, no matches, and
+workfile rollback. The cumulative M259 suite passes locally; GitHub Actions
+and CMS behavior remain unverified.
