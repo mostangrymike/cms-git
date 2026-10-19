@@ -15906,4 +15906,5 @@ paths. Every pathspec is resolved before any selected file is hashed or the
 map is saved. Eight source-derived Regina fixtures cover star and question
 matching, nested paths, mixed and duplicate patterns, selected update mode,
 no-match errors, and the expansion cap. The cumulative M257 suite passes
-locally; GitHub Actions and CMS behavior remain unverified.
+locally. GitHub Actions native host workflow 39259567243 passed on commit
+`cbaa839`; CMS behavior remains unverified.
