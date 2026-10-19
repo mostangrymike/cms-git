@@ -15854,5 +15854,6 @@ source-derived nested-tree fixtures cover shared directory creation, nested
 file ordering, insertion beside an existing directory, parent-index movement,
 and capacity rejection. CMS behavior remains unverified.
 
-The cumulative M254 source-derived suite passes locally; native host CI is
-pending. CMS behavior remains unverified.
+The cumulative M254 source-derived suite passes locally. GitHub Actions native
+host workflow 39178678286 passed on commit `0fa81f9`; it runs host-side source
+checks and fixtures, not on CMS. CMS behavior remains unverified.
