@@ -574,6 +574,221 @@ if command='DIFF' then do
  exit 0
 end
 
+/* Cleanliness and source-content preflight for a changing mapped switch. */
+if command='CHECK-SWITCH-UPDATE' then do
+ parse var rest expectedref targetref extra
+ if expectedref='' | targetref='' | extra\='' then exit 4
+ call validref expectedref
+ if result\='OK' | left(expectedref,11)\='refs/heads/' then exit 4
+ targetoid=''
+ if length(targetref)=40 &,
+    verify(translate(targetref),'0123456789ABCDEF')=0 then,
+  targetoid=translate(targetref)
+ else do
+  call validref targetref
+  if result\='OK' | left(targetref,11)\='refs/heads/' then exit 4
+ end
+ call readrefs
+ if result\='OK' | headref\=expectedref then do
+  say 'GITWT: symbolic HEAD changed during switch preflight'
+  exit 8
+ end
+ call resolve expectedref
+ switchcurrent=result
+ if switchcurrent='ERROR' then exit 8
+ if targetoid='' then do
+  call resolve targetref
+  switchtarget=result
+ end
+ else switchtarget=targetoid
+ if switchtarget='ERROR' then exit 8
+ call loadmap
+ if result\='OK' then exit 8
+ if mapcount=0 then do
+  say 'SWITCH PREFLIGHT SAFE UNMAPPED 0'
+  exit 0
+ end
+ call bindnative
+ if result\='OK' then exit 8
+ do mi=1 to mapcount
+  if mapstage.mi\=mapbase.mi then do
+   say 'GITWT: staged changes block branch switch' mappath.mi
+   exit 8
+  end
+  call checkworkfile mapfn.mi,mapft.mi,mapfm.mi
+  if result\='OK' then do
+   say 'GITWT: missing mapped file blocks branch switch',
+       mapfn.mi mapft.mi mapfm.mi
+   exit 8
+  end
+  call workoid mapfn.mi,mapft.mi,mapfm.mi,maplf.mi,0
+  if result\=mapbase.mi then do
+   say 'GITWT: modified workfile blocks branch switch' mappath.mi
+   exit 8
+  end
+  call pathoidfor switchcurrent,mappath.mi
+  if result\=mapbase.mi then do
+   say 'GITWT: worktree base is stale against current branch',
+       mappath.mi
+   exit 8
+  end
+  call pathoidfor switchtarget,mappath.mi
+  if result='ERROR' then do
+   say 'GITWT: destination path is absent or unreadable',mappath.mi
+   exit 8
+  end
+  call bodyrecords body
+  if result\='OK' then do
+   say 'GITWT: destination file is not CMS-compatible' mappath.mi
+   exit 8
+  end
+ end
+ say 'SWITCH PREFLIGHT SAFE MAPPED' mapcount
+ exit 0
+end
+
+/* Apply a preflighted branch transition, with file and map rollback. */
+if command='APPLY-SWITCH' then do
+ parse var rest expectedref targetref expectedcurrent expectedtarget extra
+ if expectedref='' | targetref='' | expectedcurrent='' |,
+    expectedtarget='' | extra\='' then exit 4
+ call validref expectedref
+ if result\='OK' | left(expectedref,11)\='refs/heads/' then exit 4
+ call validref targetref
+ if result\='OK' | left(targetref,11)\='refs/heads/' then exit 4
+ expectedcurrent=translate(expectedcurrent)
+ expectedtarget=translate(expectedtarget)
+ if length(expectedcurrent)\=40 | length(expectedtarget)\=40 |,
+    verify(expectedcurrent,'0123456789ABCDEF')\=0 |,
+    verify(expectedtarget,'0123456789ABCDEF')\=0 then exit 4
+ call readrefs
+ if result\='OK' | headref\=targetref then do
+  say 'GITWT: HEAD changed before mapped switch apply'
+  exit 8
+ end
+ call resolve expectedref
+ switchcurrent=result
+ call resolve targetref
+ switchtarget=result
+ if switchcurrent\=expectedcurrent | switchtarget\=expectedtarget then do
+  say 'GITWT: branch tips changed before mapped switch apply'
+  exit 8
+ end
+ call loadmap
+ if result\='OK' then exit 8
+ if mapcount=0 then do
+  say 'SWITCHED WORKTREE PATHS 0'
+  exit 0
+ end
+ call bindnative
+ if result\='OK' then exit 8
+ drop restorepi. restorebody. restorefinal. restoretarget.
+ drop restoreexists. restoreoldcount. restoreoldlf.
+ drop restorelinecount. restoreoldline. restoreline.
+ restorecount=mapcount
+ do switchi=1 to mapcount
+  restorepi.switchi=switchi
+  pi=switchi
+  if mapstage.pi\=mapbase.pi then do
+   say 'GITWT: staged changes block branch switch' mappath.pi
+   exit 8
+  end
+  'STATE' mapfn.pi mapft.pi mapfm.pi
+  if rc\=0 then do
+   say 'GITWT: missing mapped file blocks branch switch',
+       mapfn.pi mapft.pi mapfm.pi
+   exit 8
+  end
+  restoreexists.switchi=1
+  drop restoreold.
+  'EXECIO * DISKR' mapfn.pi mapft.pi mapfm.pi '1 (STEM RESTOREOLD. FINIS'
+  if rc\=0 then do
+   say 'GITWT: cannot snapshot switch target' mapfn.pi
+   exit 8
+  end
+  restoreoldcount.switchi=restoreold.0
+  do switchline=1 to restoreold.0
+   restoreoldline.switchi.switchline=restoreold.switchline
+  end
+  call workoid mapfn.pi,mapft.pi,mapfm.pi,maplf.pi,0
+  if result\=mapbase.pi then do
+   say 'GITWT: modified workfile blocks branch switch' mappath.pi
+   exit 8
+  end
+  call pathoidfor switchcurrent,mappath.pi
+  if result\=mapbase.pi then do
+   say 'GITWT: worktree base is stale against current branch',
+       mappath.pi
+   exit 8
+  end
+  call pathoidfor switchtarget,mappath.pi
+  if result='ERROR' then do
+   say 'GITWT: destination path is absent or unreadable',mappath.pi
+   exit 8
+  end
+  restoretarget.switchi=pathoid
+  restorebody.switchi=body
+  call bodyrecords restorebody.switchi
+  if result\='OK' then do
+   say 'GITWT: destination file is not CMS-compatible' mappath.pi
+   exit 8
+  end
+  restorefinal.switchi=final
+  restorelinecount.switchi=rec.0
+  do switchline=1 to rec.0
+   restoreline.switchi.switchline=rec.switchline
+  end
+ end
+ 'STATE GITWORK REPO A'
+ if rc\=0 then exit 8
+ drop before.
+ 'EXECIO * DISKR GITWORK REPO A 1 (STEM BEFORE. FINIS'
+ if rc\=0 then exit 8
+ do switchi=1 to restorecount
+  pi=restorepi.switchi
+  if restoretarget.switchi=mapbase.pi then iterate
+  'ERASE' mapfn.pi mapft.pi mapfm.pi
+  if rc\=0 then do
+   call rollbackrestore
+   say 'GITWT: switch target erase failed; rollback RC' result
+   exit 8
+  end
+  drop rec.
+  rec.0=restorelinecount.switchi
+  do switchline=1 to rec.0
+   rec.switchline=restoreline.switchi.switchline
+  end
+  call writework mapfn.pi,mapft.pi,mapfm.pi
+  if result\='OK' then do
+   call rollbackrestore
+   say 'GITWT: switch write failed; rollback RC' result
+   exit 8
+  end
+  call workoid mapfn.pi,mapft.pi,mapfm.pi,restorefinal.switchi,0
+  if result\=restoretarget.switchi then do
+   call rollbackrestore
+   say 'GITWT: switch verification failed; rollback RC' result
+   exit 8
+  end
+ end
+ do switchi=1 to restorecount
+  pi=restorepi.switchi
+  mapbase.pi=restoretarget.switchi
+  mapstage.pi=restoretarget.switchi
+  maplf.pi=restorefinal.switchi
+ end
+ call savemap
+ if result\='OK' then do
+  call restoremap
+  maprc=result
+  call rollbackrestore
+  say 'GITWT: switch map save failed; rollback RC' maprc result
+  exit 8
+ end
+ say 'SWITCHED WORKTREE PATHS' restorecount
+ exit 0
+end
+
 /* Read-only preflight for a branch switch across different commit tips. */
 if command='CHECK-SWITCH' then do
  parse var rest expectedref targetref extra

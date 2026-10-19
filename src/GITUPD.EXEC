@@ -130,14 +130,16 @@ if ref='CREATE-HEAD' then do
  end
  call requirecommit targetoid
  if result\='OK' then exit 8
+ switchfiles=0
  if targetoid\=currentoid then do
   call requirecommit currentoid
   if result\='OK' then exit 8
   call checkswitch oldhead,targetoid
-  if result\='OK' then do
+  if result='ERROR' then do
    say 'GITUPD: destination worktree preflight failed'
    exit 8
   end
+  if result='CHANGED' then switchfiles=1
  end
  call readrefs
  if result\='OK' | headref\=oldhead then do
@@ -187,6 +189,15 @@ if ref='CREATE-HEAD' then do
   call restore
   exit 8
  end
+ if switchfiles=1 then do
+  address command 'EXEC GITWT APPLY-SWITCH' oldhead newhead,
+      currentoid targetoid
+  if rc\=0 then do
+   say 'GITUPD: mapped worktree switch failed; restoring REF2'
+   call restore
+   exit 8
+  end
+ end
  say 'HEAD CREATED' newhead targetoid
  exit 0
 end
@@ -224,14 +235,16 @@ if ref='HEAD' then do
  end
  call requirecommit newoid
  if result\='OK' then exit 8
+ switchfiles=0
  if oldoid\=newoid then do
   call requirecommit oldoid
   if result\='OK' then exit 8
   call checkswitch oldhead,newhead
-  if result\='OK' then do
+  if result='ERROR' then do
    say 'GITUPD: destination worktree preflight failed'
    exit 8
   end
+  if result='CHANGED' then switchfiles=1
  end
  call readrefs
  if result\='OK' | headref\=oldhead then do
@@ -268,6 +281,15 @@ if ref='HEAD' then do
   say 'GITUPD: HEAD switch verification failed'
   call restore
   exit 8
+ end
+ if switchfiles=1 then do
+  address command 'EXEC GITWT APPLY-SWITCH' oldhead newhead,
+      oldoid newoid
+  if rc\=0 then do
+   say 'GITUPD: mapped worktree switch failed; restoring REF2'
+   call restore
+   exit 8
+  end
  end
  say 'HEAD UPDATED' oldhead newhead
  exit 0
@@ -407,9 +429,17 @@ exit 0
 
 checkswitch:
  parse arg csold,csnew
- address command 'EXEC GITWT CHECK-SWITCH' csold csnew
- if rc\=0 then return 'ERROR'
- return 'OK'
+ drop csout.
+ csout.0=0
+ cscmd='EXEC GITWT CHECK-SWITCH'||' '||csold||' '||csnew
+ 'PIPE CMS' cscmd '| STEM CSOUT.'
+ if rc=0 then return 'OK'
+ drop csout.
+ csout.0=0
+ cscmd='EXEC GITWT CHECK-SWITCH-UPDATE'||' '||csold||' '||csnew
+ 'PIPE CMS' cscmd '| STEM CSOUT.'
+ if rc=0 then return 'CHANGED'
+ return 'ERROR'
 
 validref:
  parse arg vr

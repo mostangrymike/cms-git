@@ -363,6 +363,13 @@ compatible text blob; all selected contents are checked before writes. The
 worktree map's staged and base OIDs remain unchanged. CMS behavior remains
 unverified.
 
+M261 extends `GIT SWITCH <branch>` and `GIT SWITCH -c` to update mapped CMS
+workfiles when a destination commit changes their blob contents. The current
+worktree must be clean, and each mapped path must exist in both commits as
+CMS-compatible text. File writes and worktree-map updates roll back on failure;
+unmapped files are preserved. Mapped path additions or removals remain
+unsupported. CMS behavior remains unverified.
+
 ---
 
 ## M206 full 32-object CMS PASS and A-disk audit (October 13, 2026)

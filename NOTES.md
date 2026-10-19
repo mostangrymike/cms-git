@@ -15956,3 +15956,19 @@ source blob OID. Existing rollback and final-newline map handling are reused.
 Only mapped paths present as CMS-compatible text blobs in the source are
 restorable; the base and staged map OIDs remain unchanged. CMS behavior remains
 unverified.
+
+## 2026-10-19 — M261 switch branches with changed mapped file contents
+
+Plan: let branch switches update clean mapped workfiles when each mapped path
+exists in both commits but has a different blob OID. Preserve fail-closed
+behavior for dirty/staged worktrees and unsupported path-set changes.
+
+Progress: the existing same-content switch preflight remains intact. A second
+read-only preflight permits changed destination blobs only after verifying the
+current map/workfiles, both commit paths, and CMS text-record limits. After the
+REF2 HEAD update is verified, GITWT snapshots mapped files and the map, writes
+and verifies changed workfiles, then advances each base/stage OID to the target
+commit. Write, verification, or map-save failures restore the files and map;
+GITUPD restores REF2 if apply fails. Unmapped files are preserved. Mapped paths
+added or removed by the destination commit remain unsupported. Tests were not
+run; CMS behavior remains unverified.
