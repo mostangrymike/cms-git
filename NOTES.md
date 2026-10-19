@@ -15890,5 +15890,5 @@ deletions, and commits all selected map changes in one save. Unselected map
 entries are not examined or changed. Twelve source-derived Regina fixtures
 cover all-mapped compatibility, both flag forms, the `--` separator, selected
 modifications and deletions, missing unselected files, unknown paths, and
-invalid empty selections. The cumulative M256 suite passes locally; native
-host CI is pending. CMS behavior remains unverified.
+invalid empty selections. The cumulative M256 suite passes locally. GitHub Actions native host workflow
+39258576844 passed on commit `92af4f4`; CMS behavior remains unverified.
