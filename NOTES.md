@@ -15939,5 +15939,6 @@ workfile snapshots support rollback after write, verification, or map-save
 failure. Final-newline metadata is saved once after successful writes. Ten
 source-derived Regina fixtures cover router forms, changed and deleted paths,
 wildcards, duplicate collapse, separators, argument bounds, no matches, and
-workfile rollback. The cumulative M259 suite passes locally; GitHub Actions
-and CMS behavior remain unverified.
+workfile rollback. The cumulative M259 suite passed locally. GitHub Actions
+native host workflow 39263008382 passed on commit `ff2cf16`; CMS behavior
+remains unverified.
