@@ -15922,4 +15922,5 @@ remain available; verbose summary totals count only selected paths. Eight
 source-derived Regina fixtures cover all-mapped compatibility, exact and
 wildcard filters, duplicate collapse, the separator, unmatched paths, and
 skipping an inaccessible unselected file. The cumulative M258 suite passes
-locally; GitHub Actions and CMS behavior remain unverified.
+locally. GitHub Actions native host workflow 39260919753 passed on commit
+`3567536`; CMS behavior remains unverified.
