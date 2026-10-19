@@ -15942,3 +15942,17 @@ wildcards, duplicate collapse, separators, argument bounds, no matches, and
 workfile rollback. The cumulative M259 suite passed locally. GitHub Actions
 native host workflow 39263008382 passed on commit `ff2cf16`; CMS behavior
 remains unverified.
+
+## 2026-10-19 — M260 restore workfiles from a source revision
+
+Plan: add `GIT RESTORE --source revision --worktree [--] path...` for mapped
+files, without changing their staged or base OIDs.
+
+Progress: the router accepts `--source revision` and `--source=revision` before
+`--worktree`. GITWT resolves the revision through REF2, authenticates each
+selected path through the complete source commit closure, validates all text
+blobs before writing, and verifies each restored CMS workfile against the
+source blob OID. Existing rollback and final-newline map handling are reused.
+Only mapped paths present as CMS-compatible text blobs in the source are
+restorable; the base and staged map OIDs remain unchanged. CMS behavior remains
+unverified.

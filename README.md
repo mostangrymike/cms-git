@@ -268,8 +268,9 @@ HEAD remain unchanged. CMS behavior remains unverified.
 M246 adds `GIT RESTORE --staged [--] path...` as a path-only alias for that
 mapped stage reset. M259 adds `GIT RESTORE --worktree [--] path...`, restoring
 selected CMS files from their staged blobs or removing files staged for
-deletion. Arbitrary `--source` revisions remain unsupported; CMS behavior
-remains unverified.
+deletion. M260 adds `GIT RESTORE --source revision --worktree [--] path...`
+for mapped files present in a resolved source commit. CMS behavior remains
+unverified.
 
 M247 adds `GIT STATUS --branch`, `--short --branch`, and
 `--porcelain --branch`. It reports the current symbolic branch before tracked
@@ -354,6 +355,13 @@ target before writing, verifies restored blob OIDs, rolls back file writes on
 failure, and updates final-newline metadata in one worktree-map save. Exact
 and wildcard paths are supported. Host source-derived fixtures pass; CMS
 behavior remains unverified.
+
+M260 adds `GIT RESTORE --source revision --worktree [--] path...`. It resolves
+the source to a commit and restores selected mapped files from that commit's
+authenticated full-root closure. The source path must exist and contain a CMS
+compatible text blob; all selected contents are checked before writes. The
+worktree map's staged and base OIDs remain unchanged. CMS behavior remains
+unverified.
 
 ---
 
