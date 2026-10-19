@@ -2824,7 +2824,7 @@ block=source[start:end]
 required=("statusopt='--SHORT'", "statusopt='--PORCELAIN'",
           "statusopt='--BRANCH'", 'call readrefs',
           "say '##' branchname", "say 'On branch' branchname",
-          "Usage: GIT STATUS [--short|--porcelain] [--branch]")
+          "Usage: GIT STATUS [--short|--porcelain] [--branch] [--] [path ...]")
 for token in required:
  if token not in block:
   raise SystemExit(f'M247 status branch guard missing {token!r}')
@@ -2864,7 +2864,7 @@ expected=$(printf 'On branch feature/status\nSTATUS NO TRACKED FILES')
 check "$tmp/empty.rexx" 0 "$expected" --branch
 check "$tmp/status.rexx" 0 '## feature/status' --short --branch
 check "$tmp/status.rexx" 0 '## feature/status' --branch --porcelain
-check "$tmp/status.rexx" 4 'Usage: GIT STATUS [--short|--porcelain] [--branch]' --branch --unknown
+check "$tmp/status.rexx" 4 'Usage: GIT STATUS [--short|--porcelain] [--branch] [--] [path ...]' --branch --unknown
 echo 'M247 SOURCE-DERIVED STATUS BRANCH FIXTURES PASS 4'
 )
 exit $?
