@@ -253,7 +253,8 @@ behavior remains unverified.
 M243 adds `GIT STATUS --short` and `GIT STATUS --porcelain`, reporting staged
 and unstaged additions, modifications, and deletions in two-column status
 form. It reports mapped worktree paths only; untracked-file discovery remains
-unsupported. CMS behavior remains unverified.
+unsupported. M258 adds exact and wildcard path filtering. CMS behavior remains
+unverified.
 
 M244 adds `GIT DIFF --name-only` for unstaged mapped changes and
 `GIT DIFF --cached|--staged --name-only` for staged changes. It lists paths
@@ -336,6 +337,13 @@ including `/`; `?` matches one byte. Unmatched pathspecs fail, duplicate
 matches collapse, and a command can select no more than 16 paths. Directory
 discovery and bracket expressions are unsupported. Host source-derived
 fixtures pass; CMS behavior remains unverified.
+
+M258 lets `GIT STATUS [--short|--porcelain] [--branch] [--] [path ...]` report
+only selected mapped worktree paths. Exact paths, `*`, and `?` pathspecs are
+supported, up to 16 input pathspecs. The branch heading is still shown when
+requested, and the verbose summary counts only selected paths. Unmatched
+pathspecs fail; host source-derived fixtures pass. CMS behavior remains
+unverified.
 
 ---
 

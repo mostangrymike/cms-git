@@ -15908,3 +15908,18 @@ matching, nested paths, mixed and duplicate patterns, selected update mode,
 no-match errors, and the expansion cap. The cumulative M257 suite passes
 locally. GitHub Actions native host workflow 39259567243 passed on commit
 `cbaa839`; CMS behavior remains unverified.
+
+## 2026-10-19 — M258 selected GIT STATUS paths
+
+Plan: allow `GIT STATUS` to report only selected mapped worktree paths, using
+the exact and wildcard path matching introduced for ADD.
+
+Progress: STATUS accepts up to 16 exact or wildcard pathspecs after its options,
+with `--` available for paths beginning with a dash. It resolves all
+pathspecs against the worktree map before inspecting selected CMS files,
+collapses duplicate matches, and reports no-match errors. Branch headings
+remain available; verbose summary totals count only selected paths. Eight
+source-derived Regina fixtures cover all-mapped compatibility, exact and
+wildcard filters, duplicate collapse, the separator, unmatched paths, and
+skipping an inaccessible unselected file. The cumulative M258 suite passes
+locally; GitHub Actions and CMS behavior remain unverified.

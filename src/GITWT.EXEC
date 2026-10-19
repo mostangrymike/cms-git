@@ -110,15 +110,34 @@ end
 if command='STATUS' then do
  shortstatus=0
  statusbranch=0
- do si=1 to words(rest)
+ statuswords=words(rest)
+ statusstart=statuswords+1
+ statussep=0
+ do si=1 to statuswords
   statusopt=translate(word(rest,si))
-  if statusopt='--SHORT' | statusopt='--PORCELAIN' then,
+  if statusopt='--' then do
+   statusstart=si+1
+   statussep=1
+   leave
+  end
+  else if statusopt='--SHORT' | statusopt='--PORCELAIN' then,
    shortstatus=1
   else if statusopt='--BRANCH' then statusbranch=1
   else do
-   say 'Usage: GIT STATUS [--short|--porcelain] [--branch]'
-   exit 4
+   if left(statusopt,1)='-' then do
+    say 'Usage: GIT STATUS [--short|--porcelain] [--branch] [--] [path ...]'
+    exit 4
+   end
+   statusstart=si
+   leave
   end
+ end
+ statuspaths=statuswords-statusstart+1
+ if statuspaths<0 then statuspaths=0
+ if statuspaths>16 | (statussep=1 & statuspaths=0) then do
+  say 'Usage: GIT STATUS [--short|--porcelain] [--branch] [--] paths'
+  say '(maximum 16 pathspecs)'
+  exit 4
  end
  if statusbranch=1 then do
   call readrefs
@@ -130,13 +149,71 @@ if command='STATUS' then do
  call loadmap
  if result\='OK' then exit 8
  if mapcount=0 then do
+  if statuspaths>0 then do
+   say 'GITWT: pathspec did not match a checked out path',
+       word(rest,statusstart)
+   exit 4
+  end
   if shortstatus=0 then say 'STATUS NO TRACKED FILES'
   exit 0
+ end
+ drop statusselected.
+ statusselectedcount=0
+ if statuspaths=0 then do
+  do si=1 to mapcount
+   statusselected.si=1
+  end
+  statusselectedcount=mapcount
+ end
+ else do
+  do si=statusstart to statuswords
+   path=word(rest,si)
+   call toasciihex path
+   pathhex=result
+   if pathhex='ERROR' | length(pathhex)>60 then do
+    say 'GITWT: invalid path' path
+    exit 4
+   end
+   wildcard=0
+   do wi=1 to length(pathhex) by 2
+    if substr(pathhex,wi,2)='2A' | substr(pathhex,wi,2)='3F' then,
+     wildcard=1
+   end
+   pathmatches=0
+   if wildcard=0 then do
+    call findpath pathhex
+    pi=result
+    if pi>0 then do
+     pathmatches=1
+     if statusselected.pi\=1 then do
+      statusselected.pi=1
+      statusselectedcount=statusselectedcount+1
+     end
+    end
+   end
+   else do
+    do pi=1 to mapcount
+     call matchpath pathhex,mappath.pi
+     if result=1 then do
+      pathmatches=pathmatches+1
+      if statusselected.pi\=1 then do
+       statusselected.pi=1
+       statusselectedcount=statusselectedcount+1
+      end
+     end
+    end
+   end
+   if pathmatches=0 then do
+    say 'GITWT: pathspec did not match any checked out path' path
+    exit 4
+   end
+  end
  end
  changed=0
  staged=0
  zeros='0000000000000000000000000000000000000000'
  do i=1 to mapcount
+  if statusselected.i\=1 then iterate
   call asciitocms mappath.i
   p=result
   if p='ERROR' then exit 8
@@ -192,7 +269,7 @@ if command='STATUS' then do
    say 'WORK' work
   end
  end
- if shortstatus=0 then say 'STATUS SUMMARY TRACKED' mapcount,
+ if shortstatus=0 then say 'STATUS SUMMARY TRACKED' statusselectedcount,
      'CHANGED' changed 'STAGED' staged
  exit 0
 end

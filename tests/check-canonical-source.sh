@@ -1552,7 +1552,7 @@ expected=$(printf 'M  staged\n M modified\nMM both\n D gone\nA  added\nAD addgon
 check "$tmp/status.rexx" 0 "$expected" --short
 check "$tmp/status.rexx" 0 "$expected" --porcelain
 check "$tmp/empty.rexx" 0 '' --short
-check "$tmp/status.rexx" 4 'Usage: GIT STATUS [--short|--porcelain] [--branch]' --unknown
+check "$tmp/status.rexx" 4 'Usage: GIT STATUS [--short|--porcelain] [--branch] [--] [path ...]' --unknown
 echo 'M243 SOURCE-DERIVED SHORT STATUS FIXTURES PASS 4'
 )
 exit $?
@@ -2508,6 +2508,93 @@ check "$tmp/wildcard.rexx" 0 "$(printf 'SIMULATED SAVE\nADDED beta %s\nSTAGE DIF
 check "$tmp/wildcard.rexx" 4 'GITWT: pathspec did not match any checked out path z*' 'z*'
 check "$tmp/overflow.rexx" 4 'GITWT: pathspec expands to more than 16 paths' 'p*'
 echo 'M257 SOURCE-DERIVED WILDCARD ADD FIXTURES PASS 8'
+)
+exit $?
+fi
+
+if [ "${1:-}" = "M258" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M257
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GITWT.EXEC" "$tmp/status.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+start=source.index("if command='STATUS' then do")
+end=source.index("if command='DIFF' then do",start)
+block=source[start:end]
+for token in ('statusstart=statuswords+1', "statusopt='--'",
+              'statuspaths>16', 'call matchpath pathhex,mappath.pi',
+              'if statusselected.i\\=1 then iterate',
+              'STATUS SUMMARY TRACKED\' statusselectedcount'):
+ if token not in block:
+  raise SystemExit(f'M258 selected STATUS source guard missing {token!r}')
+if not (block.index('statusselected.pi=1')<block.index('do i=1 to mapcount')<
+        block.index("'STATE' mapfn.i mapft.i mapfm.i")):
+ raise SystemExit('M258 STATUS must resolve selection before inspecting CMS files')
+helpers_start=source.index('\naddselected:\n')+1
+helpers_end=source.index("\nif command='RESET' then do",helpers_start)
+matchhelpers=source[helpers_start:helpers_end]
+find_start=source.index('\nfindpath:\n')+1
+find_end=source.index('\nfindfile:\n',find_start)
+findpath=source[find_start:find_end]
+state="if mapfn.i='BAD' then rc=12\nelse rc=0"
+work=("if i=1 then result='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+      "else if i=2 | i=4 then result='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
+      "else if i=3 then result='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
+      "else result='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'")
+fixture=(
+ "parse arg rest\ncommand='STATUS'\nmapcount=4\n"
+ "mapfn.1='CLEAN'\nmapfn.2='STAGED'\nmapfn.3='MODIFIED'\nmapfn.4='DASH'\n"
+ "do mi=1 to 4\n mapft.mi='DATA'\n mapfm.mi='A'\n maplf.mi=1\nend\n"
+ "mapbase.1='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "mapstage.1=mapbase.1\n"
+ "mapbase.2='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "mapstage.2='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
+ "mapbase.3='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "mapstage.3=mapbase.3\n"
+ "mapbase.4='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "mapstage.4='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
+ "mappath.1='616C706861'\nmappath.2='62657461'\n"
+ "mappath.3='7372632F6F6E652E63'\nmappath.4='2D64617368'\n"+
+ block.replace('call loadmap',"result='OK'")
+      .replace("'STATE' mapfn.i mapft.i mapfm.i",state)
+      .replace('call workoid mapfn.i,mapft.i,mapfm.i,maplf.i,0',work)+
+ matchhelpers+findpath+
+ "toasciihex:\n parse arg text\n return c2x(text)\n"
+ "asciitocms:\n parse arg text\n return x2c(text)\n")
+Path(sys.argv[2]).write_text(fixture)
+print('M258 SELECTED STATUS SOURCE GUARDS PASS 7')
+PY
+rexx -c "$tmp/status.rexx" /dev/null
+check() {
+ expected_rc=$1
+ expected=$2
+ shift 2
+ if output=$(rexx "$tmp/status.rexx" "$@"); then rc=0; else rc=$?; fi
+ if [ "$rc" -ne "$expected_rc" ] || [ "$output" != "$expected" ]; then
+  echo "M258 GIT STATUS $*: expected RC $expected_rc '$expected', got RC $rc '$output'" >&2
+  exit 1
+ fi
+}
+check 0 "$(printf 'M  beta\n M src/one.c\nM  -dash')" --short
+check 0 'M  beta' --short beta
+check 0 ' M src/one.c' --short 'src/*.c'
+check 0 'M  beta' --short 'b*' beta
+check 0 'M  -dash' --short -- -dash
+check 4 'GITWT: pathspec did not match any checked out path z*' --short 'z*'
+check 4 'GITWT: pathspec did not match any checked out path missing' --short missing
+sed "s/mapfn.1='CLEAN'/mapfn.1='BAD'/" "$tmp/status.rexx" > "$tmp/bad.rexx"
+if output=$(rexx "$tmp/bad.rexx" --short beta); then rc=0; else rc=$?; fi
+if [ "$rc" -ne 0 ] || [ "$output" != 'M  beta' ]; then
+ echo "M258 inspected an unselected CMS file: RC $rc '$output'" >&2
+ exit 1
+fi
+echo 'M258 SOURCE-DERIVED SELECTED STATUS FIXTURES PASS 8'
 )
 exit $?
 fi
