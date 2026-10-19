@@ -240,6 +240,8 @@ jobs:
         run: sh tests/check-canonical-source.sh M253
       - name: Check M254 nested new-file commits
         run: sh tests/check-canonical-source.sh M254
+      - name: Check M255 batched new-file additions
+        run: sh tests/check-canonical-source.sh M255
       - name: Check M190 7736-object selective seek closure
         run: python3 tests/test-m203-bounded-batch.py M190S
       - name: Compare M190 indexed seek vs M188 two-pass host

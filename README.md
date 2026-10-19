@@ -317,6 +317,12 @@ and `..` path components. Empty directories are not recorded. Host
 source-derived tree serialization and path validation pass; CMS behavior
 remains unverified.
 
+M255 lets one `GIT ADD` stage up to 16 new files by repeating
+`--new path fn ft [fm]` groups. It checks every path, CMS file ID and workfile
+before hashing, then saves the worktree map once with rollback on save failure.
+Duplicate paths and CMS file IDs within the batch are rejected. Host
+source-derived batch fixtures pass; CMS behavior remains unverified.
+
 ---
 
 ## M206 full 32-object CMS PASS and A-disk audit (October 13, 2026)

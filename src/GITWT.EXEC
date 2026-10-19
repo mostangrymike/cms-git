@@ -328,67 +328,108 @@ end
 if command='ADD' then do
  if translate(word(rest,1))='--NEW' then do
   newwords=words(rest)
-  if newwords<4 | newwords>5 then do
-   say 'Usage: GIT ADD --new path fn ft [fm]'
+  if newwords<4 then do
+   say 'Usage: GIT ADD --new path fn ft [fm] [--new path fn ft [fm] ...]'
    exit 4
   end
-  newpath=word(rest,2)
-  newfn=translate(word(rest,3))
-  newft=translate(word(rest,4))
-  if newwords=5 then newfm=translate(word(rest,5))
-  else newfm='A'
-  call validid newfn
-  if result\='OK' then exit 4
-  call validid newft
-  if result\='OK' then exit 4
-  call validmode newfm
-  if result\='OK' then exit 4
-  call toasciihex newpath
-  newhex=result
-  if newhex='ERROR' | length(newhex)>60 then do
-   say 'GITWT: new path must be 1-30 ASCII bytes with relative components'
-   exit 4
-  end
-  call splitpath newhex
-  if result\='OK' then do
-   say 'GITWT: new path must be 1-30 ASCII bytes with relative components'
-   exit 4
-  end
-  do npi=1 to pcnt
-   if pcomp.npi='2E' | pcomp.npi='2E2E' then do
+  drop newpath. newfn. newft. newfm. newhex. newoid.
+  newcount=0
+  newarg=1
+  do while newarg<=newwords
+   if translate(word(rest,newarg))\='--NEW' then do
+    say 'Usage: GIT ADD --new path fn ft [fm] [--new path fn ft [fm] ...]'
+    exit 4
+   end
+   if newarg+3>newwords then do
+    say 'Usage: GIT ADD --new path fn ft [fm] [--new path fn ft [fm] ...]'
+    exit 4
+   end
+   newcount=newcount+1
+   if newcount>16 then do
+    say 'Usage: GIT ADD --new supports a maximum of 16 files'
+    exit 4
+   end
+   newpath.newcount=word(rest,newarg+1)
+   newfn.newcount=translate(word(rest,newarg+2))
+   newft.newcount=translate(word(rest,newarg+3))
+   newfm.newcount='A'
+   newarg=newarg+4
+   if newarg<=newwords then do
+    if translate(word(rest,newarg))\='--NEW' then do
+     newfm.newcount=translate(word(rest,newarg))
+     newarg=newarg+1
+    end
+   end
+   call validid newfn.newcount
+   if result\='OK' then exit 4
+   call validid newft.newcount
+   if result\='OK' then exit 4
+   call validmode newfm.newcount
+   if result\='OK' then exit 4
+   call toasciihex newpath.newcount
+   newhex.newcount=result
+   if newhex.newcount='ERROR' | length(newhex.newcount)>60 then do
+    say 'GITWT: new path must be 1-30 ASCII bytes with relative components'
+    exit 4
+   end
+   call splitpath newhex.newcount
+   if result\='OK' then do
+    say 'GITWT: new path must be 1-30 ASCII bytes with relative components'
+    exit 4
+   end
+   do npi=1 to pcnt
+    if pcomp.npi='2E' | pcomp.npi='2E2E' then do
+     say 'GITWT: new path must be 1-30 ASCII bytes with relative components'
+     exit 4
+    end
+   end
+   if pcnt>16 then do
     say 'GITWT: new path must be 1-30 ASCII bytes with relative components'
     exit 4
    end
   end
-  if pcnt>16 then do
-   say 'GITWT: new path must be 1-30 ASCII bytes with relative components'
-   exit 4
-  end
   call loadmap
   if result\='OK' then exit 8
-  if mapcount>=50 then do
+  if mapcount+newcount>50 then do
    say 'GITWT: worktree map limit reached'
    exit 8
   end
-  call findpath newhex
-  if result>0 then do
-   say 'GITWT: path is already mapped' newpath
-   exit 4
+  do ni=1 to newcount
+   call findpath newhex.ni
+   if result>0 then do
+    say 'GITWT: path is already mapped' newpath.ni
+    exit 4
+   end
+   call findfile newfn.ni,newft.ni,newfm.ni
+   if result>0 then do
+    say 'GITWT: CMS file is already mapped',
+        newfn.ni newft.ni newfm.ni
+    exit 4
+   end
+   do nj=1 to ni-1
+    if newhex.ni=newhex.nj then do
+     say 'GITWT: duplicate new path in request' newpath.ni
+     exit 4
+    end
+    if newfn.ni=newfn.nj & newft.ni=newft.nj &,
+       newfm.ni=newfm.nj then do
+     say 'GITWT: duplicate CMS file in request',
+         newfn.ni newft.ni newfm.ni
+     exit 4
+    end
+   end
+   'STATE' newfn.ni newft.ni newfm.ni
+   if rc\=0 then do
+    say 'GITWT: new CMS workfile is absent or unreadable',
+        newfn.ni newft.ni newfm.ni 'RC' rc
+    exit 8
+   end
   end
-  call findfile newfn,newft,newfm
-  if result>0 then do
-   say 'GITWT: CMS file is already mapped' newfn newft newfm
-   exit 4
+  do ni=1 to newcount
+   call workoid newfn.ni,newft.ni,newfm.ni,1,1
+   newoid.ni=result
+   if newoid.ni='ERROR' then exit 8
   end
-  'STATE' newfn newft newfm
-  if rc\=0 then do
-   say 'GITWT: new CMS workfile is absent or unreadable',
-       newfn newft newfm 'RC' rc
-   exit 8
-  end
-  call workoid newfn,newft,newfm,1,1
-  newoid=result
-  if newoid='ERROR' then exit 8
   'STATE GITWORK REPO A'
   if rc=0 then do
    drop before.
@@ -401,22 +442,26 @@ if command='ADD' then do
    oldmap=0
   end
   else exit 8
-  newindex=mapcount+1
-  mapfn.newindex=newfn
-  mapft.newindex=newft
-  mapfm.newindex=newfm
-  maplf.newindex=1
-  mapbase.newindex='0000000000000000000000000000000000000000'
-  mapstage.newindex=newoid
-  mappath.newindex=newhex
-  mapcount=newindex
+  do ni=1 to newcount
+   newindex=mapcount+1
+   mapfn.newindex=newfn.ni
+   mapft.newindex=newft.ni
+   mapfm.newindex=newfm.ni
+   maplf.newindex=1
+   mapbase.newindex='0000000000000000000000000000000000000000'
+   mapstage.newindex=newoid.ni
+   mappath.newindex=newhex.ni
+   mapcount=newindex
+  end
   call savemap
   if result\='OK' then do
    if oldmap=1 then call restoremap
    else 'ERASE GITWORK REPO A'
    exit 8
   end
-  say 'ADDED' newpath newoid
+  do ni=1 to newcount
+   say 'ADDED' newpath.ni newoid.ni
+  end
   say 'STAGE DIFFERS FROM BASE'
   exit 0
  end

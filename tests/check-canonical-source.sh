@@ -1783,16 +1783,17 @@ start=source.index(" if translate(word(rest,1))='--NEW' then do")
 end=source.index(' addall=0',start)
 block=source[start:end]
 for token in ("'GITWT: new path must be 1-30 ASCII bytes with relative components'",
-              'call splitpath newhex',
-              "call findpath newhex", "call findfile newfn,newft,newfm",
-              "'STATE' newfn newft newfm",
-              'call workoid newfn,newft,newfm,1,1',
+              'call splitpath newhex.newcount',
+              "call findpath newhex.ni",
+              "call findfile newfn.ni,newft.ni,newfm.ni",
+              "'STATE' newfn.ni newft.ni newfm.ni",
+              'call workoid newfn.ni,newft.ni,newfm.ni,1,1',
               "mapbase.newindex='0000000000000000000000000000000000000000'",
-              'mapstage.newindex=newoid', 'maplf.newindex=1',
+              'mapstage.newindex=newoid.ni', 'maplf.newindex=1',
               'call savemap', 'if oldmap=1 then call restoremap'):
  if token not in block:
   raise SystemExit(f'M252 new-file ADD source guard missing {token!r}')
-if not block.index('call workoid') < block.index('mapfn.newindex=newfn'):
+if not block.index('call workoid') < block.index('mapfn.newindex=newfn.ni'):
  raise SystemExit('M252 must hash the file before changing the map')
 validid=source[source.index('validid:\n'):source.index('validmode:\n')]
 validmode=source[source.index('validmode:\n'):source.index('validtext:\n')]
@@ -1802,8 +1803,8 @@ toasciihex:
  parse arg text
  return c2x(text)
 """+splitpath
-block=block.replace("'STATE' newfn newft newfm",
-                    'call cmsstate newfn,newft,newfm')
+block=block.replace("'STATE' newfn.ni newft.ni newfm.ni",
+                    'call cmsstate newfn.ni,newft.ni,newfm.ni')
 block=block.replace("'STATE GITWORK REPO A'", 'call mapstate')
 block=block.replace("'EXECIO * DISKR GITWORK REPO A 1 (STEM BEFORE. FINIS'",
                     'before.0=1\n rc=0')
@@ -1891,7 +1892,7 @@ ADDED dir/alpha $oid
 STAGE DIFFERS FROM BASE" --new dir/alpha NEWFILE DATA
 check ok 4 'GITWT: new path must be 1-30 ASCII bytes with relative components' --new abcdefghijklmnopqrstuvwxyzabcde1 NEWFILE DATA
 check ok 4 'GITWT: new path must be 1-30 ASCII bytes with relative components' --new ../alpha NEWFILE DATA
-check ok 4 'Usage: GIT ADD --new path fn ft [fm]' --new
+check ok 4 'Usage: GIT ADD --new path fn ft [fm] [--new path fn ft [fm] ...]' --new
 check ok 4 '' --new alpha BAD-ID DATA
 check ok 4 '' --new alpha NEWFILE '%'
 echo 'M252/M254 SOURCE-DERIVED NEW-FILE ADD FIXTURES PASS 15'
@@ -2215,6 +2216,162 @@ if [ "$rc" -ne 0 ] || [ "$output" != "$expected" ]; then
  exit 1
 fi
 echo 'M254 SOURCE-DERIVED NESTED TREE FIXTURES PASS 4'
+)
+exit $?
+fi
+
+if [ "${1:-}" = "M255" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M254
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GITWT.EXEC" "$tmp/batch.rexx" <<'PY'
+from pathlib import Path
+import sys
+source=Path(sys.argv[1]).read_text()
+start=source.index(" if translate(word(rest,1))='--NEW' then do\n")
+end=source.index(' addall=0\n',start)
+block=source[start:end]
+for token in ('if newcount>16 then do', 'if mapcount+newcount>50 then do',
+              'if newhex.ni=newhex.nj then do',
+              'if newfn.ni=newfn.nj & newft.ni=newft.nj &',
+              'call workoid newfn.ni,newft.ni,newfm.ni,1,1',
+              'mapstage.newindex=newoid.ni', 'call savemap',
+              'do ni=1 to newcount'):
+ if token not in block:
+  raise SystemExit(f'M255 batch ADD source guard missing {token!r}')
+if not block.index('call workoid') < block.index('mapfn.newindex=newfn.ni'):
+ raise SystemExit('M255 must hash before changing map entries')
+if not block.index("'STATE' newfn.ni newft.ni newfm.ni") < block.index('call workoid'):
+ raise SystemExit('M255 must check all workfiles before hashing the batch')
+block=block.replace("'STATE' newfn.ni newft.ni newfm.ni",
+                    'call cmsstate newfn.ni,newft.ni,newfm.ni')
+block=block.replace("'STATE GITWORK REPO A'", 'call mapstate')
+block=block.replace("'EXECIO * DISKR GITWORK REPO A 1 (STEM BEFORE. FINIS'",
+                    'before.0=1\n rc=0')
+block=block.replace("'ERASE GITWORK REPO A'", "say 'SIMULATED ERASE'\n rc=0")
+helpers=source[source.index('validid:\n'):source.index('validmode:\n')]
+helpers+=source[source.index('validmode:\n'):source.index('validtext:\n')]
+helpers+='''
+toasciihex:
+ parse arg text
+ return c2x(text)
+'''
+helpers+=source[source.index('splitpath:\n'):source.index('readtree:\n')]
+prefix="""parse arg mockmode rest
+command='ADD'
+"""
+mocks="""
+exit 99
+loadmap:
+ if mockmode='full' then mapcount=49
+ else if mockmode='savefail' then do
+  mapcount=1
+  mapfn.1='EXISTING'
+  mapft.1='DATA'
+  mapfm.1='A'
+  maplf.1=''
+  mapbase.1=''
+  mapstage.1=''
+  mappath.1=''
+ end
+ else mapcount=0
+ return 'OK'
+findpath:
+ if mockmode='pathdup' then return 1
+ return 0
+findfile:
+ if mockmode='filedup' then return 1
+ return 0
+cmsstate:
+ parse arg fn,ft,fm
+ say 'SIMULATED STATE' fn ft fm
+ if mockmode='missing-second' & fn='SECOND' then rc=28
+ else rc=0
+ return
+mapstate:
+ if mockmode='savefail' then rc=0
+ else rc=28
+ return
+workoid:
+ parse arg fn,ft,fm,lf,write
+ say 'SIMULATED HASH' fn ft fm
+ if mockmode='hashfail-second' & fn='SECOND' then return 'ERROR'
+ return 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+savemap:
+ say 'SIMULATED SAVE' mapcount
+ do si=1 to mapcount
+  if si=1 & mockmode='savefail' then say 'MAP EXISTING'
+  else say 'MAP' si mapfn.si mapft.si mapfm.si maplf.si,
+   mapbase.si mapstage.si mappath.si
+ end
+ if mockmode='savefail' then return 'ERROR'
+ return 'OK'
+restoremap:
+ say 'SIMULATED RESTORE'
+ return 'OK'
+"""
+Path(sys.argv[2]).write_text(prefix+block+helpers+mocks)
+print('M255 BATCH NEW-FILE ADD SOURCE GUARDS PASS 8')
+PY
+rexx -c "$tmp/batch.rexx" /dev/null
+check() {
+ mode=$1 expected_rc=$2 expected=$3
+ shift 3
+ if output=$(rexx "$tmp/batch.rexx" "$mode $*"); then rc=0; else rc=$?; fi
+ if [ "$rc" -ne "$expected_rc" ] || [ "$output" != "$expected" ]; then
+  echo "M255 $mode fixture mismatch RC $rc: $output" >&2
+  exit 1
+ fi
+}
+oid=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+zeros=0000000000000000000000000000000000000000
+check ok 0 "SIMULATED STATE FIRST DATA A
+SIMULATED STATE SECOND TEXT B
+SIMULATED HASH FIRST DATA A
+SIMULATED HASH SECOND TEXT B
+SIMULATED SAVE 2
+MAP 1 FIRST DATA A 1 $zeros $oid 7372632F61
+MAP 2 SECOND TEXT B 1 $zeros $oid 7372632F62
+ADDED src/a $oid
+ADDED src/b $oid
+STAGE DIFFERS FROM BASE" --new src/a FIRST DATA --new src/b SECOND TEXT B
+check ok 4 "SIMULATED STATE FIRST DATA A
+GITWT: duplicate new path in request src/a" --new src/a FIRST DATA --new src/a SECOND TEXT
+check ok 4 "SIMULATED STATE FIRST DATA A
+GITWT: duplicate CMS file in request FIRST DATA A" --new src/a FIRST DATA --new src/b FIRST DATA
+check missing-second 8 "SIMULATED STATE FIRST DATA A
+SIMULATED STATE SECOND TEXT A
+GITWT: new CMS workfile is absent or unreadable SECOND TEXT A RC 28" --new src/a FIRST DATA --new src/b SECOND TEXT
+check hashfail-second 8 "SIMULATED STATE FIRST DATA A
+SIMULATED STATE SECOND TEXT A
+SIMULATED HASH FIRST DATA A
+SIMULATED HASH SECOND TEXT A" --new src/a FIRST DATA --new src/b SECOND TEXT
+check full 8 'GITWT: worktree map limit reached' --new src/a FIRST DATA --new src/b SECOND TEXT
+check savefail 8 "SIMULATED STATE FIRST DATA A
+SIMULATED STATE SECOND TEXT B
+SIMULATED HASH FIRST DATA A
+SIMULATED HASH SECOND TEXT B
+SIMULATED SAVE 3
+MAP EXISTING
+MAP 2 FIRST DATA A 1 $zeros $oid 7372632F61
+MAP 3 SECOND TEXT B 1 $zeros $oid 7372632F62
+SIMULATED RESTORE" --new src/a FIRST DATA --new src/b SECOND TEXT B
+too_many='ok'
+i=1
+while [ "$i" -le 17 ]; do
+ too_many="$too_many --new p$i F$i DATA"
+ i=$((i+1))
+done
+if output=$(rexx "$tmp/batch.rexx" "$too_many"); then rc=0; else rc=$?; fi
+if [ "$rc" -ne 4 ] || [ "$output" != \
+     'Usage: GIT ADD --new supports a maximum of 16 files' ]; then
+ echo "M255 17-file limit mismatch RC $rc: $output" >&2
+ exit 1
+fi
+echo 'M255 SOURCE-DERIVED BATCH NEW-FILE ADD FIXTURES PASS 8'
 )
 exit $?
 fi

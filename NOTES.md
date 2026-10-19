@@ -15857,3 +15857,22 @@ and capacity rejection. CMS behavior remains unverified.
 The cumulative M254 source-derived suite passes locally. GitHub Actions native
 host workflow 39178678286 passed on commit `0fa81f9`; it runs host-side source
 checks and fixtures, not on CMS. CMS behavior remains unverified.
+
+## 2026-10-18 — M255 batch staging of new files
+
+Plan: extend `GIT ADD --new` to accept repeated path/file-ID groups in one
+command, while keeping one map save for the full batch.
+
+Assumption: cap a single batch at 16 files, matching the existing multi-path
+ADD limit; retain the 50-entry worktree-map limit and existing optional mode
+default of `A`.
+
+Progress: `GIT ADD --new path fn ft [fm]` now accepts repeated `--new` groups.
+It validates every path and file ID, rejects duplicate Git paths and CMS file
+IDs both against the current map and within the request, checks all workfiles,
+then hashes the batch before changing map entries. It appends every staged
+zero-base entry and saves the map once, restoring the prior map if the save
+fails. Eight source-derived Regina fixtures cover two-file staging, default and
+explicit file modes, in-batch duplicates, missing and failed hashes, capacity,
+save rollback, and the 16-file limit. The cumulative M255 suite passes locally;
+native host CI is pending. CMS behavior remains unverified.
