@@ -1380,7 +1380,10 @@ block=source[start:end]
 block=block[block.index(' addall=0'):]
 required=("translate(word(rest,1))='-U'",
           "translate(word(rest,1))='--UPDATE'",
-          'if addall=1 then do', 'do ai=1 to mapcount',
+           'addrequested=addrequested-1',
+           "if translate(word(rest,2))='--' then do",
+           'call toasciihex path', 'call findpath pathhex',
+           'if addall=1 & addrequested=0 then do', 'do ai=1 to mapcount',
           'call asciitocms mappath.ai', "say 'GITWT: no mapped paths to update'",
           'call savemap')
 for token in required:
@@ -1396,6 +1399,9 @@ work=("if pi=1 then result='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
       "else result='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'")
 hashfailwork=("if pi=1 then result='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
               "else result='ERROR'")
+fstart=source.index('\nfindpath:\n')+1
+fend=source.index('\nfindfile:\n',fstart)
+findpath=source[fstart:fend]
 fixture=(
  "parse arg rest\ncommand='ADD'\nmapcount=2\n"
  "if command='ADD' then do\n"
@@ -1408,7 +1414,9 @@ fixture=(
       .replace("'STATE' mapfn.pi mapft.pi mapfm.pi",state)
       .replace('call workoid mapfn.pi,mapft.pi,mapfm.pi,maplf.pi,1',work)
       .replace('call savemap',"result='OK'\nsay 'SIMULATED SAVE'")+
- "asciitocms:\n parse arg text\n return x2c(text)\n")
+  findpath+
+  "toasciihex:\n parse arg text\n return c2x(text)\n"
+  "asciitocms:\n parse arg text\n return x2c(text)\n")
 Path(sys.argv[2]).write_text(fixture)
 missing=fixture.replace("mapfn.2='BETA'", "mapfn.2='MISSING'")
 missing=missing.replace("mappath.1='616C706861'", "mapbase.2='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\nmapstage.2=mapbase.2\nmappath.1='616C706861'")
@@ -1438,12 +1446,18 @@ beta=BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
 expected=$(printf 'SIMULATED SAVE\nADDED alpha %s\nSTAGE DIFFERS FROM BASE\nADDED beta %s\nSTAGE DIFFERS FROM BASE' "$alpha" "$beta")
 check "$tmp/update.rexx" 0 "$expected" -u
 check "$tmp/update.rexx" 0 "$expected" --update
+check "$tmp/update.rexx" 0 "$expected" -u alpha beta
 expected_missing=$(printf 'SIMULATED SAVE\nADDED alpha %s\nSTAGE DIFFERS FROM BASE\nSTAGED DELETION beta' "$alpha")
 check "$tmp/missing.rexx" 0 "$expected_missing" -u
+check "$tmp/update.rexx" 0 "$(printf 'SIMULATED SAVE\nADDED alpha %s\nSTAGE DIFFERS FROM BASE' "$alpha")" -u alpha
+check "$tmp/update.rexx" 0 "$(printf 'SIMULATED SAVE\nADDED beta %s\nSTAGE DIFFERS FROM BASE' "$beta")" --update -- beta
+check "$tmp/missing.rexx" 0 "$(printf 'SIMULATED SAVE\nSTAGED DELETION beta')" -u beta
+check "$tmp/missing.rexx" 0 "$(printf 'SIMULATED SAVE\nADDED alpha %s\nSTAGE DIFFERS FROM BASE' "$alpha")" -u alpha
 check "$tmp/hashfail.rexx" 8 '' -u
 check "$tmp/empty.rexx" 0 'GITWT: no mapped paths to update' -u
-check "$tmp/update.rexx" 4 'Usage: GIT ADD [-u|--update] | [--] path [path ...]' -u alpha
-echo 'M242 SOURCE-DERIVED GIT ADD UPDATE FIXTURES PASS 6'
+check "$tmp/update.rexx" 4 'GITWT: path is not checked out unknown' -u unknown
+check "$tmp/update.rexx" 4 'Usage: GIT ADD -u [--] path [path ...] (maximum 16 paths)' -u --
+echo 'M242/M256 SOURCE-DERIVED GIT ADD UPDATE FIXTURES PASS 12'
 )
 exit $?
 fi
@@ -2372,6 +2386,34 @@ if [ "$rc" -ne 4 ] || [ "$output" != \
  exit 1
 fi
 echo 'M255 SOURCE-DERIVED BATCH NEW-FILE ADD FIXTURES PASS 8'
+)
+exit $?
+fi
+
+if [ "${1:-}" = "M256" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M242
+python3 - "$root/src/GITWT.EXEC" <<'PY'
+from pathlib import Path
+import sys
+source=Path(sys.argv[1]).read_text()
+start=source.index(' addall=0\n')
+end=source.index("if command='RESET' then do",start)
+block=source[start:end]
+for token in ("translate(word(rest,1))='-U'",
+              "translate(word(rest,1))='--UPDATE'",
+              'if addall=1 & addrequested=0 then do',
+              "if translate(word(rest,2))='--' then do",
+              'addstart=3', 'call findpath pathhex',
+              'mapstage.pi=addoid.ai', 'call savemap'):
+ if token not in block:
+  raise SystemExit(f'M256 selected update source guard missing {token!r}')
+if not (block.index('call findpath pathhex')<block.index('call savemap')):
+ raise SystemExit('M256 update paths must be resolved before the map save')
+print('M256 SELECTED UPDATE SOURCE GUARDS PASS 8')
+PY
 )
 exit $?
 fi

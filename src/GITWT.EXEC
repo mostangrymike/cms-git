@@ -468,14 +468,31 @@ if command='ADD' then do
  addall=0
  addstart=1
  addrequested=words(rest)
- if addrequested=1 & (translate(word(rest,1))='-U' |,
-    translate(word(rest,1))='--UPDATE') then addall=1
+  if addrequested=1 & (translate(word(rest,1))='-U' |,
+     translate(word(rest,1))='--UPDATE') then do
+   addall=1
+   addrequested=0
+  end
+  else if translate(word(rest,1))='-U' |,
+          translate(word(rest,1))='--UPDATE' then do
+   addall=1
+   addstart=2
+   addrequested=addrequested-1
+   if translate(word(rest,2))='--' then do
+    addstart=3
+    addrequested=addrequested-1
+   end
+   if addrequested<1 | addrequested>16 then do
+    say 'Usage: GIT ADD -u [--] path [path ...] (maximum 16 paths)'
+    exit 4
+   end
+  end
  else if word(rest,1)='--' then do
   addstart=2
   addrequested=addrequested-1
  end
  else if left(word(rest,1),1)='-' then do
-  say 'Usage: GIT ADD [-u|--update] | [--] path [path ...]'
+   say 'Usage: GIT ADD [-u|--update [--] path ...] | [--] path [path ...]'
   exit 4
  end
  if addall=0 & (addrequested<1 | addrequested>16) then do
@@ -487,7 +504,7 @@ if command='ADD' then do
  zeros='0000000000000000000000000000000000000000'
  drop addpi. addpath. addold. addoid.
  addcount=0
- if addall=1 then do
+  if addall=1 & addrequested=0 then do
   if mapcount=0 then do
    say 'GITWT: no mapped paths to update'
    exit 0

@@ -246,8 +246,8 @@ remains unverified.
 M242 adds `GIT ADD -u` and `GIT ADD --update` for all mapped worktree files
 (maximum 50). It hashes every mapped CMS file before updating the stage map
 once; if a mapped CMS file is absent, the command fails without changing the
-map. It does not stage deletions or accept update pathspecs. CMS behavior
-remains unverified.
+map. M248 adds staged deletions, and M256 adds selected update pathspecs. CMS
+behavior remains unverified.
 
 M243 adds `GIT STATUS --short` and `GIT STATUS --porcelain`, reporting staged
 and unstaged additions, modifications, and deletions in two-column status
@@ -322,6 +322,12 @@ M255 lets one `GIT ADD` stage up to 16 new files by repeating
 before hashing, then saves the worktree map once with rollback on save failure.
 Duplicate paths and CMS file IDs within the batch are rejected. Host
 source-derived batch fixtures pass; CMS behavior remains unverified.
+
+M256 lets `GIT ADD -u|--update [--] path...` stage changes or deletions for up
+to 16 selected mapped paths. Omitting paths keeps the existing all-mapped
+update form. It uses one map save for the selected paths and leaves unselected
+entries untouched. Host source-derived fixtures pass; CMS behavior remains
+unverified.
 
 ---
 

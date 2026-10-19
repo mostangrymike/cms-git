@@ -15875,4 +15875,20 @@ zero-base entry and saves the map once, restoring the prior map if the save
 fails. Eight source-derived Regina fixtures cover two-file staging, default and
 explicit file modes, in-batch duplicates, missing and failed hashes, capacity,
 save rollback, and the 16-file limit. The cumulative M255 suite passes locally;
-GitHub Actions native host workflow 39179583152 passed on commit `eba196b`; CMS behavior remains unverified.
+GitHub Actions native host workflow 39179583152 passed on commit `eba196b`;
+CMS behavior remains unverified.
+
+## 2026-10-19 — M256 selected update pathspecs
+
+Plan: extend `GIT ADD -u` and `GIT ADD --update` to stage only explicitly
+selected mapped worktree paths, while preserving the existing all-mapped form.
+
+Progress: update mode now accepts `-u [--] path...` and
+`--update [--] path...`, up to 16 mapped paths. It resolves the selected paths
+before reading/hashing their CMS files, stages missing selected files as
+deletions, and commits all selected map changes in one save. Unselected map
+entries are not examined or changed. Twelve source-derived Regina fixtures
+cover all-mapped compatibility, both flag forms, the `--` separator, selected
+modifications and deletions, missing unselected files, unknown paths, and
+invalid empty selections. The cumulative M256 suite passes locally; native
+host CI is pending. CMS behavior remains unverified.
