@@ -15892,3 +15892,18 @@ cover all-mapped compatibility, both flag forms, the `--` separator, selected
 modifications and deletions, missing unselected files, unknown paths, and
 invalid empty selections. The cumulative M256 suite passes locally. GitHub Actions native host workflow
 39258576844 passed on commit `92af4f4`; CMS behavior remains unverified.
+
+## 2026-10-19 — M257 wildcard ADD pathspecs
+
+Plan: expand `*` and `?` in ordinary and selected-update ADD requests against
+the already mapped Git paths, without discovering files or directories.
+
+Progress: `GIT ADD` and `GIT ADD -u|--update` now match wildcard pathspecs over
+the mapped paths. `*` matches any sequence of path bytes, including `/`, and
+`?` matches one byte. Exact path behavior is retained; duplicate matches
+collapse, unmatched patterns fail, and expansion cannot exceed 16 unique
+paths. Every pathspec is resolved before any selected file is hashed or the
+map is saved. Eight source-derived Regina fixtures cover star and question
+matching, nested paths, mixed and duplicate patterns, selected update mode,
+no-match errors, and the expansion cap. The cumulative M257 suite passes
+locally; GitHub Actions and CMS behavior remain unverified.

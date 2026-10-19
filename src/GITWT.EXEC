@@ -530,20 +530,41 @@ if command='ADD' then do
     say 'GITWT: invalid path' path
     exit 4
    end
+  wildcard=0
+  do wi=1 to length(pathhex) by 2
+   if substr(pathhex,wi,2)='2A' | substr(pathhex,wi,2)='3F' then,
+    wildcard=1
+  end
+  if wildcard=0 then do
    call findpath pathhex
    pi=result
    if pi=0 then do
     say 'GITWT: path is not checked out' path
     exit 4
    end
-   duplicate=0
-   do aj=1 to addcount
-    if addpi.aj=pi then duplicate=1
+   pathmatches=1
+   call addselected pi,path
+  end
+  else do
+   pathmatches=0
+   do pi=1 to mapcount
+    call matchpath pathhex,mappath.pi
+    if result=1 then do
+     pathmatches=pathmatches+1
+     call asciitocms mappath.pi
+     matchedpath=result
+     if matchedpath='ERROR' then do
+      say 'GITWT: invalid mapped path' mappath.pi
+      exit 8
+     end
+     call addselected pi,matchedpath
+    end
    end
-   if duplicate=1 then iterate
-   addcount=addcount+1
-   addpi.addcount=pi
-   addpath.addcount=path
+   if pathmatches=0 then do
+    say 'GITWT: pathspec did not match any checked out path' path
+    exit 4
+   end
+  end
   end
  end
  do ai=1 to addcount
@@ -586,6 +607,61 @@ if command='ADD' then do
  end
  exit 0
 end
+
+addselected:
+ parse arg selectedpi,selectedpath
+ duplicate=0
+ do aj=1 to addcount
+  if addpi.aj=selectedpi then duplicate=1
+ end
+ if duplicate=1 then return
+ if addcount>=16 then do
+  say 'GITWT: pathspec expands to more than 16 paths'
+  exit 4
+ end
+ addcount=addcount+1
+ addpi.addcount=selectedpi
+ addpath.addcount=selectedpath
+ return
+
+matchpath:
+ parse arg matchpattern,matchcandidate
+ matchp=1
+ matchc=1
+ matchstar=0
+ matchretry=0
+ do while matchc<=length(matchcandidate)
+  if matchp<=length(matchpattern) then do
+   matchbyte=substr(matchpattern,matchp,2)
+   if matchbyte='3F' | matchbyte=substr(matchcandidate,matchc,2) then do
+    matchp=matchp+2
+    matchc=matchc+2
+   end
+   else if matchbyte='2A' then do
+    matchstar=matchp
+    matchretry=matchc
+    matchp=matchp+2
+   end
+   else if matchstar>0 then do
+    matchp=matchstar+2
+    matchretry=matchretry+2
+    matchc=matchretry
+   end
+   else return 0
+  end
+  else if matchstar>0 then do
+   matchp=matchstar+2
+   matchretry=matchretry+2
+   matchc=matchretry
+  end
+  else return 0
+ end
+ do while matchp<=length(matchpattern) &,
+      substr(matchpattern,matchp,2)='2A'
+  matchp=matchp+2
+ end
+ if matchp>length(matchpattern) then return 1
+ return 0
 
 if command='RESET' then do
  resetstart=1

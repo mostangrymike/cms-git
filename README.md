@@ -232,8 +232,9 @@ remains unverified.
 M239 lets `GIT ADD path1 [path2 ...]` stage up to 16 already mapped worktree
 paths. It validates and looks up every path, hashes all selected workfiles,
 then updates GITWORK once; duplicate paths are collapsed. Unmapped or missing
-CMS files fail without saving the map. Directory and wildcard adds remain
-unsupported. CMS behavior remains unverified.
+CMS files fail without saving the map. Directory expansion is unsupported.
+M257 adds `*` and `?` pathspec matching over mapped Git paths. CMS behavior
+remains unverified.
 
 M240 makes `GIT LOG` treat its maximum as a limit: if the selected history
 reaches a root before the requested count, it returns the available commits
@@ -328,6 +329,13 @@ to 16 selected mapped paths. Omitting paths keeps the existing all-mapped
 update form. It uses one map save for the selected paths and leaves unselected
 entries untouched. Host source-derived fixtures pass; CMS behavior remains
 unverified.
+
+M257 lets ordinary `GIT ADD` and selected `GIT ADD -u|--update` expand `*` and
+`?` pathspecs over mapped Git paths. `*` matches any sequence of path bytes,
+including `/`; `?` matches one byte. Unmatched pathspecs fail, duplicate
+matches collapse, and a command can select no more than 16 paths. Directory
+discovery and bracket expressions are unsupported. Host source-derived
+fixtures pass; CMS behavior remains unverified.
 
 ---
 

@@ -1295,6 +1295,9 @@ block=block.replace('call savemap',"result='OK'\nsay 'SIMULATED SAVE'")
 fstart=source.index('\nfindpath:\n')+1
 fend=source.index('\nfindfile:\n',fstart)
 findpath=source[fstart:fend]
+astart=source.index('\naddselected:\n')+1
+aend=source.index("\nif command='RESET' then do",astart)
+addhelpers=source[astart:aend]
 fixture=(
  "parse arg rest\ncommand='ADD'\nmapcount=5\n"
  "if command='ADD' then do\n"
@@ -1402,6 +1405,9 @@ hashfailwork=("if pi=1 then result='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
 fstart=source.index('\nfindpath:\n')+1
 fend=source.index('\nfindfile:\n',fstart)
 findpath=source[fstart:fend]
+astart=source.index('\naddselected:\n')+1
+aend=source.index("\nif command='RESET' then do",astart)
+addhelpers=source[astart:aend]
 fixture=(
  "parse arg rest\ncommand='ADD'\nmapcount=2\n"
  "if command='ADD' then do\n"
@@ -1414,7 +1420,7 @@ fixture=(
       .replace("'STATE' mapfn.pi mapft.pi mapfm.pi",state)
       .replace('call workoid mapfn.pi,mapft.pi,mapfm.pi,maplf.pi,1',work)
       .replace('call savemap',"result='OK'\nsay 'SIMULATED SAVE'")+
-  findpath+
+  addhelpers+findpath+
   "toasciihex:\n parse arg text\n return c2x(text)\n"
   "asciitocms:\n parse arg text\n return x2c(text)\n")
 Path(sys.argv[2]).write_text(fixture)
@@ -2414,6 +2420,94 @@ if not (block.index('call findpath pathhex')<block.index('call savemap')):
  raise SystemExit('M256 update paths must be resolved before the map save')
 print('M256 SELECTED UPDATE SOURCE GUARDS PASS 8')
 PY
+)
+exit $?
+fi
+
+if [ "${1:-}" = "M257" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M256
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GITWT.EXEC" "$tmp/wildcard.rexx" "$tmp/overflow.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+start=source.index("if command='ADD' then do")
+end=source.index("if command='ACCEPT' then do",start)
+block=source[start:end]
+block=block[block.index(' addall=0'):]
+for token in ('wildcard=0', "substr(pathhex,wi,2)='2A'",
+              "substr(pathhex,wi,2)='3F'", 'call matchpath pathhex,mappath.pi',
+              'call addselected pi,matchedpath',
+              "say 'GITWT: pathspec did not match any checked out path'",
+              "say 'GITWT: pathspec expands to more than 16 paths'",
+              'call savemap'):
+ if token not in block and token not in source:
+  raise SystemExit(f'M257 wildcard ADD source guard missing {token!r}')
+if not (block.index('call matchpath pathhex,mappath.pi')<
+        block.index('do ai=1 to addcount')<block.index('call savemap')):
+ raise SystemExit('M257 wildcard expansion must finish before hashing and saving')
+state="if mapfn.pi='MISSING' then rc=28\nelse rc=0"
+work=("if pi=1 then result='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+      "else result='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'")
+helpers_start=source.index('\naddselected:\n')+1
+helpers_end=source.index("\nif command='RESET' then do",helpers_start)
+helpers=source[helpers_start:helpers_end]
+find_start=source.index('\nfindpath:\n')+1
+find_end=source.index('\nfindfile:\n',find_start)
+findpath=source[find_start:find_end]
+prefix=("parse arg rest\ncommand='ADD'\nmapcount=3\n"
+        "if command='ADD' then do\n"
+        "mapfn.1='ALPHA'\nmapfn.2='BETA'\nmapfn.3='GAMMA'\n"
+        "do mi=1 to 3\n mapft.mi='DATA'\n mapfm.mi='A'\n"
+        " maplf.mi=1\n mapbase.mi='0000000000000000000000000000000000000000'\n"
+        " mapstage.mi=mapbase.mi\nend\n"
+        "mappath.1='616C706861'\nmappath.2='62657461'\n"
+        "mappath.3='7372632F6F6E652E63'\n")
+def build(prefix):
+ return (prefix+block.replace('call loadmap',"result='OK'")
+         .replace("'STATE' mapfn.pi mapft.pi mapfm.pi",state)
+         .replace('call workoid mapfn.pi,mapft.pi,mapfm.pi,maplf.pi,1',work)
+         .replace('call savemap',"result='OK'\nsay 'SIMULATED SAVE'")+helpers+findpath+
+         "toasciihex:\n parse arg text\n return c2x(text)\n"
+         "asciitocms:\n parse arg text\n return x2c(text)\n")
+Path(sys.argv[2]).write_text(build(prefix))
+many=("parse arg rest\ncommand='ADD'\nmapcount=17\n"
+      "if command='ADD' then do\n")
+for i in range(1,18):
+ many+=f"mapfn.{i}='F{i:02d}'\nmapft.{i}='DATA'\nmapfm.{i}='A'\n"
+ many+=f"maplf.{i}=1\nmapbase.{i}='0000000000000000000000000000000000000000'\n"
+ many+=f"mapstage.{i}=mapbase.{i}\nmappath.{i}='{(f'p{i:02d}').encode().hex().upper()}'\n"
+Path(sys.argv[3]).write_text(build(many))
+print('M257 WILDCARD ADD SOURCE GUARDS PASS 8')
+PY
+rexx -c "$tmp/wildcard.rexx" /dev/null
+check() {
+ fixture=$1
+ expected_rc=$2
+ expected=$3
+ shift 3
+ if output=$(rexx "$fixture" "$@"); then rc=0; else rc=$?; fi
+ if [ "$rc" -ne "$expected_rc" ] || [ "$output" != "$expected" ]; then
+  echo "M257 wildcard ADD $*: expected RC $expected_rc '$expected', got RC $rc '$output'" >&2
+  exit 1
+ fi
+}
+alpha=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+beta=BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+check "$tmp/wildcard.rexx" 0 "$(printf 'SIMULATED SAVE\nADDED alpha %s\nSTAGE DIFFERS FROM BASE' "$alpha")" 'a*'
+check "$tmp/wildcard.rexx" 0 "$(printf 'SIMULATED SAVE\nADDED beta %s\nSTAGE DIFFERS FROM BASE' "$beta")" '?eta'
+check "$tmp/wildcard.rexx" 0 "$(printf 'SIMULATED SAVE\nADDED src/one.c %s\nSTAGE DIFFERS FROM BASE' "$beta")" 'src/*.c'
+check "$tmp/wildcard.rexx" 0 "$(printf 'SIMULATED SAVE\nADDED alpha %s\nSTAGE DIFFERS FROM BASE\nADDED beta %s\nSTAGE DIFFERS FROM BASE' "$alpha" "$beta")" 'a*' '?eta'
+check "$tmp/wildcard.rexx" 0 "$(printf 'SIMULATED SAVE\nADDED alpha %s\nSTAGE DIFFERS FROM BASE' "$alpha")" 'a*' alpha
+check "$tmp/wildcard.rexx" 0 "$(printf 'SIMULATED SAVE\nADDED beta %s\nSTAGE DIFFERS FROM BASE' "$beta")" -u '?eta'
+check "$tmp/wildcard.rexx" 4 'GITWT: pathspec did not match any checked out path z*' 'z*'
+check "$tmp/overflow.rexx" 4 'GITWT: pathspec expands to more than 16 paths' 'p*'
+echo 'M257 SOURCE-DERIVED WILDCARD ADD FIXTURES PASS 8'
 )
 exit $?
 fi

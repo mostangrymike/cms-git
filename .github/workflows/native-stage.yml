@@ -244,6 +244,8 @@ jobs:
         run: sh tests/check-canonical-source.sh M255
       - name: Check M256 selected update pathspecs
         run: sh tests/check-canonical-source.sh M256
+      - name: Check M257 wildcard mapped pathspecs
+        run: sh tests/check-canonical-source.sh M257
       - name: Check M190 7736-object selective seek closure
         run: python3 tests/test-m203-bounded-batch.py M190S
       - name: Compare M190 indexed seek vs M188 two-pass host
