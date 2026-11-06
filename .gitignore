@@ -2,3 +2,22 @@
 __pycache__/
 *.py[cod]
 .venv/
+
+# CMS live evidence and temp files
+cms-*-evidence*.json
+cms-source-inventory.txt
+src/mainframe_output*.tmp
+src/*.PACK
+src/*.bin
+src/*.CERT
+src/*.crt
+src/*.pem
+src/*.DATA
+src/*.EXEC.backup
+src/*.EXEC.bak
+src/*.EXEC.bak.*
+src/*.ASSEMBLE
+src/*.MACLIB
+src/upload-cms.sh
+src/cms-upload.sh.bak
+M173DIR.EXEC
