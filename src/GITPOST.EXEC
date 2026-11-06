@@ -36,6 +36,16 @@ call safepath repo
 if result\='OK' then exit 4
 if left(repo,1)='/' | right(repo,1)='/' | pos('..',repo)>0 then exit 4
 if length(oid)\=40 | verify(oid,'0123456789ABCDEF')\=0 then exit 4
+
+have=''
+if word(rest,1)='HAVE' then do
+ have=translate(word(rest,2))
+ if length(have)\=40 | verify(have,'0123456789ABCDEF')\=0 then do
+  say 'GITPOST: invalid have OID'
+  exit 8
+ end
+ rest=substr(rest,length(word(rest,1))+2)
+end
 wantoid=translate(oid,'abcdef','ABCDEF')
 
 want='want '||wantoid||' side-band-64k ofs-delta'
@@ -45,6 +55,10 @@ call toasciihex ph
 body=result
 call toasciihex want
 body=body||result||'0A'
+if have \= '' then do
+ call toasciihex have
+ body=body||result||'0A'
+end
 call toasciihex '0000'
 body=body||result
 call toasciihex '0009done'
@@ -57,6 +71,21 @@ call toasciihex 'POST '||path||' HTTP/1.1'
 wire=result||'0D0A'
 call toasciihex 'Host: '||authority
 wire=wire||result||'0D0A'
+call authheader
+authvalue=result
+if authvalue='ERROR' then do
+ say 'GITPOST: invalid stored GitHub credential'
+ exit 8
+end
+if authvalue\='' then do
+ if translate(authority)\='GITHUB.COM' then do
+  say 'GITPOST: stored GitHub credential is limited to github.com'
+  exit 8
+ end
+ call toasciihex authvalue
+ if result='ERROR' then exit 8
+ wire=wire||result||'0D0A'
+end
 call toasciihex 'Content-Type: application/x-git-upload-pack-request'
 wire=wire||result||'0D0A'
 call toasciihex 'Accept: application/x-git-upload-pack-result'
@@ -473,6 +502,92 @@ bytepos: procedure
   if substr(hex,bp,2)=needle then return bp
  end
  return 0
+
+authheader: procedure
+ address cms
+ tokenalphabet='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+ tokenalphabet=tokenalphabet||'0123456789_-'
+ 'STATE GHCRED REPO A'
+ if rc=28 then return ''
+ if rc\=0 then return 'ERROR'
+ drop cred.
+ 'EXECIO * DISKR GHCRED REPO A 1 (STEM CRED. FINIS'
+ if rc\=0 | cred.0<4 then return 'ERROR'
+ if cred.1='GHCRED 1' then do
+  authmode='APIKEY'
+  userrec=2
+  lenrec=3
+  firstsecret=4
+  lenlabel='TOKEN-LENGTH'
+  chunkprefix='TOKEN'
+ end
+ else if cred.1='GHCRED 2' then do
+  if words(cred.2)\=2 | word(cred.2,1)\='MODE' then,
+   return 'ERROR'
+  authmode=word(cred.2,2)
+  if authmode\='APIKEY' & authmode\='USERPASS' then,
+   return 'ERROR'
+  userrec=3
+  lenrec=4
+  firstsecret=5
+  lenlabel='SECRET-LENGTH'
+  chunkprefix='SECRET'
+ end
+ else return 'ERROR'
+ if words(cred.userrec)\=2 | word(cred.userrec,1)\='USER' then,
+  return 'ERROR'
+ authuser=word(cred.userrec,2)
+ if authuser='' | length(authuser)>39 |,
+    verify(translate(authuser),'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-')\=0 then,
+  return 'ERROR'
+ if words(cred.lenrec)\=2 | word(cred.lenrec,1)\=lenlabel then,
+  return 'ERROR'
+ tokenlength=word(cred.lenrec,2)
+ if datatype(tokenlength,'W')\=1 | tokenlength<1 | tokenlength>240 then,
+  return 'ERROR'
+ chunks=(tokenlength+63)%64
+ if cred.0\=firstsecret+chunks-1 then return 'ERROR'
+ authtoken=''
+ do authi=1 to chunks
+  rec=firstsecret+authi-1
+  parse var cred.rec authlabel authpart
+  authpart=strip(authpart)
+  if authi=1 then expected=chunkprefix
+  else expected=chunkprefix||'+'||(authi-1)
+  wantlen=tokenlength-((authi-1)*64)
+  if wantlen>64 then wantlen=64
+  if words(cred.rec)\=2 | authlabel\=expected |,
+     length(authpart)\=wantlen | verify(authpart,tokenalphabet)\=0 then,
+   return 'ERROR'
+  authtoken=authtoken||authpart
+ end
+ if length(authtoken)\=tokenlength then return 'ERROR'
+ call toasciihex authuser||':'||authtoken
+ authbytes=result
+ if authbytes='ERROR' | length(authbytes)//2\=0 then return 'ERROR'
+ alphabet='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+ alphabet=alphabet||'0123456789+/'
+ auth64=''
+ do authi=1 to length(authbytes) by 6
+  remain=length(authbytes)-authi+1
+  if remain<2 then return 'ERROR'
+  b1=x2d(substr(authbytes,authi,2))
+  b2=0
+  b3=0
+  if remain>=4 then b2=x2d(substr(authbytes,authi+2,2))
+  if remain>=6 then b3=x2d(substr(authbytes,authi+4,2))
+  six1=b1%4
+  six2=(b1//4)*16+b2%16
+  six3=(b2//16)*4+b3%64
+  six4=b3//64
+  auth64=auth64||substr(alphabet,six1+1,1)||,
+         substr(alphabet,six2+1,1)
+  if remain>=4 then auth64=auth64||substr(alphabet,six3+1,1)
+  else auth64=auth64||'='
+  if remain>=6 then auth64=auth64||substr(alphabet,six4+1,1)
+  else auth64=auth64||'='
+ end
+ return 'Authorization: Basic '||auth64
 
 safefn: procedure
  parse arg text

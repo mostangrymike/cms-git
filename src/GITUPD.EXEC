@@ -1,6 +1,30 @@
 /* M166: safe modern REF2 compare-and-swap updater. */
 address cms
 parse arg ref newoid oldoid extra
+objectfm='A'
+'STATE GITMETA REPO A'
+if rc=0 then do
+ drop cfg.
+ 'EXECIO * DISKR GITMETA REPO A 1 (STEM CFG. FINIS'
+ if rc\=0 | cfg.0<4 | cfg.1\='CMS-GIT-REPOSITORY 1' then do
+  say 'GITUPD: invalid repository metadata'
+  exit 8
+ end
+ objectrecords=0
+ do ci=1 to cfg.0
+  if word(cfg.ci,1)='OBJECT-DISK' then do
+   if words(cfg.ci)\=2 then exit 8
+   objectrecords=objectrecords+1
+   objectfm=translate(word(cfg.ci,2))
+  end
+ end
+ if objectrecords>1 | length(objectfm)\=1 |,
+    verify(objectfm,'ABCDEFGHIJKLMNOPQRSTUVWXYZ')\=0 then do
+  say 'GITUPD: invalid OBJECT-DISK setting'
+  exit 8
+ end
+end
+else if rc\=28 then exit 8
 
 /* Rename one branch with an expected-OID check and optional HEAD move. */
 if ref='MOVE-REF' then do
@@ -203,6 +227,115 @@ if ref='CREATE-HEAD' then do
 end
 
 /* HEAD changes require a verified, unchanged mapped worktree. */
+/* M273: compare-and-swap the current branch around a mapped fast-forward. */
+if ref='PULL-HEAD' then do
+ branch=newoid
+ oldoid=translate(oldoid)
+ newoid=translate(extra)
+ if branch='' | oldoid='' | newoid='' then do
+  say 'Usage: GITUPD PULL-HEAD branch old-commit new-commit'
+  exit 4
+ end
+ branchref='refs/heads/'||branch
+ call validref branchref
+ if result\='OK' | length(oldoid)\=40 | length(newoid)\=40 |,
+    verify(oldoid,'0123456789ABCDEF')\=0 |,
+    verify(newoid,'0123456789ABCDEF')\=0 then exit 4
+ call readrefs
+ if result\='OK' | headref\=branchref then do
+  say 'GITUPD: current branch changed before pull'
+  exit 8
+ end
+ slot=0
+ localold=''
+ do i=1 to refcount
+  if refname.i=branchref then do
+   slot=i
+   localold=refoid.i
+  end
+ end
+ if slot=0 | localold\=oldoid then do
+  say 'GITUPD: stale local branch tip' branchref
+  exit 8
+ end
+ call requirecommit oldoid
+ if result\='OK' then exit 8
+ call requirecommit newoid
+ if result\='OK' then exit 8
+ if oldoid=newoid then do
+  say 'Already up to date' oldoid
+  exit 0
+ end
+ drop ancestry.
+ ancestry.0=0
+ ancestrycmd='EXEC GITVREF IS-ANCESTOR'||' '||oldoid||' '||newoid
+ 'PIPE CMS' ancestrycmd '| STEM ANCESTRY.'
+ if rc\=0 | ancestry.0\=1 |,
+    strip(ancestry.1)\='ANCESTOR YES' oldoid newoid then do
+  say 'GITUPD: update is not a verified fast-forward'
+  exit 8
+ end
+ drop pullcheck.
+ pullcheck.0=0
+ pullcmd='EXEC GITWT CHECK-PULL'||' '||branch||' '||oldoid||' '||newoid
+ 'PIPE CMS' pullcmd '| STEM PULLCHECK.'
+ if rc\=0 then do
+  say 'GITUPD: clean-worktree or path preflight failed'
+  exit 8
+ end
+ call readrefs
+ if result\='OK' | headref\=branchref then do
+  say 'GITUPD: branch changed during pull preflight'
+  exit 8
+ end
+ slot=0
+ localold=''
+ do i=1 to refcount
+  if refname.i=branchref then do
+   slot=i
+   localold=refoid.i
+  end
+ end
+ if slot=0 | localold\=oldoid then do
+  say 'GITUPD: local branch changed during pull preflight'
+  exit 8
+ end
+ drop bak.
+ bak.0=rr.0
+ do bi=1 to rr.0
+  bak.bi=rr.bi
+ end
+ refoid.slot=newoid
+ call writerefs
+ if result\='OK' then do
+  call restore
+  exit 8
+ end
+ call readrefs
+ if result\='OK' | headref\=branchref then do
+  say 'GITUPD: pull ref readback failed; restoring REF2'
+  call restore
+  exit 8
+ end
+ readback=0
+ do i=1 to refcount
+  if refname.i=branchref & refoid.i=newoid then readback=readback+1
+ end
+ if readback\=1 then do
+  say 'GITUPD: pull ref verification failed; restoring REF2'
+  call restore
+  exit 8
+ end
+ address command 'EXEC GITWT APPLY-PULL' branch oldoid newoid
+ if rc\=0 then do
+  say 'GITUPD: worktree update failed; restoring branch ref'
+  call restore
+  exit 8
+ end
+ say 'FAST-FORWARD' branch oldoid newoid
+ exit 0
+end
+
 if ref='HEAD' then do
  if newoid='' | oldoid='' | extra\='' then do
   say 'Usage: GITUPD HEAD refs/heads/name expected-head-ref'
@@ -320,7 +453,8 @@ if newoid=zeros & oldoid=zeros then do
  exit 4
 end
 
-if newoid\=zeros & left(ref,11)='refs/heads/' then do
+if newoid\=zeros & (left(ref,11)='refs/heads/' |,
+                     left(ref,13)='refs/remotes/') then do
  call requirecommit newoid
  if result\='OK' then exit 8
 end
@@ -458,6 +592,29 @@ validref:
   end
   return 'OK'
  end
+ else if left(vr,13)='refs/remotes/' then do
+  name=substr(vr,14)
+  slash=pos('/',name)
+  if slash<2 then return 'ERROR'
+  remotename=left(name,slash-1)
+  branchname=substr(name,slash+1)
+  remotechars='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+  remotechars=remotechars||'0123456789._-'
+  if length(remotename)>16 | verify(remotename,remotechars)\=0 |,
+     remotename='.' | remotename='..' | pos('..',remotename)>0 |,
+     left(remotename,1)='.' | right(remotename,1)='.' then return 'ERROR'
+  refchars='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+  refchars=refchars||'0123456789._/-'
+  if branchname='' | verify(branchname,refchars)\=0 |,
+     pos('//',branchname)>0 | pos('..',branchname)>0 |,
+     left(branchname,1)='/' | right(branchname,1)='/' then return 'ERROR'
+  do vi=1 to words(translate(branchname,' ','/'))
+   part=word(translate(branchname,' ','/'),vi)
+   if part='' | part='.' | part='..' | left(part,1)='.' |,
+      right(part,1)='.' | right(part,5)='.lock' then return 'ERROR'
+  end
+  return 'OK'
+ end
  else if left(vr,10)='refs/tags/' then name=substr(vr,11)
  else return 'ERROR'
  refchars='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
@@ -492,7 +649,7 @@ requirecommit:
  end
  fn=substr(oid,1,8)
  drop obj.
- 'EXECIO * DISKR' fn 'GITOBJ A 1 (STEM OBJ. FINIS'
+ 'EXECIO * DISKR' fn 'GITOBJ' objectfm '1 (STEM OBJ. FINIS'
  if rc\=0 then return 'ERROR'
  if obj.0<2 | word(obj.1,1)\='OID' | word(obj.1,2)\=oid |,
     word(obj.2,1)\='TYPE' then return 'ERROR'
@@ -550,10 +707,12 @@ readrefs:
  end
  if headcount\=1 then return 'ERROR'
  foundhead=0
+ localheads=0
  do ri=1 to refcount
   if refname.ri=headref then foundhead=foundhead+1
+  if left(refname.ri,11)='refs/heads/' then localheads=localheads+1
  end
- if foundhead\=1 then do
+ if foundhead>1 | (foundhead=0 & localheads>0) then do
   say 'GITUPD: symbolic HEAD target is missing'
   return 'ERROR'
  end

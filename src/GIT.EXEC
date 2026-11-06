@@ -3,6 +3,39 @@
 /* Preserve arguments exactly; normalize only the command verb. */
 parse arg command rest
 command = translate(command)
+objectfm = 'A'
+if command \= 'INIT' then do
+   'STATE GITMETA REPO A'
+   if rc = 0 then do
+      drop config.
+      'EXECIO * DISKR GITMETA REPO A 1 (STEM CONFIG. FINIS'
+      if rc \= 0 | config.0 < 4 |,
+         config.1 \= 'CMS-GIT-REPOSITORY 1' then do
+         say 'GIT: invalid repository metadata'
+         exit 8
+      end
+      objectrecords = 0
+      do ci = 1 to config.0
+         if word(config.ci,1) = 'OBJECT-DISK' then do
+            if words(config.ci) \= 2 then do
+               say 'GIT: invalid OBJECT-DISK setting'
+               exit 8
+            end
+            objectrecords = objectrecords + 1
+            objectfm = translate(word(config.ci,2))
+         end
+      end
+      if objectrecords > 1 | length(objectfm) \= 1 |,
+         verify(objectfm,'ABCDEFGHIJKLMNOPQRSTUVWXYZ') \= 0 then do
+         say 'GIT: invalid OBJECT-DISK setting'
+         exit 8
+      end
+   end
+   else if rc \= 28 then do
+      say 'GIT: cannot inspect repository metadata RC' rc
+      exit 8
+   end
+end
 
 if command = '' then do
    say 'Usage: GIT command [arguments]'
@@ -64,20 +97,82 @@ if command = 'LEVEL' then do
    exit 0
 end
 if command = 'INIT' then do
-   parse var rest extra
-   if extra \= '' then do
-      say 'Usage: GIT INIT'
+   parse upper var rest objectfm extra
+   if extra \= '' | (objectfm \= '' &,
+      verify(objectfm,'ABCDEFGHIJKLMNOPQRSTUVWXYZ') \= 0) then do
+      say 'Usage: GIT INIT [object-filemode]'
       exit 4
    end
-   meta.0 = 4
+   if objectfm = '' then objectfm = 'A'
+   'STATE GITMETA REPO A'
+   if rc = 0 then do
+      call initrefs
+      if result='OK' then do
+         say 'Initialized unborn branch refs/heads/main'
+         exit 0
+      end
+      if result='EXISTS' then do
+         say 'GIT: repository already initialized'
+         exit 8
+      end
+      say 'GIT: could not initialize branch refs'
+      exit 8
+   end
+   if rc \= 28 then do
+      say 'GIT: cannot inspect repository metadata RC' rc
+      exit 8
+   end
+   if objectfm \= 'A' then do
+      drop diskinfo.
+      diskinfo.0 = 0
+      'PIPE CMS QUERY DISK' objectfm '| STEM DISKINFO.'
+      if rc \= 0 then do
+         say 'GIT: cannot inspect object data disk' objectfm
+         exit 8
+      end
+      diskcount = 0
+      freeblocks = ''
+      do di = 1 to diskinfo.0
+         if word(diskinfo.di,3) = objectfm &,
+            word(diskinfo.di,4) = 'R/W' &,
+            word(diskinfo.di,7) = '4096' &,
+            words(diskinfo.di) >= 11 then do
+            diskcount = diskcount + 1
+            freeblocks = word(diskinfo.di,10)
+         end
+      end
+      if diskcount \= 1 | datatype(freeblocks,'W') \= 1 |,
+         freeblocks < 180000 then do
+         say 'GIT: object disk needs R/W 4K and 180000 free blocks'
+         exit 8
+      end
+   end
+   meta.0 = 5
    meta.1 = 'CMS-GIT-REPOSITORY 1'
    meta.2 = 'OBJECT-FORMAT SHA1'
    meta.3 = 'TEXT-RECORD-SEPARATOR LF'
    meta.4 = 'HEAD refs/heads/main'
+   meta.5 = 'OBJECT-DISK' objectfm
    'EXECIO' meta.0 'DISKW GITMETA REPO A 1 (STEM META. FINIS'
    if rc \= 0 then exit rc
-   say 'Initialized native CMS Git repository on filemode A'
+   call initrefs
+   if result\='OK' then do
+      'ERASE GITMETA REPO A'
+      say 'GIT: could not initialize branch refs'
+      exit 8
+   end
+   say 'Initialized native CMS Git repository; objects on filemode' objectfm
    exit 0
+end
+
+/* M262: repository-local HTTPS remote metadata for GitHub workflows. */
+if command = 'REMOTE' then do
+   address command 'EXEC GITREMOT' rest
+   exit rc
+end
+if command = 'CREDENTIAL' then do
+   address command 'EXEC GITCRED' rest
+   exit rc
 end
 
 /* Modern lightweight tag porcelain over the guarded REF2 updater. */
@@ -316,6 +411,14 @@ if command = 'BRANCH' then do
    parse var rest brancharg1 brancharg2 brancharg3 brancharg4 brancharg5
    verb=translate(brancharg1)
    zeros='0000000000000000000000000000000000000000'
+   if verb='-R' | verb='--REMOTES' then do
+      if brancharg3\='' | brancharg4\='' | brancharg5\='' then do
+         say 'Usage: GIT BRANCH -r|--remotes [remote]'
+         exit 4
+      end
+      address command 'EXEC GITVREF REMOTE-BRANCHES' brancharg2
+      exit rc
+   end
    if verb='-L' | verb='--LIST' then do
       if brancharg3\='' | brancharg4\='' | brancharg5\='' then do
          say 'Usage: GIT BRANCH [-l|--list [pattern]]'
@@ -737,6 +840,233 @@ if command = 'FETCH-STORE' then do
    'EXEC GITPOST STORE' rest
    exit rc
 end
+if command = 'FETCH-PACK' then do
+   'EXEC GITFPACK' rest
+   exit rc
+end
+if command = 'FETCH-IMPORT' then do
+   'EXEC GITFIMP' rest
+   exit rc
+end
+if command = 'FETCH-ACTIVATE' then do
+   'EXEC GITFACT' rest
+   exit rc
+end
+if command = 'FETCH-TRACK' then do
+   parse var rest trackremote trackbranch trackoid expectedoid extra
+   if trackremote='' | trackbranch='' | trackoid='' | extra\='' then do
+      say 'Usage: GIT FETCH-TRACK remote branch new-oid [expected-old-oid]'
+      exit 4
+   end
+   if expectedoid='' then,
+      expectedoid='0000000000000000000000000000000000000000'
+   call validremotename trackremote
+   if result\='OK' then do
+      say 'GIT: invalid remote name'
+      exit 4
+   end
+   call validbranch trackbranch
+   if result\='OK' then do
+      say 'GIT: invalid remote branch name'
+      exit 4
+   end
+   trackingref='refs/remotes/'||trackremote||'/'||trackbranch
+   if length(trackingref)>35 then do
+      say 'GIT: remote-tracking ref exceeds the REF2 record limit'
+      exit 4
+   end
+   trackoid=translate(trackoid)
+   expectedoid=translate(expectedoid)
+   if length(trackoid)\=40 | length(expectedoid)\=40 |,
+      verify(trackoid,'0123456789ABCDEF')\=0 |,
+      verify(expectedoid,'0123456789ABCDEF')\=0 |,
+      trackoid='0000000000000000000000000000000000000000' then do
+      say 'GIT: invalid remote-tracking object-id'
+      exit 4
+   end
+   'EXEC GITUPD' trackingref trackoid expectedoid
+   exit rc
+end
+/* M273: fetch, verify and apply one fast-forward pull to a clean flat tree. */
+if command='PULL' then do
+   parse var rest pullremote pullbridge pullport pullpack pullindex,
+       pullbranch pullextra
+   if pullremote='' | pullbridge='' | pullport='' | pullpack='' |,
+      pullindex='' | pullextra\='' then do
+      say 'Usage: GIT PULL remote bridge port pack index [branch|HEAD]'
+      exit 4
+   end
+   if pullbranch='' then pullbranch='HEAD'
+   call validremotename pullremote
+   if result\='OK' then exit 4
+   call validbranch pullbranch
+   if result\='OK' then exit 4
+   pullport=strip(pullport)
+   if datatype(pullport,'W')\=1 | pullport<1 | pullport>65535 then exit 4
+   pullbridge=strip(pullbridge)
+   bridgechars='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+   bridgechars=bridgechars||'0123456789.-'
+   if pullbridge='' | length(pullbridge)>255 |,
+      verify(pullbridge,bridgechars)\=0 then exit 4
+   pullpack=translate(pullpack)
+   pullindex=translate(pullindex)
+   cmsnames='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+   if length(pullpack)<1 | length(pullpack)>8 |,
+      verify(pullpack,cmsnames)\=0 |,
+      length(pullindex)<1 | length(pullindex)>8 |,
+      verify(pullindex,cmsnames)\=0 | pullpack=pullindex then do
+      say 'GIT PULL: pack and index names must be distinct CMS filenames'
+      exit 4
+   end
+   if objectfm='A' then do
+      say 'GIT PULL: repository must use its dedicated non-A object disk'
+      exit 8
+   end
+   drop headout.
+   headout.0=0
+   'PIPE CMS EXEC GITVREF HEAD | STEM HEADOUT.'
+   if rc\=0 | headout.0\=1 then exit 8
+   parse var headout.1 pullhead extra
+   if extra\='' | left(pullhead,11)\='refs/heads/' then exit 8
+   currentbranch=substr(pullhead,12)
+   call validbranch currentbranch
+   if result\='OK' then exit 8
+   if translate(pullbranch)='HEAD' then pullrequest='HEAD'
+   else do
+      if left(pullbranch,11)='refs/heads/' then,
+         pullrequested=substr(pullbranch,12)
+      else pullrequested=pullbranch
+      call validbranch pullrequested
+      if result\='OK' | pullrequested\=currentbranch then do
+         say 'GIT PULL: selected remote branch must match the current branch'
+         exit 8
+      end
+      pullrequest=pullrequested
+   end
+   drop statusout.
+   statusout.0=0
+   'PIPE CMS EXEC GITWT STATUS --SHORT | STEM STATUSOUT.'
+   if rc\=0 then do
+      say 'GIT PULL: cannot verify a clean worktree'
+      exit 8
+   end
+   do si=1 to statusout.0
+      if left(statusout.si,2)\='##' then do
+         say 'GIT PULL: local worktree has changes; no fetch started'
+         exit 8
+      end
+   end
+   drop fetchout.
+   fetchout.0=0
+   fetchcmd='EXEC GITFPACK'||' '||pullremote||' '||pullbridge||' '||,
+       pullport||' '||pullpack||' '||pullrequest
+   'PIPE CMS' fetchcmd '| STEM FETCHOUT.'
+   if rc\=0 then do
+      say 'GIT PULL: fetch failed; local refs and workfiles unchanged'
+      exit rc
+   end
+   /* CMS PIPE STEM wraps long output at column 80, even inside an OID. */
+   fetchline=''
+   do fi=1 to fetchout.0
+      fetchline=fetchline||strip(fetchout.fi)
+   end
+   if words(fetchline)\=11 |,
+      word(fetchline,1)\='FETCH' | word(fetchline,2)\='PACK' |,
+      word(fetchline,3)\='VERIFIED' |,
+      translate(word(fetchline,4))\=translate(pullremote) |,
+      word(fetchline,8)\='BYTES' | word(fetchline,10)\='OBJECTS' |,
+      datatype(word(fetchline,9),'W')\=1 |,
+      datatype(word(fetchline,11),'W')\=1 then do
+      say 'GIT PULL: verified fetch result framing failed'
+      exit 8
+   end
+   pullbranchref=word(fetchline,5)
+   pullnew=translate(word(fetchline,6))
+   if word(fetchline,7)\=pullpack | length(pullnew)\=40 |,
+      verify(pullnew,'0123456789ABCDEF')\=0 |,
+      left(pullbranchref,11)\='refs/heads/' then do
+      say 'GIT PULL: verified fetch did not identify one branch tip'
+      exit 8
+   end
+   branchfromremote=substr(pullbranchref,12)
+   call validbranch branchfromremote
+   if result\='OK' | branchfromremote\=currentbranch then do
+      say 'GIT PULL: remote branch does not match current branch'
+      exit 8
+   end
+   'EXEC GIT FETCH-IMPORT' pullpack objectfm
+   if rc\=0 then do
+      say 'GIT PULL: import failed; pack retained for recovery'
+      exit rc
+   end
+   'EXEC GIT FETCH-ACTIVATE' pullpack pullindex objectfm
+   if rc\=0 then do
+      say 'GIT PULL: activation failed; stage and index retained'
+      exit rc
+   end
+   drop headcheck.
+   headcheck.0=0
+   'PIPE CMS EXEC GITVREF RESOLVE HEAD | STEM HEADCHECK.'
+   if rc\=0 | headcheck.0\=1 | words(headcheck.1)\=4 |,
+      word(headcheck.1,1)\='VERIFIED' |,
+      word(headcheck.1,2)\='REF' | word(headcheck.1,3)\='HEAD' then exit 8
+   pullold=translate(word(headcheck.1,4))
+   if length(pullold)\=40 | verify(pullold,'0123456789ABCDEF')\=0 then exit 8
+   if pullnew=pullold then do
+      say 'Already up to date' pullold
+      exit 0
+   end
+   drop ancestorout.
+   ancestorout.0=0
+   ancestorcmd='EXEC GITVREF IS-ANCESTOR'||' '||pullold||' '||pullnew
+   'PIPE CMS' ancestorcmd '| STEM ANCESTOROUT.'
+   if rc\=0 | ancestorout.0\=1 |,
+      strip(ancestorout.1)\='ANCESTOR YES' pullold pullnew then do
+      say 'GIT PULL: remote tip is not a fast-forward; local refs unchanged'
+      exit 8
+   end
+   pullcheckcmd='EXEC GITWT CHECK-PULL'||' '||currentbranch||' '||,
+       pullold||' '||pullnew
+   drop pullcheckout.
+   pullcheckout.0=0
+   'PIPE CMS' pullcheckcmd '| STEM PULLCHECKOUT.'
+   if rc\=0 then do
+      say 'GIT PULL: worktree preflight failed; local refs unchanged'
+      exit 8
+   end
+   trackingref='refs/remotes/'||pullremote||'/'||branchfromremote
+   if length(trackingref)>35 then do
+      say 'GIT PULL: remote-tracking ref exceeds the REF2 limit'
+      exit 8
+   end
+   'EXECIO * DISKR GITREF2 REPO A 1 (STEM PULLREFS. FINIS'
+   if rc\=0 | PULLREFS.0<2 | PULLREFS.1\='REF2 1' then exit 8
+   oldtracking='0000000000000000000000000000000000000000'
+   trackcount=0
+   do ri=2 to PULLREFS.0
+      if word(PULLREFS.ri,1)='REF' &,
+         word(PULLREFS.ri,2)=trackingref then do
+         if words(PULLREFS.ri)\=3 then exit 8
+         oldtracking=translate(word(PULLREFS.ri,3))
+         trackcount=trackcount+1
+      end
+   end
+   if trackcount>1 | length(oldtracking)\=40 |,
+      verify(oldtracking,'0123456789ABCDEF')\=0 then exit 8
+   'EXEC GIT FETCH-TRACK' pullremote branchfromremote pullnew oldtracking
+   if rc\=0 then do
+      say 'GIT PULL: remote-tracking ref update failed; local branch unchanged'
+      exit rc
+   end
+   'EXEC GITUPD PULL-HEAD' currentbranch pullold pullnew
+   if rc\=0 then do
+      say 'GIT PULL: branch unchanged; tracking ref records fetched tip'
+      exit rc
+   end
+   say 'PULL COMPLETE' pullremote branchfromremote pullold pullnew
+   say 'PULL PACK RETAINED' pullpack 'INDEX' pullindex objectfm
+   exit 0
+end
 if command = 'PACK-CENSUS' then do
    if strip(rest)\='' then do
       say 'Usage: GIT PACK-CENSUS'
@@ -818,6 +1148,10 @@ if command = 'PACK-TREE' then do
 end
 if command = 'CHECKOUT-FILE' then do
    'EXEC GITWT CHECKOUT' rest
+   exit rc
+end
+if command = 'CHECKOUT-TREE' then do
+   'EXEC GITWT CHECKOUT-TREE' rest
    exit rc
 end
 if command = 'STATUS' then do
@@ -1385,13 +1719,13 @@ end
 say 'GIT: unknown command' command
 exit 4
 
-storeobject: procedure
+storeobject: procedure expose objectfm
    parse upper arg oid, type, datahex
    objfn = substr(oid,1,8)
-   'STATE' objfn 'GITOBJ A'
+   'STATE' objfn 'GITOBJ' objectfm
    if rc = 0 then do
       drop old.
-      'EXECIO * DISKR' objfn 'GITOBJ A 1 (STEM OLD. FINIS'
+      'EXECIO * DISKR' objfn 'GITOBJ' objectfm '1 (STEM OLD. FINIS'
       if rc \= 0 then do
          say 'GIT: cannot inspect existing object' objfn
          return 'ERROR'
@@ -1415,18 +1749,19 @@ storeobject: procedure
       pos = pos + take
    end
    out.0 = n
-   'EXECIO' out.0 'DISKW' objfn 'GITOBJ A 1 (STEM OUT. FINIS'
+   'EXECIO' out.0 'DISKW' objfn 'GITOBJ' objectfm ,
+      '1 (STEM OUT. FINIS'
    if rc \= 0 then do
       say 'GIT: cannot store object' oid
       return 'ERROR'
    end
    return 'OK'
 
-readobject: procedure expose storedoid objtype datahex
+readobject: procedure expose storedoid objtype datahex objectfm
    parse upper arg oid
    objfn = substr(oid,1,8)
    drop obj.
-   'EXECIO * DISKR' objfn 'GITOBJ A 1 (STEM OBJ. FINIS'
+   'EXECIO * DISKR' objfn 'GITOBJ' objectfm '1 (STEM OBJ. FINIS'
    if rc \= 0 then do
       say 'GIT: object not found' oid
       return 'ERROR'
@@ -1566,6 +1901,30 @@ branchnamefromhead: procedure
    call validbranch branchname
    if result\='OK' then return 'ERROR'
    return branchname
+
+validremotename: procedure
+   parse arg remote
+   allowed='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+   allowed=allowed||'0123456789._-'
+   if remote='' | length(remote)>16 | remote='.' | remote='..' |,
+      verify(remote,allowed)\=0 | pos('..',remote)>0 |,
+      left(remote,1)='.' | right(remote,1)='.' then return 'ERROR'
+   return 'OK'
+
+initrefs:
+   'STATE GITREF2 REPO A'
+   if rc=0 then return 'EXISTS'
+   if rc\=28 then return 'ERROR'
+   initial.0=2
+   initial.1='REF2 1'
+   initial.2='HEAD refs/heads/main'
+   'EXECIO 2 DISKW GITREF2 REPO A 1 (STEM INITIAL. FINIS'
+   if rc\=0 then return 'ERROR'
+   drop initial.
+   'EXECIO * DISKR GITREF2 REPO A 1 (STEM INITIAL. FINIS'
+   if rc\=0 | initial.0\=2 | initial.1\='REF2 1' |,
+      initial.2\='HEAD refs/heads/main' then return 'ERROR'
+   return 'OK'
 
 validtag: procedure
    parse arg vt, mode

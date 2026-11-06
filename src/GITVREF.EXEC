@@ -14,6 +14,138 @@ if command='STAMP' then do
  say 'GITVREF INTERNAL STAMP P2'
  exit 0
 end
+/* M273: bounded reachability check over the activated loose commit graph. */
+if command='IS-ANCESTOR' then do
+ ancestor=translate(spec)
+ descendant=translate(depth)
+ if extra\='' | length(ancestor)\=40 | length(descendant)\=40 |,
+    verify(ancestor,'0123456789ABCDEF')\=0 |,
+    verify(descendant,'0123456789ABCDEF')\=0 then do
+  say 'Usage: GITVREF IS-ANCESTOR ancestor-commit descendant-commit'
+  exit 4
+ end
+ 'STATE GITMETA REPO A'
+ if rc\=0 then exit 8
+ drop meta.
+ 'EXECIO * DISKR GITMETA REPO A 1 (STEM META. FINIS'
+ if rc\=0 | meta.0<4 | meta.1\='CMS-GIT-REPOSITORY 1' then exit 8
+ objectfm='A'
+ objectrecords=0
+ do mi=1 to meta.0
+  if word(meta.mi,1)='OBJECT-DISK' then do
+   if words(meta.mi)\=2 then exit 8
+   objectrecords=objectrecords+1
+   objectfm=translate(word(meta.mi,2))
+  end
+ end
+ if objectrecords>1 | length(objectfm)\=1 |,
+    verify(objectfm,'ABCDEFGHIJKLMNOPQRSTUVWXYZ')\=0 then exit 8
+ queue.0=1
+ queue.1=descendant
+ seen.descendant=1
+ qnext=1
+ visited=0
+ found=0
+ do while qnext<=queue.0
+  visited=visited+1
+  if visited>20000 then do
+   say 'GITVREF: ancestry walk exceeds 20000 commits'
+   exit 8
+  end
+  current=queue.qnext
+  qnext=qnext+1
+  if current=ancestor then do
+   found=1
+   leave
+  end
+  objectfn=substr(current,1,8)
+  'STATE' objectfn 'GITOBJ' objectfm
+  if rc\=0 then do
+   say 'GITVREF: ancestry commit is missing' current
+   exit 8
+  end
+  drop verifyout.
+  verifyout.0=0
+  verifycmd='GIT VERIFY-OBJECT '||current
+  'PIPE CMS' verifycmd '| STEM VERIFYOUT.'
+  if rc\=0 | verifyout.0\=1 |,
+     strip(verifyout.1)\=current 'OK' then do
+   say 'GITVREF: ancestry commit failed object verification' current
+   exit 8
+  end
+  drop commitobj.
+  'EXECIO * DISKR' objectfn 'GITOBJ' objectfm,
+      '1 (STEM COMMITOBJ. FINIS'
+  if rc\=0 | commitobj.0<3 |,
+     words(commitobj.1)\=2 | word(commitobj.1,1)\='OID' |,
+     translate(word(commitobj.1,2))\=current |,
+     words(commitobj.2)\=2 | word(commitobj.2,1)\='TYPE' |,
+     word(commitobj.2,2)\='COMMIT' |,
+     words(commitobj.3)\=2 | word(commitobj.3,1)\='SIZE' then do
+   say 'GITVREF: invalid ancestry commit record' current
+   exit 8
+  end
+  objectsize=word(commitobj.3,2)
+  if datatype(objectsize,'W')\=1 | objectsize<1 |,
+     objectsize>131072 then exit 8
+  rawcommit=''
+  do ci=4 to commitobj.0
+   if words(commitobj.ci)\=2 | word(commitobj.ci,1)\='DATA' then exit 8
+   chunk=translate(word(commitobj.ci,2))
+   if chunk='' | length(chunk)>128 | length(chunk)//2\=0 |,
+      verify(chunk,'0123456789ABCDEF')\=0 then exit 8
+   rawcommit=rawcommit||chunk
+  end
+  if length(rawcommit)%2\=objectsize then exit 8
+  headerend=pos('0A0A',rawcommit)
+  if headerend=0 then do
+   say 'GITVREF: ancestry commit has no header separator' current
+   exit 8
+  end
+  commitheader=left(rawcommit,headerend-1)
+  parentpos=1
+  parentcount=0
+  do forever
+   parentpos=pos('706172656E7420',commitheader,parentpos)
+   if parentpos=0 then leave
+   if parentpos>1 & substr(commitheader,parentpos-2,2)\='0A' then do
+    parentpos=parentpos+12
+    iterate
+   end
+   parentoid=substr(commitheader,parentpos+12,40)
+   if length(parentoid)\=40 |,
+      verify(parentoid,'0123456789ABCDEF')\=0 |,
+      substr(commitheader,parentpos+52,2)\='0A' then do
+    say 'GITVREF: invalid parent in ancestry commit' current
+    exit 8
+   end
+   parentcount=parentcount+1
+   if parentcount>16 then do
+    say 'GITVREF: ancestry commit has too many parents' current
+    exit 8
+   end
+   if parentoid=ancestor then do
+    found=1
+    leave
+   end
+   if seen.parentoid\=1 then do
+    if queue.0>=20000 then do
+     say 'GITVREF: ancestry walk exceeds 20000 commits'
+     exit 8
+    end
+    nextqueue=queue.0+1
+    queue.nextqueue=parentoid
+    queue.0=nextqueue
+    seen.parentoid=1
+   end
+   parentpos=parentpos+54
+  end
+  if found=1 then leave
+ end
+ if found=1 then say 'ANCESTOR YES' ancestor descendant
+ else say 'ANCESTOR NO' ancestor descendant
+ exit 0
+end
 if command='HEAD' then do
  if spec\='' | depth\='' | extra\='' then exit 4
  call readrefs
@@ -79,6 +211,53 @@ if command='BRANCHES' then do
   if headref='refs/heads/'||branchname then say '*' branchname
   else say ' ' branchname
  end
+ exit 0
+end
+if command='REMOTE-BRANCHES' then do
+ if depth\='' | extra\='' then exit 4
+ remote=spec
+ if remote\='' then do
+  call validremotename remote
+  if result\='OK' then do
+   say 'GITVREF: invalid remote name'
+   exit 4
+  end
+ end
+ drop remoteinput.
+ remoteinput.0=0
+ 'EXECIO * DISKR GITREF2 REPO A 1 (STEM REMOTEINPUT. FINIS'
+ if rc\=0 | remoteinput.0<2 | remoteinput.1\='REF2 1' then do
+  say 'GITVREF: invalid REF2 database'
+  exit 8
+ end
+ found=0
+ do ri=2 to remoteinput.0
+  if word(remoteinput.ri,1)='REF' then do
+   if words(remoteinput.ri)\=3 then do
+    say 'GITVREF: invalid REF2 record' ri
+    exit 8
+   end
+   refvalue=word(remoteinput.ri,2)
+   call validref refvalue
+   if result\='OK' then do
+    say 'GITVREF: invalid ref name in REF2' refvalue
+    exit 8
+   end
+   if left(refvalue,13)='refs/remotes/' then do
+   remoteentry=substr(refvalue,14)
+   slash=pos('/',remoteentry)
+   if slash>1 then do
+    entryremote=left(remoteentry,slash-1)
+    entrybranch=substr(remoteentry,slash+1)
+    if remote='' | translate(remote)=translate(entryremote) then do
+     say entryremote'/'entrybranch
+     found=found+1
+    end
+   end
+   end
+  end
+ end
+ if found=0 then say 'No remote-tracking branches'
  exit 0
 end
 if command='TAGS' then do
@@ -2310,7 +2489,7 @@ readrefs:
   say 'GITVREF: GITREF2 REPO A not found'
   return 'ERROR'
  end
- if rr.0<3 | rr.1\='REF2 1' then do
+ if rr.0<2 | rr.1\='REF2 1' then do
   say 'GITVREF: invalid REF2 header'
   return 'ERROR'
  end
@@ -2321,17 +2500,17 @@ readrefs:
   end
   else if word(rr.i,1)='REF' then do
    if words(rr.i)\=3 then return 'ERROR'
-   name=word(rr.i,2)
+   refrecord=word(rr.i,2)
    oid=translate(word(rr.i,3))
-   call validref name
+   call validref refrecord
    if result\='OK' then return 'ERROR'
    if length(oid)\=40 then return 'ERROR'
    if verify(oid,'0123456789ABCDEF')\=0 then return 'ERROR'
    do j=1 to refcount
-    if refname.j=name then return 'ERROR'
+    if refname.j=refrecord then return 'ERROR'
    end
    refcount=refcount+1
-   refname.refcount=name
+   refname.refcount=refrecord
    refoid.refcount=oid
   end
   else return 'ERROR'
@@ -2395,6 +2574,29 @@ validref:
   end
   return 'OK'
  end
+ else if left(vr,13)='refs/remotes/' then do
+  name=substr(vr,14)
+  slash=pos('/',name)
+  if slash<2 then return 'ERROR'
+  remotename=left(name,slash-1)
+  branchname=substr(name,slash+1)
+  remotechars='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+  remotechars=remotechars||'0123456789._-'
+  if length(remotename)>16 | verify(remotename,remotechars)\=0 |,
+     remotename='.' | remotename='..' | pos('..',remotename)>0 |,
+     left(remotename,1)='.' | right(remotename,1)='.' then return 'ERROR'
+  refchars='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+  refchars=refchars||'0123456789._/-'
+  if branchname='' | verify(branchname,refchars)\=0 |,
+     pos('//',branchname)>0 | pos('..',branchname)>0 |,
+     left(branchname,1)='/' | right(branchname,1)='/' then return 'ERROR'
+  do vi=1 to words(translate(branchname,' ','/'))
+   part=word(translate(branchname,' ','/'),vi)
+   if part='' | part='.' | part='..' | left(part,1)='.' |,
+      right(part,1)='.' | right(part,5)='.lock' then return 'ERROR'
+  end
+  return 'OK'
+ end
  else if left(vr,10)='refs/tags/' then name=substr(vr,11)
  else return 'ERROR'
  refchars='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
@@ -2407,6 +2609,15 @@ validref:
   if left(part,1)='.' | right(part,1)='.' |,
      right(part,5)='.lock' then return 'ERROR'
  end
+ return 'OK'
+
+validremotename:
+ parse arg remote
+ allowed='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+ allowed=allowed||'0123456789._-'
+ if remote='' | length(remote)>16 | remote='.' | remote='..' |,
+    verify(remote,allowed)\=0 | pos('..',remote)>0 |,
+    left(remote,1)='.' | right(remote,1)='.' then return 'ERROR'
  return 'OK'
 
 directinput:

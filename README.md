@@ -370,6 +370,61 @@ CMS-compatible text. File writes and worktree-map updates roll back on failure;
 unmapped files are preserved. Mapped path additions or removals remain
 unsupported. CMS behavior remains unverified.
 
+M262 adds repository-local GitHub HTTPS remote metadata with
+`GIT REMOTE ADD|GET|REMOVE` and listing. It accepts GitHub owner/repository
+URLs only. `GIT CREDENTIAL IMPORT <github-user>` imports a `TOKEN <value>` or
+`APIKEY <value>` record from `GHTOKEN REPO A`. `GIT CREDENTIAL IMPORT-USERPASS`
+imports `USER <name>` and `PASSWORD <token>` records from `GHPASS REPO A`.
+Both forms verify the stored credential and erase the temporary input. For
+GitHub HTTPS Git operations, the password field must contain a personal access
+token; GitHub account-password authentication is no longer supported. Status
+output never includes the secret; the CMS credential file is plain text
+protected by CMS disk access controls.
+M263 makes `GITFETCH` and `GITPOST` send that stored credential using HTTP
+Basic authentication, and refuses to send it to a host other than
+`github.com`. M264 lets discovery request `HEAD` and checks GitHub's advertised
+default-branch symref against both advertised OIDs before reporting it. M265
+adds an explicit username/password import form while retaining API-key import.
+M266 adds `GIT FETCH-PACK remote bridge port new-file [branch|HEAD]`. It
+discovers the selected branch, downloads and stores its pack, checks the
+stored metadata, and independently verifies the PACK checksum with `GITPCHK`.
+The downloaded pack is retained as `<new-file> PACK A`; it is not yet imported
+into the active repository. M267 adds
+`GIT FETCH-IMPORT <new-file> <data-filemode>`, which imports that retained
+pack into a new `<new-file> STAGE` on an explicitly selected non-A 4KB CMS
+disk, then independently reads back and verifies every staged object. It
+requires at least 180,000 free blocks and the `GITPCHK` and `GITPIMP` modules;
+it retains failed stage output for diagnosis. The importer rejects REF_DELTA
+packs. Do not run this command until the dedicated data-disk and backup gates
+in `docs/M173_PERSISTENT_DISK_RUNBOOK.md` are satisfied. The stage is not
+active repository storage and no refs are updated. M268 adds
+`GIT INIT <data-filemode>` for a repository whose loose objects live on that
+dedicated disk, and `GIT FETCH-ACTIVATE <stage-file> <index-file>
+<data-filemode>` to verify the staged object set, check its reachable commit
+closure, and materialize supported non-tag objects up to 64KB as ordinary
+`GITOBJ` files. `GITWT CHECKOUT` is the mapped workfile reader for those loose
+objects. M271 passed a single-file checkout on CMS against the activated
+three-object fixture: the workfile contents and blob hash matched. Multi-file
+tree materialization remains unimplemented.
+Activation leaves refs unchanged and can be retried after a partial install;
+it only proceeds when `GIT INIT` selected the same object disk. It also keeps
+the verified stage and index for recovery. M268 passed CMS validation on an
+isolated three-object fixture. M269 adds `GIT FETCH-TRACK remote branch
+new-oid [expected-old-oid]` for compare-and-swap remote-tracking refs and
+`GIT BRANCH -r [remote]` to list them. Those ref operations also passed on
+CMS. M270 fixed REF2 resolution so ordinary branch listing and exact ref
+display also work with full ref names; those paths passed on CMS. M273 adds an
+initial `GIT PULL remote bridge port pack index [branch|HEAD]` path. It
+downloads and verifies a pack, imports and activates its objects, confirms the
+remote tip descends from the current local tip, then updates the tracking ref,
+branch ref and mapped workfiles. The selected remote branch must match the
+current branch, and the clean worktree map must cover an unchanged flat set of
+regular CMS-compatible text paths. Dirty or incomplete maps, path additions or
+removals, nested paths, binary blobs and non-fast-forward updates are rejected.
+Pack, stage and index files remain available for recovery. The initial pull
+path has not passed CMS validation; no-argument upstream pull, clone and push
+remain in progress. See `docs/GITHUB_SYNC_PLAN.md`.
+
 ---
 
 ## M206 full 32-object CMS PASS and A-disk audit (October 13, 2026)
@@ -1981,6 +2036,10 @@ service level cannot currently validate/import with the installed crypto
 facilities, so it is no longer the practical blocker for GitHub transport.
 
 See `docs/NATIVE_REF.md`, `docs/CURRENT_STATE.md`, and `NOTES.md`.
+
+The minimum GitHub synchronization scope (`clone`, fast-forward `pull`, and
+authenticated `push`) and its implementation sequence are tracked in
+`docs/GITHUB_SYNC_PLAN.md`.
 
 ## Native PACK checkpoint: staging and index prototypes
 
