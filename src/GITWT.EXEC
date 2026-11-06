@@ -2932,14 +2932,14 @@ readrefs:
   end
   else if word(rr.ri,1)='REF' then do
    if words(rr.ri)\=3 then return 'ERROR'
-   refrecord=word(rr.ri,2)
+   name=word(rr.ri,2)
    roid=translate(word(rr.ri,3))
-   call validref refrecord
+   call validref name
    if result\='OK' then return 'ERROR'
    if length(roid)\=40 |,
       verify(roid,'0123456789ABCDEF')\=0 then return 'ERROR'
    refcount=refcount+1
-   refname.refcount=refrecord
+   refname.refcount=name
    refoid.refcount=roid
   end
   else return 'ERROR'

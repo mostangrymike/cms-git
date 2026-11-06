@@ -2500,17 +2500,17 @@ readrefs:
   end
   else if word(rr.i,1)='REF' then do
    if words(rr.i)\=3 then return 'ERROR'
-   refrecord=word(rr.i,2)
+   name=word(rr.i,2)
    oid=translate(word(rr.i,3))
-   call validref refrecord
+   call validref name
    if result\='OK' then return 'ERROR'
    if length(oid)\=40 then return 'ERROR'
    if verify(oid,'0123456789ABCDEF')\=0 then return 'ERROR'
    do j=1 to refcount
-    if refname.j=refrecord then return 'ERROR'
+    if refname.j=name then return 'ERROR'
    end
    refcount=refcount+1
-   refname.refcount=refrecord
+   refname.refcount=name
    refoid.refcount=oid
   end
   else return 'ERROR'
