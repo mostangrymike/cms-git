@@ -889,11 +889,31 @@ if command = 'FETCH-TRACK' then do
 end
 /* M273: fetch, verify and apply one fast-forward pull to a clean flat tree. */
 if command='PULL' then do
-   parse var rest pullremote pullbridge pullport pullpack pullindex,
-       pullbranch pullextra
+   /* No-arg pull: resolve remote, bridge and port from GITREMOT config. */
+   if strip(rest)='' then do
+      drop remout.
+      remout.0=0
+      'PIPE CMS EXEC GITREMOT | STEM REMOUT.'
+      if rc\=0 | remout.0=0 then do
+         say 'GIT PULL: no remote configured; use GIT REMOTE ADD first'
+         exit 8
+      end
+      pullremote=word(remout.1,1)
+      pullbridge='192.168.200.1'
+      pullport='8443'
+      pullpack='PULLPACK'
+      pullindex='PULLIDX'
+      pullbranch='HEAD'
+      pullextra=''
+   end
+   else do
+      parse var rest pullremote pullbridge pullport pullpack pullindex,
+          pullbranch pullextra
+   end
    if pullremote='' | pullbridge='' | pullport='' | pullpack='' |,
       pullindex='' | pullextra\='' then do
       say 'Usage: GIT PULL remote bridge port pack index [branch|HEAD]'
+      say '   or: GIT PULL  (uses first configured remote and default bridge)'
       exit 4
    end
    if pullbranch='' then pullbranch='HEAD'
@@ -1065,6 +1085,43 @@ if command='PULL' then do
    end
    say 'PULL COMPLETE' pullremote branchfromremote pullold pullnew
    say 'PULL PACK RETAINED' pullpack 'INDEX' pullindex objectfm
+   exit 0
+end
+/* M274: clone a GitHub repository into an empty CMS file area. */
+if command='CLONE' then do
+   parse var rest cloneurl clonefm cloneextra
+   if cloneurl='' | cloneextra\='' then do
+      say 'Usage: GIT CLONE <https-url> [object-filemode]'
+      exit 4
+   end
+   if clonefm='' then clonefm='A'
+   call validbranch 'main'
+   'STATE GITMETA REPO A'
+   if rc=0 then do
+      say 'GIT CLONE: repository already initialized'
+      exit 8
+   end
+   if rc\=28 then do
+      say 'GIT CLONE: cannot inspect repository metadata RC' rc
+      exit 8
+   end
+   'EXEC GIT INIT' clonefm
+   if rc\=0 then do
+      say 'GIT CLONE: repository initialization failed'
+      exit rc
+   end
+   'EXEC GIT REMOTE ADD origin' cloneurl
+   if rc\=0 then do
+      say 'GIT CLONE: remote configuration failed'
+      'ERASE GITMETA REPO A'
+      exit rc
+   end
+   'EXEC GIT PULL origin 192.168.200.1 8443 PULLPACK PULLIDX HEAD'
+   if rc\=0 then do
+      say 'GIT CLONE: initial pull failed; repository partially initialized'
+      exit rc
+   end
+   say 'GIT CLONE COMPLETE' cloneurl
    exit 0
 end
 if command = 'PACK-CENSUS' then do
