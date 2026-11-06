@@ -1,6 +1,13 @@
 /* M166: modern REF2 compare-and-swap target gate. */
 address cms
 candidate='D6FB8432692CF8EFBDC2DDA354425D8DCDC3A008'
+parse arg supplied
+if supplied\='' then candidate=translate(strip(supplied))
+if length(candidate)\=40 |,
+   verify(candidate,'0123456789ABCDEF')\=0 then do
+ say 'M166 COMMIT OID ARGUMENT INVALID'
+ exit 4
+end
 zeros='0000000000000000000000000000000000000000'
 wrong='1111111111111111111111111111111111111111'
 testref='refs/heads/m166test'

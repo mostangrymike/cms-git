@@ -70,8 +70,12 @@ jobs:
         run: python3 tests/test-m203-bounded-batch.py PMODEL M164
       - name: Check M165 staged commit object
         run: python3 tests/test-m203-bounded-batch.py PMODEL M165
+      - name: Check M165 commit candidate handoff
+        run: python3 tests/test-m165-commit-candidate.py
       - name: Check M166 modern REF2 compare-and-swap
         run: python3 tests/test-m203-bounded-batch.py PMODEL M166
+      - name: Check M166 accepts the retained M165 commit OID
+        run: python3 tests/test-m166-candidate-argument.py
       - name: Check M167 integrated commit to ref
         run: python3 tests/test-m203-bounded-batch.py PMODEL M167
       - name: Check M168 current branch reconciliation
@@ -144,10 +148,108 @@ jobs:
         run: python3 tests/test-m203-bounded-batch.py M204
       - name: Check M205 sampled Git objects and full SHA1
         run: python3 tests/test-m203-bounded-batch.py M205
-      - name: Check M206 up to 32 independently SHA-authenticated bands
+      - name: Check M206/M207 up to 128 independently SHA-authenticated bands
         run: python3 tests/test-m203-bounded-batch.py M206
       - name: Guard M206 explicit-object compatibility dispatch
         run: sh tests/check-canonical-source.sh M206BRIDGE
+      - name: Install Regina REXX syntax checker
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes regina-rexx
+      - name: Check M210 REF2 tag listing and wildcard fixtures
+        run: sh tests/check-canonical-source.sh M210
+      - name: Check M213 REF2 ref-name validator parity
+        run: sh tests/check-canonical-source.sh M213
+      - name: Check M215 REF2 revision resolution
+        run: sh tests/check-canonical-source.sh M215
+      - name: Check M216 REF2 tag ordering
+        run: sh tests/check-canonical-source.sh M216
+      - name: Check M217 modern REF2 branch porcelain
+        run: sh tests/check-canonical-source.sh M217
+      - name: Check M218 guarded REF2 branch switching
+        run: sh tests/check-canonical-source.sh M218
+      - name: Check M219 mapped worktree switch preflight
+        run: sh tests/check-canonical-source.sh M219
+      - name: Check M220 create-and-switch branch flow
+        run: sh tests/check-canonical-source.sh M220
+      - name: Check M221 switch start-point resolution
+        run: sh tests/check-canonical-source.sh M221
+      - name: Check M222 CAS branch rename
+        run: sh tests/check-canonical-source.sh M222
+      - name: Check M223 strict branch ref validation parity
+        run: sh tests/check-canonical-source.sh M223
+      - name: Check M224 branch command operand guards
+        run: sh tests/check-canonical-source.sh M224
+      - name: Check M225 tag command operand guards
+        run: sh tests/check-canonical-source.sh M225
+      - name: Check M226 tag start-point resolution
+        run: sh tests/check-canonical-source.sh M226
+      - name: Check M227 branch listing order
+        run: sh tests/check-canonical-source.sh M227
+      - name: Check M228 current branch output
+        run: sh tests/check-canonical-source.sh M228
+      - name: Check M229 filtered branch listing
+        run: sh tests/check-canonical-source.sh M229
+      - name: Check M230 branch start-point resolution
+        run: sh tests/check-canonical-source.sh M230
+      - name: Check M231 checkout branch aliases
+        run: sh tests/check-canonical-source.sh M231
+      - name: Check M232 legacy checkout fallback
+        run: sh tests/check-canonical-source.sh M232
+      - name: Check M233 tag delete compare-and-swap
+        run: sh tests/check-canonical-source.sh M233
+      - name: Check M234 branch delete compare-and-swap
+        run: sh tests/check-canonical-source.sh M234
+      - name: Check M235 bounded GIT LOG porcelain
+        run: sh tests/check-canonical-source.sh M235
+      - name: Check M236 verified GIT SHOW porcelain
+        run: sh tests/check-canonical-source.sh M236
+      - name: Check M237 exact GIT LOG max-count semantics
+        run: sh tests/check-canonical-source.sh M237
+      - name: Check M238 tag force update CAS resolution
+        run: sh tests/check-canonical-source.sh M238
+      - name: Check M239 multi-path mapped worktree add
+        run: sh tests/check-canonical-source.sh M239
+      - name: Check M240 short-history GIT LOG completion
+        run: sh tests/check-canonical-source.sh M240
+      - name: Check M241 GIT ADD option separator
+        run: sh tests/check-canonical-source.sh M241
+      - name: Check M242 tracked worktree update staging
+        run: sh tests/check-canonical-source.sh M242
+      - name: Check M243 short porcelain status
+        run: sh tests/check-canonical-source.sh M243
+      - name: Check M244 mapped name-only diff
+        run: sh tests/check-canonical-source.sh M244
+      - name: Check M245 path-only reset
+        run: sh tests/check-canonical-source.sh M245
+      - name: Check M246 restore staged alias
+        run: sh tests/check-canonical-source.sh M246
+      - name: Check M247 status branch output
+        run: sh tests/check-canonical-source.sh M247
+      - name: Check M248 staged deletion state
+        run: sh tests/check-canonical-source.sh M248
+      - name: Check M249 deletion commit tree rewrite
+        run: sh tests/check-canonical-source.sh M249
+      - name: Check M250 deletion map acceptance
+        run: sh tests/check-canonical-source.sh M250
+      - name: Check M251 current-branch commit command
+        run: sh tests/check-canonical-source.sh M251
+      - name: Check M252 staged new-file map entries
+        run: sh tests/check-canonical-source.sh M252
+      - name: Check M253 root-level new-file commits
+        run: sh tests/check-canonical-source.sh M253
+      - name: Check M254 nested new-file commits
+        run: sh tests/check-canonical-source.sh M254
+      - name: Check M255 batched new-file additions
+        run: sh tests/check-canonical-source.sh M255
+      - name: Check M256 selected update pathspecs
+        run: sh tests/check-canonical-source.sh M256
+      - name: Check M257 wildcard mapped pathspecs
+        run: sh tests/check-canonical-source.sh M257
+      - name: Check M258 selected status pathspecs
+        run: sh tests/check-canonical-source.sh M258
+      - name: Check M259 worktree restore from staged content
+        run: sh tests/check-canonical-source.sh M259
       - name: Check M190 7736-object selective seek closure
         run: python3 tests/test-m203-bounded-batch.py M190S
       - name: Compare M190 indexed seek vs M188 two-pass host

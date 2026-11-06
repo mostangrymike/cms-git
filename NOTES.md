@@ -1,3 +1,57 @@
+# Project notes
+
+## Current task plan
+
+- [x] Read the repository guidance, README, current state, and worktree status.
+- [x] Move the complete `CHAT_STATE.md` log here and record the path assumption.
+- [x] Update active references; documentation/test validation is next.
+- [x] Run the relevant host checks: M173V, M177, historical-source CHECK, and the offline tooling build (177 tests passed).
+- [x] Commit only this rename and its references after validation.
+
+## Assumptions
+
+- Use uppercase `NOTES.md`, matching the requested plan filename and repository naming style.
+- Preserve the prior state log intact below this task note. Keep mentions of `CHAT_STATE.md` where they describe historical Git trees or test fixtures from that time.
+
+## Progress
+
+- The active branch is `codex/m165-multipath`; pre-existing unrelated changes and evidence remain untouched.
+- The rename/reference change is committed locally; no push was made.
+
+## 2026-10-18 continuation plan
+
+- [ ] Complete M165's retained commit OID handoff and add a CI regression guard.
+- [ ] Validate and commit that local source/test step.
+- [ ] Remove `src/zvm-tooling` from ibm-sandbox as requested; the operator says its contents now live in the standalone tooling repository.
+- [ ] Validate and commit that repository cleanup separately.
+
+Assumption: the requested destination is the standalone `cms-tooling` checkout; the explicit removal request covers tracked and untracked contents under `src/zvm-tooling`.
+
+## 2026-10-18 — M165–M174 milestone checkpoint
+
+- [x] M165 retained-commit handoff: local source now validates and reports exactly one commit OID; its focused host guard and M165 model pass.
+- [x] M166–M174 host models: REF2 CAS, integrated commit/ref, branch reconciliation, fetch discovery, upload PACK, generalized PACK storage/census/import, and stage-index models all pass.
+- [x] Run the revised M165 checker on CMS and retain its commit OID.
+- [x] Run the M166 REF2 CAS target gate on CMS using the commit OID retained by M165.
+- [x] Run the M167 integrated commit-to-ref target gate and verify its transient CMS state was removed.
+- [x] Re-run M168 with an end-to-end capture window of up to 15 minutes and obtain its correlated result before counting it as a target pass.
+- [x] Complete M169–M174 target gates, reusing source-verified resident checkers and preserving the retained M173/M174 outputs.
+
+The M166–M174 host models all pass; their live target results are recorded below. The dedicated `src/zvm-tooling` checkout has been removed from ibm-sandbox per operator direction; its separate Actions workflow was removed with it.
+- M166 now accepts the validated retained commit OID as an EXEC argument, while keeping the historical candidate as its no-argument fallback. Its host model and argument guard pass; no ref was changed by that local work.
+- The first revised M165 CMS run exposed a bad verifier dispatch (`ZTMCAND1 VERIFY-OBJECT`); it returned complete RC 8, and the disposable files were cleaned. The candidate object was retained, and no ref changed. After routing verification through `GIT`, fresh checker `ZTMDCHK5 EXEC A` returned correlated RC 0 and `M165 MULTI-PATH STAGED COMMIT TARGET GATE PASS`. It emitted and verified commit `58200E77B859296DB1B18121992229D57A5B56AA`, confirmed refs unchanged, and passed four post-run RC28 absence checks. Evidence: `cms-m165-multipath-oid-live-evidence-20261018.json`.
+- Fresh checker `ZTDM166 EXEC A` accepted that OID as its EXEC argument. CMS SHA-256 matched the local CP037 logical-record digest. M166 created only `refs/heads/m166test`, proved stale CAS returns RC8 without changing REF2, deleted that transient ref, and restored the complete GITREF2 snapshot byte-for-byte. Correlated CMS RC0: `M166 REF CAS TARGET GATE PASS`. Evidence: `cms-m166-cas-live-evidence-20261018.json`.
+- Fresh checker `ZTDM167 EXEC A` passed the integrated commit-to-ref gate with correlated request `B619498DEFFC9C1F`, CMS RC0, 49 records / 2,233 bytes, and complete output integrity. The checker created only `refs/heads/m167test`, checked out and changed `M167TST`, committed `93E05DA32194B9C61E26418F1A8E2417564C18AE`, verified the commit, deleted the transient ref, and restored GITREF2 byte-for-byte. Post-run `STATE` returned RC28 for `M167TST DATA A`, `GITWORK REPO A`, and `GITTREE REPO A`. Retain `ZTDM167 EXEC A` and the commit object; no cleanup or source overwrite was performed. Evidence: `cms-m167-commit-ref-live-evidence-20261018.json`.
+- The first `EXEC ZTDM168` attempt timed out at the 300-second capture limit and was recorded as incomplete. After verifying the exact retained checker SHA, all three scratch files absent, baseline HEAD, and absent `m168test` ref, a fresh run with a 900-second limit completed RC0. It retained commit `70BBE28ACAF4E835E4D71417D821D68060C2E71D`, restored HEAD byte-for-byte, removed the transient ref and scratch files, and left the worktree clean. A separate object check returned RC0 for the retained commit. Evidence: `cms-m168-commit-current-live-evidence-20261018.json`.
+- M169 initially failed at TCP CONNECT because EC2 `tap0` had lost `192.168.200.1/24` and no stunnel listener existed on 8443. The documented runtime recovery restored the TAP address and started `/etc/stunnel/github.conf`; subsequent read-only SSH checks confirmed the address and listener. Source-verified resident `M169CHK EXEC A` then passed RC0, advertising 382 refs and main OID `7A9B72EA68D865BC611A04E15BD55E0A76564275`, with side-band-64k and ofs-delta. This was a runtime recovery only; persistence across EC2 restart remains unconfigured. Evidence: `cms-m169-discovery-live-evidence-20261018.json`.
+- M170 source-verified resident `M170CHK EXEC A` passed RC0 using that immediately discovered OID. GitHub returned PACK v2 with 11,816 objects / 4,966,358 PACK bytes; the checker verified the dynamic WANT matched. Evidence: `cms-m170-fetch-post-live-evidence-20261018.json`.
+- M171's retained `M171NET PACK A` and `M171NET META A` were present. Source-verified resident `M172CHK EXEC A` verified the retained PACK and passed the full structural census RC0: 7,736 objects, 2,432 ordinary, 5,304 OFS_DELTA, zero REF_DELTA. It did not modify the retained input. Evidence: `cms-m172-pack-census-live-evidence-20261018.json`.
+- M173 and M174 had already passed live on 2026-10-09. `M173NET STAGE G` and `M174NET INDEX G` are retained validated artifacts on protected G; fresh STATE checks confirmed they remain present. Do not rerun either checker, overwrite either target, or clean them up. Original evidence is recorded in the historical project notes below.
+- The Hercules MIPS indicator remains a useful progress signal when visible to the operator, but this API session cannot inspect the iTerm console. Continue to rely on complete correlated captures and CMS RCs. Use the 900-second limit for long-running gates.
+- The one-off active MCP bridge lacked upload/download startup flags, but this did not block M168–M174 because their exact checker sources were already resident and SHA-verified. The canonical Codex registration already has both standing transfer flags. Its download root pointed into the removed `src/zvm-tooling`; it now points to the ignored `/Users/mikewommack/cms-tooling/cms-sources` directory. The upload root remains the ibm-sandbox Git worktree. The current readable session was left running.
+
+---
+
 # CMS/zVM Native Git Client — Chat State
 
 Updated: 2026-10-11
@@ -14597,3 +14651,1324 @@ target verification.
 - GitHub change 36eb40d92af6e1db7a6da3ca5033857222ffc7b4 reduces existing src/GITC23.EXEC from 2471 source bytes to 408 bytes. It retains the M203 legacy signature, maps CHECK->GITC26 OBJECTS and RUN->GITC26 OBJECTSRUN, propagates return code, and retains the M203 worker inside existing src/GITC26.EXEC as the one canonical implementation. Original GITC23 implementation remains recoverable from Git history. **Do not deploy this candidate until host CI is green and real CMS confirms it.**
 - Updated consolidated historical host M203 test in commits 9ec31e785965d2169db2a957056e6466dbae2a5d and e4afc344dc310a570d5279202c7b937655fc1411 to assert thin wrapper dispatch plus embedded M203 worker and negative model. Updated M206BRIDGE guard in f060f7f2e7ed27ffc05f85cdca1d859e8d1bff91, then c5153108bf755d10f709406819efc45e32612a16 to verify the canonical worker operation ordering and wrapper route instead of expecting a second worker copy. Early failed CI runs were due to stale checks or harness splitting, not CMS target execution; the latest host Actions run 38821852755 was still in progress when this was recorded.
 - No source file deletion, G disk write, live MODULE replacement or A/G disk cleanup. Next only after complete host success: Mac git pull then ./cms-upload.sh GITC23.EXEC (from src). CMS perform FILEDEF, GITC23 G CHECK 64 3868 7736, FILEDEF, STATE GITR199 DATA A; if clean PASS, GITC23 G RUN 64 3868 7736, FILEDEF, STATE GITR199 DATA A, STATE GITVRAW DATA A. Existing GITC26.EXEC must already be current inline CMS-proven version. Keep recoverable old GITC23 and do not remove the legacy filename before separate compatibility validation.
+
+
+## 2026-10-17 — GITC23 host CI green; live startup stopped before CMS commands
+
+- Independently checked GitHub Actions run 38821852755 for commit c5153108bf755d10f709406819efc45e32612a16: completed SUCCESS. The 408-byte compatibility wrapper candidate in `src/GITC23.EXEC` matches `origin/main` exactly (SHA-256 `2676ab84091968e70aa32ab9b7b5407578fa6b55a79973c2589df3d68880ceb3`); `src/GITC26.EXEC` also matches `origin/main` exactly. This is source/host-CI evidence, not CMS validation.
+- The operator explicitly approved replacing only CMS `GITC23 EXEC A` with this candidate. No CMS baseline download or upload was performed.
+- Two fresh observed login forms were submitted once using the local credential provider; each reached CP READ. The guarded startup continuation sent one `BEGIN` and Enter on each fresh CP READ, then returned `probe_boundary_not_verified` at an unclassified blank `RUNNING` screen. No QUERY CMSLEVEL probe, CMS command, source download, upload, or compile was run. Passive output observation showed no fresh Ready prompt. The MCP terminal process was disconnected without LOGOFF; the VM guest session was left alone.
+- Operator-established writer exclusion for this operation: the operator states CMS is single-user and no other users are active or will be active. Treat that as covering the full `GITC23 EXEC A` baseline, upload, native readback, CHECK, and conditional RUN/postcheck interval. `CP QUERY LINKS` remains observational and is not the basis for this exclusion. The exact target approval remains limited to `GITC23 EXEC A`; preserve its native baseline as rollback, verify the current inline-proven `GITC26 EXEC A`, and stop on any uncertain result. The target workflow has not started because the terminal has not reached a verified CMS Ready boundary.
+- With writer exclusion established, once the CMS session reaches a verified fresh Ready boundary, use the documented exact CHECK gate before considering RUN. Stop on any uncertain transfer, output, RC, scratch, FILEDEF, or final Ready state. No production source or protected G-disk content has been changed by this attempt.
+- Operator supplied a successful human-driven session transcript: after `LOGON MAINT` and `RECONNECTED AT`, entering `b` displayed `CMS`; `q time` returned a fresh `Ready;`, and the operator then logged off. This confirms a working interactive reconnect path. It is not MCP 3270 field/cursor evidence and does not qualify the production wrapper. In cms-tooling, the fixed CMSLEVEL guard now accepts `startup_transition_observed` only with the exact recorded reconnect shape (BEGIN echo, CMS marker, version banner, empty field, and RUNNING status); the unrelated RUNNING fixture remains rejected. All 17 startup tests and offline stdio MCP validation pass. The registered MCP process predates this local code change and must reload it before another live startup attempt.
+- The old app-registered MCP process was stopped only while disconnected so the updated code could load; the app server did not respawn it, and its tool transport is now closed. The existing validator launched a fresh updated server. `0200@` was rejected by Hercules before connection, consistent with the human terminal still showing its post-LOGOFF continuation screen. An `auto` connection saw the Hercules banner and CP command menu. `cms_login` observed the CP READ menu and submitted no credentials; `cms_startup` refused because there was no `RECONNECTED AT` boundary and sent no input. The validator disconnected and terminated its terminal. No CMS baseline, command, upload, or compile occurred. Resumption needs either a free `0200@` presenting the authorized combined guest login form, or explicit authorization and a narrowly guarded CP `LOGON MAINT` credential flow for the auto-selected terminal.
+
+
+## 2026-10-17 — CP login reached VM READ; blank startup stopped at RUNNING
+
+- Using the owner-only credential file (`~/.config/ibm-zvm-cms/credentials.json`, mode 0600), the single authorized CP `LOGON MAINT` was sent once and the password was submitted once. No login retry occurred. Hercules retained its password instruction in the banner while reporting `LOGON AT` and a VM READ prompt, so the old classifier timed out despite the guest reaching VM READ. Sanitized evidence: `cms-gitc23-baseline-live-evidence-cp-logon-credential-file-20261017.json`.
+- `cms-tooling` now recognizes that post-authentication VM READ only with the Hercules banner, exact empty visible row-23 input field, and logon marker; CP/VM READ/RUNNING status identifiers are masked. The offline login/startup/screen suite passes 69 tests, and offline MCP protocol validation passes.
+- A subsequent read-only reconnect observed an exact blank VM READ field without a retained logon marker. The separately authorized startup path revalidated that exact Hercules VM READ shape and sent one blank Enter. The host changed to RUNNING on the Hercules banner, without a CMS marker or Ready prompt. The fixed `QUERY CMSLEVEL` probe was refused at its guard and was not sent. A passive observer on a later auto-selected terminal saw the Hercules banner; no further input was sent. Evidence: `cms-gitc23-baseline-live-evidence-startup-20261017.json` and `cms-gitc23-baseline-live-evidence-passive-20261017.json`.
+- No CMS command, QUERY CMSLEVEL, source download, upload, or compile completed. `GITC23 EXEC A` and `GITC26 EXEC A` baselines remain uncollected; no production source or protected G-disk content changed. The exact GITC23 target approval and operator-stated single-user writer exclusion remain on file, but target work cannot begin before verified CMS Ready and native baselines.
+- The supplied human transcript reaches CMS after entering `b` at VM READ. Current `--allow-startup` authorization covers one blank Enter or BEGIN at a verified boundary; it does not cover sending `b`. Continue only after the operator either restores a verified VM READ session and authorizes that single literal input, or reaches CMS Ready manually. The terminal was disconnected without LOGOFF.
+
+
+## 2026-10-17 — VM READ `b` authorized; terminal currently only exposes running console
+
+- The operator clarified that VM READ is waiting for input, confirmed `b` means BEGIN, and authorized sending CMS input that improves the tooling. This supersedes the earlier request for separate `b` authorization. No second CP LOGON or password attempt is authorized by this clarification.
+- A fresh local MCP server was launched from cms-tooling. Explicit `0200@` was rejected as unavailable. `auto` connected to Hercules device `0:SYSG`; the saved screen showed the Hercules banner with `RUNNING` and no unprotected field. No input was sent. The guarded lowercase-`b` continuation correctly did not run because this screen was not VM READ. No CMS command, helper check, baseline download, upload, or compile occurred. Evidence: `cms-gitc23-rollout-live-evidence-device-0200-20261017.json` and `cms-gitc23-rollout-baselines-auto-20261017.json`.
+- Updated cms-tooling `classify()` to report a Hercules `RUNNING` banner as `vm_running` rather than the generic `logo` state. This remains observational and grants no input authority. README state documentation was updated. No offline tests were run after this small classifier/doc change, and no fresh host/guest state is inferred from it.
+- GITC23 rollout remains pending verified VM READ or CMS Ready. Once the current session presents one, the already-authorized one-shot `b` may be sent at exact VM READ. On CMS Ready, continue with source-verified helpers, native double-read rollback baselines for `GITC23 EXEC A` and `GITC26 EXEC A`, then the documented exact CHECK gate before any conditional RUN.
+
+
+## 2026-10-17 — RUNNING semantics corrected; GITC23 rollout still before baselines
+
+- IBM documentation and the operator's terminal explanation distinguish `RUNNING` from `VM READ`: in CMS, `RUNNING` is command-ready; `VM READ` means a CMS program/EXEC is waiting for input. `cms-tooling` now classifies an exact z/VM 6.3 reconnect banner plus `RUNNING`, unlocked keyboard and the empty row-23 CMS field as heuristic `cms_ready`. Literal `VM READ` remains the only VM startup-input state. Generic terminal input stays disabled.
+- Offline validation after this change passed all 266 CMS tests, `validate_cms_mcp.py`, and `git diff --check`. The updated stdio server was started from the canonical cms-tooling checkout because the registered app transport was closed.
+- Device `0200@` first showed the Hercules banner, then the established combined login form. One field-aware local-credential login reached `RECONNECTED AT 15:59:28` and the `RUNNING` command field, classified `cms_ready`. `cms_prepare_runner(create=false)` then failed source round-trip verification for `ZM537EF1 EXEC A`; the runner was not executed and the fail-stop closed the local terminal. This indicates the helper must not be reused; prepare one new random helper with explicit create=true and verify it before commands.
+- A subsequent `cms_download GITC23 EXEC A` call ran after that fail-stop and returned `prepare_reader` / `NoneType.exec_command` before issuing a CMS read. It produced no source snapshot. After reconnect, a second login call's output could not be recovered from the truncated local bridge response; passive status showed the server disconnected, and the next fresh screen was the blank combined login form. No further credentials were submitted. The local terminal was explicitly disconnected without LOGOFF.
+- No native baselines, CMS source upload/readback, CHECK, RUN, compile, or production CMS write occurred. Exact approved target remains `GITC23 EXEC A`; preserve the existing GITC26 target and GITC23 rollback baseline. Before any target write, capture and compare native double-read baselines for `GITC23 EXEC A` and `GITC26 EXEC A`, verify the fresh command helper, upload only the reviewed candidate, and verify exact native readback. Then run only the documented CHECK gate and conditional RUN/postchecks.
+- Resume once the operator resolves the ambiguous second one-shot login outcome by manually reaching CMS `RUNNING` or explicitly authorizing one new one-shot login from a confirmed fresh empty combined form. The current local terminal is disconnected; no CMS session was logged off.
+
+
+## 2026-10-17 — CMS Ready reached; fresh native baselines expose stale GITC26 target
+
+- The operator authorized a fresh attempt. The updated cms-tooling login guard now checks the underlying field emptiness before credential redaction; stale in-memory secrets had masked blank editable fields in the public screen and caused a false "existing input" stop. Added an offline regression; all 19 login tests, MCP protocol validation, and `git diff --check` passed. No generic terminal input was enabled.
+- One field-aware login from a fresh empty combined form reached `RECONNECTED AT 16:22:30` in `VM READ`; the authorized `b`/Enter continuation reached the z/VM 6.3 guest banner with `RUNNING` and an empty CMS command field. Treat this as CMS command-ready per IBM/operator semantics. The dedicated terminal remains connected; no LOGOFF/IPL was sent.
+- Fresh native double-read snapshots are complete and consistent (not atomic): `GITC23 EXEC A1`, MNT191, F80, 107 records / 8,560 bytes, SHA-256 `cc075988f907d297f3db02523c6cffd70632cb921a911411655af8c255106779`, at `src/zvm-tooling/cms-sources/snapshot-799cd8395aa33436fdcd26c0/`; `GITC26 EXEC A1`, MNT191, F80, 132 records / 10,560 bytes, SHA-256 `ecefdaf81952fe5d50ccb73c826717ee4d22c2fe4fb351bf8bb5c6345a5a91a3`, at `src/zvm-tooling/cms-sources/snapshot-03ec787a833494683b5c918a/`.
+- The checked-in GITC26 candidate is 211 fixed-80 source records (16,880 native bytes), SHA-256 `74f5ad4a707ed52cfb48e5e28828ddf31659456ca5b0fd855752fa0a0a809db1`. The fresh CMS baseline has `OBJECTS`/`OBJECTSRUN` dispatch but ends before the required `objectpath` worker label and lacks its M203 success markers. Therefore the exact 12-line GITC23 wrapper candidate cannot safely delegate to the currently installed GITC26. No runner helper was created, and no production source was uploaded or executed.
+- The operator's earlier approval remains exact to replacing `GITC23 EXEC A`; it does not cover replacing `GITC26 EXEC A`. Keep both native baselines, preserve the old GITC23 as rollback evidence, and make no target write until the operator explicitly authorizes the necessary GITC26 target operation. If authorized, source-verify the command helper, replace/read back GITC26 first, then verify GITC23 replacement/readback and run the exact CHECK gate before any conditional RUN/postchecks.
+
+
+## 2026-10-17 — GITC26 and GITC23 live rollout completed
+
+- After fixing the bounded CP-query observer to treat a repeated stable CMS `RUNNING` screen as the command boundary only after complete captured paging, the fixed `validate_cms_gdisk.py --access-existing-g` workflow completed all five diagnostics. It accounted for timestamps and last-nibble screen wrapping in the virtual DASD listing, matched the documented 0600 geometry/mapping and volume-link set, issued only `ACCESS 600 G`, then verified `GIT600` and both protected stage/index entries. Evidence: `/Users/mikewommack/cms-tooling/cms-gdisk-access-recovery-4-20261017.json`. G access changes were access state only; no LINK/FORMAT/RELEASE or source replacement occurred in the validator.
+- Replaced exact `GITC26 EXEC A` with checked-in `src/GITC26.EXEC` after fresh source verification of command helper `ZMA0B1E5`. Candidate SHA-256 `74f5ad4a707ed52cfb48e5e28828ddf31659456ca5b0fd855752fa0a0a809db1`; native double-read readback matched all 211 F80 records / 16,880 bytes (hash `1a5a06f1b499214310b296d46cbfb4c762e03069acdac373a295437dbd650e7f`).
+- `GITC26 G OBJECTS 64 3868 7736` returned correlated RC 0 and `M203 ALL INDEX CHECKS PASS 2`, `M203 CHECK ONLY NO SCRATCH PASS 2`, `M206 OBJECTS PREFLIGHT PASS 2`. Conditional `GITC26 G OBJECTSRUN 64 3868 7736` then returned correlated RC 0 and `M203 BOUNDED FULL SHA CLEAN PASS 2`, `M206 OBJECTS AUTHENTICATION PASS 2`. Full SHA-1 matched object 3868 blob/1148 bytes/OID `8AF5E45B1B905F781D0BFB8A547049494B8D07A2` and object 7736 tree/291 bytes/OID `9069E154EB145C25D8E1A8D31F72252C53E6684A`. Its only cleanup was the exact disposable M206 A1 scratch. Final `FILEDEF` returned RC 0 with no user definitions; `STATE GITR199 DATA A` and `STATE GITVRAW DATA A` returned RC 28 (absent).
+- Captured a fresh pre-write native double-read baseline for `GITC23 EXEC A`/A1, MNT191: 107 F80 records / 8,560 bytes, hash `cc075988f907d297f3db02523c6cffd70632cb921a911411655af8c255106779`, snapshot `src/zvm-tooling/cms-sources/snapshot-fd7d4695a1b4a908390f9e0d/`. This matched the preserved earlier baseline and remains available as rollback evidence.
+- Replaced exact `GITC23 EXEC A` with the 12-record checked-in wrapper (ASCII source hash `2676ab84091968e70aa32ab9b7b5407578fa6b55a79973c2589df3d68880ceb3`). Native readback independently matched its CP037 fixed-80 candidate exactly: 12 records / 960 bytes, SHA-256 `90562380b637eb42fb245364a07a465bceb72d14a40b9d55595ad72188789326`, snapshot `src/zvm-tooling/cms-sources/snapshot-c8842f737d472ee54cf4a3f7/`.
+- `GITC23 G CHECK 64 3868 7736` returned correlated RC 0 with `M203 ALL INDEX CHECKS PASS 2`, `M203 CHECK ONLY NO SCRATCH PASS 2`, and `M206 OBJECTS PREFLIGHT PASS 2`. The conditional `GITC23 G RUN 64 3868 7736` returned correlated RC 0 with `M203 BOUNDED FULL SHA CLEAN PASS 2` and `M206 OBJECTS AUTHENTICATION PASS 2`, authenticating the same two OIDs. Final FILEDEF was empty/RC 0, both scratch `STATE ... DATA A` calls were absent/RC 28, and the terminal was disconnected locally without LOGOFF.
+- The operator-established single-writer exclusion covered the exact target operations. Protected G stage/index contents, MODULEs, disks/DASD, and rollback baseline were not replaced or modified. The deployed wrapper depends on the now-verified GITC26 worker; keep the old GITC23 baseline and existing GITC26 implementation. Sanitized command/transfer evidence: `cms-gitc23-rollout-codex-20261017.json` and `cms-gitc26-rollout-codex-20261017.json`.
+- GitHub `Native staging host checks` and `zVM tooling offline build` both completed successfully for canonical commit `d5c55e0`; host CI and the live CMS gates are now complete for this rollout. No Git commit was made in this local checkout because unrelated edits and untracked operator artifacts are present; the source candidate itself was already on canonical `main`.
+
+
+## 2026-10-17 — Codex direct cleanup of ACLEAN targets on CMS A
+
+- The live `ACLEAN EXEC A` native SHA-256 was `7410D8E529A8FBB1590E55EDBED07B9FBF67929D7D7C1D7CF7BA4FC1E5845A8E` (19,680 bytes / 246 F80 records). It exactly matches the preserved historical Git source at revision `5d2bdb24a205dd297462516d21b1370a2149672e`; the current checked-out ACLEAN source is newer and was not uploaded. The reviewed historical source has one ERASE statement confined to its explicit APPLY branch.
+- Codex ran fresh `EXEC ACLEAN PLAN` for all seven batches and issued individual correlated `ERASE` commands for the exact listed targets; `ACLEAN APPLY` was not run. Candidate counts were RECENTGEN 20, PACKGEN 48, NETTRACE 11; LISTINGS, EXPERIMENTS, OLDTESTS and BUILDDECK found zero. All 29 historical EXEC names in the live OLDTESTS manifest are covered by `archive/HISTORICAL_EXEC.json`.
+- Reproduced ACLEAN's generated-file source and MODULE checks for 23 distinct products; all passed. All 79 ERASE commands returned complete captured CMS RC 0. A fresh PLAN after each batch found zero targets in all seven batches.
+- `QUERY DISK A` changed from 370 files / 13,536 blocks used (43%) to 291 files / 9,074 blocks used (29%); free blocks rose from 17,964 to 22,426. Final FILEDEF was empty. No source file, active MODULE, G/GIT600 protected content, or DASD was modified. The terminal was disconnected locally without LOGOFF.
+- A broad `LISTFILE * * A (ALLOC` attempt exceeded the correlated capture deadline and was discarded as incomplete; no complete LISTFILE inventory is claimed. A subsequent fresh session showed no pending protocol frames, and the bounded disk query plus exact per-batch PLAN checks were used for final verification. The native ACLEAN download was refused because the source contains the configured userid string; no source snapshot was written.
+- Sanitized end-to-end evidence: `cms-aclean-direct-erase-evidence-20261017-183721.json`. Intermediate fail-stop evidence from the hash audit and oversized inventory attempt is retained alongside it.
+
+
+## 2026-10-17 — CMS SHA-verified upload and M165 multi-path candidate PASS
+
+- Used the installed read-only `GITSHA4 MODULE A1` over `FILEDEF HASHIN` to verify candidate uploads by hashing native fixed-80 CMS records. DFT uses IBM-1047 here; CP037 produced a different local digest, while IBM-1047 conversion plus F80 padding matched CMS exactly.
+- Uploaded local `src/GITWT.EXEC` as disposable `ZTMCAND1 EXEC A`: 1,112 records / 88,960 native bytes, SHA-256 `9648C117B8985391CD851E405F89FECC0A6613C10F1582FBBFA7E676F3F538BC` on both sides. This is the candidate alias only; production `GITWT` was not replaced.
+- The first test driver referenced `src/GITWT.EXEC`, which is absent from the live CMS HEAD commit `00D8D63229305230C8D37F884CE87F9E1A89468C`; that run stopped at checkout and cleaned its exact scratch IDs. The second driver used the existing `src/GIT42TEST.EXEC` but stopped on an ERASE return-code check after both checkouts; all four work/tree scratch IDs were again confirmed absent. These were fixture/harness failures, not production ref changes.
+- Corrected `src/M165CHK.EXEC` to use `src/GIT42TEST.EXEC` and verify the post-ERASE `STATE` absence. Uploaded as `ZTMDCHK3 EXEC A`: 222 F80 records / 17,760 native bytes, local IBM-1047 SHA-256 `C8C537F37575106DB5A7C907B2F062551D331294EFD247771F29E3F684D48F6D`, matching CMS.
+- `EXEC ZTMDCHK3` completed with correlated CMS RC 0, 25 captured records / 1,049 bytes. It checked out both paths, staged two changes, reported one shared-subtree rebuild, verified refs unchanged, and passed `M165 MULTI-PATH STAGED COMMIT TARGET GATE PASS`. Its internal ACCEPT-count and clean-status assertions passed. The generated commit candidate remains retained for separate ref-CAS review; no ref was updated.
+- Final exact `STATE` checks returned RC 28 for `M165TST DATA A`, `M165TS2 DATA A`, `GITWORK REPO A`, and `GITTREE REPO A`. `HASHIN` was cleared. `FILEDEF` showed the expected pre-existing GITFIX/M15NEW and M15SL0/M15SL1 bindings used by GITREC; it was not empty at the end, and no claim of an empty FILEDEF set is made.
+- Retain `ZTMCAND1`, `ZTMDCHK1`, `ZTMDCHK2`, and `ZTMDCHK3` on A; no cleanup authorization for these exact helper/candidate files was requested. No production source was deployed and no protected stage/index, disk or DASD content was modified. The corrected source remains local/uncommitted. Evidence: `cms-m165-multipath-live-evidence-20261017.json`.
+
+
+## 2026-10-18 — M175–M184 host checkpoint and next target work
+
+Plan: complete the next ten milestone gates in order, beginning with offline checks for M175–M184, then continue the Git feature-gap work after M206 in existing canonical sources. Reuse established CMS target evidence and avoid repeating expensive gates. Keep the one live s3270 session, protected G stage/index and all CMS files unchanged.
+
+- Host tests passed: M175 verified random-access model; M176 recursive tree-closure model; M177 read-only stage/index view; M178 forward-only C89 parity; M179 native phase profiling parity; M180 one-pass authenticated closure; M181 hex-LUT parity; M182 pair-hex parity; M183 skipped-record unroll parity; M184 comparative host benchmark/parity.
+- M184 fixture was 15,360,000 unrelated bytes across 480,007 stage lines. Observed medians: M181 0.1507s, M182 0.1340s, M183 0.1017s. These are host-only timings; no CMS performance inference follows.
+- The first M178/M179/M180/M181/M182/M183 runs exposed missing, intentionally generated historical wrapper EXECs. Restored only the absent `GITPFAST.EXEC`, `GITPPROF.EXEC`, `GITPONCE.EXEC`, `GITPHX.EXEC`, `GITPH2.EXEC`, and `GITPH3.EXEC` through `scripts/restore-ph-wrappers.py`; the generator verified exact bytes and does not overwrite. All affected gates then passed. These generated files are local test prerequisites, not CMS uploads or new tracked sources.
+- Archived evidence already records M175 and M176 as successful real-CMS gates on the retained 7,736-object generation; M177 INFO/TREE and M178–M181 also have target evidence. Do not rerun those costly gates as prerequisites. The M184 benchmark is host-only.
+- A read-only `STATE M175CHK EXEC A` attempt returned correlated CMS RC 0 but no records and adds no source/presence evidence. The following `QUERY CMSLEVEL` request did not return through the current local bridge; the registered MCP transport reports closed while the existing s3270 TCP connection remains established. No further CMS input, transfer, compile, or target gate was attempted; the session was not disconnected.
+- Next: inspect the complete post-M206 feature gap and the archived M207 scratch work without deploying its new filenames; implement the next useful capability in canonical existing sources with regression coverage and host CI, then use the still-open terminal for only the exact required target validation. Protected M173NET/M174NET and other retained CMS files remain unchanged.
+
+
+## 2026-10-18 — M207 in-place 128-band extension plan
+
+Plan: extend the already-proven M206 stratified full-SHA route to accept up to 128 disjoint bands by editing only `src/GITP26M.C` and `src/GITC26.EXEC`. Preserve existing 2–32 output and behavior; add 64/128 host fixtures and reject 129 before producing plans. Do not reuse or deploy the old GITP27M/GITC27 scratch implementation. Keep target module and retained G stage/index unchanged until host validation is green and the current live transfer/command path is available.
+
+Assumption: a 128-band full-SHA run is a scale/coverage improvement to the existing read-only verifier, not a claim that all reachable objects are verified. It still samples 128 objects and uses the existing disposable A1 scratch/cleanup path.
+
+Progress: edited only the canonical `GITP26M.C` and `GITC26.EXEC`; the C planner now accepts 2–128 bands and the REXX wrapper preserves M206 output through 32 while emitting M207 completion markers above 32. Expanded the retained M206 host fixture to SHA-verify 2, 3, 8, 16, 32, 33, 64 and 128 bands, reject 129, and prove empty-band failure emits no partial plan at both 32 and 128. `python3 tests/test-m203-bounded-batch.py M206` passes with strict C89 warnings-as-errors; the consolidated host-test inventory, canonical C source guard, M206 compatibility guard and NTREE all pass locally. The first full Actions run exposed a stale `NTREE` fixture name: the pinned historical tree contains `CHAT_STATE.md`, but the test labeled that blob `NOTES.md`. Verified the immutable tree with `git cat-file` and corrected the fixture. Full GitHub Actions workflow run 39147362503 passed on commit `9fa27106b476562382a5ea3f105b4d7d1c289e21`. README records the new latest-CI checkpoint. CMS qualification is still pending: the existing `cms_screen` call returns `Transport closed`; no CMS input, transfer, compile or target run occurred. Do not advance the canonical CMS MODULE until the M207 change passes CMS compile, CHECK and RUN.
+
+## 2026-10-18 — M207 CMS target gate
+
+Plan: retain the proven CMS MODULE and protected G stage/index until the M207 source passes CMS compile, CHECK and full RUN. Resume through the existing single serialized MCP terminal; do not start a second s3270 session. Track the exact target acceptance sequence in GitHub issue [#193](https://github.com/mostangrymike/ibm-sandbox/issues/193).
+
+Repository instructions: no `AGENTS.md` exists in this checkout; followed the operator-supplied instructions and the repository README/NOTES/history.
+
+Progress: retried observation with `cms_screen`; the registered CMS MCP transport still returns `Transport closed`. No CMS input, transfer, compile, target test, or disconnect was attempted. The completed full host workflow and M207 source/tests remain pushed. This is an access blocker for the remaining target gate, not a source or test failure.
+
+Assumption: the existing MCP terminal transport can be restored in the Codex environment while preserving its dedicated s3270 session. Until then, do not replace the current CMS module or claim CMS qualification.
+
+
+## 2026-10-18 — M208 lightweight tag support plan
+
+Plan: add lightweight commit tags to the modern `GITREF2` store, in the
+existing `GIT.EXEC`, `GITUPD.EXEC`, `GITVREF.EXEC`, and `GITWT.EXEC` sources.
+Support listing, create-only creation and compare-and-swap deletion. Require a
+full verified commit OID for create/delete, preserve branch-only symbolic HEAD,
+and keep checkout resolution on branches. Add host source/REXX syntax regression
+coverage and document the exact supported command forms.
+
+Assumptions: CMS line/argument limits make a full `git tag` option surface too
+large for this step; first support lightweight tags pointing at verified commit
+objects. Ref names use a safe ASCII subset. No annotated/signature tags, tag of
+non-commit objects, CMS target qualification, or production REF2 mutation is
+claimed. The existing user working tree/evidence files must remain untouched.
+
+Progress: confirmed modern commit/ref operations use `GITREF2`, while older M5
+`GITREF.EXEC` is intentionally a separate prototype and must not be mixed into
+the modern store. Added `GIT TAG` list/create/delete and tag-aware modern ref
+parsing in the established sources; creation/deletion call the existing CAS
+updater. Added the M208 host gate to the canonical Actions workflow and README.
+Local `M208` REXX syntax/width/source checks, M206, M206 compatibility, NTREE,
+the default canonical-source guard, and the full test-source inventory all pass.
+The inventory emits its existing Python invalid-escape `SyntaxWarning`, but
+returns zero and compiles all 42 preserved host test bodies. Current CMS MCP
+observation/connect calls returned `Transport closed`; no CMS action was
+performed. Full Actions and real CMS target validation remain pending.
+
+The first pushed Actions run failed only at M208 setup because the Ubuntu runner
+does not have `rexx` installed (`rexx: not found`). The M208 test must compile
+the REXX source; I added a workflow prerequisite to install Ubuntu's
+`regina-rexx` package before that test instead of weakening or skipping syntax
+validation. A rerun is pending.
+
+
+M208 CI follow-up: the Regina installation fix passed in full Actions run
+39149257392 on commit `b7b833417f23dd9903c5f0203027f197ed6a94e7`; both the
+package-install step and M208 source/REXX syntax gate passed. The run concluded
+successfully. A fresh `cms_status` observation still returned `Transport
+closed`; no CMS connection or input was attempted after that response. The
+M208 ref behavior remains host-source-checked and CMS-unqualified.
+
+## 2026-10-18 — M209 tag-list porcelain follow-up
+
+Plan: align default tag listing with Git's name-only output and accept the
+`-l`/`--list` spellings, without changing REF2 storage, branch resolution,
+or CMS state. Extend the M208 source/syntax regression and documentation.
+
+Assumption: wildcard filtering and annotated tags are separate future work;
+this step covers basic list aliases only. Preserve all user-provided
+untracked evidence and transfer-script changes.
+
+
+Progress: M209 changes the list output to names only and accepts `-l` and
+`--list` as list aliases. Expanded the M208 guard to cover the aliases and
+name-only output. Regina syntax and 80-column checks, the canonical source
+guard, all 42 preserved host test-body compilations, and `git diff --check`
+pass locally. CMS remains unavailable through the MCP transport; these changes
+have not been run on CMS.
+
+
+M209 CI follow-up: full native host workflow 39149430266 passed on commit
+`41ccf90708fb172f428ccd70cba9ca8c5ada8193`. The M208/M209 source, Regina
+REXX syntax, and fixed-record width gate passed. `cms_status` still fails at the
+MCP transport boundary (`Transport closed`). Process inspection shows the
+existing bridge and its single s3270 process are still present, with one
+established connection to 127.0.0.1:3271; I did not restart or terminate them.
+No CMS input or target validation occurred.
+
+## 2026-10-18 — M210 tag-list wildcard plan
+
+Plan: extend `GIT TAG -l`/`--list` to filter names with bounded `*` and `?`
+wildcards, validate pattern characters/length, and exercise the exact
+source-derived REXX matcher under Regina. Keep REF2 unchanged and do no CMS
+operations.
+
+Assumption: bracket character classes and escaping are deferred; list patterns
+are a single CMS token using only the supported tag-name alphabet plus `*` and
+`?`.
+
+Progress: implemented forwarding from `GIT.EXEC`, filtering in `GITVREF.EXEC`,
+and the REXX wildcard matcher. The first two test runs caught outdated M208
+source assertions after the usage text and name extraction changed; updated
+those assertions to match the new integration. M208 syntax/width/source guards,
+M210 integration assertions, nine source-derived matcher cases, the canonical
+source guard, all 42 preserved test-body compilations, and `git diff --check`
+pass locally. CMS target validation remains unavailable; commit and Actions
+validation are pending.
+
+
+M210 CI follow-up: full native host workflow 39149684842 passed on commit
+`40788cd32dcee2a12e6a73bcddfe30d78e8545af`. Actions installed Regina, ran the
+source-derived REXX wildcard cases and integration checks, and completed the
+existing native regression suite. The matcher is host-tested only; CMS
+compilation and live tag listing remain unverified.
+
+## 2026-10-18 — M211 tag-delete option aliases
+
+Plan: accept the common `-d` and `--delete` spellings while preserving the
+existing expected-old-OID compare-and-swap check. Add source/syntax coverage and
+keep CMS state untouched.
+
+Progress: added the long option; `-d` already normalizes to `-D` through the
+existing case folding. Expanded the canonical source guard and README. Focused
+validation and full Actions are pending.
+
+
+M211 validation: focused `M210` tag syntax/width, integration, and source-derived
+REXX matcher checks passed locally. Full native host workflow 39149852161 passed
+on commit `4610f9ff9ee61ad2095ef21b2ff85c1c16c0873b`; no CMS behavior was run.
+
+## 2026-10-18 — M212 compare-and-swap tag updates
+
+Plan: add `-f`/`--force` tag updates that require the caller's expected old
+commit OID, verify the new commit, and delegate to the existing REF2
+compare-and-swap updater. Preserve create-only behavior without the option.
+
+Assumption: the explicit expected-old-OID operand is retained even though
+stock Git does not require it; this keeps force updates race-detecting.
+
+
+Progress: M212 adds lowercase/long force aliases, validates both full OIDs,
+verifies that the new object is a commit, and passes the caller's expected old
+OID to `GIT UPDATE-REF`. `M210` (including M208 source/REXX checks and nine
+source-derived wildcard fixtures), all 42 preserved host test-body
+compilations, width checks, and `git diff --check` pass locally. CMS
+qualification is not claimed; commit and full Actions remain pending.
+
+
+M212 validation: focused M210/M208 syntax, width and source guards plus the
+source-derived wildcard cases passed locally. Full native host workflow
+39150028893 passed on commit `fda7df7245187a267fc63ab27ddccee3e62acbfd`.
+The force-update path is host-validated only; CMS compile and REF2 behavior
+remain unverified.
+
+## 2026-10-18 — M214 require an existing tag for force update
+
+Plan: align the M212 force-update behavior with its documented intent by
+rejecting an all-zero expected OID. A missing tag remains creatable through the
+plain create form; force update must compare against an existing ref value.
+
+Assumption: reject zero explicitly at the porcelain boundary even though the
+underlying CAS updater uses zero to mean create-only.
+
+## 2026-10-18 — M213 cross-caller REF2 name validation
+
+Plan: execute the exact tag/branch `validref` implementations extracted from
+`GITUPD.EXEC`, `GITVREF.EXEC`, and `GITWT.EXEC` under Regina. Require identical
+acceptance for representative valid refs and rejection of malformed path
+components, wildcards, locks, and overlong refs.
+
+Assumption: safe names remain limited to the common ASCII subset already
+accepted by all three sources; this step changes tests only.
+
+
+Progress: M213 extracts and executes the validators directly from all three
+REXX sources. The M210 tag guards, nine wildcard cases, and 33 cross-caller
+valid/invalid name fixtures pass locally under Regina. The default canonical
+source guard, 42 historical test-body compilations, 80-column checks and
+`git diff --check` also pass. CMS remains untested; commit and Actions are
+pending.
+
+
+M213 CI follow-up: full native host workflow 39150220130 passed on commit
+`9c28a4504864f53fc9c5f92387a0e86edfcbf1e1`. Actions ran all three
+source-derived validators and the 33 valid/invalid fixtures successfully.
+This validates only host REXX behavior; no CMS command or source deployment
+occurred.
+
+
+Progress: added a zero-OID rejection before calling `GIT UPDATE-REF`. Focused
+M213 checks, REXX syntax, all source widths, the canonical source guard, all 42
+preserved test-body compilations and `git diff --check` pass locally. CMS remains
+unverified; commit and full Actions are pending.
+
+
+M214 validation: focused M213 (including M210/M208 and all 33 extracted
+validator cases), syntax/width checks, canonical source guard and historical
+host test compilation passed. Full native host workflow 39150390362 passed on
+commit `c09377e9f9f0c82580eee8daa0fdf678c7183377`. CMS qualification remains
+unavailable.
+
+## 2026-10-18 — M215 REF2 revision resolution fixtures
+
+Plan: execute the actual `GITVREF.EXEC` resolver against a synthetic REF2 map
+under Regina. Cover HEAD, short branch/tag names, full tag names, branch
+precedence, and missing refs. Keep this as host-only test data.
+
+Assumption: short names resolve branches before tags, matching the current
+resolver's deliberate lookup order.
+
+
+Progress: the initial missing-ref fixture exposed an uninitialized `reskind`
+field in the synthetic driver; after initializing it and printing only the
+error result, all six source-derived resolution cases pass. M213/M210 checks,
+canonical guard, all 42 preserved test-body compilations, and `git diff
+--check` pass. CMS remains untouched; commit and full Actions are pending.
+
+
+M215 CI follow-up: full native host workflow 39150617907 passed on commit
+`d37aa0650e4e0f53fa22aa7ca84c683034464b21`. The six extracted resolver
+fixtures passed in Actions. CMS execution and REF2 target behavior remain
+unverified.
+
+## 2026-10-18 — M216 deterministic tag-list ordering
+
+Plan: sort the filtered tag names in Git's bytewise ASCII lexical order before
+display, using a Shell sort suitable for the bounded CMS ref list. Execute the
+exact REXX comparator with punctuation/digit/case/prefix fixtures.
+
+Assumption: the current allowed tag alphabet is sufficient to reproduce ASCII
+order with an explicit rank table; version-aware sorting remains out of scope.
+
+
+Progress: tag listing now collects matching names, Shell-sorts them with an
+explicit Git ASCII rank comparator, and prints the sorted list. The first run
+found the older M208 static guard still expected immediate output; it was
+updated to assert collection plus sorted output. M216's eight comparator cases,
+M215/M213/M210 checks, 80-column and REXX syntax checks, canonical guard, all 42
+preserved host test-body compilations, and `git diff --check` pass. CMS remains
+unverified; commit and Actions are pending.
+
+
+M216 CI follow-up: full native host workflow 39150923191 passed on commit
+`efd7e477fe83297d4b83626e400f9cc5eae2b5ff`. Actions ran the eight exact-source
+ordering cases and all existing host regressions. CMS listing behavior is
+still unqualified.
+
+
+M216 integrated-test follow-up: executing the full `TAGS` block uncovered three
+REXX integration defects the comparator-only checks missed: `%` lacked spaces
+and was parsed as a variable, the Shell-sort stop condition was reversed, and
+the empty-pattern test was inverted. Corrected all three. The expanded fixture
+now executes the source-derived listing block against unsorted synthetic refs;
+plain listing emits Git lexical order and `v*` emits only matching tags. The
+comparator, listing, pattern, validator, resolver, width/syntax, canonical, and
+42 historical host-source checks pass locally. Full Actions is pending.
+
+
+M216 corrected-list CI follow-up: full native host workflow 39151297168 passed
+on commit `32325c147a7f925dc21a02e06784c901c4744bfd`. Its M216 step executed
+the actual tag-list block against deliberately unsorted refs; both default
+lexical ordering and wildcard filtering passed. No CMS state was used.
+
+## 2026-10-18 — M217 modern REF2 branch porcelain
+
+Plan: route `GIT BRANCH` to `GITREF2` when present, preserving the legacy M5
+fallback only when REF2 is absent. Add modern list/create/guarded-delete forms
+using the existing validated CAS updater. Test list output from a synthetic
+REF2 snapshot and statically guard branch create/delete routing.
+
+Assumption: create requires an explicit full commit OID; delete requires the
+expected old OID. Branch switching is a separate step.
+
+
+Progress: modern `GIT BRANCH` now checks for `GITREF2 REPO A`, lists current
+and noncurrent branches through GITVREF, creates with a full commit OID, and
+deletes through GITUPD using the expected old OID. With no REF2 file, it keeps
+the previous GITREF route. The source-derived branch-list fixture, static route
+and CAS guards, Regina syntax/80-column checks, M216 tag suite, canonical source
+guard, 42 historical test-body compilations, and `git diff --check` pass locally.
+CMS remains unverified; commit and full Actions are pending.
+
+
+M217 CI follow-up: full native host workflow 39151566288 passed on commit
+`8a17ee8340361735283053d7827c096d4110077f`. The modern branch list fixture,
+REF2/legacy dispatch guards, REXX syntax and existing regression suite passed.
+Branch create/delete remain host-validated only; CMS target behavior is
+unverified.
+
+## 2026-10-18 — M218 guarded REF2 branch switching
+
+Plan: add `GIT SWITCH <branch>` to the modern REF2 path. Expose the current
+symbolic HEAD through GITVREF, then have GITUPD validate both branch refs and
+their commit objects before changing HEAD. Refuse different-tip switches until
+the client can perform a complete guarded CMS worktree transition. Add exact
+source-derived REXX fixtures for same-tip success, missing branch rejection,
+and different-tip rejection; run the full host workflow and record its result.
+
+Assumption: branches at the same verified commit have identical Git tree
+content, so changing the symbolic name preserves tracked workfile/index state.
+This milestone does not change CMS workfiles and does not claim support for
+switching across different commits.
+
+Progress: GITVREF now reports the validated symbolic HEAD. `GIT SWITCH` passes
+the requested branch and expected current HEAD to GITUPD. The updater rejects
+missing branches, stale HEAD, and differing commit OIDs; it verifies the shared
+commit, snapshots REF2, rewrites HEAD, reads it back, and restores the snapshot
+if write or readback fails. Source-derived Regina fixtures cover successful
+switch, missing target, different-tip refusal, and write-failure restoration.
+M218/M217/M216/M215/M213/M210 checks, REXX syntax and 80-column checks, all 42
+preserved host-source compilations, canonical guards, and `git diff --check`
+pass locally. CMS remains unverified; commit and Actions are pending.
+
+M218 CI follow-up: full native host workflow 39151897194 passed on commit
+`67385e15974935375090cad041ebd0e88ec54d72`. The five source-derived switch
+fixtures and all existing host regressions passed. CMS branch switching remains
+unverified.
+
+## 2026-10-18 — M219 mapped-worktree switch preflight
+
+Plan: permit different-tip branch switches only when the current symbolic HEAD
+matches the expected old branch, the mapped worktree has no staged or modified
+files, every mapped CMS file exists, each map baseline matches the current
+commit, and each destination path resolves to that same blob OID. Keep the
+preflight read-only and make the REF2 updater call it before changing HEAD.
+Test clean/unmapped success and rejection for staged, dirty, absent, stale, and
+changed paths using the exact REXX source block.
+
+Assumption: GITWORK intentionally describes a partial mapped worktree. A safe
+branch change may preserve unmapped CMS files and paths not represented by that
+map; the command will not create or overwrite them.
+
+Progress: GITWT `CHECK-SWITCH` now checks the expected symbolic HEAD, map
+cleanliness, mapped file presence and hash, the current commit's blob for each
+mapped path, and the destination commit's blob. It performs no writes. GITUPD
+calls that preflight for different tips, rereads REF2, and verifies HEAD and
+both branch OIDs still match before its snapshot/rewrite. The source-derived
+Regina fixtures cover ten preflight cases plus valid/malformed path-output
+parsing. M219 and its M218-through-M208 dependency checks, the 42 preserved
+host-source compilations, canonical/workflow guards, source-width checks, and
+`git diff --check` pass locally. CMS remains unverified; commit and Actions are
+pending.
+
+M219 CI follow-up: full native host workflow 39152398821 passed on commit
+`c4db6b0f3ed7a0cd760280a68a877c8facb9a243`. The mapped-worktree preflight and
+path-output parser fixtures passed with the existing host regressions. CMS
+branch switching remains unverified.
+
+## 2026-10-18 — M220 create-and-switch branch
+
+Plan: add `GIT SWITCH -c|--create <name> [full-commit-oid]`. Default the start
+point to the current HEAD; when a different commit is supplied, reuse the
+read-only mapped-worktree preflight. Add the new ref and symbolic HEAD in one
+REF2 rewrite with snapshot restoration and post-write verification. Reject an
+existing branch, malformed start OID, stale HEAD, or unsafe mapped worktree.
+Test the exact switch router/updater decisions and preserve all previous
+milestone checks.
+
+Assumption: M220 accepts only a full commit OID as an explicit start point;
+branch-name and tag-name start-point resolution remains a later enhancement.
+
+Progress: `GIT SWITCH -c|--create` now defaults to HEAD or accepts one full
+commit OID. GITUPD rejects an existing destination, validates both commits and
+the expected HEAD, calls M219's read-only worktree preflight for a different
+tip, rereads refs, then adds the branch and moves HEAD in one REF2 rewrite. It
+verifies the new HEAD/ref and original branch tip, restoring the previous
+snapshot on write/readback failure. Nine source-derived fixtures cover default
+and explicit start points, different-tip success, unsafe preflight, existing
+branch, stale HEAD/race, invalid OID, and write rollback. M220 through M208
+checks, REXX/80-column checks, all 42 preserved host-source compilations,
+canonical/workflow guards, and `git diff --check` pass locally. CMS is
+unverified; commit and Actions are pending.
+
+M220 CI follow-up: full native host workflow 39152814116 passed on commit
+`b7e703f8c878476d5586d1e0d7fdcd01318ce206`. The nine create-and-switch
+fixtures and existing host regressions passed. CMS branch creation/switching
+remains unverified.
+
+## 2026-10-18 — M221 resolve switch start points
+
+Plan: let `GIT SWITCH -c|--create` accept `HEAD`, a full object ID, or a branch
+or tag name. Use the existing GITVREF verified resolver for refs, validate the
+argument's safe alphabet before constructing a CMS PIPE command, and accept
+only one correctly framed `VERIFIED REF` result for the exact input. Keep
+abbreviated OIDs out of scope. Add source-derived parser fixtures and the
+existing M215 resolver fixtures to CI.
+
+Assumption: the existing GITVREF branch-before-tag short-name precedence is
+the right behavior for ambiguous short names.
+
+Progress: `GIT SWITCH -c` now resolves `HEAD`, full object IDs, and short or
+full branch/tag refs. Resolver inputs are checked against a strict ASCII ref
+alphabet before entering CMS PIPE; captured output must contain exactly one
+`VERIFIED REF` record for the identical input and a full OID. Existing M215
+fixtures validate branch-before-tag resolution; M221 adds nine start-point
+fixtures for direct OIDs, HEAD, branch/tag names, invalid delimiters, missing
+refs, malformed output, and multiple records. M221 through M208 REXX fixtures
+and syntax/80-column checks, all 42 preserved host-source compilations,
+canonical/workflow guards, and `git diff --check` pass locally. CMS remains
+unverified; commit and Actions are pending.
+
+M221 CI follow-up: full native host workflow 39153155987 passed on commit
+`23ef7aa229c34589cd7fcf72f5a79afd121cd568`. The start-point resolver fixtures
+and existing host regressions passed. CMS branch start-point resolution remains
+unverified.
+
+## 2026-10-18 — M222 CAS branch rename
+
+Plan: add `GIT BRANCH -m|--move <old> <new>` for modern REF2 branches. Resolve
+the old branch through GITVREF, then rename with an expected-OID check. Refuse
+missing/stale sources and existing destinations. If the old branch is current,
+move symbolic HEAD in the same REF2 snapshot/rewrite; otherwise preserve HEAD.
+Verify post-write state and restore the prior snapshot on failure. Do not add a
+force-rename form. Add source-derived tests for current/noncurrent rename and
+all reject/rollback paths.
+
+Assumption: short branch names are the porcelain operands, matching existing
+`GIT BRANCH` list/create/delete syntax.
+
+Progress: modern `GIT BRANCH -m|--move` resolves the source OID through
+GITVREF, then routes to GITUPD `MOVE-REF`. The updater requires a matching
+expected OID, an existing commit, and an absent destination; it changes HEAD
+only when the renamed branch is current. Snapshot, write, readback, and restore
+paths cover the ref plus HEAD together. Seven source-derived REXX fixtures cover
+current/noncurrent success, missing/stale source, destination collision, and
+write/readback failures. M222 through M208 tests and all 42 preserved
+host-source compilations, canonical/workflow guards, syntax/width, and diff
+checks pass locally. CMS remains unverified; commit and Actions are pending.
+
+
+M222 CI follow-up: full native host workflow 39153400972 passed on commit
+`889535f2d136680ffc5776a82ff9f6ed73a419c1`. Branch rename fixtures and the
+existing host regressions passed. CMS branch rename remains unverified.
+
+## 2026-10-18 — M223 strict branch ref validation
+
+Plan: use one strict branch-name rule in GITUPD, GITVREF, and GITWT; reject
+command delimiters and malformed path components; extend the source-derived
+fixtures; and add parity validation to CI.
+
+Assumption: restrict branch names to the CMS-safe ASCII alphabet
+`A-Z a-z 0-9 . _ / -`. This matches the current CMS command/capture framing
+and fixed ref handling; broader Git Unicode ref names remain unsupported.
+
+Progress: all three branch validators now use the same allowlist and component
+rules. Existing M213 source-derived cases cover valid nested and punctuation
+names plus `|`, `#`, whitespace, hidden components, repeated/trailing slashes,
+`..`, and `.lock`. M223 adds a source-block parity check and a CI step. M223,
+all branch milestones M213 and M215-M222, REXX syntax/80-column checks, the 42
+preserved host-source compilations, and `git diff --check` pass locally. CMS
+behavior remains unverified; M223 commit and Actions are pending.
+
+
+M223 CI follow-up: full native host workflow 39153620601 passed on commit
+`84080e982d0139bd3233c9daefe38bf5104a21a7`. Strict branch-name validation
+fixtures and the existing host regressions passed. CMS behavior remains
+unverified.
+
+## 2026-10-18 — M224 guard branch command operands
+
+Plan: validate every branch operand in GIT.EXEC before constructing the
+command strings used for create, delete, rename, and switch. Test the exact
+REXX validator and statically verify each guard precedes its downstream command.
+
+Assumption: use the same 24-character short-name limit and ASCII component
+rules as the REF2 branch validator, so accepted porcelain names cannot become
+unsafe CMS command text or fail later in GITUPD.
+
+Progress: GIT.EXEC now applies the branch-name allowlist before forwarding
+operands in all five branch paths: create, delete, rename destination, switch
+to an existing branch, and create-and-switch. M224 adds exact-source Regina
+fixtures and five source-order guards, and adds the host CI step. Local tests and
+commit are pending; CMS behavior remains unverified.
+
+
+M224 CI follow-up: full native host workflow 39153837946 passed on commit
+`d6e5f6b5ad0111f8aa62c479a49d65f1fc7f09be`. The five pre-dispatch guards,
+21 branch-name cases, and existing host regressions passed. CMS behavior remains
+unverified.
+
+## 2026-10-18 — M225 guard lightweight-tag command operands
+
+Plan: validate tag names before update/create/delete forwarding and validate
+list patterns before forwarding to GITVREF. Keep `*` and `?` limited to list
+patterns. Exercise the exact helper and ensure each dispatch guard comes before
+its CMS command or ref construction.
+
+Assumption: preserve the current CMS-safe tag alphabet and 25-character short
+name limit. Pattern mode adds only `*` and `?`, as used by the existing tag
+list matcher.
+
+Progress: GIT.EXEC now checks tag create, update, delete, and list-pattern
+operands before passing them to command handlers. M225 adds exact-source REXX
+fixtures, four dispatch-order guards, and a CI step. M225 and all preceding
+branch/tag checks, the 42 preserved host-source compilations, and
+`git diff --check` pass locally. CMS behavior remains unverified; M225 commit
+and Actions are pending.
+
+
+M225 CI follow-up: full native host workflow 39153998026 passed on commit
+`702e5d7f2698aa0a1546a3ab546fb57a112a2e46`. Tag-name and wildcard-pattern
+fixtures plus the existing host regressions passed. CMS behavior remains
+unverified.
+
+## 2026-10-18 — M226 resolve lightweight-tag start points
+
+Plan: allow `GIT TAG name [start-point]` to use HEAD by default and resolve a
+full commit OID, branch, or tag through the verified REF2 resolver. Keep the
+lightweight-tag requirement that the final target is a verified commit. Add
+source-derived resolver cases and CI coverage.
+
+Assumption: use M221's branch-before-tag short-name resolution and retain the
+current commit-only lightweight-tag behavior. Annotated tags remain separate.
+
+Progress: tag creation now defaults an omitted start point to `HEAD`, resolves
+HEAD through an exact correlated `VERIFIED REF` result, and accepts the existing
+full-OID or branch/tag resolver forms. The creation path still verifies the
+object and rejects non-commit targets. M226's nine resolver fixtures, five
+dispatch guards, M225 and earlier regressions, the 42 preserved host-source
+compilations, and `git diff --check` pass locally. CMS behavior remains
+unverified; M226 commit and Actions are pending.
+
+
+M226 CI follow-up: full native host workflow 39154179325 passed on commit
+`9f6a86af818b04fcfbcc38b2a2ec641ffdea7d38`. The tag-target resolver fixtures
+and the existing host regressions passed. CMS behavior remains unverified.
+
+## 2026-10-18 — M227 sort modern branch listing
+
+Plan: sort modern branch names with the existing ref-name comparator and retain
+the current-branch marker. Add an exact-source fixture with deliberately
+unsorted branch refs and run all previous branch/tag and historical source
+checks.
+
+Assumption: reuse the comparator and order already used by lightweight tag
+listing so branch and tag names have consistent ASCII ordering.
+
+Progress: GITVREF now gathers branch names, sorts them using the shared ref-name
+comparator, then emits the current marker alongside the sorted names. The exact
+source fixture passes with numeric and nested names; M227 and the M217 branch
+fixture pass. REXX syntax/80-column checks, the 42 preserved host-source
+compilations, and `git diff --check` pass locally. CMS behavior remains
+unverified; M227 commit and Actions are pending.
+
+
+## 2026-10-18 — M228 show current branch
+
+Plan: implement `GIT BRANCH --show-current` for modern REF2 repositories. Read
+symbolic HEAD once, require exactly one valid `refs/heads/` record, and print
+only its short name. Exercise the exact parser and guard invalid command arity and
+HEAD framing.
+
+Assumption: detached HEAD is not represented by the current REF2 format, so
+this command reports an error if HEAD is not a valid symbolic branch ref.
+
+Progress: GIT.EXEC now reads HEAD through GITVREF, checks one record, validates
+the full ref, and prints its short branch name. M228's eight exact-source cases,
+all prior branch/tag fixtures, the 42 preserved host-source compilations, and
+`git diff --check` pass locally. CMS behavior remains unverified; M228 commit
+and Actions are pending. M227 Actions are still running.
+
+
+M227 CI follow-up: full native host workflow 39154309460 passed on commit
+`d208c7d7b9f6b8f29399da9b62fba19e21d09744`. The exact sorted branch listing
+fixture and existing host regressions passed. CMS behavior remains unverified.
+
+M228 CI follow-up: full native host workflow 39154389870 passed on commit
+`8a3ff9e86a9afc2778dd909cc4e78967ea62e5bc`. Current-branch parser cases and
+existing host regressions passed. CMS behavior remains unverified.
+
+## 2026-10-18 — M229 filtered branch listing
+
+Plan: add `GIT BRANCH -l|--list [pattern]`, validate patterns in both GIT.EXEC
+and GITVREF, and filter the already-sorted branch list with the tag-list
+`*`/`?` matcher. Cover dispatch ordering, wildcard results, sorting, current
+marker output, and unsafe patterns.
+
+Assumption: patterns match short branch names and use the existing bytewise
+ref-name ordering. Git's options for remote and detached refs remain outside
+the current REF2 data model.
+
+Progress: the branch router and resolver now accept a validated optional glob
+pattern, filter refs, sort the matches, and retain the current marker. Fifteen
+source-derived cases and five dispatch guards pass, as do M228 and earlier
+branch/tag tests, the 42 preserved host-source compilations, syntax/80-column
+checks, and `git diff --check`. CMS behavior remains unverified; M229 commit and
+Actions are pending.
+
+
+M229 CI follow-up: full native host workflow 39154556840 passed on commit
+`eca4caffa97e5e277af1cd313c9526461bf45bcd`. Filtered branch output and the
+existing host regressions passed. CMS behavior remains unverified.
+
+## 2026-10-18 — M230 branch start-point resolution
+
+Plan: allow `GIT BRANCH name [start-point]` to create at HEAD by default or at a
+resolved commit/ref. Keep branch-name validation and use the existing REF2
+compare-and-swap updater. Add exact-source tests for defaulting, resolution,
+invalid operands, and argument arity.
+
+Assumption: preserve the explicit existing create form while making the
+start-point optional; branch creation does not switch the current worktree.
+
+Progress: the branch router now defaults the target to HEAD and resolves HEAD,
+full OIDs, branch names, and tag names through the verified tag-target resolver.
+GITUPD still verifies the commit and creates through the expected-absent CAS
+path. Five generated source cases and three dispatch guards pass, along with
+M229 and prior branch/tag fixtures, all 42 preserved host-source compilations,
+syntax/80-column checks, and `git diff --check`. CMS behavior remains
+unverified; M230 commit and Actions are pending.
+
+
+M230 CI follow-up: full native host workflow 39154744535 passed on commit
+`a08baecdb65ac18d426184fb795d282280e62308`. Branch start-point fixtures and
+existing host regressions passed. CMS behavior remains unverified.
+
+## 2026-10-18 — M231 checkout branch aliases
+
+Plan: route `GIT CHECKOUT <branch>` to the guarded switch flow and translate
+`-b`/`--branch` to `SWITCH -c`. Reject `-B` because that option resets an
+existing branch. Test the exact alias code and reuse the existing switch tests.
+
+Assumption: detached checkout and path restore remain unsupported by the
+current REF2 symbolic-HEAD model; the alias is limited to branch operations.
+
+Progress: GIT.EXEC now maps plain checkout to SWITCH and `checkout -b` or
+`checkout --branch` to the guarded create-and-switch route. It explicitly rejects
+`-B`. Four source-derived cases pass alongside all prior switch, branch, and tag
+fixtures, the 42 preserved host-source compilations, REXX syntax/80-column
+checks, and `git diff --check`. CMS behavior remains unverified; M231 commit and
+Actions are pending.
+
+
+M231 CI follow-up: full native host workflow 39154876418 passed on commit
+`989b5a2e87426067887b42e6de1be4fdb52327e4`. The checkout alias fixtures and
+existing host regressions passed.
+
+## 2026-10-18 — M232 preserve legacy checkout fallback
+
+Plan: select the modern checkout alias only when GITREF2 exists. Preserve the
+legacy GITHEAD branch checkout when REF2 returns the absent-file RC, require
+REF2 for `checkout -b`, and propagate other state-query errors. Add regression
+fixtures for modern, legacy, and failed-probe outcomes.
+
+Assumption: use the documented CMS STATE RC 28 for absence; any other nonzero
+RC is a real probe failure.
+
+Progress: GIT.EXEC now probes REF2 before choosing an implementation. Plain
+checkout falls through to the legacy GITHEAD handler when REF2 is absent; branch
+creation refuses that store; other probe failures return their RC. Seven checkout
+fixtures and eight static source guards pass, together with all earlier
+branch/tag tests, the 42 preserved host-source compilations, syntax/80-column
+checks, and `git diff --check`. CMS behavior remains unverified; M232 commit and
+Actions are pending.
+
+M232 CI follow-up: full native host workflow 39155047906 passed on commit
+`39f49c069624`. CMS behavior remains unverified.
+
+## 2026-10-18 — M233 tag deletion without an explicit OID
+
+Plan: allow `GIT TAG -d|--delete name` to resolve the exact tag ref, then use
+the observed object ID as the existing compare-and-swap expectation. Keep the
+explicit expected-OID form available and test missing refs, unsafe names,
+malformed OIDs, excess arguments, and successful deletion routing.
+
+Assumption: lightweight tags point directly to commits, as required by the
+current native REF2 tag implementation. Deletion still depends on the updater's
+compare-and-swap check; resolution alone is not treated as atomic.
+
+Progress: the delete path now resolves `refs/tags/<name>` when the caller omits
+an OID and passes that value to GIT UPDATE-REF. Six exact-source Regina REXX
+fixtures and the full preceding M208–M232 suite pass. The 42-source historical
+compile inventory, 80-column check, and `git diff --check` also pass. CMS
+behavior remains unverified; M233 commit and CI are pending.
+
+M233 CI follow-up: full native host workflow 39155330927 passed on commit
+`9a5159e9fdd0`. CMS behavior remains unverified.
+
+## 2026-10-18 — M234 branch deletion without an explicit OID
+
+Plan: resolve `refs/heads/<name>` when branch deletion omits its expected OID,
+then retain the existing CAS updater. Validate explicit OIDs before forwarding
+them. Cover resolution, missing refs, invalid names/OIDs, and argument count.
+
+Assumption: use the existing modern branch-delete behavior, including the
+updater's refusal to delete the current branch; this milestone adds operand
+resolution, not Git's merged-branch analysis.
+
+Progress: the branch delete path resolves the exact full branch ref when the
+expected OID is omitted and validates an explicit 40-character hexadecimal OID.
+Six exact-source Regina REXX fixtures, the accumulated preceding M208–M233
+suite, all 42 historical host-source compilations, REXX syntax, 80-column, and
+`git diff --check` validations pass. CMS behavior remains unverified; M234
+commit and CI are pending.
+
+M234 CI follow-up: full native host workflow 39155484380 passed on commit
+`8162f71e6333`. CMS behavior remains unverified.
+
+## 2026-10-18 — M235 bounded `GIT LOG` porcelain
+
+Plan: expose the existing verified REF2 history reader as `GIT LOG`, defaulting
+to HEAD and 16 commits. Support `-n N`, `-nN`, `--max-count N`, and
+`--max-count=N`, plus one optional revision. Resolve the revision before
+building the CMS command and reject counts outside the existing history limit.
+
+Assumptions: the common porcelain uses the current backend's maximum of 16
+commits because GITVREF LOG enforces that bound. The checkout has no local
+CHAT_STATE.md; the canonical main copy ends at an October 15 checkpoint, so this
+turn follows the later current-branch NOTES/README plus the operator's supplied
+October 18 AGENTS instructions.
+
+Progress: GIT.EXEC now resolves the selected revision through the guarded
+REF2 resolver and forwards only a verified full OID and bounded count to
+GITVREF LOG. Fifteen source-derived Regina REXX cases pass, including default
+HEAD, lowercase branch resolution, all count spellings, invalid bounds,
+unknown refs, and excess operands. The M208–M234 suite, 42-source historical
+compile inventory, core REXX syntax, 80-column, and `git diff --check` checks
+pass. README tag deletion wording now reflects M233. CMS behavior remains
+unverified; M235 commit and CI are pending.
+
+M235 CI follow-up: full native host workflow 39155793524 passed on commit
+`2f3978f14191`. A later backend audit found that GITREC depth is inclusive, so
+the first M235 implementation would return one extra commit. M237 corrects the
+count mapping and adds tests for zero and the inclusive upper bound.
+
+## 2026-10-18 — M236 verified `GIT SHOW` porcelain
+
+Plan: expose the existing GITVREF full-object reader through `GIT SHOW
+[revision]`, default to HEAD, reject excess operands, and resolve a revision
+before command dispatch.
+
+Assumption: keep `GIT SHOW` read-only and limited to the existing full-object
+commit reader; path-specific and formatting options are separate work.
+
+Progress: GIT.EXEC now resolves HEAD, branch/tag refs, or a full object ID
+before calling GITVREF SHOW. Six source-derived Regina REXX cases pass for the
+default, branch, full-OID, missing/unsafe revisions, and argument arity. The
+accumulated M208–M236 REXX suite passes. CMS behavior remains unverified; M236
+commit and CI are pending.
+
+M236 CI follow-up: full native host workflow 39155886448 passed on commit
+`ac435c702b6f`. CMS behavior remains unverified.
+
+## 2026-10-18 — M237 exact `GIT LOG --max-count` behavior
+
+Plan: map Git's requested commit count to GITREC's inclusive depth, return no
+output for count zero, and add fixtures for counts zero, one, and sixteen.
+
+Assumption: retain the CMS backend ceiling of 16 commits; a request above that
+bound fails explicitly instead of silently returning a shorter history.
+
+Progress: the LOG router now resolves the revision, returns cleanly for zero,
+and passes count minus one to GITVREF/GITREC for positive counts. Fifteen
+source-derived LOG cases, three GITREC inclusive-depth guards, and the full
+M208–M236 chain pass. The 42-source historical compile inventory, REXX syntax,
+80-column, and whitespace checks also pass. M237 commit and CI are pending;
+CMS behavior remains unverified.
+
+M237 CI follow-up: full native host workflow 39156119606 passed on commit
+`029f688e7342`. CMS behavior remains unverified.
+
+## 2026-10-18 — M238 tag force-update expected-OID resolution
+
+Plan: allow `GIT TAG -f|--force name new-oid` to resolve the current exact tag
+OID and retain the existing CAS update. Keep explicit expected OIDs, reject
+missing tags and zero/malformed expectations, and verify the new object is a
+commit before submitting the update.
+
+Assumption: force-update remains limited to an existing lightweight tag; new
+tag creation continues through `GIT TAG name start-point`.
+
+Progress: the force-update path resolves the full `refs/tags/<name>` ref when
+the expected OID is omitted and validates both object IDs before the existing
+verify/read/CAS sequence. Eight exact-source Regina REXX cases cover success,
+missing refs, invalid names/IDs, zero expectation, and excess operands. The
+M208–M238 chain, 42-source historical compile inventory, REXX syntax,
+80-column, and whitespace checks pass. M238 commit and CI are pending; CMS
+behavior remains unverified.
+
+M238 CI follow-up: full native host workflow 39156294698 passed on commit
+`0b742d5a95d8`. CMS behavior remains unverified.
+
+## 2026-10-18 — M239 multi-path mapped worktree add
+
+Plan: accept multiple explicit mapped paths in `GIT ADD`, preflight all names
+and mapped CMS file presence, hash every workfile, then save the updated
+GITWORK stage map once. Bound one command to 16 paths and collapse duplicates.
+
+Assumption: `git add .`, wildcards, directories, and untracked-file discovery
+remain unsupported; this path stages only files already present in GITWORK.
+
+Progress: GITWT ADD now validates/looks up all requested paths before reading
+files, hashes all selected workfiles before changing map entries, and performs
+one map save. Eight executable source-derived Regina REXX fixtures cover one
+and multiple paths, duplicates, unknown/unsafe/overlength paths, missing CMS
+files, hash failure, and the 16-path cap. The accumulated M208–M239 checks,
+REXX syntax/80-column checks, `git diff --check`, and 42-source historical host
+compile inventory pass. CMS behavior remains unverified; M239 commit and CI are
+pending.
+
+M239 CI follow-up: full native host workflow 39156665548 passed on commit
+`702eccaaf57b`. CMS behavior remains unverified.
+
+## 2026-10-18 — M240 short-history `GIT LOG` completion
+
+Plan: make `LOGFULL` treat depth as an upper bound. When a verified commit has
+no first parent before the requested depth, stop at that root and frame the
+actual number of available commits instead of returning RC4.
+
+Assumption: an earlier root is normal end-of-history, while malformed commit
+objects still fail through the existing structural validator.
+
+Progress: GITREC LOGFULL now sets the output depth to the root's hop and exits
+the read loop cleanly; closure checks and `LOG NODES` framing then use the
+actual available count. Six source guards check the clamp, loop ordering, and
+node count. The accumulated M208–M240 source-derived suite, 42-source
+historical C compilation inventory, REXX syntax/80-column checks, and
+`git diff --check` pass. CMS behavior remains unverified.
+
+M240 CI follow-up: full native host workflow 39156844360 passed on commit
+`9331a54ea863`. CMS behavior remains unverified.
+
+## 2026-10-18 — M241 `GIT ADD --` option separator
+
+Plan: accept the conventional `--` separator before one or more explicit
+worktree paths. Count only paths against the 16-path bound and leave all
+existing path validation and map-save behavior intact.
+
+Assumption: `--` is recognized only as the first ADD operand; further option
+parsing and wildcard/directory staging remain unsupported.
+
+Progress: GITWT ADD consumes a leading separator before path validation. The
+source-derived Regina fixture invokes `GIT ADD -- alpha beta` and `GIT ADD --
+-dash`, exercising the two-path bound, map update, and a leading-dash path.
+It also checks the empty-delimiter and post-delimiter 16-path bounds. Fixture
+labels report all thirteen ADD cases and eight source guards. The focused M241
+chain, 42-source historical host compile inventory, REXX syntax/80-column
+checks, and `git diff --check` pass. The native host workflow is pending; CMS
+behavior remains unverified.
+
+M241 CI follow-up: full native host workflow 39157122989 passed on commit
+`a65fa8ae1951`. CMS behavior remains unverified.
+
+## 2026-10-18 — M242 update all mapped worktree files
+
+Plan: add `GIT ADD -u` and `GIT ADD --update` to hash all mapped workfiles,
+preflight every CMS file before changing the map, and save staged OIDs once.
+
+Assumption: update is limited to the existing worktree map (at most 50 paths),
+has no pathspec form, and treats a missing mapped CMS file as an error rather
+than a deletion. Deletion staging needs a separate tree rewrite.
+
+Progress: GITWT recognizes both update aliases and loads/hashes all mapped
+files before its single map save. No mappings is a successful no-op; a missing
+CMS file or hash failure leaves the map unchanged. Six source-derived Regina
+fixtures cover both aliases, no mappings, missing files, hash failure, and
+rejected pathspecs; seven source guards verify validation and save ordering. The M242 cumulative
+suite, 42-source host compile inventory, REXX syntax/80-column checks, and
+`git diff --check` pass. CMS behavior remains unverified.
+
+M242 CI follow-up: full native host workflow 39157454981 passed on commit
+`85eb23c6d095`. CMS behavior remains unverified.
+
+## 2026-10-18 — M243 short porcelain status
+
+Plan: add `GIT STATUS --short` and `GIT STATUS --porcelain`, mapping the
+existing base/index/workfile states to Git's two status columns.
+
+Assumption: only paths already present in GITWORK are reported; untracked-file
+discovery, rename detection, and porcelain version selectors are unsupported.
+
+Progress: STATUS now emits `M`, `A`, and `D` index/worktree columns for staged
+and unstaged changes, omits clean mapped paths, and suppresses the verbose
+summary in short mode. Four source-derived Regina fixtures cover both aliases,
+staged/unstaged/both-column changes, deleted files, staged additions, empty
+maps, and unsupported options; eight source guards check the mapping. The M243
+cumulative suite, 42-source host compile inventory, REXX syntax/80-column
+checks, and `git diff --check` pass. CMS behavior remains unverified.
+
+M243 CI follow-up: full native host workflow 39157625495 passed on commit
+`cc1d5a0cfc4c`. CMS behavior remains unverified.
+
+## 2026-10-18 — M244 mapped name-only diff
+
+Plan: add read-only `GIT DIFF --name-only` and cached/staged name-only forms,
+using GITWORK's base/index/workfile OIDs to list changed mapped paths.
+
+Assumption: patch rendering, pathspecs, and untracked-file discovery remain
+unsupported; the command reports paths already present in GITWORK only.
+
+Progress: GIT and GITWT route unstaged and staged name-only comparisons. The
+unstaged path hashes each existing mapped workfile and reports missing mapped
+files as deletions; the cached path compares stage and base OIDs. Six
+source-derived Regina fixtures cover clean, staged, unstaged, combined,
+addition, deletion, empty-map, alias, and invalid-argument cases; eight source
+guards check routing and state comparisons. The M244 cumulative source suite,
+42-source host compile inventory, REXX syntax/80-column checks, and
+`git diff --check` pass. CMS behavior remains unverified.
+
+M244 CI follow-up: full native host workflow 39168899872 passed on commit
+`7fb77ac5edb5`. CMS behavior remains unverified.
+
+## 2026-10-18 — M245 path-only staged reset
+
+Plan: add `GIT RESET [--] path...` to restore selected mapped stage OIDs to
+their base OIDs without changing CMS workfiles or symbolic HEAD.
+
+Assumption: support explicit mapped paths only, with a 16-path bound; reset
+modes that move HEAD and reset-all behavior are separate features.
+
+Progress: GIT routes RESET to GITWT. The worker validates every path and
+deduplicates aliases before updating the stage map once, with rollback of the
+in-memory OIDs if the save reports failure. Six source-derived Regina cases
+cover multi-path reset, duplicates, `--`, unknown paths, empty separator, and
+the path limit; eight source guards check dispatch and validation-before-save.
+The M245 cumulative suite, REXX syntax/80-column checks, and `git diff --check`
+pass. GitHub CI passed; CMS behavior remains unverified.
+
+M245 CI follow-up: full native host workflow 39169228082 passed.
+CMS behavior remains unverified.
+
+## 2026-10-18 — M246 staged restore alias
+
+Plan: add `GIT RESTORE --staged [--] path...` as the conventional path-only
+alias for M245's safe mapped stage reset.
+
+Assumption: only `--staged` is supported. Worktree restore and `--source` are
+separate operations because they can replace CMS workfiles or require broader
+tree/object resolution.
+
+Progress: GIT validates the `--staged` mode and delegates the remaining
+operands to the tested RESET implementation. Four source-derived Regina cases
+cover lowercase/uppercase mode, `--` pass-through, unsupported `--worktree`,
+and a missing path; five source guards validate routing. The cumulative M246
+suite, host compile inventory, REXX syntax/80-column checks, and
+`git diff --check` pass. CMS behavior remains unverified.
+
+M246 CI follow-up: full native host workflow 39169360249 passed.
+CMS behavior remains unverified.
+
+## 2026-10-18 — M247 current branch in status
+
+Plan: add `GIT STATUS --branch` and the short/porcelain combinations so the
+status report identifies its symbolic branch.
+
+Assumption: only attached `refs/heads/*` names are supported by this status
+format; detached HEAD and unborn branch presentation remain unsupported.
+
+Progress: STATUS now accepts options in either order, reads the validated
+GITREF2 HEAD symbolic name, and prints `On branch <name>` or `## <name>` for
+short status. Four source-derived Regina fixtures cover normal branch output,
+short/porcelain combinations, nested branch names, and invalid options; seven
+source guards check option parsing and validated-ref use. The cumulative M247
+suite passes; the native host workflow is pending. CMS behavior remains
+unverified.
+
+M247 CI follow-up: full native host workflow 39169583791 passed.
+CMS behavior remains unverified.
+
+## 2026-10-18 — M248 stage tracked deletions
+
+Plan: let `GIT ADD -u|--update` stage mapped files that are absent from CMS,
+and make status/name-only diff compare them against the empty staged state.
+
+Assumption: deletion staging uses the all-zero OID as the absent-tree-entry
+sentinel; commit-tree removal and acceptance of the committed map are separate
+steps and are not yet available in this milestone.
+
+Progress: ADD now stages absent mapped files with the zero OID; short status
+uses the `D` index column and reports worktree additions against a staged
+deletion; cached and unstaged name-only diff handle the zero sentinel. Existing
+update tests now cover one deletion, and three source-derived Regina fixtures
+cover staged deletion, unstaged deletion, restoration against staged deletion,
+and both diff views. The cumulative M248 suite passes; host compile and CI are
+pending. CMS behavior remains unverified.
+
+M248 CI follow-up: full native host workflow 39169780862 passed.
+CMS behavior remains unverified.
+
+## 2026-10-18 — M249 commit staged deletions
+
+Plan: teach `GIT COMMIT` to accept absent workfiles whose staged OID is zero,
+remove those leaf entries from commit trees, and prune newly empty directories.
+
+Assumption: a deletion remains valid only while the mapped CMS workfile is
+absent. If it reappears before commit, reject the commit as unstaged worktree
+content. Acceptance of the committed map is a separate step.
+
+Progress: commit preflight now recognizes the zero-OID deletion sentinel;
+tree rewrite skips deleted leaves, compacts surviving entries, and propagates
+empty-subtree pruning to the root. Source-derived Regina fixtures verify
+serialized tree bytes with a removed entry and the empty-tree case; eight
+source guards cover preflight, leaf removal, pruning, and root write. The
+cumulative M249 suite passes; host compile and CI are pending. CMS behavior
+remains unverified.
+
+M249 CI follow-up: full native host workflow 39169941711 passed.
+CMS behavior remains unverified.
+
+## 2026-10-18 — M250 accept committed deletions
+
+Plan: let `GIT ACCEPT` verify absent committed deletions, compact those paths
+out of GITWORK, and advance the base OIDs of remaining mapped paths.
+
+Assumption: this is the existing post-commit local map acceptance operation;
+it does not update refs, remove CMS files, or independently prove that a
+commit/ref update succeeded.
+
+Progress: ACCEPT now checks staged deletions are still absent, removes their
+map entries, compacts retained entries, advances their base OIDs, writes once,
+and verifies the resulting map count and clean stage/base pairs. It rejects a
+deletion whose CMS workfile reappeared. Two source-derived Regina fixtures
+cover successful compaction and the reappeared-file failure; six source guards
+check validation and save order. The cumulative M250 suite passes; host compile
+and CI are pending. CMS behavior remains unverified.
+
+The first M250 Actions run (39170133153) failed because the existing M168
+guard expected the old in-place `mapbase.ai` assignment. Updated that guard to
+check the compacted `mapbase.keptcount` assignment; the exact M168 CI step now
+passes locally. The full rerun is complete: Actions run 39170667715 passed on
+commit `db5ccd35`.
+
+M250 follow-up: ACCEPT now explicitly erases GITWORK after taking its snapshot
+and before writing the shorter compacted map. This prevents stale tail records
+from surviving a map shrink; the failure path restores the snapshot. The
+source-derived acceptance fixture verifies erase-before-save ordering.
+
+## 2026-10-18 — M251 conventional current-branch commit
+
+Plan: expose the existing compare-and-swap current-branch commit transaction
+through `GIT COMMIT`, and accept quoted multiword `-m`/`--message` text.
+
+Assumption: CMS local date/time-zone conversion is not introduced here. The
+operator supplies `-T` epoch seconds and `-Z` offset explicitly; commit
+continues to verify and update only the symbolic current branch.
+
+Progress: `GIT COMMIT` now routes through `COMMIT-CURRENT`, which creates the
+commit, compare-and-swaps the current branch, verifies the ref, and accepts the
+worktree map. GITWT treats the message option as the remaining text and removes
+one matching outer quote pair. Source-derived Regina fixtures cover routing,
+quoted multiword `-m` and `--message`; the cumulative M251 suite passed. Host
+compile and CI run 39170457608 passed on commit `696b0c34`; CMS behavior remains
+unverified.
+
+## 2026-10-18 — M252 stage a new repository-root file
+
+Plan: add `GIT ADD --new path fn ft [fm]` for an existing CMS workfile not yet
+in the map, hash it, and stage it against the zero-OID base. Keep commit-tree
+insertion as the next step because the current tree rewrite only replaces or
+deletes existing entries.
+
+Assumption: this first addition accepts one ASCII path component at repository
+root, maps one existing CMS file ID, and defaults its CMS file mode to `A`.
+
+Progress: the worker validates path, file ID, and mode; rejects duplicate path
+or CMS mapping, unreadable/absent workfiles, and a full map; hashes before
+changing GITWORK; snapshots/restores the map around writes; then records the
+zero base and staged blob OID. Fourteen source-derived REXX fixtures and the
+cumulative M208–M252 checks pass. M239 and M242 regression fixtures were
+narrowed to their original mapped-file branch after the new branch changed
+their extraction boundary. CMS behavior remains unverified; root-tree insertion
+is still needed before a newly added file can be committed.
+
+M252 follow-up: native host Actions run 39171069428 passed on commit
+`7c56cf5e`.
+
+## 2026-10-18 — M253 commit staged root-level additions
+
+Plan: allow a staged zero-base path to become a new Git tree entry when its
+repository-root name is absent from the current tree. Verify the staged blob,
+preserve Git's byte ordering around files and directories, and retain the
+256-entry CMS tree bound.
+
+Assumption: additions remain limited to the repository root; nested directory
+creation requires a separate tree-creation design.
+
+Progress: COMMIT now recognizes an absent root entry only for a staged zero-
+base, nonzero-OID path, verifies the blob, and queues it for insertion after
+existing path rewrites. The insertion routine shifts existing entries and
+deletion markers, compares directory names with their Git trailing slash, and
+rejects an addition when the resulting tree would exceed 256 live entries.
+`readtree` now reports a structurally valid missing target separately so a new
+root path can load its root tree. Seven source-derived fixtures cover serialized
+ordering around a directory/file boundary, deletion marker movement, full-tree
+capacity rejection, capacity reuse after a staged deletion, accepted root
+additions, rejected nested and stale additions, and invalid blob rejection.
+The cumulative M253 suite passes; CMS behavior remains unverified.
+
+M253 native host Actions run 39178018389 passed on commit `26f0d78`.
+CMS behavior remains unverified.
+
+## 2026-10-18 — M254 commit nested new-file paths
+
+Plan: let `GIT ADD --new` stage safe nested relative paths, create missing
+directory trees during commit, and insert those trees in Git byte-sort order.
+
+Assumption: nested additions retain the existing 30-byte total path limit and
+16-component bound. Paths are relative, reject empty, `.` and `..` components,
+and do not create empty directories.
+
+Progress: new-file staging now validates nested path components. COMMIT reuses
+in-memory nodes for shared missing directories, stages new blobs into their
+parent trees, serializes new directory trees bottom-up, and inserts each
+directory with Git's trailing-slash ordering. Sorted insertions also advance
+the saved tree-entry indexes of existing subtrees so later rewrites update the
+correct parent entry. The 256 live-entry cap applies to each target tree. Four
+source-derived nested-tree fixtures cover shared directory creation, nested
+file ordering, insertion beside an existing directory, parent-index movement,
+and capacity rejection. CMS behavior remains unverified.
+
+The cumulative M254 source-derived suite passes locally. GitHub Actions native
+host workflow 39178678286 passed on commit `0fa81f9`; it runs host-side source
+checks and fixtures, not on CMS. CMS behavior remains unverified.
+
+## 2026-10-18 — M255 batch staging of new files
+
+Plan: extend `GIT ADD --new` to accept repeated path/file-ID groups in one
+command, while keeping one map save for the full batch.
+
+Assumption: cap a single batch at 16 files, matching the existing multi-path
+ADD limit; retain the 50-entry worktree-map limit and existing optional mode
+default of `A`.
+
+Progress: `GIT ADD --new path fn ft [fm]` now accepts repeated `--new` groups.
+It validates every path and file ID, rejects duplicate Git paths and CMS file
+IDs both against the current map and within the request, checks all workfiles,
+then hashes the batch before changing map entries. It appends every staged
+zero-base entry and saves the map once, restoring the prior map if the save
+fails. Eight source-derived Regina fixtures cover two-file staging, default and
+explicit file modes, in-batch duplicates, missing and failed hashes, capacity,
+save rollback, and the 16-file limit. The cumulative M255 suite passes locally;
+GitHub Actions native host workflow 39179583152 passed on commit `eba196b`;
+CMS behavior remains unverified.
+
+## 2026-10-19 — M256 selected update pathspecs
+
+Plan: extend `GIT ADD -u` and `GIT ADD --update` to stage only explicitly
+selected mapped worktree paths, while preserving the existing all-mapped form.
+
+Progress: update mode now accepts `-u [--] path...` and
+`--update [--] path...`, up to 16 mapped paths. It resolves the selected paths
+before reading/hashing their CMS files, stages missing selected files as
+deletions, and commits all selected map changes in one save. Unselected map
+entries are not examined or changed. Twelve source-derived Regina fixtures
+cover all-mapped compatibility, both flag forms, the `--` separator, selected
+modifications and deletions, missing unselected files, unknown paths, and
+invalid empty selections. The cumulative M256 suite passes locally. GitHub Actions native host workflow
+39258576844 passed on commit `92af4f4`; CMS behavior remains unverified.
+
+## 2026-10-19 — M257 wildcard ADD pathspecs
+
+Plan: expand `*` and `?` in ordinary and selected-update ADD requests against
+the already mapped Git paths, without discovering files or directories.
+
+Progress: `GIT ADD` and `GIT ADD -u|--update` now match wildcard pathspecs over
+the mapped paths. `*` matches any sequence of path bytes, including `/`, and
+`?` matches one byte. Exact path behavior is retained; duplicate matches
+collapse, unmatched patterns fail, and expansion cannot exceed 16 unique
+paths. Every pathspec is resolved before any selected file is hashed or the
+map is saved. Eight source-derived Regina fixtures cover star and question
+matching, nested paths, mixed and duplicate patterns, selected update mode,
+no-match errors, and the expansion cap. The cumulative M257 suite passes
+locally. GitHub Actions native host workflow 39259567243 passed on commit
+`cbaa839`; CMS behavior remains unverified.
+
+## 2026-10-19 — M258 selected GIT STATUS paths
+
+Plan: allow `GIT STATUS` to report only selected mapped worktree paths, using
+the exact and wildcard path matching introduced for ADD.
+
+Progress: STATUS accepts up to 16 exact or wildcard pathspecs after its options,
+with `--` available for paths beginning with a dash. It resolves all
+pathspecs against the worktree map before inspecting selected CMS files,
+collapses duplicate matches, and reports no-match errors. Branch headings
+remain available; verbose summary totals count only selected paths. Eight
+source-derived Regina fixtures cover all-mapped compatibility, exact and
+wildcard filters, duplicate collapse, the separator, unmatched paths, and
+skipping an inaccessible unselected file. The cumulative M258 suite passes
+locally. GitHub Actions native host workflow 39260919753 passed on commit
+`3567536`; CMS behavior remains unverified.
+
+## 2026-10-19 — M259 restore CMS workfiles from staged content
+
+Plan: implement `GIT RESTORE --worktree [--] path...` for mapped files, using
+the staged blob as the source and preserving the staged map entries.
+
+Progress: restore accepts up to 16 exact or wildcard mapped paths. It restores
+staged blobs, removes workfiles whose staged OID is zero, and supports staged
+blobs equal to the base by reading their path from the authenticated current
+HEAD closure. Changed staged blobs are read from the verified loose-object
+store. All target files and source content are preflighted before mutation;
+workfile snapshots support rollback after write, verification, or map-save
+failure. Final-newline metadata is saved once after successful writes. Ten
+source-derived Regina fixtures cover router forms, changed and deleted paths,
+wildcards, duplicate collapse, separators, argument bounds, no matches, and
+workfile rollback. The cumulative M259 suite passed locally. GitHub Actions
+native host workflow 39263008382 passed on commit `ff2cf16`; CMS behavior
+remains unverified.
+
+## 2026-10-19 — M260 restore workfiles from a source revision
+
+Plan: add `GIT RESTORE --source revision --worktree [--] path...` for mapped
+files, without changing their staged or base OIDs.
+
+Progress: the router accepts `--source revision` and `--source=revision` before
+`--worktree`. GITWT resolves the revision through REF2, authenticates each
+selected path through the complete source commit closure, validates all text
+blobs before writing, and verifies each restored CMS workfile against the
+source blob OID. Existing rollback and final-newline map handling are reused.
+Only mapped paths present as CMS-compatible text blobs in the source are
+restorable; the base and staged map OIDs remain unchanged. CMS behavior remains
+unverified.
+
+## 2026-10-19 — M261 switch branches with changed mapped file contents
+
+Plan: let branch switches update clean mapped workfiles when each mapped path
+exists in both commits but has a different blob OID. Preserve fail-closed
+behavior for dirty/staged worktrees and unsupported path-set changes.
+
+Progress: the existing same-content switch preflight remains intact. A second
+read-only preflight permits changed destination blobs only after verifying the
+current map/workfiles, both commit paths, and CMS text-record limits. After the
+REF2 HEAD update is verified, GITWT snapshots mapped files and the map, writes
+and verifies changed workfiles, then advances each base/stage OID to the target
+commit. Write, verification, or map-save failures restore the files and map;
+GITUPD restores REF2 if apply fails. Unmapped files are preserved. Mapped paths
+added or removed by the destination commit remain unsupported. Tests were not
+run; CMS behavior remains unverified.

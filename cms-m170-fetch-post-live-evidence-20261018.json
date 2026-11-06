@@ -1,0 +1,38 @@
+{
+  "date": "2026-10-18",
+  "milestone": "M170 dynamic upload-pack POST target gate",
+  "runner": "ZMD898D4",
+  "checker_target": "M170CHK EXEC A",
+  "checker_source": {
+    "logical_bytes": 1223,
+    "cms_sha256": "D0A9C3A289691CF31B91761A907219F6A217824ADE9BCAA7C374A941CA019E20",
+    "local_cp037_logical_record_sha256": "D0A9C3A289691CF31B91761A907219F6A217824ADE9BCAA7C374A941CA019E20",
+    "match": true,
+    "hash_request_id": "D44C10E829F3A169"
+  },
+  "command": {
+    "command": "EXEC M170CHK",
+    "request_id": "E0A87902636C7B4E",
+    "cms_rc": 0,
+    "record_count": 16,
+    "byte_count": 625,
+    "adler32": "738def22",
+    "frames_verified": 54,
+    "screens_observed": 108,
+    "output_complete": true,
+    "integrity_verified": true,
+    "main_oid": "7A9B72EA68D865BC611A04E15BD55E0A76564275",
+    "want_oid_matches_discovery": true,
+    "pack_version": 2,
+    "objects": 11816,
+    "pack_bytes": 4966358,
+    "progress_bytes": 7452,
+    "http_bytes": 4978614,
+    "final_marker": "M170 GENERALIZED UPLOAD PACK TARGET GATE PASS",
+    "result": "PASS"
+  },
+  "side_effects": {
+    "cms_file_changes": false,
+    "git_ref_changes": false
+  }
+}

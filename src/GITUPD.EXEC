@@ -1,14 +1,436 @@
 /* M166: safe modern REF2 compare-and-swap updater. */
 address cms
 parse arg ref newoid oldoid extra
+objectfm='A'
+'STATE GITMETA REPO A'
+if rc=0 then do
+ drop cfg.
+ 'EXECIO * DISKR GITMETA REPO A 1 (STEM CFG. FINIS'
+ if rc\=0 | cfg.0<4 | cfg.1\='CMS-GIT-REPOSITORY 1' then do
+  say 'GITUPD: invalid repository metadata'
+  exit 8
+ end
+ objectrecords=0
+ do ci=1 to cfg.0
+  if word(cfg.ci,1)='OBJECT-DISK' then do
+   if words(cfg.ci)\=2 then exit 8
+   objectrecords=objectrecords+1
+   objectfm=translate(word(cfg.ci,2))
+  end
+ end
+ if objectrecords>1 | length(objectfm)\=1 |,
+    verify(objectfm,'ABCDEFGHIJKLMNOPQRSTUVWXYZ')\=0 then do
+  say 'GITUPD: invalid OBJECT-DISK setting'
+  exit 8
+ end
+end
+else if rc\=28 then exit 8
+
+/* Rename one branch with an expected-OID check and optional HEAD move. */
+if ref='MOVE-REF' then do
+ if newoid='' | oldoid='' | extra='' then do
+  say 'Usage: GITUPD MOVE-REF old-ref new-ref expected-old-oid'
+  exit 4
+ end
+ oldref=newoid
+ newref=oldoid
+ expectedoid=translate(extra)
+ call validref oldref
+ if result\='OK' | left(oldref,11)\='refs/heads/' then exit 4
+ call validref newref
+ if result\='OK' | left(newref,11)\='refs/heads/' then exit 4
+ if length(expectedoid)\=40 |,
+    verify(expectedoid,'0123456789ABCDEF')\=0 then do
+  say 'GITUPD: invalid expected branch OID'
+  exit 4
+ end
+ call readrefs
+ if result\='OK' then exit 8
+ oldslot=0
+ oldcount=0
+ newcount=0
+ currentoid=''
+ do i=1 to refcount
+  if refname.i=oldref then do
+   oldcount=oldcount+1
+   oldslot=i
+   currentoid=refoid.i
+  end
+  if refname.i=newref then newcount=newcount+1
+ end
+ if oldcount\=1 | currentoid\=expectedoid then do
+  say 'GITUPD: stale or missing branch' oldref
+  exit 8
+ end
+ if newcount\=0 then do
+  say 'GITUPD: destination branch already exists' newref
+  exit 8
+ end
+ call requirecommit currentoid
+ if result\='OK' then exit 8
+ oldhead=headref
+ drop bak.
+ bak.0=rr.0
+ do bi=1 to rr.0
+  bak.bi=rr.bi
+ end
+ refname.oldslot=newref
+ if headref=oldref then headref=newref
+ call writerefs
+ if result\='OK' then do
+  call restore
+  exit 8
+ end
+ call readrefs
+ if result\='OK' then do
+  say 'GITUPD: branch rename verification failed'
+  call restore
+  exit 8
+ end
+ oldcount=0
+ newcount=0
+ renamedoid=''
+ do i=1 to refcount
+  if refname.i=oldref then oldcount=oldcount+1
+  if refname.i=newref then do
+   newcount=newcount+1
+   renamedoid=refoid.i
+  end
+ end
+ expectedhead=oldhead
+ if oldhead=oldref then expectedhead=newref
+ if oldcount\=0 | newcount\=1 |,
+    renamedoid\=expectedoid | headref\=expectedhead then do
+  say 'GITUPD: branch rename readback mismatch'
+  call restore
+  exit 8
+ end
+ say 'RENAMED' oldref newref expectedoid
+ exit 0
+end
+
+/* Atomically create a branch ref and point symbolic HEAD at it. */
+if ref='CREATE-HEAD' then do
+ if newoid='' | oldoid='' | extra='' then do
+  say 'Usage: GITUPD CREATE-HEAD refs/heads/name expected-head start-oid|HEAD'
+  exit 4
+ end
+ newhead=newoid
+ expectedhead=oldoid
+ startpoint=translate(extra)
+ call validref newhead
+ if result\='OK' | left(newhead,11)\='refs/heads/' then exit 4
+ call validref expectedhead
+ if result\='OK' | left(expectedhead,11)\='refs/heads/' then exit 4
+ call readrefs
+ if result\='OK' then exit 8
+ if headref\=expectedhead then do
+  say 'GITUPD: stale symbolic HEAD for branch creation'
+  exit 8
+ end
+ oldhead=headref
+ currentoid=''
+ existing=0
+ do i=1 to refcount
+  if refname.i=oldhead then currentoid=refoid.i
+  if refname.i=newhead then existing=existing+1
+ end
+ if currentoid='' then do
+  say 'GITUPD: current branch is unresolved'
+  exit 8
+ end
+ if existing\=0 then do
+  say 'GITUPD: branch already exists' newhead
+  exit 8
+ end
+ if startpoint='HEAD' then targetoid=currentoid
+ else do
+  if length(startpoint)\=40 |,
+     verify(startpoint,'0123456789ABCDEF')\=0 then do
+   say 'GITUPD: invalid branch start commit OID'
+   exit 4
+  end
+  targetoid=startpoint
+ end
+ call requirecommit targetoid
+ if result\='OK' then exit 8
+ switchfiles=0
+ if targetoid\=currentoid then do
+  call requirecommit currentoid
+  if result\='OK' then exit 8
+  call checkswitch oldhead,targetoid
+  if result='ERROR' then do
+   say 'GITUPD: destination worktree preflight failed'
+   exit 8
+  end
+  if result='CHANGED' then switchfiles=1
+ end
+ call readrefs
+ if result\='OK' | headref\=oldhead then do
+  say 'GITUPD: symbolic HEAD changed during branch creation'
+  exit 8
+ end
+ checkcurrent=''
+ existing=0
+ do i=1 to refcount
+  if refname.i=oldhead then checkcurrent=refoid.i
+  if refname.i=newhead then existing=existing+1
+ end
+ if checkcurrent\=currentoid | existing\=0 then do
+  say 'GITUPD: refs changed during branch creation'
+  exit 8
+ end
+ drop bak.
+ bak.0=rr.0
+ do bi=1 to rr.0
+  bak.bi=rr.bi
+ end
+ refcount=refcount+1
+ refname.refcount=newhead
+ refoid.refcount=targetoid
+ headref=newhead
+ call writerefs
+ if result\='OK' then do
+  call restore
+  exit 8
+ end
+ call readrefs
+ if result\='OK' then do
+  say 'GITUPD: branch creation verification failed'
+  call restore
+  exit 8
+ end
+ verifyhead=0
+ verifynew=0
+ verifycurrent=''
+ do i=1 to refcount
+  if refname.i=newhead & refoid.i=targetoid then verifynew=verifynew+1
+  if refname.i=oldhead then verifycurrent=refoid.i
+ end
+ if headref\=newhead | verifynew\=1 |,
+    verifycurrent\=currentoid then do
+  say 'GITUPD: branch creation readback mismatch'
+  call restore
+  exit 8
+ end
+ if switchfiles=1 then do
+  address command 'EXEC GITWT APPLY-SWITCH' oldhead newhead,
+      currentoid targetoid
+  if rc\=0 then do
+   say 'GITUPD: mapped worktree switch failed; restoring REF2'
+   call restore
+   exit 8
+  end
+ end
+ say 'HEAD CREATED' newhead targetoid
+ exit 0
+end
+
+/* HEAD changes require a verified, unchanged mapped worktree. */
+/* M273: compare-and-swap the current branch around a mapped fast-forward. */
+if ref='PULL-HEAD' then do
+ branch=newoid
+ oldoid=translate(oldoid)
+ newoid=translate(extra)
+ if branch='' | oldoid='' | newoid='' then do
+  say 'Usage: GITUPD PULL-HEAD branch old-commit new-commit'
+  exit 4
+ end
+ branchref='refs/heads/'||branch
+ call validref branchref
+ if result\='OK' | length(oldoid)\=40 | length(newoid)\=40 |,
+    verify(oldoid,'0123456789ABCDEF')\=0 |,
+    verify(newoid,'0123456789ABCDEF')\=0 then exit 4
+ call readrefs
+ if result\='OK' | headref\=branchref then do
+  say 'GITUPD: current branch changed before pull'
+  exit 8
+ end
+ slot=0
+ localold=''
+ do i=1 to refcount
+  if refname.i=branchref then do
+   slot=i
+   localold=refoid.i
+  end
+ end
+ if slot=0 | localold\=oldoid then do
+  say 'GITUPD: stale local branch tip' branchref
+  exit 8
+ end
+ call requirecommit oldoid
+ if result\='OK' then exit 8
+ call requirecommit newoid
+ if result\='OK' then exit 8
+ if oldoid=newoid then do
+  say 'Already up to date' oldoid
+  exit 0
+ end
+ drop ancestry.
+ ancestry.0=0
+ ancestrycmd='EXEC GITVREF IS-ANCESTOR'||' '||oldoid||' '||newoid
+ 'PIPE CMS' ancestrycmd '| STEM ANCESTRY.'
+ if rc\=0 | ancestry.0\=1 |,
+    strip(ancestry.1)\='ANCESTOR YES' oldoid newoid then do
+  say 'GITUPD: update is not a verified fast-forward'
+  exit 8
+ end
+ drop pullcheck.
+ pullcheck.0=0
+ pullcmd='EXEC GITWT CHECK-PULL'||' '||branch||' '||oldoid||' '||newoid
+ 'PIPE CMS' pullcmd '| STEM PULLCHECK.'
+ if rc\=0 then do
+  say 'GITUPD: clean-worktree or path preflight failed'
+  exit 8
+ end
+ call readrefs
+ if result\='OK' | headref\=branchref then do
+  say 'GITUPD: branch changed during pull preflight'
+  exit 8
+ end
+ slot=0
+ localold=''
+ do i=1 to refcount
+  if refname.i=branchref then do
+   slot=i
+   localold=refoid.i
+  end
+ end
+ if slot=0 | localold\=oldoid then do
+  say 'GITUPD: local branch changed during pull preflight'
+  exit 8
+ end
+ drop bak.
+ bak.0=rr.0
+ do bi=1 to rr.0
+  bak.bi=rr.bi
+ end
+ refoid.slot=newoid
+ call writerefs
+ if result\='OK' then do
+  call restore
+  exit 8
+ end
+ call readrefs
+ if result\='OK' | headref\=branchref then do
+  say 'GITUPD: pull ref readback failed; restoring REF2'
+  call restore
+  exit 8
+ end
+ readback=0
+ do i=1 to refcount
+  if refname.i=branchref & refoid.i=newoid then readback=readback+1
+ end
+ if readback\=1 then do
+  say 'GITUPD: pull ref verification failed; restoring REF2'
+  call restore
+  exit 8
+ end
+ address command 'EXEC GITWT APPLY-PULL' branch oldoid newoid
+ if rc\=0 then do
+  say 'GITUPD: worktree update failed; restoring branch ref'
+  call restore
+  exit 8
+ end
+ say 'FAST-FORWARD' branch oldoid newoid
+ exit 0
+end
+
+if ref='HEAD' then do
+ if newoid='' | oldoid='' | extra\='' then do
+  say 'Usage: GITUPD HEAD refs/heads/name expected-head-ref'
+  exit 4
+ end
+ newhead=newoid
+ expectedhead=oldoid
+ call validref newhead
+ if result\='OK' | left(newhead,11)\='refs/heads/' then exit 4
+ call validref expectedhead
+ if result\='OK' | left(expectedhead,11)\='refs/heads/' then exit 4
+ call readrefs
+ if result\='OK' then exit 8
+ if headref\=expectedhead then do
+  say 'GITUPD: stale symbolic HEAD'
+  say 'EXPECTED' expectedhead
+  say 'ACTUAL' headref
+  exit 8
+ end
+ oldhead=headref
+ oldoid=''
+ newoid=''
+ do i=1 to refcount
+  if refname.i=oldhead then oldoid=refoid.i
+  if refname.i=newhead then newoid=refoid.i
+ end
+ if oldoid='' | newoid='' then do
+  say 'GITUPD: switch branch is missing'
+  exit 8
+ end
+ call requirecommit newoid
+ if result\='OK' then exit 8
+ switchfiles=0
+ if oldoid\=newoid then do
+  call requirecommit oldoid
+  if result\='OK' then exit 8
+  call checkswitch oldhead,newhead
+  if result='ERROR' then do
+   say 'GITUPD: destination worktree preflight failed'
+   exit 8
+  end
+  if result='CHANGED' then switchfiles=1
+ end
+ call readrefs
+ if result\='OK' | headref\=oldhead then do
+  say 'GITUPD: symbolic HEAD changed during switch preflight'
+  exit 8
+ end
+ checkoldoid=''
+ checknewoid=''
+ do i=1 to refcount
+  if refname.i=oldhead then checkoldoid=refoid.i
+  if refname.i=newhead then checknewoid=refoid.i
+ end
+ if checkoldoid\=oldoid | checknewoid\=newoid then do
+  say 'GITUPD: branch tips changed during switch preflight'
+  exit 8
+ end
+ if newhead=oldhead then do
+  say 'Already on' substr(newhead,12)
+  exit 0
+ end
+ drop bak.
+ bak.0=rr.0
+ do bi=1 to rr.0
+  bak.bi=rr.bi
+ end
+ headref=newhead
+ call writerefs
+ if result\='OK' then do
+  call restore
+  exit 8
+ end
+ call readrefs
+ if result\='OK' | headref\=newhead then do
+  say 'GITUPD: HEAD switch verification failed'
+  call restore
+  exit 8
+ end
+ if switchfiles=1 then do
+  address command 'EXEC GITWT APPLY-SWITCH' oldhead newhead,
+      oldoid newoid
+  if rc\=0 then do
+   say 'GITUPD: mapped worktree switch failed; restoring REF2'
+   call restore
+   exit 8
+  end
+ end
+ say 'HEAD UPDATED' oldhead newhead
+ exit 0
+end
 
 zeros='0000000000000000000000000000000000000000'
 if ref='' | newoid='' | oldoid='' | extra\='' then do
- say 'Usage: GITUPD refs/heads/name new-oid expected-old-oid'
- exit 4
-end
-if left(ref,11)\='refs/heads/' then do
- say 'GITUPD: ref must name refs/heads/<branch>'
+ say 'Usage: GITUPD refs/heads|tags/name new-oid expected-old-oid'
  exit 4
 end
 call validref ref
@@ -31,9 +453,17 @@ if newoid=zeros & oldoid=zeros then do
  exit 4
 end
 
-if newoid\=zeros then do
+if newoid\=zeros & (left(ref,11)='refs/heads/' |,
+                     left(ref,13)='refs/remotes/') then do
  call requirecommit newoid
  if result\='OK' then exit 8
+end
+else if newoid\=zeros then do
+ address command 'EXEC GIT VERIFY-OBJECT' newoid
+ if rc\=0 then do
+  say 'GITUPD: tag target failed object verification' newoid
+  exit 8
+ end
 end
 
 call readrefs
@@ -131,16 +561,82 @@ else do
 end
 exit 0
 
+checkswitch:
+ parse arg csold,csnew
+ drop csout.
+ csout.0=0
+ cscmd='EXEC GITWT CHECK-SWITCH'||' '||csold||' '||csnew
+ 'PIPE CMS' cscmd '| STEM CSOUT.'
+ if rc=0 then return 'OK'
+ drop csout.
+ csout.0=0
+ cscmd='EXEC GITWT CHECK-SWITCH-UPDATE'||' '||csold||' '||csnew
+ 'PIPE CMS' cscmd '| STEM CSOUT.'
+ if rc=0 then return 'CHANGED'
+ return 'ERROR'
+
 validref:
  parse arg vr
- if left(vr,11)\='refs/heads/' then return 'ERROR'
- name=substr(vr,12)
+ if length(vr)>35 then return 'ERROR'
+ if left(vr,11)='refs/heads/' then do
+  name=substr(vr,12)
+  refchars='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+  refchars=refchars||'0123456789._/-'
+  if name='' | verify(name,refchars)\=0 |,
+     pos('//',name)>0 | pos('..',name)>0 |,
+     left(name,1)='/' | right(name,1)='/' then return 'ERROR'
+  do vi=1 to words(translate(name,' ','/'))
+   part=word(translate(name,' ','/'),vi)
+   if part='' | part='.' | part='..' | left(part,1)='.' |,
+      right(part,1)='.' | right(part,5)='.lock' then return 'ERROR'
+  end
+  return 'OK'
+ end
+ else if left(vr,13)='refs/remotes/' then do
+  name=substr(vr,14)
+  slash=pos('/',name)
+  if slash<2 then return 'ERROR'
+  remotename=left(name,slash-1)
+  branchname=substr(name,slash+1)
+  remotechars='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+  remotechars=remotechars||'0123456789._-'
+  if length(remotename)>16 | verify(remotename,remotechars)\=0 |,
+     remotename='.' | remotename='..' | pos('..',remotename)>0 |,
+     left(remotename,1)='.' | right(remotename,1)='.' then return 'ERROR'
+  refchars='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+  refchars=refchars||'0123456789._/-'
+  if branchname='' | verify(branchname,refchars)\=0 |,
+     pos('//',branchname)>0 | pos('..',branchname)>0 |,
+     left(branchname,1)='/' | right(branchname,1)='/' then return 'ERROR'
+  do vi=1 to words(translate(branchname,' ','/'))
+   part=word(translate(branchname,' ','/'),vi)
+   if part='' | part='.' | part='..' | left(part,1)='.' |,
+      right(part,1)='.' | right(part,5)='.lock' then return 'ERROR'
+  end
+  return 'OK'
+ end
+ else if left(vr,10)='refs/tags/' then name=substr(vr,11)
+ else return 'ERROR'
+ refchars='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+ refchars=refchars||'0123456789._/-'
  if name='' | name='.' | name='..' | pos(' ',name)>0 |,
+    verify(name,refchars)\=0 |,
     pos('..',name)>0 | pos('~',name)>0 | pos('^',name)>0 |,
     pos(':',name)>0 | pos('?',name)>0 | pos('*',name)>0 |,
-    pos('[',name)>0 | right(name,1)='.' then do
-  say 'GITUPD: invalid branch name' name
+    pos('[',name)>0 | pos('//',name)>0 |,
+    pos('@{',name)>0 | left(name,1)='/' | right(name,1)='/' |,
+    right(name,1)='.' | right(name,5)='.lock' then do
+  say 'GITUPD: invalid tag name' name
   return 'ERROR'
+ end
+ do vi=1 to words(translate(name,' ','/'))
+  part=word(translate(name,' ','/'),vi)
+  if part='' | part='.' | part='..' | left(part,1)='.' |,
+     right(part,1)='.' |,
+     right(part,5)='.lock' then do
+   say 'GITUPD: invalid ref path component' part
+   return 'ERROR'
+  end
  end
  return 'OK'
 
@@ -153,7 +649,7 @@ requirecommit:
  end
  fn=substr(oid,1,8)
  drop obj.
- 'EXECIO * DISKR' fn 'GITOBJ A 1 (STEM OBJ. FINIS'
+ 'EXECIO * DISKR' fn 'GITOBJ' objectfm '1 (STEM OBJ. FINIS'
  if rc\=0 then return 'ERROR'
  if obj.0<2 | word(obj.1,1)\='OID' | word(obj.1,2)\=oid |,
     word(obj.2,1)\='TYPE' then return 'ERROR'
@@ -184,6 +680,7 @@ readrefs:
   if tag='HEAD' then do
    if words(line)\=2 | headcount\=0 then return 'ERROR'
    headref=word(line,2)
+   if left(headref,11)\='refs/heads/' then return 'ERROR'
    call validref headref
    if result\='OK' then return 'ERROR'
    headcount=1
@@ -210,10 +707,12 @@ readrefs:
  end
  if headcount\=1 then return 'ERROR'
  foundhead=0
+ localheads=0
  do ri=1 to refcount
   if refname.ri=headref then foundhead=foundhead+1
+  if left(refname.ri,11)='refs/heads/' then localheads=localheads+1
  end
- if foundhead\=1 then do
+ if foundhead>1 | (foundhead=0 & localheads>0) then do
   say 'GITUPD: symbolic HEAD target is missing'
   return 'ERROR'
  end

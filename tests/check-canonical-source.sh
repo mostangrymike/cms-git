@@ -92,6 +92,3009 @@ echo 'LIVEPLAN SYNTHETIC POSITIVE AND NEGATIVE FIXTURES PASS'
 exit $?
 fi
 
+# M208 modern REF2 lightweight commit-tag source and REXX syntax gate.
+if [ "${1:-}" = "M208" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+for file in GIT.EXEC GITUPD.EXEC GITVREF.EXEC GITWT.EXEC; do
+ path="$root/src/$file"
+ test -s "$path"
+ awk 'length($0)>80 {print FILENAME ":" FNR ":" length($0);bad=1}
+      END {exit bad}' "$path"
+ rexx -c "$path" /dev/null
+done
+python3 - "$root" <<'PY'
+from pathlib import Path
+import sys
+root=Path(sys.argv[1])
+g=(root/'src/GIT.EXEC').read_text()
+u=(root/'src/GITUPD.EXEC').read_text()
+v=(root/'src/GITVREF.EXEC').read_text()
+w=(root/'src/GITWT.EXEC').read_text()
+required={
+ 'GIT.EXEC': (g, ("if command = 'TAG' then do", "EXEC GITVREF TAGS",
+     "verb='-L' | verb='--LIST'",
+     "say 'Usage: GIT TAG [-l|--list [pattern]]'",
+     "verb='-F' | verb='--FORCE'",
+     "say 'Usage: GIT TAG -f|--force name new-oid [expected-old-oid]'",
+     'if oldoid=zeros then do',
+     "EXEC GIT UPDATE-REF' ref newoid oldoid",
+     "verb='-D' | verb='--DELETE'",
+     "say '       GIT TAG -d|--delete name [expected-commit-oid]'",
+     "ref='refs/tags/'||action", "ref='refs/tags/'||tagname",
+     "EXEC GIT UPDATE-REF' ref oid zeros",
+     "EXEC GIT UPDATE-REF' ref zeros expectedoid")),
+ 'GITUPD.EXEC': (u, ("left(vr,11)='refs/heads/'",
+     "left(vr,10)='refs/tags/'", "EXEC GIT VERIFY-OBJECT' newoid",
+     'current\\=oldoid', 'call restore')),
+ 'GITVREF.EXEC': (v, ("command='TAGS' then do",
+     "left(refname.ti,10)='refs/tags/'", "left(wanted,10)\\='refs/tags/'",
+     "wanted='refs/tags/'||shortname",
+     'tagcandidate=substr(refname.ti,11)',
+     'taglist.tagcount=tagcandidate', 'say taglist.ti',
+     'call validref name')),
+ 'GITWT.EXEC': (w, ('call validref name',
+     "left(headref,11)\\='refs/heads/'", "left(wanted,11)\\='refs/heads/'")),
+}
+for name,(source,tokens) in required.items():
+ for token in tokens:
+  if token not in source:
+   raise SystemExit(f'{name}: missing tag/ref guard {token!r}')
+if (root/'src/GITP208M.C').exists() or (root/'src/GITC208.EXEC').exists():
+ raise SystemExit('M208 added a numbered CMS program')
+print('M208 REF2 lightweight commit-tag source checks PASS')
+PY
+echo 'M208 REXX syntax and 80-column checks PASS (CMS UNVERIFIED)'
+)
+exit $?
+fi
+
+# Exercise the exact source-derived REXX tag-list matcher on the host.
+if [ "${1:-}" = "M210" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M208
+python3 - "$root/src/GIT.EXEC" "$root/src/GITVREF.EXEC" <<'PY'
+from pathlib import Path
+import sys
+cli=Path(sys.argv[1]).read_text()
+refs=Path(sys.argv[2]).read_text()
+for token in ("address command 'EXEC GITVREF TAGS' tagname",):
+ if token not in cli:
+  raise SystemExit(f'GIT.EXEC missing list-pattern forwarding: {token}')
+for token in ("if spec='' then do",
+              "tagchars=tagchars||'0123456789._/-*?'",
+              'call tagmatch tagpattern, tagcandidate',
+              "if tagmatchresult='MATCH' then do",
+              'call tagbefore taglist.tj, tagitem',
+              'say taglist.ti'):
+ if token not in refs:
+  raise SystemExit(f'GITVREF.EXEC missing list-pattern behavior: {token}')
+print('M210 LIST-PATTERN INTEGRATION GUARDS PASS')
+PY
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GITVREF.EXEC" "$tmp/tagmatch.rexx" <<'PY'
+from pathlib import Path
+import sys
+source=Path(sys.argv[1]).read_text()
+start=source.index("\ntagmatch:\n")+1
+end=source.index("\nbindnative:\n",start)
+routine=source[start:end]
+Path(sys.argv[2]).write_text(
+    "parse arg pattern value\ncall tagmatch pattern, value\nsay result\nexit 0\n"+routine+"\n")
+PY
+rexx -c "$tmp/tagmatch.rexx" /dev/null
+check() {
+ expected=$1
+ pattern=$2
+ value=$3
+ actual=$(rexx "$tmp/tagmatch.rexx" "$pattern" "$value")
+ if [ "$actual" != "$expected" ]; then
+  echo "tag matcher $pattern / $value: expected $expected, got $actual" >&2
+  exit 1
+ fi
+}
+check MATCH 'v*' v2.0
+check MATCH 'v?.*' v2.0
+check MATCH 'v*0' v20
+check MATCH 'release/*' release/2026.10
+check MATCH '*' plain
+check NO 'v?.*' v12.0
+check NO 'v*rc' v2.0
+check NO 'release/*' release
+check MATCH '*' ''
+echo 'M210 SOURCE-DERIVED REXX TAG GLOB FIXTURES PASS 9'
+)
+exit $?
+fi
+
+# Run the exact REF2 name validators from each caller under Regina REXX.
+if [ "${1:-}" = "M213" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M210
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root" "$tmp" <<'PY'
+from pathlib import Path
+import sys
+root=Path(sys.argv[1]); out=Path(sys.argv[2])
+ends={'GITUPD.EXEC':'requirecommit',
+      'GITVREF.EXEC':'directinput',
+      'GITWT.EXEC':'resolve'}
+for filename,endlabel in ends.items():
+ source=(root/'src'/filename).read_text()
+ start=source.index('\nvalidref:\n')+1
+ end=source.index('\n'+endlabel+':\n',start)
+ (out/(filename+'.rexx')).write_text(
+  'parse arg name\ncall validref name\nsay result\nexit 0\n'+
+  source[start:end]+'\n')
+PY
+longname=refs/tags/abcdefghijklmnopqrstuvwxyz
+for file in GITUPD.EXEC GITVREF.EXEC GITWT.EXEC; do
+ rexx -c "$tmp/$file.rexx" /dev/null
+ for name in refs/tags/v1.2 refs/tags/release/2026.10 \
+             refs/tags/with-underscore_1 refs/heads/main \
+             refs/heads/feature/x refs/heads/topic-1 \
+             refs/heads/under_score; do
+  rexx "$tmp/$file.rexx" "$name" > "$tmp/result"
+  actual=$(tail -n 1 "$tmp/result")
+  if [ "$actual" != OK ]; then
+   echo "$file rejected valid ref $name: $actual" >&2
+   exit 1
+  fi
+ done
+ for name in refs/tags/.hidden refs/tags/a..b refs/tags/branch.lock \
+             'refs/tags/bad*' refs/tags/a//b refs/tags/a/ "$longname" \
+             'refs/heads/bad|name' 'refs/heads/bad#name' \
+             refs/heads/.hidden refs/heads/a//b refs/heads/a/ \
+             refs/heads/main.lock 'refs/heads/bad name' \
+             refs/heads/a..b; do
+  rexx "$tmp/$file.rexx" "$name" > "$tmp/result"
+  actual=$(tail -n 1 "$tmp/result")
+  if [ "$actual" != ERROR ]; then
+   echo "$file accepted invalid ref $name: $actual" >&2
+   exit 1
+  fi
+ done
+done
+echo 'M213 SOURCE-DERIVED REF2 VALIDATOR FIXTURES PASS 66'
+)
+exit $?
+fi
+
+# Keep branch-name validation identical across REF2 readers and writers.
+if [ "${1:-}" = "M223" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M222
+python3 - "$root" <<'PY'
+from pathlib import Path
+import sys
+
+root=Path(sys.argv[1])
+blocks=[]
+for filename in ('GITUPD.EXEC','GITVREF.EXEC','GITWT.EXEC'):
+ source=(root/'src'/filename).read_text()
+ start=source.index("if left(vr,11)='refs/heads/' then do")
+ end=source.index("  return 'OK'\n end",start)+len("  return 'OK'\n end")
+ block=source[start:end]
+ for token in ("verify(name,refchars)\\=0", "pos('//',name)>0",
+               "right(part,5)='.lock'", "left(part,1)='.'"):
+  if token not in block:
+   raise SystemExit(f'{filename}: missing strict branch-ref rule {token!r}')
+ blocks.append(block)
+if len(set(blocks)) != 1:
+ raise SystemExit('branch-name validators differ across REF2 callers')
+print('M223 STRICT BRANCH REF VALIDATOR PARITY PASS 3')
+PY
+)
+exit $?
+fi
+
+# Validate branch operands before GIT.EXEC interpolates them into CMS commands.
+if [ "${1:-}" = "M224" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M223
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GIT.EXEC" "$tmp/validbranch.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+start=source.index('validbranch: procedure')
+end=source.index('resolvestart: procedure',start)
+routine=source[start:end]
+Path(sys.argv[2]).write_text(
+ 'parse arg name\ncall validbranch name\nsay result\nexit 0\n'+routine+'\n')
+cli=source
+guards=(
+ ('call validbranch brancharg3', "oldref='refs/heads/'||brancharg2"),
+ ('call validbranch brancharg2', "branchref='refs/heads/'||brancharg2"),
+ ('call validbranch brancharg1', "branchref='refs/heads/'||brancharg1"),
+ ('call validbranch brancharg', "cmd='EXEC GITUPD CREATE-HEAD"),
+ ('call validbranch branchname', "cmd='EXEC GITUPD HEAD refs/heads/'||branchname"),
+)
+for guard, command in guards:
+ if cli.index(guard) >= cli.index(command):
+  raise SystemExit(f'branch command lacks early operand guard: {guard}')
+print('M224 EARLY BRANCH OPERAND GUARDS PASS 5')
+PY
+rexx -c "$tmp/validbranch.rexx" /dev/null
+check() {
+ expected=$1
+ name=$2
+ actual=$(rexx "$tmp/validbranch.rexx" "$name")
+ if [ "$actual" != "$expected" ]; then
+  echo "branch validator $name: expected $expected, got $actual" >&2
+  exit 1
+ fi
+}
+for name in main feature/x topic-1 under_score RC/ARM-64 a.b a; do
+ check OK "$name"
+done
+for name in '' 'bad|name' 'bad#name' 'bad name' .hidden a/.hidden a//b \
+            a/ main.lock a..b /main main/ trailing. \
+            1234567890123456789012345; do
+ check ERROR "$name"
+done
+echo 'M224 SOURCE-DERIVED BRANCH OPERAND FIXTURES PASS 21'
+)
+exit $?
+fi
+
+# Validate lightweight-tag operands before GIT.EXEC forwards CMS commands.
+if [ "${1:-}" = "M225" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M224
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GIT.EXEC" "$tmp/validtag.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+start=source.index('validtag: procedure')
+end=source.index('validbranch: procedure',start)
+routine=source[start:end]
+Path(sys.argv[2]).write_text(
+ 'parse arg input\nmode=left(input,1)\nname=substr(input,3)\n' +
+ "if mode='P' then mode='PATTERN'\n" +
+ 'call validtag name, mode\nsay result\nexit 0\n'+
+ routine+'\n')
+tag=source[source.index("if command = 'TAG' then do"):]
+checks=(
+ ("if verb='-L'", "call validtag tagname, 'PATTERN'",
+  "address command 'EXEC GITVREF TAGS' tagname"),
+ ("if verb='-F'", 'call validtag tagname', "ref='refs/tags/'||tagname"),
+ ("if verb='-D'", 'call validtag tagname', "ref='refs/tags/'||tagname"),
+ ("if action=''", 'call validtag action', "ref='refs/tags/'||action"),
+)
+for marker, guard, command in checks:
+ section=tag[tag.index(marker):]
+ if section.index(guard) >= section.index(command):
+  raise SystemExit(f'tag command lacks early operand guard: {marker}')
+print('M225 EARLY TAG OPERAND GUARDS PASS 4')
+PY
+rexx -c "$tmp/validtag.rexx" /dev/null
+check() {
+ expected=$1
+ name=$2
+ mode=${3:-NAME}
+ prefix=N
+ if [ "$mode" = PATTERN ]; then prefix=P; fi
+ actual=$(rexx "$tmp/validtag.rexx" "$prefix:$name")
+ if [ "$actual" != "$expected" ]; then
+  echo "tag validator $name ($mode): expected $expected, got $actual" >&2
+  exit 1
+ fi
+}
+for name in v1.2 release/2026.10 with-underscore_1 topic-2 a; do
+ check OK "$name"
+done
+for name in 'v*' 'v?.*' 'release/*'; do
+ check OK "$name" PATTERN
+done
+for name in 'bad|name' 'bad#name' 'bad name' .hidden a/.hidden \
+            a//b a/ . .. a..b main.lock trailing. /tag \
+            12345678901234567890123456; do
+ check ERROR "$name"
+done
+check ERROR 'bad*' NAME
+check ERROR 'bad?' NAME
+check ERROR 'bad|*' PATTERN
+echo 'M225 SOURCE-DERIVED TAG OPERAND FIXTURES PASS 25'
+)
+exit $?
+fi
+
+# Resolve lightweight-tag start points with verified REF2 output.
+if [ "${1:-}" = "M226" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M225
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GIT.EXEC" "$tmp/resolvetagtarget.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+tag_start=source.index('resolvetagtarget: procedure')
+start_end=source.index('resolvestart: procedure',tag_start)
+res_start=source.index('resolvestart: procedure',start_end)
+query_start=source.index('queryref: procedure',res_start)
+query_end=source.index('\n',source.index('return \'OK\'',query_start))
+helpers=source[tag_start:query_start]
+helpers=helpers.replace(
+ 'resolvetagtarget: procedure expose rs.',
+ 'resolvetagtarget: procedure expose rs. mode')
+program=(
+ 'parse arg mode wanted\ncall resolvetagtarget wanted\nsay result\nexit 0\n'+
+ helpers+
+ "queryref: procedure expose rs. mode\n"
+ " parse arg qspec\n drop rs.\n"
+ " if mode='missing' then do\n  rs.0=0\n  return 'ERROR'\n end\n"
+ " rs.0=1\n"
+ " if mode='badframe' then rs.1='BROKEN REF ' qspec\n"
+ " else if mode='wrongref' then rs.1='VERIFIED REF other AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ " else if mode='badoid' then rs.1='VERIFIED REF ' qspec ' SHORT'\n"
+ " else rs.1='VERIFIED REF ' qspec ' AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ " return 'OK'\n")
+Path(sys.argv[2]).write_text(program)
+tag=source[source.index("if command = 'TAG' then do"):]
+create=tag[tag.index("if action='' "):]
+for token in ("if tagstart='' then tagstart='HEAD'",
+              'call resolvetagtarget tagstart',
+              "if result\\='OK' | objtype\\='COMMIT' then do",
+              "address command 'EXEC GIT UPDATE-REF' ref oid zeros"):
+ if token not in create:
+  raise SystemExit(f'M226 tag creation missing {token!r}')
+if create.index('call resolvetagtarget tagstart') > create.index("address command 'EXEC GIT VERIFY-OBJECT' oid"):
+ raise SystemExit('M226 verifies target before resolving start point')
+print('M226 TAG START-POINT DISPATCH GUARDS PASS 5')
+PY
+rexx -c "$tmp/resolvetagtarget.rexx" /dev/null
+check() {
+ expected=$1
+ mode=$2
+ wanted=$3
+ actual=$(rexx "$tmp/resolvetagtarget.rexx" "$mode" "$wanted")
+ if [ "$actual" != "$expected" ]; then
+  echo "tag start resolver $mode / $wanted: expected $expected, got $actual" >&2
+  exit 1
+ fi
+}
+oid=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+check "$oid" good HEAD
+check "$oid" good main
+check "$oid" good refs/tags/v1
+check "$oid" good "$oid"
+for mode in missing badframe wrongref badoid; do
+ check ERROR "$mode" HEAD
+done
+check ERROR good 'bad|name'
+echo 'M226 SOURCE-DERIVED TAG START-POINT FIXTURES PASS 9'
+)
+exit $?
+fi
+
+# Sort modern branch listing with the shared REF2 name ordering.
+if [ "${1:-}" = "M227" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M226
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GITVREF.EXEC" "$tmp/branches.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+start=source.index("if command='BRANCHES' then do")
+end=source.index("if command='TAGS' then do",start)
+branch_block=source[start:end]
+sort_start=source.index('tagbefore:\n')
+sort_end=source.index('bindnative:\n',sort_start)
+sorter=source[sort_start:sort_end]
+fixture=(
+ "parse arg\ncommand='BRANCHES'\nspec=''\ndepth=''\nextra=''\n"
+ "headref='refs/heads/main'\nrefcount=5\n"
+ "refname.1='refs/heads/z'\nrefname.2='refs/heads/2'\n"
+ "refname.3='refs/heads/main'\nrefname.4='refs/heads/feature/x'\n"
+ "refname.5='refs/heads/10'\n"
+ +branch_block+
+ "exit 99\nreadrefs:\n return 'OK'\n"+sorter)
+Path(sys.argv[2]).write_text(fixture)
+if branch_block.index('call tagbefore') > branch_block.index('do bi=1 to branchcount'):
+ raise SystemExit('M227 emits branches before sorting')
+print('M227 BRANCH LIST SORT SOURCE GUARD PASS')
+PY
+rexx -c "$tmp/branches.rexx" /dev/null
+rexx "$tmp/branches.rexx" > "$tmp/actual"
+printf '  10\n  2\n  feature/x\n* main\n  z\n' > "$tmp/expected"
+if ! cmp -s "$tmp/expected" "$tmp/actual"; then
+ diff -u "$tmp/expected" "$tmp/actual" >&2
+ exit 1
+fi
+echo 'M227 SOURCE-DERIVED BRANCH ORDER FIXTURE PASS 1'
+)
+exit $?
+fi
+
+# Return the verified symbolic HEAD as a short modern branch name.
+if [ "${1:-}" = "M228" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M227
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GIT.EXEC" "$tmp/branchname.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+route=source[source.index("if command = 'BRANCH' then do"):
+             source.index("/* M218: change symbolic HEAD")]
+start=source.index('branchnamefromhead: procedure')
+end=source.index('validtag: procedure',start)
+branch_helper=source[start:end]
+start=source.index('validbranch: procedure')
+end=source.index('resolvetagtarget: procedure',start)
+valid_helper=source[start:end]
+fixture=(
+ 'parse arg candidate\ncall branchnamefromhead candidate\n'
+ 'say result\nexit 0\n'+branch_helper+valid_helper)
+Path(sys.argv[2]).write_text(fixture)
+start=route.index("if verb='--SHOW-CURRENT' then do")
+end=route.index("if brancharg1='-m'",start)
+show=route[start:end]
+if show.index("Usage: GIT BRANCH --show-current") > show.index('PIPE CMS EXEC GITVREF HEAD'):
+ raise SystemExit('M228 queries HEAD before checking command arguments')
+for token in ('showhead.0\\=1', 'call branchnamefromhead showhead.1',
+              'say result', 'exit 0'):
+ if token not in show:
+  raise SystemExit(f'M228 route missing {token!r}')
+print('M228 BRANCH --SHOW-CURRENT ROUTE GUARDS PASS 4')
+PY
+rexx -c "$tmp/branchname.rexx" /dev/null
+check() {
+ expected=$1
+ candidate=$2
+ actual=$(rexx "$tmp/branchname.rexx" "$candidate")
+ if [ "$actual" != "$expected" ]; then
+  echo "branch HEAD parser $candidate: expected $expected, got $actual" >&2
+  exit 1
+ fi
+}
+check main refs/heads/main
+check feature/x ' refs/heads/feature/x '
+for candidate in HEAD refs/tags/v1 refs/heads/ refs/heads/bad\|name \
+                 refs/heads/.hidden refs/heads/a//b; do
+ check ERROR "$candidate"
+done
+echo 'M228 SOURCE-DERIVED CURRENT BRANCH FIXTURES PASS 8'
+)
+exit $?
+fi
+
+# Filter sorted modern branch listing using the shared wildcard matcher.
+if [ "${1:-}" = "M229" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M228
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GIT.EXEC" "$root/src/GITVREF.EXEC" \
+ "$tmp/validbranch.rexx" "$tmp/branches.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+git=Path(sys.argv[1]).read_text()
+refs=Path(sys.argv[2]).read_text()
+branch_start=refs.index("if command='BRANCHES' then do")
+branch_end=refs.index("if command='TAGS' then do",branch_start)
+branch_block=refs[branch_start:branch_end]
+match_start=refs.index('tagmatch:\n')
+match_end=refs.index('bindnative:\n',match_start)
+matcher=refs[match_start:match_end]
+start=git.index('validbranch: procedure')
+end=git.index('resolvetagtarget: procedure',start)
+Path(sys.argv[3]).write_text(
+ 'parse arg name mode\ncall validbranch name, mode\nsay result\nexit 0\n'+
+ git[start:end])
+branch_route=git[git.index("if command = 'BRANCH' then do"):
+                 git.index("/* M218: change symbolic HEAD")]
+list_start=branch_route.index("if verb='-L' | verb='--LIST'")
+list_end=branch_route.index("if verb='--SHOW-CURRENT'",list_start)
+listing=branch_route[list_start:list_end]
+if listing.index("call validbranch brancharg2, 'PATTERN'") > listing.index(
+        "address command 'EXEC GITVREF BRANCHES' brancharg2"):
+ raise SystemExit('M229 forwards branch pattern before validation')
+for token in ("branchchars=branchchars||'0123456789._/-*?'",
+              'call tagmatch branchpattern, branchcandidate',
+              r"if result\='MATCH' then iterate"):
+ if token not in refs:
+  raise SystemExit(f'M229 GITVREF pattern handling missing {token!r}')
+fixture=(
+ "parse arg pattern\ncommand='BRANCHES'\nspec=pattern\ndepth=''\nextra=''\n"
+ "headref='refs/heads/feature/x'\nrefcount=6\n"
+ "refname.1='refs/heads/z'\nrefname.2='refs/heads/2'\n"
+ "refname.3='refs/heads/main'\nrefname.4='refs/heads/feature/x'\n"
+ "refname.5='refs/heads/feature/a'\nrefname.6='refs/heads/topic/1'\n"
+ +branch_block+
+ "exit 99\nreadrefs:\n return 'OK'\n"+matcher)
+Path(sys.argv[4]).write_text(fixture)
+print('M229 BRANCH PATTERN DISPATCH GUARDS PASS 5')
+PY
+rexx -c "$tmp/validbranch.rexx" /dev/null
+rexx -c "$tmp/branches.rexx" /dev/null
+for name in main 'feature/*' 'topic/?' '*'; do
+ rexx "$tmp/validbranch.rexx" "$name" PATTERN | grep -qx OK
+done
+for name in 'bad|name' 'bad#name' a//b a/ .hidden a..b main.lock \
+            1234567890123456789012345; do
+ if rexx "$tmp/validbranch.rexx" "$name" PATTERN | grep -qx OK; then
+  echo "unsafe branch pattern accepted: $name" >&2
+  exit 1
+ fi
+done
+printf '  feature/a\n* feature/x\n' > "$tmp/expected"
+rexx "$tmp/branches.rexx" 'feature/*' > "$tmp/actual"
+cmp "$tmp/expected" "$tmp/actual"
+printf '  topic/1\n' > "$tmp/expected"
+rexx "$tmp/branches.rexx" 'topic/?' > "$tmp/actual"
+cmp "$tmp/expected" "$tmp/actual"
+if rexx "$tmp/branches.rexx" 'bad|name' > "$tmp/invalid"; then
+ echo 'unsafe direct GITVREF branch pattern unexpectedly succeeded' >&2
+ exit 1
+else
+ rc=$?
+ [ "$rc" -eq 4 ]
+fi
+echo 'M229 SOURCE-DERIVED BRANCH PATTERN FIXTURES PASS 15'
+)
+exit $?
+fi
+
+# Create a branch at HEAD or a resolved branch/tag start point.
+if [ "${1:-}" = "M230" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M229
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GIT.EXEC" "$tmp/createbranch.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+route=source[source.index("if command = 'BRANCH' then do"):
+             source.index("/* M218: change symbolic HEAD")]
+start=route.index("if brancharg1='' | brancharg3\\='' |")
+block=route[start:]
+command="address command 'EXEC GIT UPDATE-REF' branchref branchoid zeros"
+if command not in block:
+ raise SystemExit('M230 branch create did not preserve the CAS updater')
+block=block.replace(command,
+ "rc=0\nsay 'SIMULATED UPDATE-REF' branchref branchoid zeros")
+vstart=source.index('validbranch: procedure')
+vend=source.index('resolvetagtarget: procedure',vstart)
+validator=source[vstart:vend]
+fixture=(
+ "parse arg brancharg1 brancharg2 brancharg3 brancharg4 brancharg5\n"
+ "command='BRANCH'\nif command='BRANCH' then do\n"
+ "zeros='0000000000000000000000000000000000000000'\n"+
+ block+
+ "exit 99\n"
+ "resolvetagtarget: procedure\n parse arg wanted\n"
+ " if wanted='HEAD' then return 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ " if wanted='main' then return 'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
+ " return 'ERROR'\n"+validator)
+Path(sys.argv[2]).write_text(fixture)
+if block.index("if branchstart='' then branchstart='HEAD'") > block.index(
+        'call resolvetagtarget branchstart'):
+ raise SystemExit('M230 resolves branch source before applying HEAD default')
+if block.index('call validbranch brancharg1') > block.index(
+        "branchref='refs/heads/'||brancharg1"):
+ raise SystemExit('M230 builds branch ref before validating its name')
+print('M230 BRANCH CREATE SOURCE GUARDS PASS 3')
+PY
+rexx -c "$tmp/createbranch.rexx" /dev/null
+head=$(rexx "$tmp/createbranch.rexx" new)
+echo "$head" | grep -q 'SIMULATED UPDATE-REF refs/heads/new AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+echo "$head" | grep -q 'BRANCH CREATED new AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+start=$(rexx "$tmp/createbranch.rexx" new main)
+echo "$start" | grep -q 'SIMULATED UPDATE-REF refs/heads/new BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'
+for args in "bad|name" 'new missing' 'new main extra'; do
+ if rexx "$tmp/createbranch.rexx" $args > "$tmp/rejected"; then
+  echo "invalid branch create unexpectedly succeeded: $args" >&2
+  exit 1
+ else
+  rc=$?
+  [ "$rc" -eq 4 ]
+ fi
+ if grep -q 'SIMULATED UPDATE-REF' "$tmp/rejected"; then
+  echo "invalid branch create reached updater: $args" >&2
+  exit 1
+ fi
+done
+echo 'M230 SOURCE-DERIVED BRANCH CREATE FIXTURES PASS 5'
+)
+exit $?
+fi
+
+# Alias safe checkout operations to the guarded modern switch implementation.
+if [ "${1:-}" = "M231" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M230
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GIT.EXEC" "$tmp/checkout.rexx" \
+ "$tmp/legacy.rexx" "$tmp/badrc.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+start=source.index("if command='CHECKOUT' then do")
+end=source.index("if command = 'VERSION' then do",start)
+block=source[start:end]
+for token in ("if checkoutarg='-B' then do",
+              "'STATE GITREF2 REPO A'", 'if checkoutrc=28 then do',
+              "if checkoutarg='-b' | checkoutarg='--branch' then",
+              "rest='-c'||substr(rest,length(checkoutarg)+1)",
+              "command='SWITCH'"):
+ if token not in block:
+  raise SystemExit(f'M231 checkout alias missing {token!r}')
+prefix='parse arg command rest\ncommand=translate(command)\n'
+suffix='say command\nsay strip(rest)\n'
+state="'STATE GITREF2 REPO A'"
+if state not in block:
+ raise SystemExit('M231 state probe missing')
+for path, result in zip(sys.argv[2:], ('rc=0','rc=28','rc=8')):
+ Path(path).write_text(prefix+block.replace(state,result)+suffix)
+print('M231 CHECKOUT ALIAS SOURCE GUARDS PASS 6')
+PY
+rexx -c "$tmp/checkout.rexx" /dev/null
+rexx -c "$tmp/legacy.rexx" /dev/null
+rexx -c "$tmp/badrc.rexx" /dev/null
+check() {
+ script=$1
+ expected=$2
+ shift
+ shift
+ actual=$(rexx "$script" "$@")
+ if [ "$actual" != "$expected" ]; then
+  echo "checkout alias $*: expected $expected, got $actual" >&2
+  exit 1
+ fi
+}
+check "$tmp/checkout.rexx" "$(printf 'SWITCH\n-c topic main')" CHECKOUT -b topic main
+check "$tmp/checkout.rexx" "$(printf 'SWITCH\n-c topic main')" CHECKOUT --branch topic main
+check "$tmp/checkout.rexx" "$(printf 'SWITCH\ntopic')" CHECKOUT topic
+check "$tmp/legacy.rexx" "$(printf 'CHECKOUT\ntopic')" CHECKOUT topic
+if rexx "$tmp/legacy.rexx" CHECKOUT -b topic > "$tmp/legacy-create"; then
+ echo 'checkout -b unexpectedly used legacy refs' >&2
+ exit 1
+else
+ rc=$?
+ [ "$rc" -eq 8 ]
+fi
+grep -q 'requires modern REF2' "$tmp/legacy-create"
+if rexx "$tmp/badrc.rexx" CHECKOUT topic > "$tmp/badrc"; then
+ echo 'checkout ignored REF2 probe error' >&2
+ exit 1
+else
+ rc=$?
+ [ "$rc" -eq 8 ]
+fi
+grep -q 'cannot inspect REF2 RC 8' "$tmp/badrc"
+if rexx "$tmp/checkout.rexx" CHECKOUT -B topic > "$tmp/force"; then
+ echo 'unsafe force checkout unexpectedly succeeded' >&2
+ exit 1
+else
+ rc=$?
+ [ "$rc" -eq 4 ]
+fi
+grep -q 'GIT CHECKOUT -B is not supported' "$tmp/force"
+echo 'M231 SOURCE-DERIVED CHECKOUT FIXTURES PASS 7'
+)
+exit $?
+fi
+
+# Preserve legacy GITHEAD checkout when modern REF2 is absent.
+if [ "${1:-}" = "M232" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M231
+python3 - "$root/src/GIT.EXEC" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+start=source.index("if command='CHECKOUT' then do")
+end=source.index('if command = \'VERSION\' then do',start)
+block=source[start:end]
+for token in ("'STATE GITREF2 REPO A'", 'checkoutrc=rc',
+              'if checkoutrc=28 then do',
+              "if checkoutarg='-b' | checkoutarg='--branch' then do",
+              "say 'GIT CHECKOUT -b requires modern REF2'",
+              "else if checkoutrc=0 then do", "command='SWITCH'"):
+ if token not in block:
+  raise SystemExit(f'M232 checkout fallback missing {token!r}')
+legacy=block[block.index('if checkoutrc=28 then do'):
+             block.index('else if checkoutrc=0 then do')]
+if "command='SWITCH'" in legacy:
+ raise SystemExit('M232 routes legacy checkout to modern REF2 updater')
+if block.index("'STATE GITREF2 REPO A'") > block.index("command='SWITCH'"):
+ raise SystemExit('M232 selects checkout implementation before checking REF2')
+print('M232 LEGACY CHECKOUT FALLBACK GUARDS PASS 8')
+PY
+echo 'M232 SOURCE-DERIVED LEGACY CHECKOUT FALLBACK PASS 1'
+)
+exit $?
+fi
+
+# Resolve a tag's current OID before compare-and-swap deletion.
+if [ "${1:-}" = "M233" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M232
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GIT.EXEC" "$tmp/deletetag.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+tag=source[source.index("if command = 'TAG' then do"):
+           source.index('/* Prefer modern REF2 branches')]
+start=tag.index("if verb='-D' | verb='--DELETE' then do")
+end=tag.index("if action=''",start)
+block=tag[start:end]
+command="address command 'EXEC GIT UPDATE-REF' ref zeros expectedoid"
+if command not in block:
+ raise SystemExit('M233 tag deletion lost its CAS update')
+if block.index('call resolvestart ref') > block.index(command):
+ raise SystemExit('M233 submits deletion before resolving current tag OID')
+block=block.replace(command,
+ "rc=0\nsay 'SIMULATED UPDATE-REF' ref zeros expectedoid")
+vstart=source.index('validtag: procedure')
+vend=source.index('validbranch: procedure',vstart)
+validator=source[vstart:vend]
+fixture=(
+ 'parse arg action tagname oid extra fifth\n'
+ 'verb=translate(action)\n'
+ "zeros='0000000000000000000000000000000000000000'\n"+
+ block+
+ "resolvestart: procedure\n parse arg wanted\n"
+ " if wanted='refs/tags/v1' then return 'CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC'\n"
+ " return 'ERROR'\n"+validator)
+Path(sys.argv[2]).write_text(fixture)
+for token in ("call resolvestart ref", 'expectedoid=result',
+              "SIMULATED UPDATE-REF' ref zeros expectedoid"):
+ if token not in block:
+  raise SystemExit(f'M233 delete path missing {token!r}')
+print('M233 TAG DELETE CAS SOURCE GUARDS PASS 4')
+PY
+rexx -c "$tmp/deletetag.rexx" /dev/null
+check() {
+ expected_rc=$1
+ expected=$2
+ shift 2
+ if output=$(rexx "$tmp/deletetag.rexx" "$@"); then
+  rc=0
+ else
+  rc=$?
+ fi
+ if [ "$rc" -ne "$expected_rc" ]; then
+  echo "tag delete $*: expected RC $expected_rc, got $rc" >&2
+  exit 1
+ fi
+ if [ "$output" != "$expected" ]; then
+  echo "tag delete $*: expected '$expected', got '$output'" >&2
+  exit 1
+ fi
+}
+oid=CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+check 0 "$(printf 'SIMULATED UPDATE-REF refs/tags/v1 0000000000000000000000000000000000000000 %s\nTAG DELETED refs/tags/v1 %s' "$oid" "$oid")" -d v1
+check 0 "$(printf 'SIMULATED UPDATE-REF refs/tags/v1 0000000000000000000000000000000000000000 %s\nTAG DELETED refs/tags/v1 %s' "$oid" "$oid")" --delete v1 "$oid"
+check 8 'GIT: cannot resolve tag refs/tags/missing' -d missing
+check 4 'GIT: invalid tag name' -d 'bad|name'
+check 4 'GIT: invalid expected tag object-id' -d v1 nope
+check 4 'Usage: GIT TAG -d|--delete name [expected-commit-oid]' -d v1 "$oid" extra
+echo 'M233 SOURCE-DERIVED TAG DELETE FIXTURES PASS 6'
+)
+exit $?
+fi
+
+# Resolve a branch's current OID before compare-and-swap deletion.
+if [ "${1:-}" = "M234" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M233
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GIT.EXEC" "$tmp/deletebranch.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+route=source[source.index("if command = 'BRANCH' then do"):
+             source.index("/* M218: change symbolic HEAD")]
+start=route.index("if verb='-D' | verb='--DELETE' then do")
+end=route.index("if brancharg1='' | brancharg3",start)
+block=route[start:end]
+command="address command 'EXEC GIT UPDATE-REF' branchref zeros branchoid"
+if command not in block:
+ raise SystemExit('M234 branch deletion lost its CAS update')
+if block.index('call resolvestart branchref') > block.index(command):
+ raise SystemExit('M234 submits deletion before resolving current branch OID')
+block=block.replace(command,
+ "rc=0\nsay 'SIMULATED UPDATE-REF' branchref zeros branchoid")
+vstart=source.index('validbranch: procedure')
+vend=source.index('resolvetagtarget: procedure',vstart)
+validator=source[vstart:vend]
+fixture=(
+ "parse arg brancharg1 brancharg2 brancharg3 brancharg4 brancharg5\n"
+ "verb=translate(brancharg1)\n"
+ "zeros='0000000000000000000000000000000000000000'\n"+
+ block+
+ "resolvestart: procedure\n parse arg wanted\n"
+ " if wanted='refs/heads/main' then return 'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
+ " return 'ERROR'\n"+validator)
+Path(sys.argv[2]).write_text(fixture)
+for token in ('call resolvestart branchref', 'branchoid=result',
+              "verify(branchoid,'0123456789ABCDEF')",
+              "SIMULATED UPDATE-REF' branchref zeros branchoid"):
+ if token not in block:
+  raise SystemExit(f'M234 delete path missing {token!r}')
+print('M234 BRANCH DELETE CAS SOURCE GUARDS PASS 4')
+PY
+rexx -c "$tmp/deletebranch.rexx" /dev/null
+check() {
+ expected_rc=$1
+ expected=$2
+ shift 2
+ if output=$(rexx "$tmp/deletebranch.rexx" "$@"); then
+  rc=0
+ else
+  rc=$?
+ fi
+ if [ "$rc" -ne "$expected_rc" ]; then
+  echo "branch delete $*: expected RC $expected_rc, got $rc" >&2
+  exit 1
+ fi
+ if [ "$output" != "$expected" ]; then
+  echo "branch delete $*: expected '$expected', got '$output'" >&2
+  exit 1
+ fi
+}
+oid=BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+check 0 "$(printf 'SIMULATED UPDATE-REF refs/heads/main 0000000000000000000000000000000000000000 %s\nBRANCH DELETED main %s' "$oid" "$oid")" -d main
+check 0 "$(printf 'SIMULATED UPDATE-REF refs/heads/main 0000000000000000000000000000000000000000 %s\nBRANCH DELETED main %s' "$oid" "$oid")" --delete main "$oid"
+check 8 'GIT: cannot resolve branch refs/heads/missing' -d missing
+check 4 'GIT: invalid branch name' -d 'bad|name'
+check 4 'GIT: invalid expected branch object-id' -d main nope
+check 4 'Usage: GIT BRANCH -d|--delete name [expected-old-oid]' -d main "$oid" extra
+echo 'M234 SOURCE-DERIVED BRANCH DELETE FIXTURES PASS 6'
+)
+exit $?
+fi
+
+# Expose bounded verified history through the common GIT LOG command.
+if [ "${1:-}" = "M235" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M234
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GIT.EXEC" "$tmp/log.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+start=source.index("if command = 'LOG' then do")
+end=source.index("/* Prefer modern REF2 branches",start)
+block=source[start:end]
+command="address command 'EXEC GITVREF LOG' logoid backenddepth"
+resolver='call resolvetagtarget logstart'
+if command not in block or resolver not in block:
+ raise SystemExit('M235 LOG router lost its resolver/backend')
+if block.index(resolver) > block.index(command):
+ raise SystemExit('M235 sends LOG before resolving the revision')
+block=block.replace(resolver,
+ "if logstart='HEAD' then result='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "else if logstart='main' then result='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
+ "else result='ERROR'")
+block=block.replace(command,
+ "rc=0\nsay 'SIMULATED LOG' logoid backenddepth")
+Path(sys.argv[2]).write_text("parse arg rest\ncommand='LOG'\n"+block)
+for token in ("logdepth='16'", "call resolvetagtarget logstart",
+              "verify(logdepth,'0123456789')",
+              'logdepth+0>16', 'if logdepth+0=0 then exit 0',
+              'backenddepth=logdepth-1', command):
+ if token not in source[start:end]:
+  raise SystemExit(f'M235 LOG route missing {token!r}')
+print('M235 LOG ROUTE SOURCE GUARDS PASS 5')
+PY
+rexx -c "$tmp/log.rexx" /dev/null
+check() {
+ expected_rc=$1
+ expected=$2
+ shift 2
+ if output=$(rexx "$tmp/log.rexx" "$@"); then
+  rc=0
+ else
+  rc=$?
+ fi
+ if [ "$rc" -ne "$expected_rc" ]; then
+  echo "GIT LOG $*: expected RC $expected_rc, got $rc" >&2
+  exit 1
+ fi
+ if [ "$output" != "$expected" ]; then
+  echo "GIT LOG $*: expected '$expected', got '$output'" >&2
+  exit 1
+ fi
+}
+check 0 'SIMULATED LOG AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA 15'
+check 0 'SIMULATED LOG BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB 15' main
+check 0 'SIMULATED LOG AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA 4' --max-count 5
+check 0 'SIMULATED LOG BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB 2' -n 3 main
+check 0 'SIMULATED LOG BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB 6' --max-count=7 main
+check 0 'SIMULATED LOG BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB 4' -n5 main
+check 0 '' --max-count 0
+check 0 '' --max-count=0 main
+check 0 'SIMULATED LOG BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB 0' -n 1 main
+check 0 'SIMULATED LOG AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA 15' --max-count 16
+check 4 'GIT: log count must be between 0 and 16' --max-count=17
+check 4 'GIT: log count must be between 0 and 16' -n nope
+check 8 'GIT: cannot resolve log revision missing' missing
+check 4 'Usage: GIT LOG [-n|--max-count count] [revision]' --max-count 5 main extra
+check 4 'Usage: GIT LOG [-n|--max-count count] [revision]' main extra
+echo 'M235 SOURCE-DERIVED GIT LOG FIXTURES PASS 15'
+)
+exit $?
+fi
+
+if [ "${1:-}" = "M237" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M235
+python3 - "$root/src/GITREC.C" <<'PY'
+from pathlib import Path
+import sys
+source=Path(sys.argv[1]).read_text()
+start=source.index('static int rec_logfull(')
+end=source.index('\nstatic int ',start+1)
+routine=source[start:end]
+required=('for(hop=0;hop<=depth;hop++)',
+          'for(j=0;j<=depth;j++)',
+          'printf("LOG NODES %u\\n",depth+1);')
+for token in required:
+ if token not in routine:
+  raise SystemExit(f'M237 GITREC depth semantics missing {token!r}')
+print('M237 GITREC INCLUSIVE DEPTH SOURCE GUARDS PASS 3')
+PY
+echo 'M237 EXACT MAX-COUNT SEMANTICS PASS'
+)
+exit $?
+fi
+
+# Expose the verified full-object reader through GIT SHOW.
+if [ "${1:-}" = "M236" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M235
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GIT.EXEC" "$tmp/show.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+start=source.index("if command = 'SHOW' then do")
+end=source.index("/* Prefer modern REF2 branches",start)
+block=source[start:end]
+resolver='call resolvetagtarget showstart'
+command="address command 'EXEC GITVREF SHOW' showoid"
+if resolver not in block or command not in block:
+ raise SystemExit('M236 SHOW router lost its resolver/backend')
+if block.index(resolver)>block.index(command):
+ raise SystemExit('M236 sends SHOW before resolving the revision')
+block=block.replace(resolver,
+ "if showstart='HEAD' then result='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "else if showstart='main' then result='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
+ "else if length(showstart)=40 then result=translate(showstart)\n"
+ "else result='ERROR'")
+block=block.replace(command,"rc=0\nsay 'SIMULATED SHOW' showoid")
+Path(sys.argv[2]).write_text("parse arg rest\ncommand='SHOW'\n"+block)
+for token in ('showstart=\'HEAD\'', resolver,
+              "Usage: GIT SHOW [revision]", command):
+ if token not in source[start:end]:
+  raise SystemExit(f'M236 SHOW route missing {token!r}')
+print('M236 SHOW ROUTE SOURCE GUARDS PASS 4')
+PY
+rexx -c "$tmp/show.rexx" /dev/null
+check() {
+ expected_rc=$1
+ expected=$2
+ shift 2
+ if output=$(rexx "$tmp/show.rexx" "$@"); then
+  rc=0
+ else
+  rc=$?
+ fi
+ if [ "$rc" -ne "$expected_rc" ]; then
+  echo "GIT SHOW $*: expected RC $expected_rc, got $rc" >&2
+  exit 1
+ fi
+ if [ "$output" != "$expected" ]; then
+  echo "GIT SHOW $*: expected '$expected', got '$output'" >&2
+  exit 1
+ fi
+}
+check 0 'SIMULATED SHOW AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+check 0 'SIMULATED SHOW BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB' main
+oid=CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+check 0 "SIMULATED SHOW $oid" "$oid"
+check 8 'GIT: cannot resolve show revision missing' missing
+check 8 'GIT: cannot resolve show revision bad|name' 'bad|name'
+check 4 'Usage: GIT SHOW [revision]' main extra
+echo 'M236 SOURCE-DERIVED GIT SHOW FIXTURES PASS 6'
+)
+exit $?
+fi
+
+# Resolve an existing tag before compare-and-swap force update.
+if [ "${1:-}" = "M238" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M237
+sh "$0" M236
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GIT.EXEC" "$tmp/forcetag.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+tag=source[source.index("if command = 'TAG' then do"):
+           source.index('/* Bounded porcelain LOG')]
+start=tag.index("if verb='-F' | verb='--FORCE' then do")
+end=tag.index("if verb='-D' | verb='--DELETE' then do",start)
+block=tag[start:end]
+resolver='call resolvestart ref'
+verify="address command 'EXEC GIT VERIFY-OBJECT' newoid"
+update="address command 'EXEC GIT UPDATE-REF' ref newoid oldoid"
+readobj='call readobject newoid'
+for command in (resolver,verify,readobj,update):
+ if command not in block:
+  raise SystemExit(f'M238 force-tag path missing {command!r}')
+if not (block.index(resolver)<block.index(verify)<block.index(readobj)<block.index(update)):
+ raise SystemExit('M238 force-tag path violates resolution/verification/CAS order')
+block=block.replace(verify,'rc=0')
+block=block.replace(readobj,"result='OK'\nobjtype='COMMIT'")
+block=block.replace(update,
+ "rc=0\nsay 'SIMULATED UPDATE-REF' ref newoid oldoid")
+vstart=source.index('validtag: procedure')
+vend=source.index('validbranch: procedure',vstart)
+validator=source[vstart:vend]
+fixture=(
+ "parse arg action tagname oid extra fifth\n"
+ "verb=translate(action)\n"+block+
+ "resolvestart: procedure\n parse arg wanted\n"
+ " if wanted='refs/tags/v1' then return 'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
+ " return 'ERROR'\n"+validator)
+Path(sys.argv[2]).write_text(fixture)
+for token in (resolver, "oldoid=result",
+              "verify(newoid,'0123456789ABCDEF')",
+              'oldoid=translate(extra)',
+              "SIMULATED UPDATE-REF' ref newoid oldoid"):
+ if token not in block:
+  raise SystemExit(f'M238 force-tag source guard missing {token!r}')
+print('M238 TAG FORCE UPDATE SOURCE GUARDS PASS 5')
+PY
+rexx -c "$tmp/forcetag.rexx" /dev/null
+check() {
+ expected_rc=$1
+ expected=$2
+ shift 2
+ if output=$(rexx "$tmp/forcetag.rexx" "$@"); then
+  rc=0
+ else
+  rc=$?
+ fi
+ if [ "$rc" -ne "$expected_rc" ]; then
+  echo "tag force update $*: expected RC $expected_rc, got $rc" >&2
+  exit 1
+ fi
+ if [ "$output" != "$expected" ]; then
+  echo "tag force update $*: expected '$expected', got '$output'" >&2
+  exit 1
+ fi
+}
+new=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+old=BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+zeros=0000000000000000000000000000000000000000
+check 0 "$(printf 'SIMULATED UPDATE-REF refs/tags/v1 %s %s\nTAG UPDATED refs/tags/v1 %s %s' "$new" "$old" "$old" "$new")" -f v1 "$new"
+check 0 "$(printf 'SIMULATED UPDATE-REF refs/tags/v1 %s %s\nTAG UPDATED refs/tags/v1 %s %s' "$new" "$old" "$old" "$new")" --force v1 "$new" "$old"
+check 8 'GIT: cannot resolve existing tag refs/tags/missing' -f missing "$new"
+check 4 'GIT: invalid new tag object-id' -f v1 nope
+check 4 'GIT: invalid expected tag object-id' -f v1 "$new" nope
+check 4 'GIT: force update requires an existing tag OID' -f v1 "$new" "$zeros"
+check 4 'GIT: invalid tag name' -f 'bad|name' "$new"
+check 4 'Usage: GIT TAG -f|--force name new-oid [expected-old-oid]' --force v1 "$new" "$old" extra
+echo 'M238 SOURCE-DERIVED TAG FORCE UPDATE FIXTURES PASS 8'
+)
+exit $?
+fi
+
+# Stage multiple explicitly named mapped CMS workfiles in one map update.
+if [ "${1:-}" = "M239" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M238
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GITWT.EXEC" "$tmp/add.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+start=source.index("if command='ADD' then do")
+end=source.index("if command='ACCEPT' then do",start)
+block=source[start:end]
+block=block[block.index(' addall=0'):]
+state="'STATE' mapfn.pi mapft.pi mapfm.pi"
+work="call workoid mapfn.pi,mapft.pi,mapfm.pi,maplf.pi,1"
+for token in ('if word(rest,1)=\'--\' then do', 'call toasciihex path',
+              'call findpath pathhex',state,work,
+              'mapstage.pi=addoid.ai','call savemap',"say 'ADDED'"):
+ if token not in block:
+  raise SystemExit(f'M239 multi-add block missing {token!r}')
+if not (block.index('call toasciihex path')<block.index('call findpath pathhex')<
+        block.index(state)<block.index(work)<block.index('mapstage.pi=addoid.ai')<
+        block.index('call savemap')<block.index("say 'ADDED'")):
+ raise SystemExit('M239 add preflight/save/output order changed')
+if block.index("if word(rest,1)='--' then do") > block.index('path=word(rest,ai)'):
+ raise SystemExit('M241 option separator is not consumed before path validation')
+block=block.replace('call loadmap',"result='OK'")
+block=block.replace(state,
+ "if mapfn.pi='STATEFAIL' then rc=12\nelse rc=0")
+block=block.replace(work,
+ "if mapfn.pi='HASHFAIL' then result='ERROR'\n"
+ "else if pi=1 then result='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "else result='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'")
+block=block.replace('call savemap',"result='OK'\nsay 'SIMULATED SAVE'")
+fstart=source.index('\nfindpath:\n')+1
+fend=source.index('\nfindfile:\n',fstart)
+findpath=source[fstart:fend]
+astart=source.index('\naddselected:\n')+1
+aend=source.index("\nif command='RESET' then do",astart)
+addhelpers=source[astart:aend]
+fixture=(
+ "parse arg rest\ncommand='ADD'\nmapcount=5\n"
+ "if command='ADD' then do\n"
+ "mapfn.1='ALPHA'\nmapfn.2='BETA'\n"
+ "mapfn.3='STATEFAIL'\nmapfn.4='HASHFAIL'\nmapfn.5='DASH'\n"
+ "do mi=1 to 5\n mapft.mi='DATA'\n mapfm.mi='A'\n"
+ " maplf.mi=1\n mapbase.mi='0000000000000000000000000000000000000000'\n"
+ " mapstage.mi=mapbase.mi\nend\n"
+ "mappath.1='616C706861'\nmappath.2='62657461'\n"
+ "mappath.3='67616D6D61'\nmappath.4='64656C7461'\n"
+ "mappath.5='2D64617368'\n"+
+ block+findpath+
+ "toasciihex:\n parse arg text\n return c2x(text)\n")
+Path(sys.argv[2]).write_text(fixture)
+print('M239 MULTI-ADD SOURCE GUARDS PASS 8')
+PY
+rexx -c "$tmp/add.rexx" /dev/null
+check() {
+ expected_rc=$1
+ expected=$2
+ shift 2
+ if output=$(rexx "$tmp/add.rexx" "$@"); then
+  rc=0
+ else
+  rc=$?
+ fi
+ if [ "$rc" -ne "$expected_rc" ]; then
+  echo "GIT ADD $*: expected RC $expected_rc, got $rc" >&2
+  exit 1
+ fi
+ if [ "$output" != "$expected" ]; then
+  echo "GIT ADD $*: expected '$expected', got '$output'" >&2
+  exit 1
+ fi
+}
+alpha=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+beta=BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+check 0 "$(printf 'SIMULATED SAVE\nADDED alpha %s\nSTAGE DIFFERS FROM BASE' "$alpha")" alpha
+check 0 "$(printf 'SIMULATED SAVE\nADDED alpha %s\nSTAGE DIFFERS FROM BASE\nADDED beta %s\nSTAGE DIFFERS FROM BASE' "$alpha" "$beta")" alpha beta
+check 0 "$(printf 'SIMULATED SAVE\nADDED alpha %s\nSTAGE DIFFERS FROM BASE\nADDED beta %s\nSTAGE DIFFERS FROM BASE' "$alpha" "$beta")" -- alpha beta
+check 0 "$(printf 'SIMULATED SAVE\nADDED -dash %s\nSTAGE DIFFERS FROM BASE' "$beta")" -- -dash
+check 0 "$(printf 'SIMULATED SAVE\nADDED alpha %s\nSTAGE DIFFERS FROM BASE' "$alpha")" alpha alpha
+check 4 'GITWT: path is not checked out unknown' unknown
+check 4 'GITWT: path is not checked out bad|path' 'bad|path'
+check 4 'GITWT: invalid path abcdefghijklmnopqrstuvwxyzabcde1' abcdefghijklmnopqrstuvwxyzabcde1
+check 8 'GITWT: cannot inspect mapped CMS file gamma' gamma
+check 8 '' delta
+many='a a a a a a a a a a a a a a a a a'
+check 4 'Usage: GIT ADD path [path ...] (maximum 16 paths)' $many
+check 4 'Usage: GIT ADD path [path ...] (maximum 16 paths)' --
+check 4 'Usage: GIT ADD path [path ...] (maximum 16 paths)' -- $many
+echo 'M239 SOURCE-DERIVED MULTI-PATH ADD FIXTURES PASS 13'
+)
+exit $?
+fi
+
+if [ "${1:-}" = "M241" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M239
+grep -Fq "if word(rest,1)='--' then do" "$root/src/GITWT.EXEC"
+echo 'M241 GIT ADD OPTION SEPARATOR PASS'
+)
+exit $?
+fi
+
+if [ "${1:-}" = "M242" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M241
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GITWT.EXEC" "$tmp/update.rexx" "$tmp/missing.rexx" "$tmp/hashfail.rexx" "$tmp/empty.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+start=source.index("if command='ADD' then do")
+end=source.index("if command='ACCEPT' then do",start)
+block=source[start:end]
+block=block[block.index(' addall=0'):]
+required=("translate(word(rest,1))='-U'",
+          "translate(word(rest,1))='--UPDATE'",
+           'addrequested=addrequested-1',
+           "if translate(word(rest,2))='--' then do",
+           'call toasciihex path', 'call findpath pathhex',
+           'if addall=1 & addrequested=0 then do', 'do ai=1 to mapcount',
+          'call asciitocms mappath.ai', "say 'GITWT: no mapped paths to update'",
+          'call savemap')
+for token in required:
+ if token not in block:
+  raise SystemExit(f'M242 ADD update source guard missing {token!r}')
+if not (block.index("translate(word(rest,1))='-U'")<
+        block.index('if addall=0 & (addrequested<1')<
+        block.index('call loadmap')<block.index('do ai=1 to addcount')<
+        block.index('call savemap')):
+ raise SystemExit('M242 ADD update validation or save ordering changed')
+state="if mapfn.pi='MISSING' then rc=28\nelse rc=0"
+work=("if pi=1 then result='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+      "else result='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'")
+hashfailwork=("if pi=1 then result='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+              "else result='ERROR'")
+fstart=source.index('\nfindpath:\n')+1
+fend=source.index('\nfindfile:\n',fstart)
+findpath=source[fstart:fend]
+astart=source.index('\naddselected:\n')+1
+aend=source.index("\nif command='RESET' then do",astart)
+addhelpers=source[astart:aend]
+fixture=(
+ "parse arg rest\ncommand='ADD'\nmapcount=2\n"
+ "if command='ADD' then do\n"
+ "mapfn.1='ALPHA'\nmapfn.2='BETA'\n"
+ "do mi=1 to 2\n mapft.mi='DATA'\n mapfm.mi='A'\n"
+ " maplf.mi=1\n mapbase.mi='0000000000000000000000000000000000000000'\n"
+ " mapstage.mi=mapbase.mi\nend\n"
+ "mappath.1='616C706861'\nmappath.2='62657461'\n"+
+ block.replace('call loadmap',"result='OK'")
+      .replace("'STATE' mapfn.pi mapft.pi mapfm.pi",state)
+      .replace('call workoid mapfn.pi,mapft.pi,mapfm.pi,maplf.pi,1',work)
+      .replace('call savemap',"result='OK'\nsay 'SIMULATED SAVE'")+
+  addhelpers+findpath+
+  "toasciihex:\n parse arg text\n return c2x(text)\n"
+  "asciitocms:\n parse arg text\n return x2c(text)\n")
+Path(sys.argv[2]).write_text(fixture)
+missing=fixture.replace("mapfn.2='BETA'", "mapfn.2='MISSING'")
+missing=missing.replace("mappath.1='616C706861'", "mapbase.2='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\nmapstage.2=mapbase.2\nmappath.1='616C706861'")
+Path(sys.argv[3]).write_text(missing)
+Path(sys.argv[4]).write_text(fixture.replace(work,hashfailwork))
+Path(sys.argv[5]).write_text(fixture.replace('mapcount=2','mapcount=0'))
+print('M242 GIT ADD UPDATE SOURCE GUARDS PASS 7')
+PY
+rexx -c "$tmp/update.rexx" /dev/null
+check() {
+ fixture=$1
+ expected_rc=$2
+ expected=$3
+ shift 3
+ if output=$(rexx "$fixture" "$@"); then rc=0; else rc=$?; fi
+ if [ "$rc" -ne "$expected_rc" ]; then
+  echo "GIT ADD update $*: expected RC $expected_rc, got $rc" >&2
+  exit 1
+ fi
+ if [ "$output" != "$expected" ]; then
+  echo "GIT ADD update $*: expected '$expected', got '$output'" >&2
+  exit 1
+ fi
+}
+alpha=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+beta=BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+expected=$(printf 'SIMULATED SAVE\nADDED alpha %s\nSTAGE DIFFERS FROM BASE\nADDED beta %s\nSTAGE DIFFERS FROM BASE' "$alpha" "$beta")
+check "$tmp/update.rexx" 0 "$expected" -u
+check "$tmp/update.rexx" 0 "$expected" --update
+check "$tmp/update.rexx" 0 "$expected" -u alpha beta
+expected_missing=$(printf 'SIMULATED SAVE\nADDED alpha %s\nSTAGE DIFFERS FROM BASE\nSTAGED DELETION beta' "$alpha")
+check "$tmp/missing.rexx" 0 "$expected_missing" -u
+check "$tmp/update.rexx" 0 "$(printf 'SIMULATED SAVE\nADDED alpha %s\nSTAGE DIFFERS FROM BASE' "$alpha")" -u alpha
+check "$tmp/update.rexx" 0 "$(printf 'SIMULATED SAVE\nADDED beta %s\nSTAGE DIFFERS FROM BASE' "$beta")" --update -- beta
+check "$tmp/missing.rexx" 0 "$(printf 'SIMULATED SAVE\nSTAGED DELETION beta')" -u beta
+check "$tmp/missing.rexx" 0 "$(printf 'SIMULATED SAVE\nADDED alpha %s\nSTAGE DIFFERS FROM BASE' "$alpha")" -u alpha
+check "$tmp/hashfail.rexx" 8 '' -u
+check "$tmp/empty.rexx" 0 'GITWT: no mapped paths to update' -u
+check "$tmp/update.rexx" 4 'GITWT: path is not checked out unknown' -u unknown
+check "$tmp/update.rexx" 4 'Usage: GIT ADD -u [--] path [path ...] (maximum 16 paths)' -u --
+echo 'M242/M256 SOURCE-DERIVED GIT ADD UPDATE FIXTURES PASS 12'
+)
+exit $?
+fi
+
+if [ "${1:-}" = "M243" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M242
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GITWT.EXEC" "$tmp/status.rexx" "$tmp/empty.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+start=source.index("if command='STATUS' then do")
+end=source.index('/* Read-only preflight for a branch switch',start)
+block=source[start:end]
+required=("statusopt=translate(word(rest,si))", "statusopt='--SHORT'",
+          "statusopt='--PORCELAIN'", "statusopt='--BRANCH'",
+          "if mapbase.i=zeros then x='A'", "if state='DELETED' then y='D'",
+          "if state='MODIFIED' | state='STAGED+MODIFIED' then y='M'",
+          "if x\\=' ' | y\\=' ' then say x||y||' '||p",
+          "if shortstatus=0 then say 'STATUS SUMMARY TRACKED'")
+for token in required:
+ if token not in block:
+  raise SystemExit(f'M243 short status source guard missing {token!r}')
+state="if mapfn.i='GONE' | mapfn.i='ADDGONE' then rc=28\nelse rc=0"
+work=("if mapfn.i='CLEAN' | mapfn.i='ADD' then\n"
+      " result='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+      "else if mapfn.i='STAGED' | mapfn.i='MODIFIED' then\n"
+      " result='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
+      "else if mapfn.i='BOTH' then\n"
+      " result='CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC'\n"
+      "else result='ERROR'")
+fixture=(
+ "parse arg rest\ncommand='STATUS'\nmapcount=7\n"
+ "mapfn.1='CLEAN'\nmapfn.2='STAGED'\nmapfn.3='MODIFIED'\n"
+ "mapfn.4='BOTH'\nmapfn.5='GONE'\nmapfn.6='ADD'\n"
+ "mapfn.7='ADDGONE'\n"
+ "do mi=1 to 7\n mapft.mi='DATA'\n mapfm.mi='A'\n maplf.mi=1\nend\n"
+ "mapbase.1='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "mapstage.1='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "mapbase.2='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "mapstage.2='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
+ "mapbase.3='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "mapstage.3='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "mapbase.4='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "mapstage.4='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
+ "mapbase.5='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "mapstage.5='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "mapbase.6='0000000000000000000000000000000000000000'\n"
+ "mapstage.6='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "mapbase.7='0000000000000000000000000000000000000000'\n"
+ "mapstage.7='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "mappath.1='636C65616E'\nmappath.2='737461676564'\n"
+ "mappath.3='6D6F646966696564'\nmappath.4='626F7468'\n"
+ "mappath.5='676F6E65'\nmappath.6='6164646564'\n"
+ "mappath.7='616464676F6E65'\n"+
+ block.replace('call loadmap',"result='OK'")
+      .replace("'STATE' mapfn.i mapft.i mapfm.i",state)
+      .replace('call workoid mapfn.i,mapft.i,mapfm.i,maplf.i,0',work)+
+ "asciitocms:\n parse arg text\n return x2c(text)\n")
+Path(sys.argv[2]).write_text(fixture)
+Path(sys.argv[3]).write_text(fixture.replace('mapcount=7','mapcount=0'))
+print('M243 SHORT STATUS SOURCE GUARDS PASS 8')
+PY
+rexx -c "$tmp/status.rexx" /dev/null
+check() {
+ fixture=$1
+ expected_rc=$2
+ expected=$3
+ shift 3
+ if output=$(rexx "$fixture" "$@"); then rc=0; else rc=$?; fi
+ if [ "$rc" -ne "$expected_rc" ]; then
+  echo "GIT STATUS $*: expected RC $expected_rc, got $rc" >&2
+  exit 1
+ fi
+ if [ "$output" != "$expected" ]; then
+  echo "GIT STATUS $*: expected '$expected', got '$output'" >&2
+  exit 1
+ fi
+}
+expected=$(printf 'M  staged\n M modified\nMM both\n D gone\nA  added\nAD addgone')
+check "$tmp/status.rexx" 0 "$expected" --short
+check "$tmp/status.rexx" 0 "$expected" --porcelain
+check "$tmp/empty.rexx" 0 '' --short
+check "$tmp/status.rexx" 4 'Usage: GIT STATUS [--short|--porcelain] [--branch] [--] [path ...]' --unknown
+echo 'M243 SOURCE-DERIVED SHORT STATUS FIXTURES PASS 4'
+)
+exit $?
+fi
+
+if [ "${1:-}" = "M244" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M243
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GIT.EXEC" "$root/src/GITWT.EXEC" "$tmp/diff.rexx" "$tmp/empty.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+router=Path(sys.argv[1]).read_text()
+if "if command = 'DIFF' then do\n   'EXEC GITWT DIFF' rest\n   exit rc\nend" not in router:
+ raise SystemExit('M244 GIT DIFF porcelain route missing')
+source=Path(sys.argv[2]).read_text()
+start=source.index("if command='DIFF' then do")
+end=source.index('/* Read-only preflight for a branch switch',start)
+block=source[start:end]
+required=("diffarg1='--CACHED'", "diffarg1='--STAGED'",
+          r"diffarg1\='--NAME-ONLY'", 'if mapstage.i\\=mapbase.i then changed=1',
+          "'STATE' mapfn.i mapft.i mapfm.i", 'if work\\=mapstage.i then changed=1',
+          'if changed=1 then do', 'say path')
+for token in required:
+ if token not in block:
+  raise SystemExit(f'M244 diff source guard missing {token!r}')
+state="if mapfn.i='GONE' | mapfn.i='ADDGONE' then rc=28\nelse rc=0"
+work=("if mapfn.i='CLEAN' | mapfn.i='ADD' then\n"
+      " result='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+      "else if mapfn.i='STAGED' | mapfn.i='MODIFIED' then\n"
+      " result='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
+      "else if mapfn.i='BOTH' then\n"
+      " result='CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC'\n"
+      "else result='ERROR'")
+fixture=(
+ "parse arg rest\ncommand='DIFF'\nmapcount=7\n"
+ "mapfn.1='CLEAN'\nmapfn.2='STAGED'\nmapfn.3='MODIFIED'\n"
+ "mapfn.4='BOTH'\nmapfn.5='GONE'\nmapfn.6='ADD'\n"
+ "mapfn.7='ADDGONE'\n"
+ "do mi=1 to 7\n mapft.mi='DATA'\n mapfm.mi='A'\n maplf.mi=1\nend\n"
+ "mapbase.1='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "mapstage.1='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "mapbase.2='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "mapstage.2='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
+ "mapbase.3='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "mapstage.3='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "mapbase.4='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "mapstage.4='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
+ "mapbase.5='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "mapstage.5='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "mapbase.6='0000000000000000000000000000000000000000'\n"
+ "mapstage.6='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "mapbase.7='0000000000000000000000000000000000000000'\n"
+ "mapstage.7='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "mappath.1='636C65616E'\nmappath.2='737461676564'\n"
+ "mappath.3='6D6F646966696564'\nmappath.4='626F7468'\n"
+ "mappath.5='676F6E65'\nmappath.6='6164646564'\n"
+ "mappath.7='616464676F6E65'\n"+
+ block.replace('call loadmap',"result='OK'")
+      .replace("'STATE' mapfn.i mapft.i mapfm.i",state)
+      .replace('call workoid mapfn.i,mapft.i,mapfm.i,maplf.i,0',work)+
+ "asciitocms:\n parse arg text\n return x2c(text)\n")
+Path(sys.argv[3]).write_text(fixture)
+Path(sys.argv[4]).write_text(fixture.replace('mapcount=7','mapcount=0'))
+print('M244 DIFF SOURCE GUARDS PASS 8')
+PY
+rexx -c "$tmp/diff.rexx" /dev/null
+check() {
+ fixture=$1
+ expected_rc=$2
+ expected=$3
+ shift 3
+ if output=$(rexx "$fixture" "$@"); then rc=0; else rc=$?; fi
+ if [ "$rc" -ne "$expected_rc" ]; then
+  echo "GIT DIFF $*: expected RC $expected_rc, got $rc" >&2
+  exit 1
+ fi
+ if [ "$output" != "$expected" ]; then
+  echo "GIT DIFF $*: expected '$expected', got '$output'" >&2
+  exit 1
+ fi
+}
+cached=$(printf 'staged\nboth\nadded\naddgone')
+unstaged=$(printf 'modified\nboth\ngone\naddgone')
+check "$tmp/diff.rexx" 0 "$cached" --cached --name-only
+check "$tmp/diff.rexx" 0 "$cached" --staged --name-only
+check "$tmp/diff.rexx" 0 "$unstaged" --name-only
+check "$tmp/empty.rexx" 0 '' --name-only
+check "$tmp/diff.rexx" 4 'Usage: GIT DIFF [--cached|--staged] --name-only' --cached
+check "$tmp/diff.rexx" 4 'Usage: GIT DIFF [--cached|--staged] --name-only' --name-only extra
+echo 'M244 SOURCE-DERIVED GIT DIFF NAME-ONLY FIXTURES PASS 6'
+)
+exit $?
+fi
+
+if [ "${1:-}" = "M245" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M244
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GIT.EXEC" "$root/src/GITWT.EXEC" "$tmp/reset.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+router=Path(sys.argv[1]).read_text()
+if "if command = 'RESET' then do\n   'EXEC GITWT RESET' rest\n   exit rc\nend" not in router:
+ raise SystemExit('M245 GIT RESET route missing')
+source=Path(sys.argv[2]).read_text()
+start=source.index("if command='RESET' then do")
+end=source.index("if command='ACCEPT' then do",start)
+block=source[start:end]
+required=('resetrequested=words(rest)', "if word(rest,1)='--' then do",
+          'call toasciihex path','call findpath pathhex',
+          'resetold.resetcount=mapstage.pi',
+          'mapstage.pi=mapbase.pi','call savemap',"say 'UNSTAGED'")
+for token in required:
+ if token not in block:
+  raise SystemExit(f'M245 reset source guard missing {token!r}')
+if not (block.index('call findpath pathhex')<block.index('mapstage.pi=mapbase.pi')<
+        block.index('call savemap')<block.index("say 'UNSTAGED'")):
+ raise SystemExit('M245 RESET mutates before validating all paths or reports early')
+state="'STATE' mapfn.pi mapft.pi mapfm.pi"
+work="call workoid mapfn.pi,mapft.pi,mapfm.pi,maplf.pi,1"
+block=block.replace('call loadmap',"result='OK'")
+block=block.replace('call savemap',"result='OK'\nsay 'SIMULATED SAVE'")
+fixture=(
+ "parse arg rest\ncommand='RESET'\nmapcount=4\n"
+ "mapfn.1='ALPHA'\nmapfn.2='BETA'\n"
+ "mapfn.3='STATEFAIL'\nmapfn.4='HASHFAIL'\n"
+ "do mi=1 to 4\n mapft.mi='DATA'\n mapfm.mi='A'\n"
+ " maplf.mi=1\n mapbase.mi='0000000000000000000000000000000000000000'\n"
+ " mapstage.mi='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\nend\n"
+ "mappath.1='616C706861'\nmappath.2='62657461'\n"
+ "mappath.3='67616D6D61'\nmappath.4='64656C7461'\n"+
+ block)
+fstart=source.index('\nfindpath:\n')+1
+fend=source.index('\nfindfile:\n',fstart)
+fixture+=source[fstart:fend]+"toasciihex:\n parse arg text\n return c2x(text)\n"
+Path(sys.argv[3]).write_text(fixture)
+print('M245 GIT RESET SOURCE GUARDS PASS 8')
+PY
+rexx -c "$tmp/reset.rexx" /dev/null
+check() {
+ expected_rc=$1
+ expected=$2
+ shift 2
+ if output=$(rexx "$tmp/reset.rexx" "$@"); then rc=0; else rc=$?; fi
+ if [ "$rc" -ne "$expected_rc" ]; then
+  echo "GIT RESET $*: expected RC $expected_rc, got $rc" >&2
+  exit 1
+ fi
+ if [ "$output" != "$expected" ]; then
+  echo "GIT RESET $*: expected '$expected', got '$output'" >&2
+  exit 1
+ fi
+}
+check 0 "$(printf 'SIMULATED SAVE\nUNSTAGED alpha\nUNSTAGED beta')" alpha beta
+check 0 "$(printf 'SIMULATED SAVE\nUNSTAGED alpha')" alpha alpha
+check 0 "$(printf 'SIMULATED SAVE\nUNSTAGED alpha\nUNSTAGED beta')" -- alpha beta
+check 4 'GITWT: path is not checked out unknown' alpha unknown
+check 4 'Usage: GIT RESET [--] path [path ...] (maximum 16 paths)' --
+many='a a a a a a a a a a a a a a a a a'
+check 4 'Usage: GIT RESET [--] path [path ...] (maximum 16 paths)' $many
+echo 'M245 SOURCE-DERIVED GIT RESET FIXTURES PASS 6'
+)
+exit $?
+fi
+
+if [ "${1:-}" = "M251" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M250
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GIT.EXEC" "$root/src/GITWT.EXEC" "$tmp/router.rexx" "$tmp/parser.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+git=Path(sys.argv[1]).read_text()
+start=git.index("if command = 'COMMIT' then do")
+end=git.index("if command = 'COMMIT-STAGED-REF' then do",start)
+route=git[start:end]
+if "'EXEC GIT COMMIT-CURRENT' rest" not in route:
+ raise SystemExit('M251 GIT COMMIT current-branch route missing')
+route=route.replace("'EXEC GIT COMMIT-CURRENT' rest",
+                    "say 'SIMULATED CURRENT' rest")
+Path(sys.argv[3]).write_text(
+ "parse arg command rest\ncommand=translate(command)\n"+route)
+wt=Path(sys.argv[2]).read_text()
+start=wt.index("if command='COMMIT' then do")
+end=wt.index("say 'GITWT COMMIT LEVEL M165'",start)
+parser=wt[start:end]
+for token in ("opt='-M' | opt='--MESSAGE'", 'wordindex(rest,ci+1)',
+              "message=substr(message,2,length(message)-2)",
+              "if stamp='' | zone='' | message='' then do"):
+ if token not in parser:
+  raise SystemExit(f'M251 commit message parser guard missing {token!r}')
+parser=parser[parser.index(" stamp=''"):]
+parser=parser.replace("say 'Usage: GIT COMMIT-STAGED -T seconds -Z zone -M message'",
+                      "say 'Usage: GIT COMMIT -T seconds -Z zone -m message'")
+Path(sys.argv[4]).write_text(
+ "parse arg rest\ncommand='COMMIT'\n"+parser+
+ "say 'STAMP' stamp 'ZONE' zone 'MESSAGE' message\nexit 0\n")
+print('M251 COMMIT ROUTE/MESSAGE SOURCE GUARDS PASS 5')
+PY
+rexx -c "$tmp/router.rexx" /dev/null
+rexx -c "$tmp/parser.rexx" /dev/null
+if [ "$(rexx "$tmp/router.rexx" COMMIT -T 1700 -Z +0000 -m test)" != \
+     'SIMULATED CURRENT -T 1700 -Z +0000 -m test' ]; then
+ echo 'M251 GIT COMMIT route fixture failed' >&2
+ exit 1
+fi
+expected='STAMP 1700 ZONE +0000 MESSAGE message with spaces'
+if [ "$(rexx "$tmp/parser.rexx" '-T 1700 -Z +0000 -m "message with spaces"')" != "$expected" ]; then
+ echo 'M251 quoted multiword commit message fixture failed' >&2
+ exit 1
+fi
+if [ "$(rexx "$tmp/parser.rexx" '-T 1700 -Z +0000 --message "message with spaces"')" != "$expected" ]; then
+ echo 'M251 long message option fixture failed' >&2
+ exit 1
+fi
+echo 'M251 SOURCE-DERIVED CURRENT COMMIT FIXTURES PASS 3'
+)
+exit $?
+fi
+
+if [ "${1:-}" = "M252" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M251
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GITWT.EXEC" "$tmp" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+out=Path(sys.argv[2])
+start=source.index(" if translate(word(rest,1))='--NEW' then do")
+end=source.index(' addall=0',start)
+block=source[start:end]
+for token in ("'GITWT: new path must be 1-30 ASCII bytes with relative components'",
+              'call splitpath newhex.newcount',
+              "call findpath newhex.ni",
+              "call findfile newfn.ni,newft.ni,newfm.ni",
+              "'STATE' newfn.ni newft.ni newfm.ni",
+              'call workoid newfn.ni,newft.ni,newfm.ni,1,1',
+              "mapbase.newindex='0000000000000000000000000000000000000000'",
+              'mapstage.newindex=newoid.ni', 'maplf.newindex=1',
+              'call savemap', 'if oldmap=1 then call restoremap'):
+ if token not in block:
+  raise SystemExit(f'M252 new-file ADD source guard missing {token!r}')
+if not block.index('call workoid') < block.index('mapfn.newindex=newfn.ni'):
+ raise SystemExit('M252 must hash the file before changing the map')
+validid=source[source.index('validid:\n'):source.index('validmode:\n')]
+validmode=source[source.index('validmode:\n'):source.index('validtext:\n')]
+splitpath=source[source.index('splitpath:\n'):source.index('readtree:\n')]
+helpers=validid+validmode+"""
+toasciihex:
+ parse arg text
+ return c2x(text)
+"""+splitpath
+block=block.replace("'STATE' newfn.ni newft.ni newfm.ni",
+                    'call cmsstate newfn.ni,newft.ni,newfm.ni')
+block=block.replace("'STATE GITWORK REPO A'", 'call mapstate')
+block=block.replace("'EXECIO * DISKR GITWORK REPO A 1 (STEM BEFORE. FINIS'",
+                    'before.0=1\n rc=0')
+block=block.replace("'ERASE GITWORK REPO A'", "say 'SIMULATED ERASE'\n rc=0")
+prefix="""parse arg rest
+command='ADD'
+mockmode='@MODE@'
+"""
+mocks="""
+exit 99
+loadmap:
+ if mockmode='loadfail' then return 'ERROR'
+ if mockmode='full' then mapcount=50
+ else mapcount=0
+ return 'OK'
+findpath:
+ if mockmode='pathdup' then return 1
+ return 0
+findfile:
+ if mockmode='filedup' then return 1
+ return 0
+cmsstate:
+ parse arg fn,ft,fm
+ say 'SIMULATED STATE' fn ft fm
+ if mockmode='missing' then rc=28
+ else if mockmode='unreadable' then rc=12
+ else rc=0
+ return
+mapstate:
+ if mockmode='savefail' then rc=0
+ else rc=28
+ return
+workoid:
+ if mockmode='hashfail' then return 'ERROR'
+ return 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+savemap:
+ say 'SIMULATED SAVE' mapcount mapfn.mapcount mapfm.mapcount,
+  maplf.mapcount mapbase.mapcount mapstage.mapcount mappath.mapcount
+ if mockmode='savefail' then return 'ERROR'
+ return 'OK'
+restoremap:
+ say 'SIMULATED RESTORE'
+ return 'OK'
+"""
+for mode in ('ok','pathdup','filedup','missing','unreadable','full',
+             'loadfail','hashfail','savefail'):
+ (out/f'add-{mode}.rexx').write_text(
+  prefix.replace('@MODE@',mode)+block+helpers+mocks)
+print('M252 NEW-FILE ADD SOURCE GUARDS PASS 10')
+PY
+for file in "$tmp"/add-*.rexx; do rexx -c "$file" /dev/null; done
+check() {
+ mode=$1 expected_rc=$2 expected=$3
+ shift 3
+ if output=$(rexx "$tmp/add-$mode.rexx" "$*"); then rc=0; else rc=$?; fi
+ if [ "$rc" -ne "$expected_rc" ] || [ "$output" != "$expected" ]; then
+  echo "M252 $mode fixture mismatch RC $rc: $output" >&2
+  exit 1
+ fi
+}
+oid=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+check ok 0 "SIMULATED STATE NEWFILE DATA A
+SIMULATED SAVE 1 NEWFILE A 1 0000000000000000000000000000000000000000 $oid 616C706861
+ADDED alpha $oid
+STAGE DIFFERS FROM BASE" --new alpha NEWFILE DATA
+check ok 0 "SIMULATED STATE NEWFILE TEXT B
+SIMULATED SAVE 1 NEWFILE B 1 0000000000000000000000000000000000000000 $oid 616C706861
+ADDED alpha $oid
+STAGE DIFFERS FROM BASE" --new alpha NEWFILE TEXT B
+check pathdup 4 'GITWT: path is already mapped alpha' --new alpha NEWFILE DATA
+check filedup 4 'GITWT: CMS file is already mapped NEWFILE DATA A' --new alpha NEWFILE DATA
+check missing 8 "SIMULATED STATE NEWFILE DATA A
+GITWT: new CMS workfile is absent or unreadable NEWFILE DATA A RC 28" --new alpha NEWFILE DATA
+check unreadable 8 "SIMULATED STATE NEWFILE DATA A
+GITWT: new CMS workfile is absent or unreadable NEWFILE DATA A RC 12" --new alpha NEWFILE DATA
+check full 8 'GITWT: worktree map limit reached' --new alpha NEWFILE DATA
+check loadfail 8 '' --new alpha NEWFILE DATA
+check hashfail 8 'SIMULATED STATE NEWFILE DATA A' --new alpha NEWFILE DATA
+check savefail 8 "SIMULATED STATE NEWFILE DATA A
+SIMULATED SAVE 1 NEWFILE A 1 0000000000000000000000000000000000000000 $oid 616C706861
+SIMULATED RESTORE" --new alpha NEWFILE DATA
+check ok 0 "SIMULATED STATE NEWFILE DATA A
+SIMULATED SAVE 1 NEWFILE A 1 0000000000000000000000000000000000000000 $oid 6469722F616C706861
+ADDED dir/alpha $oid
+STAGE DIFFERS FROM BASE" --new dir/alpha NEWFILE DATA
+check ok 4 'GITWT: new path must be 1-30 ASCII bytes with relative components' --new abcdefghijklmnopqrstuvwxyzabcde1 NEWFILE DATA
+check ok 4 'GITWT: new path must be 1-30 ASCII bytes with relative components' --new ../alpha NEWFILE DATA
+check ok 4 'Usage: GIT ADD --new path fn ft [fm] [--new path fn ft [fm] ...]' --new
+check ok 4 '' --new alpha BAD-ID DATA
+check ok 4 '' --new alpha NEWFILE '%'
+echo 'M252/M254 SOURCE-DERIVED NEW-FILE ADD FIXTURES PASS 15'
+)
+exit $?
+fi
+
+if [ "${1:-}" = "M253" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M252
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GITWT.EXEC" "$tmp/insert.rexx" "$tmp/overflow.rexx" "$tmp/branch.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+commit=source[source.index("if command='COMMIT' then do"):
+               source.index("say 'GITWT: unknown command'")]
+for token in ('if mapbase.mi=zeros & mapstage.mi\\=zeros then do',
+              'if cd=pcnt then do',
+              'newrootname.newrootcount=pathcomp.mi.cd',
+              'newrootoid.newrootcount=mapstage.mi',
+              "address command 'EXEC GIT VERIFY-OBJECT' mapstage.mi",
+              'call insertrootadds',
+              "if matches=0 then return 'MISSING'",
+              "if result\\='OK' & result\\='MISSING' then return 'ERROR'",
+              "if nodemode.parentid.nej='40000' then compare=compare||'2F'",
+              "if newrootmode.nai='40000' then newcompare=newcompare||'2F'",
+              'nodeentrydeleted.parentid.next=nodeentrydeleted.parentid.nej',
+              'nodemode.parentid.insertat=newrootmode.nai',
+              'if nodeentrydeleted.parentid.lei\\=1 then liveentries=liveentries+1',
+              "if liveentries>=256 then return 'ERROR'",
+              'nodeentry.nji=nodeentry.nji+1'):
+ if token not in source:
+  raise SystemExit(f'M253 root-file commit guard missing {token!r}')
+if not (commit.index("address command 'EXEC GIT VERIFY-OBJECT' mapstage.mi")<
+        commit.index('newrootname.newrootcount=pathcomp.mi.cd')<
+        commit.index('call insertrootadds')<commit.index('do level=maxdepth')):
+ raise SystemExit('M253 inserts root files after tree rewrite begins')
+insert=source[source.index('insertrootadds:\n'):source.index('parsepathout:\n')]
+build=source[source.index('buildraw:\n'):source.index('insertrootadds:\n')]
+mode=source[source.index('modehex:\n'):source.index('writehex:\n')]
+entry_start=commit.index('    if entryindex=0 then do')
+entry_end=commit.index('    if cd<pcnt then do',entry_start)
+entry=commit[entry_start:entry_end]
+entry=entry.replace("address command 'EXEC GIT VERIFY-OBJECT' mapstage.mi",
+ "if scenario='VERIFYFAIL' then rc=8\nelse do\n say 'SIMULATED VERIFY'\n rc=0\nend")
+prefix="""parse arg scenario
+nodecount=1
+nodeentries.1=2
+nodeisnew.1=0
+nodemode.1.1='40000'
+nodenamehex.1.1='616C706861'
+nodechildoid.1.1='CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC'
+nodeentrydeleted.1.1=1
+nodemode.1.2='100644'
+nodenamehex.1.2='62657461'
+nodechildoid.1.2='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'
+nodeentrydeleted.1.2=0
+newrootcount=3
+newrootparent.1=1
+newrootname.1='616172647661726B'
+newrootmode.1='100644'
+newrootoid.1='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+newrootparent.2=1
+newrootname.2='616C7068612E747874'
+newrootmode.2='100644'
+newrootoid.2='DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD'
+newrootparent.3=1
+newrootname.3='7A657461'
+newrootmode.3='100644'
+newrootoid.3='EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE'
+"""
+main="""
+if scenario='OVERFLOW' | scenario='DELETEDCAP' then do
+ nodeentries.1=256
+ newrootcount=1
+ newrootparent.1=1
+ do fi=3 to 256
+  nodemode.1.fi='100644'
+  nodenamehex.1.fi='66'||right(d2x(fi),4,'0')
+  nodechildoid.1.fi='FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF'
+  nodeentrydeleted.1.fi=0
+ end
+end
+if scenario='OVERFLOW' then nodeentrydeleted.1.1=0
+if scenario='DELETEDCAP' then nodeentrydeleted.1.1=1
+call insertrootadds
+if scenario='OVERFLOW' then do
+ say result
+ if result\\='ERROR' then exit 12
+ exit 0
+end
+if scenario='DELETEDCAP' then do
+ if result\\='OK' then exit 12
+ call buildraw 1
+ if result='ERROR' then exit 12
+ say 'COUNT' buildcount
+ exit 0
+end
+if result\\='OK' then exit 12
+call buildraw 1
+ if result='ERROR' then exit 12
+say result
+say 'COUNT' buildcount
+exit 0
+"""
+fixture=prefix+main+insert+build+mode
+Path(sys.argv[2]).write_text(fixture)
+Path(sys.argv[3]).write_text(fixture.replace("parse arg scenario", "parse arg scenario", 1))
+branch="""parse arg scenario
+pcnt=1
+if scenario='NESTED' then pcnt=2
+cd=1
+currentnode=1
+entryindex=0
+mi=1
+zeros='0000000000000000000000000000000000000000'
+nodecount=1
+nodeisnew.1=0
+newrootcount=0
+nodechanged.1=0
+nodechanged.2=0
+mapbase.1='0000000000000000000000000000000000000000'
+if scenario='STALE' then mapbase.1='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'
+mapstage.1='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+pathcomp.1.1='616C706861'
+pathcomp.1.2='66696C65'
+do cd=1 to pcnt
+"""+entry+"""
+end
+say 'NEWENTRY' newrootcount newrootparent.1 newrootname.1,
+ newrootoid.1 nodechanged.1 nodechanged.2 nodecount
+exit 0
+"""
+Path(sys.argv[4]).write_text(branch)
+print('M253 NEW-ROOT TREE SOURCE GUARDS PASS 11')
+PY
+rexx -c "$tmp/insert.rexx" /dev/null
+rexx -c "$tmp/overflow.rexx" /dev/null
+rexx -c "$tmp/branch.rexx" /dev/null
+expected='31303036343420616172647661726B00AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA31303036343420616C7068612E74787400DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD313030363434206265746100BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB313030363434207A65746100EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE'
+if output=$(rexx "$tmp/insert.rexx" NORMAL); then rc=0; else rc=$?; fi
+if [ "$rc" -ne 0 ] || [ "$output" != "$(printf '%s\nCOUNT 4' "$expected")" ]; then
+ echo "M253 sorted root-tree insertion fixture mismatch RC $rc: $output" >&2
+ exit 1
+fi
+if [ "$(rexx "$tmp/overflow.rexx" OVERFLOW)" != 'ERROR' ]; then
+ echo 'M253 root-tree capacity fixture failed' >&2
+ exit 1
+fi
+if [ "$(rexx "$tmp/insert.rexx" DELETEDCAP)" != 'COUNT 256' ]; then
+ echo 'M253 deleted-entry capacity fixture failed' >&2
+ exit 1
+fi
+expected_branch=$(printf 'SIMULATED VERIFY\nNEWENTRY 1 1 616C706861 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA 1 0 1')
+if [ "$(rexx "$tmp/branch.rexx" OK)" != "$expected_branch" ]; then
+ echo "M253 new-root commit decision fixture failed: $(rexx "$tmp/branch.rexx" OK)" >&2
+ exit 1
+fi
+expected_nested=$(printf 'SIMULATED VERIFY\nNEWENTRY 1 2 66696C65 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA 0 1 2')
+if [ "$(rexx "$tmp/branch.rexx" NESTED)" != "$expected_nested" ]; then
+ echo "M254 nested path creation fixture failed: $(rexx "$tmp/branch.rexx" NESTED)" >&2
+ exit 1
+fi
+if output=$(rexx "$tmp/branch.rexx" STALE); then rc=0; else rc=$?; fi
+if [ "$rc" -ne 8 ] || [ "$output" != 'GITWT: staged path entry missing 1 1' ]; then
+ echo "M253 stale addition rejection mismatch RC $rc: $output" >&2
+ exit 1
+fi
+if output=$(rexx "$tmp/branch.rexx" VERIFYFAIL); then rc=0; else rc=$?; fi
+if [ "$rc" -ne 8 ] || [ "$output" != 'GITWT: staged new blob is not verified 1' ]; then
+ echo "M253 invalid new blob rejection mismatch RC $rc: $output" >&2
+ exit 1
+fi
+echo 'M253 SOURCE-DERIVED NEW-ROOT TREE FIXTURES PASS 7'
+)
+exit $?
+fi
+
+if [ "${1:-}" = "M254" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M253
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GITWT.EXEC" "$tmp/nested.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+commit=source[source.index("if command='COMMIT' then do"):
+               source.index("say 'GITWT: unknown command'")]
+for token in ('call splitpath newhex', 'nodeisnew.childnode=1',
+              'newrootparent.newrootcount=currentnode',
+              "newrootmode.newrootcount='100644'",
+              "if nodeisnew.ni=1 then do", "newrootmode.1='40000'",
+              'if newrootmode.nai=\'40000\' then newcompare=newcompare||\'2F\'',
+              'nodeentry.nji=nodeentry.nji+1',
+              'nodechildoid.parentnode.parententry=treeoid',
+              'do lei=1 to nodeentries.parentid'):
+ if token not in source:
+  raise SystemExit(f'M254 nested-tree guard missing {token!r}')
+scan_start=commit.index('    entryindex=0\n')
+scan_end=commit.index('    if entryindex=0 then do',scan_start)
+scan=commit[scan_start:scan_end]
+entry_start=scan_end
+entry_end=commit.index('    if cd<pcnt then do',entry_start)
+entry=commit[entry_start:entry_end]
+entry=entry.replace("address command 'EXEC GIT VERIFY-OBJECT' mapstage.mi",
+ "say 'SIMULATED VERIFY' mapstage.mi\nrc=0")
+insert=source[source.index('insertrootadds:\n'):source.index('parsepathout:\n')]
+build=source[source.index('buildraw:\n'):source.index('insertrootadds:\n')]
+mode=source[source.index('modehex:\n'):source.index('writehex:\n')]
+prefix="""parse arg scenario
+nodecount=3
+nodeentries.1=2
+nodeisnew.1=0
+nodemode.1.1='100644'
+nodenamehex.1.1='646F63732E726561646D65'
+nodechildoid.1.1='1111111111111111111111111111111111111111'
+nodeentrydeleted.1.1=0
+nodemode.1.2='40000'
+nodenamehex.1.2='737263'
+nodechildoid.1.2='2222222222222222222222222222222222222222'
+nodeentrydeleted.1.2=0
+nodeparent.3=1
+nodename.3='737263'
+nodeentry.3=2
+nodeoid.3='2222222222222222222222222222222222222222'
+nodedepth.3=1
+nodechanged.3=0
+nodeisnew.3=0
+nodeentries.3=1
+nodemode.3.1='100644'
+nodenamehex.3.1='6F6C64'
+nodechildoid.3.1='3333333333333333333333333333333333333333'
+nodeentrydeleted.3.1=0
+nodechanged.1=0
+mapcount=2
+zeros='0000000000000000000000000000000000000000'
+mapbase.1=zeros
+mapstage.1='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+pathcomp.1.1='646F6373'
+pathcomp.1.2='61'
+mapbase.2=zeros
+mapstage.2='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'
+pathcomp.2.1='646F6373'
+pathcomp.2.2='62'
+newrootcount=0
+"""
+main="""
+do mi=1 to mapcount
+ pcnt=2
+ currentnode=1
+ do cd=1 to pcnt
+"""+scan+entry+"""
+ end
+end
+if nodecount\\=4 | newrootcount\\=2 |,
+   newrootparent.1\\=4 | newrootparent.2\\=4 then exit 12
+call insertrootadds
+if result\\='OK' then exit 12
+call buildraw 4
+if result='ERROR' | buildcount\\=2 then exit 12
+say 'FILES' result buildcount
+newrootcount=1
+newrootparent.1=3
+newrootname.1='6E6577'
+newrootmode.1='100644'
+newrootoid.1='EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE'
+call insertrootadds
+if result\\='OK' then exit 12
+call buildraw 3
+if result='ERROR' | buildcount\\=2 then exit 12
+say 'EXISTING' result buildcount
+newrootcount=1
+newrootparent.1=1
+newrootname.1='646F6373'
+newrootmode.1='40000'
+newrootoid.1='CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC'
+call insertrootadds
+if result\\='OK' | nodeentry.3\\=3 then exit 12
+parentnode=nodeparent.3
+parententry=nodeentry.3
+treeoid='FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF'
+nodechildoid.parentnode.parententry=treeoid
+call buildraw 1
+if result='ERROR' | buildcount\\=3 then exit 12
+say 'ROOT' result 'INDEX' nodeentry.3
+nodeentries.4=256
+newrootcount=1
+newrootparent.1=4
+newrootname.1='7A'
+newrootmode.1='100644'
+newrootoid.1='DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD'
+call insertrootadds
+say 'CAPACITY' result
+exit 0
+"""
+Path(sys.argv[2]).write_text(prefix+main+insert+build+mode)
+print('M254 NESTED TREE SOURCE GUARDS PASS 10')
+PY
+rexx -c "$tmp/nested.rexx" /dev/null
+aa=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+bb=BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+ee=EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
+ff=FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+old=1111111111111111111111111111111111111111
+expected_files="313030363434206100${aa}313030363434206200${bb}"
+expected_existing="313030363434206E657700${ee}313030363434206F6C64003333333333333333333333333333333333333333"
+expected_root="31303036343420646F63732E726561646D6500${old}343030303020646F637300CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC34303030302073726300${ff}"
+expected=$(printf 'SIMULATED VERIFY AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\nSIMULATED VERIFY BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\nFILES %s 2\nEXISTING %s 2\nROOT %s INDEX 3\nCAPACITY ERROR' "$expected_files" "$expected_existing" "$expected_root")
+if output=$(rexx "$tmp/nested.rexx" NORMAL); then rc=0; else rc=$?; fi
+if [ "$rc" -ne 0 ] || [ "$output" != "$expected" ]; then
+ echo "M254 nested-tree fixture mismatch RC $rc: $output" >&2
+ exit 1
+fi
+echo 'M254 SOURCE-DERIVED NESTED TREE FIXTURES PASS 4'
+)
+exit $?
+fi
+
+if [ "${1:-}" = "M255" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M254
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GITWT.EXEC" "$tmp/batch.rexx" <<'PY'
+from pathlib import Path
+import sys
+source=Path(sys.argv[1]).read_text()
+start=source.index(" if translate(word(rest,1))='--NEW' then do\n")
+end=source.index(' addall=0\n',start)
+block=source[start:end]
+for token in ('if newcount>16 then do', 'if mapcount+newcount>50 then do',
+              'if newhex.ni=newhex.nj then do',
+              'if newfn.ni=newfn.nj & newft.ni=newft.nj &',
+              'call workoid newfn.ni,newft.ni,newfm.ni,1,1',
+              'mapstage.newindex=newoid.ni', 'call savemap',
+              'do ni=1 to newcount'):
+ if token not in block:
+  raise SystemExit(f'M255 batch ADD source guard missing {token!r}')
+if not block.index('call workoid') < block.index('mapfn.newindex=newfn.ni'):
+ raise SystemExit('M255 must hash before changing map entries')
+if not block.index("'STATE' newfn.ni newft.ni newfm.ni") < block.index('call workoid'):
+ raise SystemExit('M255 must check all workfiles before hashing the batch')
+block=block.replace("'STATE' newfn.ni newft.ni newfm.ni",
+                    'call cmsstate newfn.ni,newft.ni,newfm.ni')
+block=block.replace("'STATE GITWORK REPO A'", 'call mapstate')
+block=block.replace("'EXECIO * DISKR GITWORK REPO A 1 (STEM BEFORE. FINIS'",
+                    'before.0=1\n rc=0')
+block=block.replace("'ERASE GITWORK REPO A'", "say 'SIMULATED ERASE'\n rc=0")
+helpers=source[source.index('validid:\n'):source.index('validmode:\n')]
+helpers+=source[source.index('validmode:\n'):source.index('validtext:\n')]
+helpers+='''
+toasciihex:
+ parse arg text
+ return c2x(text)
+'''
+helpers+=source[source.index('splitpath:\n'):source.index('readtree:\n')]
+prefix="""parse arg mockmode rest
+command='ADD'
+"""
+mocks="""
+exit 99
+loadmap:
+ if mockmode='full' then mapcount=49
+ else if mockmode='savefail' then do
+  mapcount=1
+  mapfn.1='EXISTING'
+  mapft.1='DATA'
+  mapfm.1='A'
+  maplf.1=''
+  mapbase.1=''
+  mapstage.1=''
+  mappath.1=''
+ end
+ else mapcount=0
+ return 'OK'
+findpath:
+ if mockmode='pathdup' then return 1
+ return 0
+findfile:
+ if mockmode='filedup' then return 1
+ return 0
+cmsstate:
+ parse arg fn,ft,fm
+ say 'SIMULATED STATE' fn ft fm
+ if mockmode='missing-second' & fn='SECOND' then rc=28
+ else rc=0
+ return
+mapstate:
+ if mockmode='savefail' then rc=0
+ else rc=28
+ return
+workoid:
+ parse arg fn,ft,fm,lf,write
+ say 'SIMULATED HASH' fn ft fm
+ if mockmode='hashfail-second' & fn='SECOND' then return 'ERROR'
+ return 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+savemap:
+ say 'SIMULATED SAVE' mapcount
+ do si=1 to mapcount
+  if si=1 & mockmode='savefail' then say 'MAP EXISTING'
+  else say 'MAP' si mapfn.si mapft.si mapfm.si maplf.si,
+   mapbase.si mapstage.si mappath.si
+ end
+ if mockmode='savefail' then return 'ERROR'
+ return 'OK'
+restoremap:
+ say 'SIMULATED RESTORE'
+ return 'OK'
+"""
+Path(sys.argv[2]).write_text(prefix+block+helpers+mocks)
+print('M255 BATCH NEW-FILE ADD SOURCE GUARDS PASS 8')
+PY
+rexx -c "$tmp/batch.rexx" /dev/null
+check() {
+ mode=$1 expected_rc=$2 expected=$3
+ shift 3
+ if output=$(rexx "$tmp/batch.rexx" "$mode $*"); then rc=0; else rc=$?; fi
+ if [ "$rc" -ne "$expected_rc" ] || [ "$output" != "$expected" ]; then
+  echo "M255 $mode fixture mismatch RC $rc: $output" >&2
+  exit 1
+ fi
+}
+oid=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+zeros=0000000000000000000000000000000000000000
+check ok 0 "SIMULATED STATE FIRST DATA A
+SIMULATED STATE SECOND TEXT B
+SIMULATED HASH FIRST DATA A
+SIMULATED HASH SECOND TEXT B
+SIMULATED SAVE 2
+MAP 1 FIRST DATA A 1 $zeros $oid 7372632F61
+MAP 2 SECOND TEXT B 1 $zeros $oid 7372632F62
+ADDED src/a $oid
+ADDED src/b $oid
+STAGE DIFFERS FROM BASE" --new src/a FIRST DATA --new src/b SECOND TEXT B
+check ok 4 "SIMULATED STATE FIRST DATA A
+GITWT: duplicate new path in request src/a" --new src/a FIRST DATA --new src/a SECOND TEXT
+check ok 4 "SIMULATED STATE FIRST DATA A
+GITWT: duplicate CMS file in request FIRST DATA A" --new src/a FIRST DATA --new src/b FIRST DATA
+check missing-second 8 "SIMULATED STATE FIRST DATA A
+SIMULATED STATE SECOND TEXT A
+GITWT: new CMS workfile is absent or unreadable SECOND TEXT A RC 28" --new src/a FIRST DATA --new src/b SECOND TEXT
+check hashfail-second 8 "SIMULATED STATE FIRST DATA A
+SIMULATED STATE SECOND TEXT A
+SIMULATED HASH FIRST DATA A
+SIMULATED HASH SECOND TEXT A" --new src/a FIRST DATA --new src/b SECOND TEXT
+check full 8 'GITWT: worktree map limit reached' --new src/a FIRST DATA --new src/b SECOND TEXT
+check savefail 8 "SIMULATED STATE FIRST DATA A
+SIMULATED STATE SECOND TEXT B
+SIMULATED HASH FIRST DATA A
+SIMULATED HASH SECOND TEXT B
+SIMULATED SAVE 3
+MAP EXISTING
+MAP 2 FIRST DATA A 1 $zeros $oid 7372632F61
+MAP 3 SECOND TEXT B 1 $zeros $oid 7372632F62
+SIMULATED RESTORE" --new src/a FIRST DATA --new src/b SECOND TEXT B
+too_many='ok'
+i=1
+while [ "$i" -le 17 ]; do
+ too_many="$too_many --new p$i F$i DATA"
+ i=$((i+1))
+done
+if output=$(rexx "$tmp/batch.rexx" "$too_many"); then rc=0; else rc=$?; fi
+if [ "$rc" -ne 4 ] || [ "$output" != \
+     'Usage: GIT ADD --new supports a maximum of 16 files' ]; then
+ echo "M255 17-file limit mismatch RC $rc: $output" >&2
+ exit 1
+fi
+echo 'M255 SOURCE-DERIVED BATCH NEW-FILE ADD FIXTURES PASS 8'
+)
+exit $?
+fi
+
+if [ "${1:-}" = "M256" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M242
+python3 - "$root/src/GITWT.EXEC" <<'PY'
+from pathlib import Path
+import sys
+source=Path(sys.argv[1]).read_text()
+start=source.index(' addall=0\n')
+end=source.index("if command='RESET' then do",start)
+block=source[start:end]
+for token in ("translate(word(rest,1))='-U'",
+              "translate(word(rest,1))='--UPDATE'",
+              'if addall=1 & addrequested=0 then do',
+              "if translate(word(rest,2))='--' then do",
+              'addstart=3', 'call findpath pathhex',
+              'mapstage.pi=addoid.ai', 'call savemap'):
+ if token not in block:
+  raise SystemExit(f'M256 selected update source guard missing {token!r}')
+if not (block.index('call findpath pathhex')<block.index('call savemap')):
+ raise SystemExit('M256 update paths must be resolved before the map save')
+print('M256 SELECTED UPDATE SOURCE GUARDS PASS 8')
+PY
+)
+exit $?
+fi
+
+if [ "${1:-}" = "M257" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M256
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GITWT.EXEC" "$tmp/wildcard.rexx" "$tmp/overflow.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+start=source.index("if command='ADD' then do")
+end=source.index("if command='ACCEPT' then do",start)
+block=source[start:end]
+block=block[block.index(' addall=0'):]
+for token in ('wildcard=0', "substr(pathhex,wi,2)='2A'",
+              "substr(pathhex,wi,2)='3F'", 'call matchpath pathhex,mappath.pi',
+              'call addselected pi,matchedpath',
+              "say 'GITWT: pathspec did not match any checked out path'",
+              "say 'GITWT: pathspec expands to more than 16 paths'",
+              'call savemap'):
+ if token not in block and token not in source:
+  raise SystemExit(f'M257 wildcard ADD source guard missing {token!r}')
+if not (block.index('call matchpath pathhex,mappath.pi')<
+        block.index('do ai=1 to addcount')<block.index('call savemap')):
+ raise SystemExit('M257 wildcard expansion must finish before hashing and saving')
+state="if mapfn.pi='MISSING' then rc=28\nelse rc=0"
+work=("if pi=1 then result='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+      "else result='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'")
+helpers_start=source.index('\naddselected:\n')+1
+helpers_end=source.index("\nif command='RESET' then do",helpers_start)
+helpers=source[helpers_start:helpers_end]
+find_start=source.index('\nfindpath:\n')+1
+find_end=source.index('\nfindfile:\n',find_start)
+findpath=source[find_start:find_end]
+prefix=("parse arg rest\ncommand='ADD'\nmapcount=3\n"
+        "if command='ADD' then do\n"
+        "mapfn.1='ALPHA'\nmapfn.2='BETA'\nmapfn.3='GAMMA'\n"
+        "do mi=1 to 3\n mapft.mi='DATA'\n mapfm.mi='A'\n"
+        " maplf.mi=1\n mapbase.mi='0000000000000000000000000000000000000000'\n"
+        " mapstage.mi=mapbase.mi\nend\n"
+        "mappath.1='616C706861'\nmappath.2='62657461'\n"
+        "mappath.3='7372632F6F6E652E63'\n")
+def build(prefix):
+ return (prefix+block.replace('call loadmap',"result='OK'")
+         .replace("'STATE' mapfn.pi mapft.pi mapfm.pi",state)
+         .replace('call workoid mapfn.pi,mapft.pi,mapfm.pi,maplf.pi,1',work)
+         .replace('call savemap',"result='OK'\nsay 'SIMULATED SAVE'")+helpers+findpath+
+         "toasciihex:\n parse arg text\n return c2x(text)\n"
+         "asciitocms:\n parse arg text\n return x2c(text)\n")
+Path(sys.argv[2]).write_text(build(prefix))
+many=("parse arg rest\ncommand='ADD'\nmapcount=17\n"
+      "if command='ADD' then do\n")
+for i in range(1,18):
+ many+=f"mapfn.{i}='F{i:02d}'\nmapft.{i}='DATA'\nmapfm.{i}='A'\n"
+ many+=f"maplf.{i}=1\nmapbase.{i}='0000000000000000000000000000000000000000'\n"
+ many+=f"mapstage.{i}=mapbase.{i}\nmappath.{i}='{(f'p{i:02d}').encode().hex().upper()}'\n"
+Path(sys.argv[3]).write_text(build(many))
+print('M257 WILDCARD ADD SOURCE GUARDS PASS 8')
+PY
+rexx -c "$tmp/wildcard.rexx" /dev/null
+check() {
+ fixture=$1
+ expected_rc=$2
+ expected=$3
+ shift 3
+ if output=$(rexx "$fixture" "$@"); then rc=0; else rc=$?; fi
+ if [ "$rc" -ne "$expected_rc" ] || [ "$output" != "$expected" ]; then
+  echo "M257 wildcard ADD $*: expected RC $expected_rc '$expected', got RC $rc '$output'" >&2
+  exit 1
+ fi
+}
+alpha=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+beta=BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+check "$tmp/wildcard.rexx" 0 "$(printf 'SIMULATED SAVE\nADDED alpha %s\nSTAGE DIFFERS FROM BASE' "$alpha")" 'a*'
+check "$tmp/wildcard.rexx" 0 "$(printf 'SIMULATED SAVE\nADDED beta %s\nSTAGE DIFFERS FROM BASE' "$beta")" '?eta'
+check "$tmp/wildcard.rexx" 0 "$(printf 'SIMULATED SAVE\nADDED src/one.c %s\nSTAGE DIFFERS FROM BASE' "$beta")" 'src/*.c'
+check "$tmp/wildcard.rexx" 0 "$(printf 'SIMULATED SAVE\nADDED alpha %s\nSTAGE DIFFERS FROM BASE\nADDED beta %s\nSTAGE DIFFERS FROM BASE' "$alpha" "$beta")" 'a*' '?eta'
+check "$tmp/wildcard.rexx" 0 "$(printf 'SIMULATED SAVE\nADDED alpha %s\nSTAGE DIFFERS FROM BASE' "$alpha")" 'a*' alpha
+check "$tmp/wildcard.rexx" 0 "$(printf 'SIMULATED SAVE\nADDED beta %s\nSTAGE DIFFERS FROM BASE' "$beta")" -u '?eta'
+check "$tmp/wildcard.rexx" 4 'GITWT: pathspec did not match any checked out path z*' 'z*'
+check "$tmp/overflow.rexx" 4 'GITWT: pathspec expands to more than 16 paths' 'p*'
+echo 'M257 SOURCE-DERIVED WILDCARD ADD FIXTURES PASS 8'
+)
+exit $?
+fi
+
+if [ "${1:-}" = "M258" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M257
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GITWT.EXEC" "$tmp/status.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+start=source.index("if command='STATUS' then do")
+end=source.index("if command='DIFF' then do",start)
+block=source[start:end]
+for token in ('statusstart=statuswords+1', "statusopt='--'",
+              'statuspaths>16', 'call matchpath pathhex,mappath.pi',
+              'if statusselected.i\\=1 then iterate',
+              'STATUS SUMMARY TRACKED\' statusselectedcount'):
+ if token not in block:
+  raise SystemExit(f'M258 selected STATUS source guard missing {token!r}')
+if not (block.index('statusselected.pi=1')<block.index('do i=1 to mapcount')<
+        block.index("'STATE' mapfn.i mapft.i mapfm.i")):
+ raise SystemExit('M258 STATUS must resolve selection before inspecting CMS files')
+helpers_start=source.index('\naddselected:\n')+1
+helpers_end=source.index("\nif command='RESET' then do",helpers_start)
+matchhelpers=source[helpers_start:helpers_end]
+find_start=source.index('\nfindpath:\n')+1
+find_end=source.index('\nfindfile:\n',find_start)
+findpath=source[find_start:find_end]
+state="if mapfn.i='BAD' then rc=12\nelse rc=0"
+work=("if i=1 then result='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+      "else if i=2 | i=4 then result='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
+      "else if i=3 then result='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
+      "else result='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'")
+fixture=(
+ "parse arg rest\ncommand='STATUS'\nmapcount=4\n"
+ "mapfn.1='CLEAN'\nmapfn.2='STAGED'\nmapfn.3='MODIFIED'\nmapfn.4='DASH'\n"
+ "do mi=1 to 4\n mapft.mi='DATA'\n mapfm.mi='A'\n maplf.mi=1\nend\n"
+ "mapbase.1='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "mapstage.1=mapbase.1\n"
+ "mapbase.2='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "mapstage.2='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
+ "mapbase.3='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "mapstage.3=mapbase.3\n"
+ "mapbase.4='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "mapstage.4='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
+ "mappath.1='616C706861'\nmappath.2='62657461'\n"
+ "mappath.3='7372632F6F6E652E63'\nmappath.4='2D64617368'\n"+
+ block.replace('call loadmap',"result='OK'")
+      .replace("'STATE' mapfn.i mapft.i mapfm.i",state)
+      .replace('call workoid mapfn.i,mapft.i,mapfm.i,maplf.i,0',work)+
+ matchhelpers+findpath+
+ "toasciihex:\n parse arg text\n return c2x(text)\n"
+ "asciitocms:\n parse arg text\n return x2c(text)\n")
+Path(sys.argv[2]).write_text(fixture)
+print('M258 SELECTED STATUS SOURCE GUARDS PASS 7')
+PY
+rexx -c "$tmp/status.rexx" /dev/null
+check() {
+ expected_rc=$1
+ expected=$2
+ shift 2
+ if output=$(rexx "$tmp/status.rexx" "$@"); then rc=0; else rc=$?; fi
+ if [ "$rc" -ne "$expected_rc" ] || [ "$output" != "$expected" ]; then
+  echo "M258 GIT STATUS $*: expected RC $expected_rc '$expected', got RC $rc '$output'" >&2
+  exit 1
+ fi
+}
+check 0 "$(printf 'M  beta\n M src/one.c\nM  -dash')" --short
+check 0 'M  beta' --short beta
+check 0 ' M src/one.c' --short 'src/*.c'
+check 0 'M  beta' --short 'b*' beta
+check 0 'M  -dash' --short -- -dash
+check 4 'GITWT: pathspec did not match any checked out path z*' --short 'z*'
+check 4 'GITWT: pathspec did not match any checked out path missing' --short missing
+sed "s/mapfn.1='CLEAN'/mapfn.1='BAD'/" "$tmp/status.rexx" > "$tmp/bad.rexx"
+if output=$(rexx "$tmp/bad.rexx" --short beta); then rc=0; else rc=$?; fi
+if [ "$rc" -ne 0 ] || [ "$output" != 'M  beta' ]; then
+ echo "M258 inspected an unselected CMS file: RC $rc '$output'" >&2
+ exit 1
+fi
+echo 'M258 SOURCE-DERIVED SELECTED STATUS FIXTURES PASS 8'
+)
+exit $?
+fi
+
+if [ "${1:-}" = "M259" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M258
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GIT.EXEC" "$root/src/GITWT.EXEC" "$tmp/restore.rexx" "$tmp/router.rexx" "$tmp/failure.rexx" "$tmp/base.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+router=Path(sys.argv[1]).read_text()
+rstart=router.index("if command = 'RESTORE' then do")
+rend=router.index("if command = 'ADD' then do",rstart)
+rblock=router[rstart:rend]
+for token in ("restoreopt)='--WORKTREE'", "'EXEC GITWT RESTORE-WORKTREE'",
+              "'EXEC GITWT RESET'"):
+ if token not in rblock:
+  raise SystemExit(f'M259 GIT RESTORE route guard missing {token!r}')
+rblock=rblock.replace("address command 'EXEC GITWT RESTORE-WORKTREE' restorepaths",
+                      "say 'SIMULATED WORKTREE' restorepaths\nexit 0")
+rblock=rblock.replace("address command 'EXEC GITWT RESET' restorepaths",
+                      "say 'SIMULATED STAGED' restorepaths\nexit 0")
+Path(sys.argv[4]).write_text("parse arg command rest\ncommand=translate(command)\n"+rblock)
+
+source=Path(sys.argv[2]).read_text()
+start=source.index("if command='RESTORE-WORKTREE' then do")
+end=source.index("if command='STATUS' then do",start)
+block=source[start:end]
+for token in ('call readrestoreblob mapstage.pi',
+              'call pathoidfor headcommit,mappath.pi',
+              'call bodyrecords restorebody.restorearg',
+              'call rollbackrestore', 'call workoid mapfn.pi,mapft.pi,mapfm.pi,restorefinal.restorearg,0',
+              'call savemap', 'restoreoldline.restorearg.restoreline'):
+ if token not in block:
+  raise SystemExit(f'M259 worktree restore source guard missing {token!r}')
+if not (block.index('call addselected')<block.index('call bodyrecords')<
+        block.index('call writework')<block.index('call savemap')):
+ raise SystemExit('M259 must resolve and validate all staged blobs before writing')
+helperstart=source.index('\naddselected:\n')+1
+helperend=source.index("\nif command='RESET' then do",helperstart)
+helpers=source[helperstart:helperend]
+findstart=source.index('\nfindpath:\n')+1
+findend=source.index('\nfindfile:\n',findstart)
+findpath=source[findstart:findend]
+block=block.replace('call loadmap',"result='OK'")
+block=block.replace("'STATE' mapfn.pi mapft.pi mapfm.pi",'rc=0')
+block=block.replace("'EXECIO * DISKR' mapfn.pi mapft.pi mapfm.pi '1 (STEM RESTOREOLD. FINIS'",
+                    "restoreold.0=1\nrestoreold.1='old-data'\nrc=0")
+block=block.replace("'STATE GITWORK REPO A'",'rc=0')
+block=block.replace("'EXECIO * DISKR GITWORK REPO A 1 (STEM BEFORE. FINIS'",
+                    "before.0=1\nbefore.1='WORK1 2'\nrc=0")
+block=block.replace('call readrestoreblob mapstage.pi',"result='6E65770A'")
+block=block.replace('call bodyrecords restorebody.restorearg',
+                    "rec.0=1\nrec.1='new'\nfinal=1\nresult='OK'")
+block=block.replace("'ERASE' mapfn.pi mapft.pi mapfm.pi",
+                    "say 'SIMULATED ERASE' mapfn.pi\nrc=0")
+block=block.replace('call writework mapfn.pi,mapft.pi,mapfm.pi',
+                    "result='OK'\nsay 'SIMULATED WRITE' mapfn.pi")
+block=block.replace('call workoid mapfn.pi,mapft.pi,mapfm.pi,restorefinal.restorearg,0',
+                    'result=mapstage.pi')
+block=block.replace('call savemap',"result='OK'\nsay 'SIMULATED SAVE'")
+fixture=(
+ "parse arg rest\ncommand='RESTORE-WORKTREE'\nmapcount=2\n"
+ "mapfn.1='MOD'\nmapfn.2='DEL'\n"
+ "do mi=1 to 2\n mapft.mi='DATA'\n mapfm.mi='A'\n maplf.mi=0\nend\n"
+ "mapbase.1='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "mapstage.1='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
+ "mapbase.2='CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC'\n"
+ "mapstage.2='0000000000000000000000000000000000000000'\n"
+ "mappath.1='616C706861'\nmappath.2='676F6E65'\n"+
+ block+helpers+findpath+
+ "toasciihex:\n parse arg text\n return c2x(text)\n"
+ "asciitocms:\n parse arg text\n return x2c(text)\n")
+Path(sys.argv[3]).write_text(fixture)
+Path(sys.argv[5]).write_text(
+ fixture.replace('result=mapstage.pi', "result='ERROR'")+
+ "writework:\n parse arg wfn,wft,wfm\n"
+ "say 'SIMULATED BACKUP RESTORE' wfn\n return 'OK'\n")
+basefixture=fixture.replace(
+ "mapstage.1='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'",
+ "mapstage.1='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'")
+Path(sys.argv[6]).write_text(
+ basefixture+
+ "readrefs:\n headref='refs/heads/main'\n return 'OK'\n"
+ "resolve:\n return 'HEADOID'\n"
+ "bindnative:\n return 'OK'\n"
+ "pathoidfor:\n parse arg pcommit,ppath\n"
+ "pathoid='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "body='6E65770A'\n return pathoid\n")
+print('M259 WORKTREE RESTORE SOURCE GUARDS PASS 9')
+PY
+rexx -c "$tmp/restore.rexx" /dev/null
+rexx -c "$tmp/failure.rexx" /dev/null
+rexx -c "$tmp/base.rexx" /dev/null
+rexx -c "$tmp/router.rexx" /dev/null
+check() {
+ fixture=$1
+ expected_rc=$2
+ expected=$3
+ shift 3
+ if output=$(rexx "$fixture" "$@"); then rc=0; else rc=$?; fi
+ if [ "$rc" -ne "$expected_rc" ] || [ "$output" != "$expected" ]; then
+  echo "M259 GIT RESTORE $*: expected RC $expected_rc '$expected', got RC $rc '$output'" >&2
+  exit 1
+ fi
+}
+check "$tmp/router.rexx" 0 'SIMULATED WORKTREE -- alpha' RESTORE --worktree -- alpha
+check "$tmp/router.rexx" 0 'SIMULATED STAGED alpha' RESTORE --staged alpha
+expected=$(printf 'SIMULATED WRITE MOD\nSIMULATED ERASE DEL\nSIMULATED SAVE\nRESTORED WORKTREE alpha BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\nRESTORED WORKTREE DELETION gone')
+check "$tmp/restore.rexx" 0 "$expected" alpha gone
+expected=$(printf 'SIMULATED WRITE MOD\nSIMULATED SAVE\nRESTORED WORKTREE alpha BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB')
+check "$tmp/restore.rexx" 0 "$expected" 'a*'
+check "$tmp/restore.rexx" 0 "$expected" alpha 'a*'
+check "$tmp/restore.rexx" 0 "$expected" -- alpha
+expected=$(printf 'SIMULATED WRITE MOD\nSIMULATED SAVE\nRESTORED WORKTREE alpha AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA')
+check "$tmp/base.rexx" 0 "$expected" alpha
+check "$tmp/restore.rexx" 4 'GITWT: pathspec did not match any checked out path missing' missing
+check "$tmp/restore.rexx" 4 'Usage: GIT RESTORE --worktree [--] path [path ...]' --bogus
+many='alpha alpha alpha alpha alpha alpha alpha alpha alpha alpha alpha alpha alpha alpha alpha alpha alpha'
+check "$tmp/restore.rexx" 4 'Usage: GIT RESTORE --worktree [--] path [path ...] (maximum 16 paths)' $many
+expected=$(printf 'SIMULATED WRITE MOD\nSIMULATED BACKUP RESTORE MOD\nSIMULATED BACKUP RESTORE DEL\nGITWT: workfile verification failed; restore rollback RC OK')
+check "$tmp/failure.rexx" 8 "$expected" alpha gone
+echo 'M259 SOURCE-DERIVED WORKTREE RESTORE FIXTURES PASS 10'
+)
+exit $?
+fi
+
+if [ "${1:-}" = "M250" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M249
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GITWT.EXEC" "$tmp/accept.rexx" "$tmp/reappeared.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+start=source.index("if command='ACCEPT' then do")
+end=source.index("if command='COMMIT' then do",start)
+block=source[start:end]
+for token in ('if mapstage.ai=zeros & mapbase.ai\\=zeros then do',
+              'deleteflag.ai=1', 'if deleteflag.ai=1 then iterate',
+              'mapcount=keptcount', "'ERASE GITWORK REPO A'", 'call savemap',
+              "say 'ACCEPTED WORKTREE DELETED' deletepath.ai"):
+ if token not in block:
+  raise SystemExit(f'M250 delete acceptance source guard missing {token!r}')
+if not block.index("'ERASE GITWORK REPO A'")<block.index('call savemap'):
+ raise SystemExit('M250 must erase before shorter map write')
+block=block.replace("'EXECIO * DISKR GITWORK REPO A 1 (STEM BEFORE. FINIS'",
+                    "before.0=1\nrc=0")
+block=block.replace("'STATE' mapfn.ai mapft.ai mapfm.ai",
+ "if mapfn.ai='DELETED' then rc=28\nelse rc=0")
+block=block.replace('call workoid mapfn.ai,mapft.ai,mapfm.ai,maplf.ai,0',
+ "if ai=2 then result='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\nelse result='CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC'")
+block=block.replace('call asciitocms mappath.ai',"result='deleted'")
+block=block.replace('call loadmap',"result='OK'")
+block=block.replace("'ERASE GITWORK REPO A'","say 'SIMULATED ERASE'\nrc=0")
+block=block.replace('call savemap',"result='OK'\nsay 'SIMULATED SAVE' mapcount")
+block=block.replace('call restoremap',"result='OK'")
+verify=("if mapcount\\=2 | mapfn.1\\='STAGED' | mapfn.2\\='CLEAN' then exit 12\n"
+        "if mapbase.1\\='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB' then exit 12\n"
+        "if mapbase.2\\='CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC' then exit 12\n")
+block=block.replace("say 'ACCEPTED WORKTREE DELETIONS' deletecount\n exit 0",
+ "say 'ACCEPTED WORKTREE DELETIONS' deletecount\n"+verify+" exit 0")
+prefix=("parse arg rest\ncommand='ACCEPT'\nmapcount=3\n"
+ "mapfn.1='DELETED'\nmapfn.2='STAGED'\nmapfn.3='CLEAN'\n"
+ "do mi=1 to 3\n mapft.mi='DATA'\n mapfm.mi='A'\n maplf.mi=1\nend\n"
+ "mapbase.1='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "mapstage.1='0000000000000000000000000000000000000000'\n"
+ "mapbase.2='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "mapstage.2='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
+ "mapbase.3='CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC'\n"
+ "mapstage.3='CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC'\n"
+ "mappath.1='64656C65746564'\nmappath.2='737461676564'\n"
+ "mappath.3='636C65616E'\n")
+Path(sys.argv[2]).write_text(prefix+block)
+reappeared=block.replace("if mapfn.ai='DELETED' then rc=28\nelse rc=0",'rc=0')
+Path(sys.argv[3]).write_text(prefix+reappeared)
+print('M250 WORKTREE MAP ACCEPT SOURCE GUARDS PASS 6')
+PY
+rexx -c "$tmp/accept.rexx" /dev/null
+rexx -c "$tmp/reappeared.rexx" /dev/null
+expected=$(printf 'GITWT ACCEPT LEVEL M168\nSIMULATED ERASE\nSIMULATED SAVE 2\nACCEPTED WORKTREE OLD AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\nACCEPTED WORKTREE NEW BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\nACCEPTED WORKTREE DELETED deleted\nACCEPTED WORKTREE PATHS 2\nACCEPTED WORKTREE DELETIONS 1')
+if output=$(rexx "$tmp/accept.rexx"); then rc=0; else rc=$?; fi
+if [ "$rc" -ne 0 ] || [ "$output" != "$expected" ]; then
+ echo "M250 accept fixture mismatch RC $rc: $output" >&2
+ exit 1
+fi
+if output=$(rexx "$tmp/reappeared.rexx"); then rc=0; else rc=$?; fi
+if [ "$rc" -ne 8 ] || [ "$output" != 'GITWT ACCEPT LEVEL M168
+GITWT: deleted workfile reappeared before accept DELETED DATA A' ]; then
+ echo "M250 reappeared deletion guard mismatch RC $rc: $output" >&2
+ exit 1
+fi
+echo 'M250 SOURCE-DERIVED DELETE ACCEPTANCE FIXTURES PASS 2'
+)
+exit $?
+fi
+
+if [ "${1:-}" = "M249" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M248
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GITWT.EXEC" "$tmp/buildraw.rexx" "$tmp/empty.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+start=source.index("if command='COMMIT' then do")
+end=source.index("say 'GITWT: unknown command'",start)
+commit=source[start:end]
+for token in ('if mapstage.mi=zeros then do', 'if rc=28 then iterate',
+              'nodeentrydeleted.currentnode.entryindex=1',
+              'call buildraw ni', 'if buildcount=0 then do',
+              'nodeentrydeleted.parentnode.parententry=1',
+              'call buildraw 1', 'COMMIT-STAGED ROOT TREE'):
+ if token not in commit:
+  raise SystemExit(f'M249 commit deletion source guard missing {token!r}')
+start=source.index('buildraw:\n')
+end=source.index('\nparsepathout:',start)
+buildraw=source[start:end]
+start=source.index('modehex:\n')
+end=source.index('\nwritehex:',start)
+modehex=source[start:end]
+fixture=(
+ "parse arg rest\nnodeentries.1=3\n"
+ "nodemode.1.1='100644'\nnodenamehex.1.1='61'\n"
+ "nodechildoid.1.1='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "nodemode.1.2='100644'\nnodenamehex.1.2='62'\n"
+ "nodechildoid.1.2='CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC'\n"
+ "nodeentrydeleted.1.2=1\n"
+ "nodemode.1.3='100755'\nnodenamehex.1.3='63'\n"
+ "nodechildoid.1.3='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
+ "call buildraw 1\nsay 'KEPT' buildcount\nsay result\nexit 0\n"
+ + buildraw+modehex)
+Path(sys.argv[2]).write_text(fixture)
+Path(sys.argv[3]).write_text(fixture.replace("nodeentrydeleted.1.2=1", "nodeentrydeleted.1.2=1\nnodeentrydeleted.1.1=1\nnodeentrydeleted.1.3=1"))
+print('M249 COMMIT DELETION SOURCE GUARDS PASS 8')
+PY
+rexx -c "$tmp/buildraw.rexx" /dev/null
+rexx -c "$tmp/empty.rexx" /dev/null
+expected='KEPT 2
+313030363434206100AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA313030373535206300BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'
+if [ "$(rexx "$tmp/buildraw.rexx")" != "$expected" ]; then
+ echo 'M249 rewritten tree raw bytes mismatch' >&2
+ exit 1
+fi
+if [ "$(rexx "$tmp/empty.rexx")" != 'KEPT 0' ]; then
+ echo 'M249 empty subtree fixture mismatch' >&2
+ exit 1
+fi
+echo 'M249 SOURCE-DERIVED TREE DELETION SERIALIZATION FIXTURES PASS 2'
+)
+exit $?
+fi
+
+if [ "${1:-}" = "M248" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M247
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GITWT.EXEC" "$tmp/status.rexx" "$tmp/diff.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+start=source.index("if command='STATUS' then do")
+end=source.index("if command='DIFF' then do",start)
+status=source[start:end]
+start=end
+end=source.index('/* Read-only preflight for a branch switch',start)
+diff=source[start:end]
+for token in ('if rc=28 then addoid.ai=zeros', "say 'STAGED DELETION'",
+              'if mapstage.i=zeros then x=\'D\''):
+ if token not in source:
+  raise SystemExit(f'M248 deletion staging source guard missing {token!r}')
+if 'if mapstage.i\\=zeros then changed=1' not in diff:
+ raise SystemExit('M248 unstaged diff does not compare missing workfile to empty staged blob')
+state=("if mapfn.i='STAGEDDEL' | mapfn.i='WORKDEL' then rc=28\n"
+       "else rc=0")
+work=("if mapfn.i='RESTORED' then\n"
+      " result='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
+      "else result='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'")
+prefix=(
+ "parse arg rest\nmapcount=3\n"
+ "mapfn.1='STAGEDDEL'\nmapfn.2='WORKDEL'\nmapfn.3='RESTORED'\n"
+ "do mi=1 to 3\n mapft.mi='DATA'\n mapfm.mi='A'\n maplf.mi=1\n"
+ " mapbase.mi='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\nend\n"
+ "mapstage.1='0000000000000000000000000000000000000000'\n"
+ "mapstage.2='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "mapstage.3='0000000000000000000000000000000000000000'\n"
+ "mappath.1='737461676564676F6E65'\n"
+ "mappath.2='776F726B676F6E65'\n"
+ "mappath.3='726573746F726564'\n")
+for command,block,path in (('STATUS',status,sys.argv[2]),('DIFF',diff,sys.argv[3])):
+ fixture=(prefix+f"command='{command}'\n"+
+  block.replace('call loadmap',"result='OK'")
+       .replace("'STATE' mapfn.i mapft.i mapfm.i",state)
+       .replace('call workoid mapfn.i,mapft.i,mapfm.i,maplf.i,0',work)+
+  "readrefs:\n headref='refs/heads/test'\n return 'OK'\n"
+  "asciitocms:\n parse arg text\n return x2c(text)\n")
+ Path(path).write_text(fixture)
+print('M248 STAGED-DELETION STATUS/DIFF SOURCE GUARDS PASS 4')
+PY
+rexx -c "$tmp/status.rexx" /dev/null
+rexx -c "$tmp/diff.rexx" /dev/null
+check() {
+ fixture=$1
+ expected=$2
+ shift 2
+ output=$(rexx "$fixture" "$@")
+ if [ "$output" != "$expected" ]; then
+  echo "M248 $*: expected '$expected', got '$output'" >&2
+  exit 1
+ fi
+}
+status=$(printf 'D  stagedgone\n D workgone\nDA restored')
+cached=$(printf 'stagedgone\nrestored')
+unstaged=$(printf 'workgone\nrestored')
+check "$tmp/status.rexx" "$status" --short
+check "$tmp/diff.rexx" "$cached" --cached --name-only
+check "$tmp/diff.rexx" "$unstaged" --name-only
+echo 'M248 SOURCE-DERIVED STAGED DELETION STATUS/DIFF FIXTURES PASS 3'
+)
+exit $?
+fi
+
+if [ "${1:-}" = "M247" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M246
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GITWT.EXEC" "$tmp/status.rexx" "$tmp/empty.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+start=source.index("if command='STATUS' then do")
+end=source.index("if command='DIFF' then do",start)
+block=source[start:end]
+required=("statusopt='--SHORT'", "statusopt='--PORCELAIN'",
+          "statusopt='--BRANCH'", 'call readrefs',
+          "say '##' branchname", "say 'On branch' branchname",
+          "Usage: GIT STATUS [--short|--porcelain] [--branch] [--] [path ...]")
+for token in required:
+ if token not in block:
+  raise SystemExit(f'M247 status branch guard missing {token!r}')
+fixture=(
+ "parse arg rest\ncommand='STATUS'\nmapcount=1\n"
+ "mapfn.1='CLEAN'\nmapft.1='DATA'\nmapfm.1='A'\nmaplf.1=1\n"
+ "mapbase.1='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "mapstage.1='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "mappath.1='636C65616E'\n" +
+ block.replace('call loadmap',"result='OK'")
+      .replace("'STATE' mapfn.i mapft.i mapfm.i",'rc=0')
+      .replace('call workoid mapfn.i,mapft.i,mapfm.i,maplf.i,0',
+               "result='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'")
+ + "readrefs:\n headref='refs/heads/feature/status'\n return 'OK'\n"
+   "asciitocms:\n parse arg text\n return x2c(text)\n")
+Path(sys.argv[2]).write_text(fixture)
+Path(sys.argv[3]).write_text(fixture.replace('mapcount=1','mapcount=0'))
+print('M247 GIT STATUS BRANCH SOURCE GUARDS PASS 7')
+PY
+rexx -c "$tmp/status.rexx" /dev/null
+check() {
+ fixture=$1
+ expected_rc=$2
+ expected=$3
+ shift 3
+ if output=$(rexx "$fixture" "$@" 2>&1); then rc=0; else rc=$?; fi
+ if [ "$rc" -ne "$expected_rc" ]; then
+  echo "GIT STATUS --branch $*: expected RC $expected_rc, got $rc ($output)" >&2
+  exit 1
+ fi
+ if [ "$output" != "$expected" ]; then
+  echo "GIT STATUS --branch $*: output mismatch: '$output'" >&2
+  exit 1
+ fi
+}
+expected=$(printf 'On branch feature/status\nSTATUS NO TRACKED FILES')
+check "$tmp/empty.rexx" 0 "$expected" --branch
+check "$tmp/status.rexx" 0 '## feature/status' --short --branch
+check "$tmp/status.rexx" 0 '## feature/status' --branch --porcelain
+check "$tmp/status.rexx" 4 'Usage: GIT STATUS [--short|--porcelain] [--branch] [--] [path ...]' --branch --unknown
+echo 'M247 SOURCE-DERIVED STATUS BRANCH FIXTURES PASS 4'
+)
+exit $?
+fi
+
+if [ "${1:-}" = "M246" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M245
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GIT.EXEC" "$tmp/restore.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+start=source.index("if command = 'RESTORE' then do")
+end=source.index("if command = 'ADD' then do",start)
+block=source[start:end]
+required=('parse var rest restoreopt restorepaths',
+          "translate(restoreopt)\\='--STAGED'",
+          "say 'Usage: GIT RESTORE --staged [--] path...'",
+          "translate(restoreopt)='--WORKTREE'",
+          "address command 'EXEC GITWT RESTORE-WORKTREE' restorepaths",
+          "address command 'EXEC GITWT RESET' restorepaths",
+          'exit rc')
+for token in required:
+ if token not in block:
+  raise SystemExit(f'M246 restore source guard missing {token!r}')
+block=block.replace("address command 'EXEC GITWT RESTORE-WORKTREE' restorepaths",
+                    "say 'SIMULATED WORKTREE' restorepaths\nexit 0")
+block=block.replace("address command 'EXEC GITWT RESET' restorepaths",
+                    "say 'SIMULATED RESET' restorepaths\nexit 0")
+Path(sys.argv[2]).write_text("parse arg rest\ncommand='RESTORE'\n"+block)
+print('M246 GIT RESTORE ROUTE SOURCE GUARDS PASS 5')
+PY
+rexx -c "$tmp/restore.rexx" /dev/null
+check() {
+ expected_rc=$1
+ expected=$2
+ shift 2
+ if output=$(rexx "$tmp/restore.rexx" "$@"); then rc=0; else rc=$?; fi
+ if [ "$rc" -ne "$expected_rc" ]; then
+  echo "GIT RESTORE $*: expected RC $expected_rc, got $rc" >&2
+  exit 1
+ fi
+ if [ "$output" != "$expected" ]; then
+  echo "GIT RESTORE $*: expected '$expected', got '$output'" >&2
+  exit 1
+ fi
+}
+check 0 'SIMULATED RESET alpha' --staged alpha
+check 0 'SIMULATED RESET -- alpha beta' --STAGED -- alpha beta
+check 0 'SIMULATED WORKTREE alpha' --worktree alpha
+check 0 'SIMULATED WORKTREE -- alpha beta' --worktree -- alpha beta
+check 4 'Usage: GIT RESTORE --staged [--] path...' --staged
+check 4 'Usage: GIT RESTORE --staged [--] path...' --bogus alpha
+echo 'M246 SOURCE-DERIVED RESTORE STAGED/WORKTREE FIXTURES PASS 6'
+)
+exit $?
+fi
+
+# A bounded log count must stop cleanly when history reaches a root commit.
+if [ "${1:-}" = "M240" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M239
+python3 - "$root/src/GITREC.C" <<'PY'
+from pathlib import Path
+import sys
+source=Path(sys.argv[1]).read_text()
+start=source.index('static int rec_logfull(')
+end=source.index('\nstatic int ',start+1)
+routine=source[start:end]
+rootcheck='if(sz<=46||!rec_ascii_key(idx_body+46,sz-46,"parent")) {'
+if rootcheck not in routine:
+ raise SystemExit('M240 LOG root detection missing')
+offset=routine.index(rootcheck)
+close=routine.index('\n  }',offset)
+rootbody=routine[offset:close]
+if 'depth=hop;' not in rootbody or 'break;' not in rootbody:
+ raise SystemExit('M240 LOG does not clamp depth at the reached root')
+if 'return 4;' in rootbody or 'LOG ROOT REACHED' in routine:
+ raise SystemExit('M240 LOG still fails when history is shorter than requested')
+required=('for(hop=0;hop<=depth;hop++)',
+          'for(j=0;j<=depth;j++)',
+          'printf("LOG NODES %u\\n",depth+1);')
+for token in required:
+ if token not in routine:
+  raise SystemExit(f'M240 short-history output framing missing {token!r}')
+if not (routine.index('depth=hop;')<routine.index('for(j=0;j<=depth;j++)')<
+        routine.index('printf("LOG NODES %u\\n",depth+1);')):
+ raise SystemExit('M240 LOG does not frame the clamped node count')
+print('M240 SHORT-HISTORY LOG SOURCE GUARDS PASS 6')
+PY
+echo 'M240 BOUNDED LOG ROOT COMPLETION PASS'
+)
+exit $?
+fi
+
 # Isolated M206 explicit-object compatibility route: host source guard only.
 if [ "${1:-}" = "M206BRIDGE" ]; then
 (
@@ -152,6 +3155,819 @@ print("M206 EMBEDDED WORKER ORDER AND LEGACY WRAPPER PASS")
 PY
 awk 'length($0)>80 {bad=1} END {exit bad}' "$c"
 echo 'M206 EXPLICIT ROUTE SOURCE GUARDS PASS (CMS UNVERIFIED)'
+)
+exit $?
+fi
+
+# Exercise modern short-name/HEAD resolution against a synthetic REF2 map.
+if [ "${1:-}" = "M215" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M213
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GITVREF.EXEC" "$tmp/resolve.rexx" <<'PY'
+from pathlib import Path
+import sys
+source=Path(sys.argv[1]).read_text()
+start=source.index('\nresolve:\n')+1
+end=source.index('\nvalidref:\n',start)
+routine=source[start:end]
+prefix="""parse arg command wanted
+headref='refs/heads/main'
+reskind=''
+refcount=4
+refname.1='refs/heads/main'
+refoid.1='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+refname.2='refs/heads/v1'
+refoid.2='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'
+refname.3='refs/tags/v1'
+refoid.3='CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC'
+refname.4='refs/tags/release/1'
+refoid.4='DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD'
+call resolve wanted
+if result='ERROR' then say 'ERROR'
+else say result reskind
+exit 0
+"""
+stub="""
+directinput:
+ return 0
+"""
+Path(sys.argv[2]).write_text(prefix+routine+stub)
+PY
+rexx -c "$tmp/resolve.rexx" /dev/null
+check() {
+ expected=$1
+ command=$2
+ wanted=$3
+ rexx "$tmp/resolve.rexx" "$command" "$wanted" > "$tmp/result"
+ actual=$(tail -n 1 "$tmp/result")
+ if [ "$actual" != "$expected" ]; then
+  echo "resolve $command $wanted: expected $expected, got $actual" >&2
+  exit 1
+ fi
+}
+check 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA REF' RESOLVE HEAD
+check 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA REF' RESOLVE main
+check 'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB REF' RESOLVE v1
+check 'DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD REF' RESOLVE release/1
+check 'DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD REF' RESOLVE refs/tags/release/1
+check ERROR RESOLVE refs/tags/missing
+echo 'M215 SOURCE-DERIVED REF2 RESOLUTION FIXTURES PASS 6'
+)
+exit $?
+fi
+
+# Test the source-derived ASCII ref-name ordering comparator.
+if [ "${1:-}" = "M216" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M215
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GITVREF.EXEC" "$tmp/tagbefore.rexx" <<'PY'
+from pathlib import Path
+import sys
+source=Path(sys.argv[1]).read_text()
+start=source.index('\ntagbefore:\n')+1
+end=source.index('\nbindnative:\n',start)
+routine=source[start:end]
+Path(sys.argv[2]).write_text(
+ 'parse arg leftname rightname\ncall tagbefore leftname, rightname\n'+
+ 'say result\nexit 0\n'+routine+'\n')
+PY
+rexx -c "$tmp/tagbefore.rexx" /dev/null
+check() {
+ expected=$1
+ leftname=$2
+ rightname=$3
+ rexx "$tmp/tagbefore.rexx" "$leftname" "$rightname" > "$tmp/result"
+ actual=$(tail -n 1 "$tmp/result")
+ if [ "$actual" != "$expected" ]; then
+  echo "tag order $leftname / $rightname: expected $expected, got $actual" >&2
+  exit 1
+ fi
+}
+check YES -a .a
+check YES .a /a
+check YES 9 A
+check YES A _
+check YES _ a
+check YES v10 v2
+check YES a a/b
+check NO b a
+python3 - "$root/src/GITVREF.EXEC" "$tmp/taglist.rexx" <<'PY'
+from pathlib import Path
+import sys
+source=Path(sys.argv[1]).read_text()
+start=source.index("if command='TAGS' then do")
+end=source.index("if command='CASE' then do",start)
+block=source[start:end]
+hstart=source.index('\ntagmatch:\n')+1
+hend=source.index('\nbindnative:\n',hstart)
+helpers=source[hstart:hend]
+prefix="""parse arg spec
+command='TAGS'
+depth=''
+extra=''
+"""
+fixture="""
+exit 4
+readrefs:
+ refcount=6
+ refname.1='refs/tags/v2'
+ refoid.1='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+ refname.2='refs/heads/main'
+ refoid.2='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'
+ refname.3='refs/tags/v10'
+ refoid.3='CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC'
+ refname.4='refs/tags/alpha'
+ refoid.4='DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD'
+ refname.5='refs/tags/Alpha'
+ refoid.5='EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE'
+ refname.6='refs/tags/-tag'
+ refoid.6='FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF'
+ return 'OK'
+"""
+Path(sys.argv[2]).write_text(prefix+block+fixture+helpers)
+PY
+rexx -c "$tmp/taglist.rexx" /dev/null
+actual=$(rexx "$tmp/taglist.rexx" '')
+expected=$(printf '%s\n' '-tag' 'Alpha' 'alpha' 'v10' 'v2')
+if [ "$actual" != "$expected" ]; then
+ echo "tag list order mismatch: $actual" >&2
+ exit 1
+fi
+actual=$(rexx "$tmp/taglist.rexx" 'v*')
+expected=$(printf '%s\n' 'v10' 'v2')
+if [ "$actual" != "$expected" ]; then
+ echo "tag pattern output mismatch: $actual" >&2
+ exit 1
+fi
+echo 'M216 SOURCE-DERIVED TAG ORDER/LIST FIXTURES PASS 10'
+)
+exit $?
+fi
+
+# Exercise modern branch-list dispatch while preserving the legacy fallback.
+if [ "${1:-}" = "M217" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M216
+python3 - "$root/src/GIT.EXEC" "$root/src/GITVREF.EXEC" <<'PY'
+from pathlib import Path
+import sys
+git=Path(sys.argv[1]).read_text()
+refs=Path(sys.argv[2]).read_text()
+for token in ("if command = 'BRANCH' then do", "'STATE GITREF2 REPO A'",
+              'if rc=28 then do', "'EXEC GITREF BRANCH' rest",
+              "EXEC GITVREF BRANCHES",
+              "EXEC GIT UPDATE-REF' branchref branchoid zeros",
+              "EXEC GIT UPDATE-REF' branchref zeros branchoid",
+              "call resolvestart branchref",
+              "verify(branchoid,'0123456789ABCDEF')"):
+ if token not in git:
+  raise SystemExit(f'GIT.EXEC missing modern branch path: {token}')
+if "if command = 'BRANCH' | command = 'SHOW-REF'" in git:
+ raise SystemExit('legacy router still captures modern BRANCH command')
+for token in ("if command='BRANCHES' then do",
+              "left(refname.bi,11)='refs/heads/'",
+              "if headref='refs/heads/'||branchname then say",
+              "say '*' branchname", 'call tagbefore branchlist.bj'):
+ if token not in refs:
+  raise SystemExit(f'GITVREF.EXEC missing branch list behavior: {token}')
+print('M217 MODERN BRANCH ROUTE/UPDATE GUARDS PASS')
+PY
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GITVREF.EXEC" "$tmp/branches.rexx" <<'PY'
+from pathlib import Path
+import sys
+source=Path(sys.argv[1]).read_text()
+start=source.index("if command='BRANCHES' then do")
+end=source.index("if command='TAGS' then do",start)
+block=source[start:end]
+sort_start=source.index('tagbefore:\n')
+sort_end=source.index('bindnative:\n',sort_start)
+sorter=source[sort_start:sort_end]
+prefix="""parse arg
+command='BRANCHES'
+spec=''
+depth=''
+extra=''
+"""
+fixture="""exit 4
+readrefs:
+ headref='refs/heads/main'
+ refcount=3
+ refname.1='refs/tags/v1'
+ refoid.1='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+ refname.2='refs/heads/feature/x'
+ refoid.2='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'
+ refname.3='refs/heads/main'
+ refoid.3='CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC'
+ return 'OK'
+"""
+Path(sys.argv[2]).write_text(prefix+block+fixture+sorter)
+PY
+rexx -c "$tmp/branches.rexx" /dev/null
+actual=$(rexx "$tmp/branches.rexx")
+expected=$(printf '%s\n' '  feature/x' '* main')
+if [ "$actual" != "$expected" ]; then
+ echo "branch list mismatch: $actual" >&2
+ exit 1
+fi
+echo 'M217 SOURCE-DERIVED REF2 BRANCH LIST FIXTURE PASS 1'
+)
+exit $?
+fi
+
+# Exercise guarded REF2 branch switching and its exact updater decision path.
+if [ "${1:-}" = "M218" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M217
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GIT.EXEC" "$root/src/GITUPD.EXEC" \
+ "$root/src/GITVREF.EXEC" "$tmp" <<'PY'
+from pathlib import Path
+import sys
+git=Path(sys.argv[1]).read_text()
+upd=Path(sys.argv[2]).read_text()
+refs=Path(sys.argv[3]).read_text()
+tmp=Path(sys.argv[4])
+for token in ("if command = 'SWITCH' then do",
+              "PIPE CMS EXEC GITVREF HEAD | STEM CURRENTHEAD.",
+              "EXEC GITUPD HEAD refs/heads/",
+              "if ref='HEAD' then do",
+              "if oldoid\\=newoid then do",
+              "call checkswitch oldhead,newhead",
+              "HEAD switch verification failed",
+              "if command='HEAD' then do",
+              "say headref"):
+    source=git+upd+refs
+    if token not in source:
+        raise SystemExit(f'M218 source missing guard: {token}')
+switch=git[git.index("if command = 'SWITCH' then do"):]
+assert switch.index("PIPE CMS EXEC GITVREF HEAD") < switch.index("EXEC GITUPD HEAD")
+assert "headref=strip(currenthead.1)" in switch
+
+vstart=refs.index("if command='HEAD' then do")
+vend=refs.index("if command='BRANCHES' then do",vstart)
+vblock=refs[vstart:vend]
+head_test=(
+    "parse arg command spec depth extra\n"
+    "command='HEAD'\nspec=''\ndepth=''\nextra=''\n"
+    +vblock+
+    "exit 99\nreadrefs:\n headref='refs/heads/topic'\n"
+    " return 'OK'\n"
+)
+(tmp/'head.rexx').write_text(head_test)
+
+ustart=upd.index("if ref='HEAD' then do")
+uend=upd.index("zeros='0000000000000000000000000000000000000000'",ustart)
+ublock=upd[ustart:uend]
+fixture=(
+    "parse arg mode\nreadcalls=0\nref='HEAD'\n"
+    "newheadarg='refs/heads/topic'\n"
+    "newoid=newheadarg\noldoid='refs/heads/main'\nextra=''\n"
+    +ublock+
+    "exit 99\n"
+    "validref:\n parse arg vr\n"
+    " if left(vr,11)='refs/heads/' then return 'OK'\n"
+    " return 'ERROR'\n"
+    "readrefs:\n"
+    " readcalls=readcalls+1\n"
+    " if written=1 then headref=storedhead\n"
+    " else headref='refs/heads/main'\n"
+    " if mode='race' & readcalls>1 then,\n"
+    "  headref='refs/heads/other'\n"
+    " refcount=2\nrefname.1='refs/heads/main'\n"
+    " refname.2='refs/heads/topic'\n"
+    " refoid.1='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+    " refoid.2=refoid.1\n"
+    " if mode='different' | mode='safe' then,\n"
+    "  refoid.2='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
+    " if mode='raceoid' & readcalls>1 then,\n"
+    "  refoid.2='DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD'\n"
+    " if mode='missing' then refcount=1\n"
+    " rr.0=4\nrr.1='REF2 1'\nrr.2='HEAD '||headref\n"
+    " rr.3='REF refs/heads/main '||refoid.1\n"
+    " rr.4='REF refs/heads/topic '||refoid.2\n"
+    " return 'OK'\n"
+    "requirecommit:\n return 'OK'\n"
+    "checkswitch:\n say 'SIMULATED SWITCH PREFLIGHT'\n"
+    " if mode='different' then return 'ERROR'\n"
+    " return 'OK'\n"
+    "writerefs:\n"
+    " if mode='writefail' then return 'ERROR'\n"
+    " storedhead=headref\nwritten=1\nsay 'SIMULATED WRITE'\nreturn 'OK'\n"
+    "restore:\n storedhead='refs/heads/main'\nwritten=0\n"
+    " say 'SIMULATED RESTORE'\nreturn 'OK'\n"
+)
+(tmp/'switch.rexx').write_text(fixture)
+PY
+rexx -c "$tmp/head.rexx" /dev/null
+head=$(rexx "$tmp/head.rexx")
+[ "$head" = 'refs/heads/topic' ]
+rexx -c "$tmp/switch.rexx" /dev/null
+ok=$(rexx "$tmp/switch.rexx" same)
+[ "$?" -eq 0 ]
+echo "$ok" | grep -q 'HEAD UPDATED refs/heads/main refs/heads/topic'
+echo "$ok" | grep -q 'SIMULATED WRITE'
+same=$(rexx "$tmp/switch.rexx" same)
+echo "$same" | grep -q 'HEAD UPDATED'
+if rexx "$tmp/switch.rexx" different >"$tmp/different"; then
+ echo 'different-tip switch unexpectedly succeeded' >&2
+ exit 1
+else
+ rc=$?
+ [ "$rc" -eq 8 ]
+fi
+grep -q 'destination worktree preflight failed' "$tmp/different"
+grep -q 'SIMULATED SWITCH PREFLIGHT' "$tmp/different"
+safe=$(rexx "$tmp/switch.rexx" safe)
+echo "$safe" | grep -q 'HEAD UPDATED refs/heads/main refs/heads/topic'
+echo "$safe" | grep -q 'SIMULATED SWITCH PREFLIGHT'
+if rexx "$tmp/switch.rexx" missing >"$tmp/missing"; then
+ echo 'missing branch switch unexpectedly succeeded' >&2
+ exit 1
+else
+ rc=$?
+ [ "$rc" -eq 8 ]
+fi
+grep -q 'switch branch is missing' "$tmp/missing"
+if rexx "$tmp/switch.rexx" writefail >"$tmp/writefail"; then
+ echo 'failed HEAD write unexpectedly succeeded' >&2
+ exit 1
+else
+ rc=$?
+ [ "$rc" -eq 8 ]
+fi
+grep -q 'SIMULATED RESTORE' "$tmp/writefail"
+if rexx "$tmp/switch.rexx" race >"$tmp/race"; then
+ echo 'stale HEAD race unexpectedly succeeded' >&2
+ exit 1
+else
+ rc=$?
+ [ "$rc" -eq 8 ]
+fi
+grep -q 'symbolic HEAD changed during switch preflight' "$tmp/race"
+if rexx "$tmp/switch.rexx" raceoid >"$tmp/raceoid"; then
+ echo 'stale branch-tip race unexpectedly succeeded' >&2
+ exit 1
+else
+ rc=$?
+ [ "$rc" -eq 8 ]
+fi
+grep -q 'branch tips changed during switch preflight' "$tmp/raceoid"
+if grep -q 'SIMULATED WRITE' "$tmp/different" "$tmp/missing" "$tmp/writefail"; then
+ echo 'rejected HEAD switch attempted a write' >&2
+ exit 1
+fi
+echo 'M218 SOURCE-DERIVED REF2 SWITCH FIXTURES PASS 8'
+)
+exit $?
+fi
+
+# Execute the exact read-only mapped-worktree preflight used by GITUPD.
+if [ "${1:-}" = "M219" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M218
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GIT.EXEC" "$root/src/GITUPD.EXEC" \
+ "$root/src/GITWT.EXEC" "$tmp/checkswitch.rexx" <<'PY'
+from pathlib import Path
+import sys
+git=Path(sys.argv[1]).read_text()
+upd=Path(sys.argv[2]).read_text()
+wt=Path(sys.argv[3]).read_text()
+out=Path(sys.argv[4])
+for source, token in ((upd,"EXEC GITWT CHECK-SWITCH"),
+                      (wt,"if command='CHECK-SWITCH' then do"),
+                      (wt,"GITREC PATHFULLCAT GITFIX M15NEW"),
+                      (wt,"'STATE' wfn wft wfm"),
+                      (wt,"workoid mapfn.mi,mapft.mi,mapfm.mi,maplf.mi,0"),
+                      (wt,"destination changes mapped path"),
+                      (wt,"staged changes block branch switch")):
+    if token not in source:
+        raise SystemExit(f'M219 source missing safe-switch check: {token}')
+head=upd[upd.index("if ref='HEAD' then do"):upd.index(
+    "zeros='0000000000000000000000000000000000000000'")]
+assert head.index('call checkswitch oldhead,newhead') < head.index('headref=newhead')
+start=wt.index("if command='CHECK-SWITCH' then do")
+end=wt.index("if command='ADD' then do",start)
+block=wt[start:end]
+for forbidden in ('DISKW', 'ERASE', 'WRITE-WORKFILE', 'UPDATE-REF'):
+    if forbidden in block:
+        raise SystemExit(f'M219 preflight contains a mutating operation: {forbidden}')
+fixture=(
+    "parse arg mode\ncommand='CHECK-SWITCH'\n"
+    "rest='refs/heads/main refs/heads/topic'\n"
+    "if mode='oidtarget' then,\n"
+    " rest='refs/heads/main CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC'\n"
+    +block+
+    "exit 99\n"
+    "validref:\n parse arg vr\n"
+    " if left(vr,11)='refs/heads/' then return 'OK'\n"
+    " return 'ERROR'\n"
+    "readrefs:\n"
+    " headref='refs/heads/main'\n"
+    " if mode='stale' then headref='refs/heads/other'\n"
+    " refcount=2\nrefname.1='refs/heads/main'\n"
+    " refoid.1='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
+    " refname.2='refs/heads/topic'\n"
+    " refoid.2='CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC'\n"
+    " return 'OK'\n"
+    "resolve:\n parse arg wanted\n"
+    " if wanted='refs/heads/main' then return refoid.1\n"
+    " if wanted='refs/heads/topic' then return refoid.2\n"
+    " return 'ERROR'\n"
+    "loadmap:\n"
+    " if mode='unmapped' then do\n mapcount=0\n return 'OK'\n end\n"
+    " mapcount=1\nmapfn.1='M219TEST'\nmapft.1='DATA'\n"
+    " mapfm.1='A'\nmaplf.1='1'\n"
+    " mapbase.1='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+    " mapstage.1=mapbase.1\nmappath.1='7372632F66696C65'\n"
+    " if mode='staged' then,\n"
+    "  mapstage.1='EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE'\n"
+    " return 'OK'\n"
+    "bindnative:\n return 'OK'\n"
+    "checkworkfile:\n"
+    " if mode='missingfile' then return 'ERROR'\n"
+    " return 'OK'\n"
+    "workoid:\n"
+    " if mode='dirty' then,\n"
+    "  return 'DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD'\n"
+    " return 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+    "pathoidfor:\n parse arg pcommit,ppath\n"
+    " if mode='missingpath' & pcommit=refoid.2 then,\n"
+    "  return 'ERROR'\n"
+    " if mode='currentstale' & pcommit=refoid.1 then,\n"
+    "  return 'DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD'\n"
+    " if mode='changed' & pcommit=refoid.2 then,\n"
+    "  return 'DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD'\n"
+    " return 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+)
+out.write_text(fixture)
+pstart=wt.index('\nparsepathout:\n')+1
+pend=wt.index('\npathoidfor:\n',pstart)
+parser=wt[pstart:pend]
+parse_fixture=(
+    "parse arg mode\nout.0=5\n"
+    "out.1='COMMIT ROOT FULL CLOSURE VERIFIED'\n"
+    "out.2='PATH OBJECT TYPE 3 SIZE 3 OID AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+    "out.3='PATH DATA BEGIN'\nout.4='PATH HEX 616263'\n"
+    "out.5='PATH DATA END'\n"
+    "if mode='bad' then out.2=\"PATH OBJECT TYPE 3 SIZE 4 OID AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\"\n"
+    "call parsepathout\n"
+    "if result='OK' then say 'OK' pathoid\nelse say 'ERROR'\n"
+    "exit 0\n"+parser
+)
+(out.parent/'parsepath.rexx').write_text(parse_fixture)
+PY
+rexx -c "$tmp/checkswitch.rexx" /dev/null
+rexx -c "$tmp/parsepath.rexx" /dev/null
+parsed=$(rexx "$tmp/parsepath.rexx" good)
+echo "$parsed" | grep -q '^OK AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA$'
+invalid=$(rexx "$tmp/parsepath.rexx" bad)
+[ "$invalid" = 'ERROR' ]
+safe=$(rexx "$tmp/checkswitch.rexx" clean)
+echo "$safe" | grep -q 'SWITCH PREFLIGHT SAFE MAPPED 1'
+oidtarget=$(rexx "$tmp/checkswitch.rexx" oidtarget)
+echo "$oidtarget" | grep -q 'SWITCH PREFLIGHT SAFE MAPPED 1'
+unmapped=$(rexx "$tmp/checkswitch.rexx" unmapped)
+echo "$unmapped" | grep -q 'SWITCH PREFLIGHT SAFE UNMAPPED 0'
+for mode in staged dirty missingfile currentstale changed missingpath stale; do
+ if rexx "$tmp/checkswitch.rexx" "$mode" >"$tmp/$mode"; then
+  echo "unsafe switch preflight unexpectedly passed: $mode" >&2
+  exit 1
+ else
+  rc=$?
+  [ "$rc" -eq 8 ]
+ fi
+done
+grep -q 'staged changes block branch switch' "$tmp/staged"
+grep -q 'modified workfile blocks branch switch' "$tmp/dirty"
+grep -q 'missing mapped file blocks branch switch' "$tmp/missingfile"
+grep -q 'worktree base is stale against current branch' "$tmp/currentstale"
+grep -q 'destination changes mapped path' "$tmp/changed"
+grep -q 'destination changes mapped path' "$tmp/missingpath"
+grep -q 'symbolic HEAD changed during switch preflight' "$tmp/stale"
+echo 'M219 SOURCE-DERIVED WORKTREE SWITCH PREFLIGHT/PATH FIXTURES PASS 12'
+)
+exit $?
+fi
+
+# Test atomic create-and-switch behavior through the exact updater branch.
+if [ "${1:-}" = "M220" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M219
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GIT.EXEC" "$root/src/GITUPD.EXEC" \
+ "$root/src/GITWT.EXEC" "$tmp/createhead.rexx" <<'PY'
+from pathlib import Path
+import sys
+git=Path(sys.argv[1]).read_text()
+upd=Path(sys.argv[2]).read_text()
+wt=Path(sys.argv[3]).read_text()
+out=Path(sys.argv[4])
+switch_at=git.index("if command = 'SWITCH' then do")
+route=git[switch_at:git.index("/* M5D integration boundary",switch_at)]
+for token in ("switchmode='-C' | switchmode='--CREATE'",
+              "Usage: GIT SWITCH -c|--create name [start-point]",
+              "if startpoint='' then startpoint='HEAD'",
+              "call resolvestart startpoint",
+              "EXEC GITUPD CREATE-HEAD refs/heads/"):
+    if token not in route:
+        raise SystemExit(f'M220 switch router missing {token}')
+assert route.index("GITVREF HEAD") < route.index("GITUPD CREATE-HEAD")
+ustart=upd.index("if ref='CREATE-HEAD' then do")
+uend=upd.index("/* HEAD changes require",ustart)
+block=upd[ustart:uend]
+for token in ("branch already exists", "call requirecommit targetoid",
+              "call checkswitch oldhead,targetoid", "call writerefs",
+              "branch creation readback mismatch", "call restore",
+              "HEAD CREATED"):
+    if token not in block:
+        raise SystemExit(f'M220 updater missing atomic guard {token}')
+if block.index('call checkswitch oldhead,targetoid') > block.index('call writerefs'):
+    raise SystemExit('M220 writes REF2 before destination preflight')
+helper=upd[upd.index('checkswitch:\n'):upd.index('validref:\n',upd.index('checkswitch:\n'))]
+if 'parse arg csold,csnew' not in helper:
+    raise SystemExit('M220 preflight helper may overwrite caller state')
+if "length(targetref)=40" not in wt:
+    raise SystemExit('GITWT does not accept a pinned destination commit')
+fixture=(
+    "parse arg mode\nreadcalls=0\nwritten=0\n"
+    "ref='CREATE-HEAD'\nnewoid='refs/heads/new/topic'\n"
+    "oldoid='refs/heads/main'\nextra='HEAD'\n"
+    "if mode='sameoid' then extra='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+    "if mode='different' | mode='unsafe' | mode='race' then,\n"
+    " extra='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
+    "if mode='invalid' then extra='short'\n"
+    +block+
+    "exit 99\n"
+    "validref:\n parse arg vr\n"
+    " if left(vr,11)='refs/heads/' then return 'OK'\n"
+    " return 'ERROR'\n"
+    "readrefs:\n"
+    " readcalls=readcalls+1\n"
+    " headref='refs/heads/main'\n"
+    " if mode='stale' then headref='refs/heads/other'\n"
+    " if mode='race' & readcalls>1 then headref='refs/heads/other'\n"
+    " refcount=1\nrefname.1='refs/heads/main'\n"
+    " refoid.1='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+    " if mode='existing' then do\n"
+    "  refcount=2\nrefname.2='refs/heads/new/topic'\n"
+    "  refoid.2=refoid.1\nend\n"
+    " if written=1 then do\n"
+    "  refcount=2\nrefname.2='refs/heads/new/topic'\n"
+    "  refoid.2=storedtarget\nheadref=storedhead\nend\n"
+    " rr.0=3\nrr.1='REF2 1'\nrr.2='HEAD '||headref\n"
+    " rr.3='REF refs/heads/main '||refoid.1\n"
+    " if refcount=2 then do\nrr.0=4\n"
+    "  rr.4='REF refs/heads/new/topic '||refoid.2\nend\n"
+    " return 'OK'\n"
+    "requirecommit:\n return 'OK'\n"
+    "checkswitch:\n say 'SIMULATED SWITCH PREFLIGHT'\n"
+    " if mode='unsafe' then return 'ERROR'\nreturn 'OK'\n"
+    "writerefs:\n"
+    " if mode='writefail' then return 'ERROR'\n"
+    " storedhead=headref\nstoredtarget=refoid.refcount\nwritten=1\n"
+    " say 'SIMULATED WRITE'\nreturn 'OK'\n"
+    "restore:\n written=0\nstoredhead='refs/heads/main'\n"
+    " say 'SIMULATED RESTORE'\nreturn 'OK'\n"
+)
+out.write_text(fixture)
+PY
+rexx -c "$tmp/createhead.rexx" /dev/null
+created=$(rexx "$tmp/createhead.rexx" head)
+echo "$created" | grep -q 'HEAD CREATED refs/heads/new/topic AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+if echo "$created" | grep -q 'SIMULATED SWITCH PREFLIGHT'; then
+ echo 'same-tip create unexpectedly required a worktree transition' >&2
+ exit 1
+fi
+sameoid=$(rexx "$tmp/createhead.rexx" sameoid)
+echo "$sameoid" | grep -q 'HEAD CREATED refs/heads/new/topic AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+different=$(rexx "$tmp/createhead.rexx" different)
+echo "$different" | grep -q 'HEAD CREATED refs/heads/new/topic BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'
+echo "$different" | grep -q 'SIMULATED SWITCH PREFLIGHT'
+for mode in unsafe existing stale race writefail invalid; do
+ if rexx "$tmp/createhead.rexx" "$mode" >"$tmp/$mode"; then
+  echo "unsafe create-and-switch unexpectedly succeeded: $mode" >&2
+  exit 1
+ else
+  rc=$?
+  case "$mode" in invalid) [ "$rc" -eq 4 ] ;; *) [ "$rc" -eq 8 ] ;; esac
+ fi
+done
+grep -q 'destination worktree preflight failed' "$tmp/unsafe"
+grep -q 'branch already exists' "$tmp/existing"
+grep -q 'stale symbolic HEAD for branch creation' "$tmp/stale"
+grep -q 'symbolic HEAD changed during branch creation' "$tmp/race"
+grep -q 'SIMULATED RESTORE' "$tmp/writefail"
+grep -q 'invalid branch start commit OID' "$tmp/invalid"
+for mode in unsafe existing stale race writefail; do
+ if grep -q 'SIMULATED WRITE' "$tmp/$mode"; then
+  echo "rejected create-and-switch wrote REF2: $mode" >&2
+  exit 1
+ fi
+done
+echo 'M220 SOURCE-DERIVED CREATE-AND-SWITCH FIXTURES PASS 9'
+)
+exit $?
+fi
+
+# Check safe revision-name resolution for switch -c start points.
+if [ "${1:-}" = "M221" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M220
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GIT.EXEC" "$tmp/resolvestart.rexx" <<'PY'
+from pathlib import Path
+import sys
+source=Path(sys.argv[1]).read_text()
+start=source.index('resolvestart: procedure expose rs.')
+end=source.index('\nqueryref:',start)
+routine=source[start:end]
+for token in ("if wanted='HEAD'", "length(direct)=40",
+              "startchars=startchars||'0123456789._/-'",
+              "call queryref wanted"):
+    if token not in source:
+        raise SystemExit(f'M221 start resolver missing validation: {token}')
+assert source.index('verify(wanted,startchars)') < source.index('call queryref wanted')
+qstart=source.index('queryref: procedure expose rs.')
+qend=source.find('\n',source.index("'PIPE CMS' cmd '| STEM RS.'",qstart))
+assert qend>qstart
+fixture=(
+    "parse arg mode wanted\nrs.0=0\n"
+    "call resolvestart wanted\n"
+    "if rs.0=0 then say 'RESOLVED' result 'QUERY'\n"
+    "else say 'RESOLVED' result 'QUERY' word(rs.1,3)\nexit 0\n"
+    +routine+
+    "queryref:\n parse arg qspec\ndrop rs.\nrs.0=0\n"
+    " if qspec='main' then rs.1='VERIFIED REF main AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+    " else if qspec='release/1' then rs.1='VERIFIED REF release/1 BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
+    " else if qspec='refs/tags/v1' then rs.1='VERIFIED REF refs/tags/v1 BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
+    " else if qspec='multiple' then rs.1='VERIFIED REF multiple AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+    " else if qspec='badrecord' then rs.1='VERIFIED TAG badrecord CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC'\n"
+    " else return 'ERROR'\n"
+    " if qspec='multiple' then do\nrs.2=rs.1\nrs.0=2\nend\n"
+    " else rs.0=1\nreturn 'OK'\n"
+)
+Path(sys.argv[2]).write_text(fixture)
+PY
+rexx -c "$tmp/resolvestart.rexx" /dev/null
+check() {
+ expected=$1
+ wanted=$2
+ shift 2
+ actual=$(rexx "$tmp/resolvestart.rexx" "$@" "$wanted")
+ if [ "$actual" != "$expected" ]; then
+  echo "start-point $wanted: expected $expected, got $actual" >&2
+  exit 1
+ fi
+}
+check 'RESOLVED HEAD QUERY' HEAD clean
+check 'RESOLVED CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC QUERY' CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC clean
+check 'RESOLVED AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA QUERY main' main clean
+check 'RESOLVED BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB QUERY release/1' release/1 clean
+check 'RESOLVED BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB QUERY refs/tags/v1' refs/tags/v1 clean
+check 'RESOLVED ERROR QUERY' missing clean
+check 'RESOLVED ERROR QUERY' 'bad|input' clean
+check 'RESOLVED ERROR QUERY badrecord' badrecord badrecord
+check 'RESOLVED ERROR QUERY multiple' multiple clean
+echo 'M221 SOURCE-DERIVED SWITCH START-POINT RESOLUTION FIXTURES PASS 9'
+)
+exit $?
+fi
+
+# Test compare-and-swap branch rename and current-HEAD preservation/update.
+if [ "${1:-}" = "M222" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M221
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GIT.EXEC" "$root/src/GITUPD.EXEC" \
+ "$tmp/moveref.rexx" <<'PY'
+from pathlib import Path
+import sys
+git=Path(sys.argv[1]).read_text()
+upd=Path(sys.argv[2]).read_text()
+route_at=git.index("if command = 'BRANCH' then do")
+route=git[route_at:git.index("/* M5D integration boundary",route_at)]
+for token in ("if brancharg1='-m' | verb='--MOVE' then do",
+              'call resolvestart brancharg2',
+              "EXEC GIT UPDATE-REF MOVE-REF' oldref newref expectedoid",
+              'brancharg4\\=\'\''):
+    if token not in route:
+        raise SystemExit(f'M222 branch router missing {token}')
+if "brancharg1='-M'" in route:
+    raise SystemExit('M222 accidentally enables force rename')
+start=upd.index("if ref='MOVE-REF' then do")
+end=upd.index("/* Atomically create a branch ref",start)
+block=upd[start:end]
+for token in ('currentoid\\=expectedoid', 'destination branch already exists',
+              'if headref=oldref then headref=newref',
+              'branch rename readback mismatch', 'call restore',
+              "say 'RENAMED' oldref newref expectedoid"):
+    if token not in block:
+        raise SystemExit(f'M222 updater missing CAS guard {token}')
+block=block.replace(
+    " say 'RENAMED' oldref newref expectedoid\n exit 0",
+    " say 'RENAMED' oldref newref expectedoid\n"
+    " say 'TEST HEAD' headref\n exit 0",
+)
+fixture=(
+    "parse arg mode\nreadcalls=0\nwritten=0\n"
+    "ref='MOVE-REF'\nnewoid='refs/heads/topic'\n"
+    "oldoid='refs/heads/renamed'\nextra='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
+    +block+
+    "exit 99\n"
+    "validref:\n parse arg vr\n"
+    " if left(vr,11)='refs/heads/' then return 'OK'\n"
+    " return 'ERROR'\n"
+    "readrefs:\n"
+    " readcalls=readcalls+1\n"
+    " headref='refs/heads/main'\n"
+    " if mode='current' then headref='refs/heads/topic'\n"
+    " if written=1 then do\n"
+    "  headref=storedhead\nrefcount=2\n"
+    "  refname.1='refs/heads/main'\n"
+    "  refoid.1='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+    "  refname.2='refs/heads/renamed'\nrefoid.2=storedoid\n"
+    " end\nelse do\n"
+    "  refcount=2\nrefname.1='refs/heads/main'\n"
+    "  refoid.1='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+    "  refname.2='refs/heads/topic'\n"
+    "  refoid.2='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
+    "  if mode='stale' then,\n"
+    "   refoid.2='CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC'\n"
+    "  if mode='missing' then refcount=1\n"
+    "  if mode='exists' then do\nrefcount=3\n"
+    "   refname.3='refs/heads/renamed'\n"
+    "   refoid.3='CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC'\nend\n"
+    " end\n"
+    " rr.0=2+refcount\nrr.1='REF2 1'\nrr.2='HEAD '||headref\n"
+    " do ri=1 to refcount\nrri=ri+2\n"
+    "  rr.rri='REF ' refname.ri refoid.ri\nend\n"
+    " return 'OK'\n"
+    "requirecommit:\n return 'OK'\n"
+    "writerefs:\n"
+    " if mode='writefail' then return 'ERROR'\n"
+    " storedhead=headref\nstoredoid=refoid.oldslot\n"
+    " if mode='corrupt' then storedoid='DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD'\n"
+    " written=1\nsay 'SIMULATED WRITE'\nreturn 'OK'\n"
+    "restore:\n written=0\nsay 'SIMULATED RESTORE'\nreturn 'OK'\n"
+)
+Path(sys.argv[3]).write_text(fixture)
+PY
+rexx -c "$tmp/moveref.rexx" /dev/null
+noncurrent=$(rexx "$tmp/moveref.rexx" noncurrent)
+echo "$noncurrent" | grep -q 'RENAMED refs/heads/topic refs/heads/renamed BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'
+echo "$noncurrent" | grep -q 'TEST HEAD refs/heads/main'
+current=$(rexx "$tmp/moveref.rexx" current)
+echo "$current" | grep -q 'TEST HEAD refs/heads/renamed'
+for mode in missing stale exists writefail corrupt; do
+ if rexx "$tmp/moveref.rexx" "$mode" >"$tmp/$mode"; then
+  echo "invalid branch rename unexpectedly succeeded: $mode" >&2
+  exit 1
+ else
+  rc=$?
+  [ "$rc" -eq 8 ]
+ fi
+done
+grep -q 'stale or missing branch' "$tmp/missing"
+grep -q 'stale or missing branch' "$tmp/stale"
+grep -q 'destination branch already exists' "$tmp/exists"
+grep -q 'SIMULATED RESTORE' "$tmp/writefail"
+grep -q 'branch rename readback mismatch' "$tmp/corrupt"
+grep -q 'SIMULATED RESTORE' "$tmp/corrupt"
+for mode in missing stale exists writefail; do
+ if grep -q 'SIMULATED WRITE' "$tmp/$mode"; then
+  echo "rejected branch rename wrote REF2: $mode" >&2
+  exit 1
+ fi
+done
+echo 'M222 SOURCE-DERIVED REF2 BRANCH RENAME FIXTURES PASS 7'
 )
 exit $?
 fi

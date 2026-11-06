@@ -2,6 +2,30 @@
 address cms
 parse arg command rest
 command=translate(command)
+objectfm='A'
+'STATE GITMETA REPO A'
+if rc=0 then do
+ drop cfg.
+ 'EXECIO * DISKR GITMETA REPO A 1 (STEM CFG. FINIS'
+ if rc\=0 | cfg.0<4 | cfg.1\='CMS-GIT-REPOSITORY 1' then do
+  say 'GITWT: invalid repository metadata'
+  exit 8
+ end
+ objectrecords=0
+ do ci=1 to cfg.0
+  if word(cfg.ci,1)='OBJECT-DISK' then do
+   if words(cfg.ci)\=2 then exit 8
+   objectrecords=objectrecords+1
+   objectfm=translate(word(cfg.ci,2))
+  end
+ end
+ if objectrecords>1 | length(objectfm)\=1 |,
+    verify(objectfm,'ABCDEFGHIJKLMNOPQRSTUVWXYZ')\=0 then do
+  say 'GITWT: invalid OBJECT-DISK setting'
+  exit 8
+ end
+end
+else if rc\=28 then exit 8
 
 if command='CHECKOUT' then do
  wc=words(rest)
@@ -15,6 +39,9 @@ if command='CHECKOUT' then do
  ft=translate(word(rest,4))
  if wc=5 then fm=translate(word(rest,5))
  else fm='A'
+ checkoutfn=fn
+ checkoutft=ft
+ checkoutfm=fm
  call validid fn
  if result\='OK' then exit 4
  call validid ft
@@ -59,17 +86,15 @@ if command='CHECKOUT' then do
  if oid='ERROR' then exit 8
  call bindnative
  if result\='OK' then exit 8
- drop out.
- out.0=0
- cmd='GITREC PATHFULLCAT GITFIX M15NEW' oid pathhex
- 'PIPE CMS' cmd '| STEM out.'
- grc=rc
- if grc\=0 then do
-  say 'GITWT: authenticated checkout read failed RC' grc
-  exit grc
+ call pathoidfor oid,pathhex
+ pathoid=result
+ fn=checkoutfn
+ ft=checkoutft
+ fm=checkoutfm
+ if pathoid='ERROR' then do
+  say 'GITWT: checkout source could not be read' path
+  exit 8
  end
- call parsepathout
- if result\='OK' then exit 8
  call bodyrecords body
  if result\='OK' then exit 8
  call writework fn,ft,fm
@@ -107,28 +132,564 @@ if command='CHECKOUT' then do
  exit 0
 end
 
-if command='STATUS' then do
- if strip(rest)\='' then do
-  say 'Usage: GIT STATUS'
+if command='CHECKOUT-TREE' then do
+ if words(rest)\=1 then do
+  say 'Usage: GITWT CHECKOUT-TREE ref'
+  exit 4
+ end
+ spec=word(rest,1)
+ call loadmap
+ if result\='OK' then do
+  say 'GITWT: cannot read worktree map'
+  exit 8
+ end
+ call readrefs
+ if result\='OK' then do
+  say 'GITWT: cannot read refs'
+  exit 8
+ end
+ call resolve spec
+ treecommit=result
+ if treecommit='ERROR' then exit 8
+ call bindnative
+ if result\='OK' then do
+  say 'GITWT: cannot bind native object reader'
+  exit 8
+ end
+ call rootfor treecommit
+ treeroot=result
+ if treeroot='ERROR' then do
+  say 'GITWT: cannot read checkout root tree'
+  exit 8
+ end
+ call readtree treeroot,''
+ if result\='OK' & result\='MISSING' then do
+  say 'GITWT: cannot validate checkout root tree'
+  exit 8
+ end
+ treefiles=ecount
+ if treefiles=0 then do
+  say 'CHECKED OUT EMPTY TREE' treecommit
+  exit 0
+ end
+ if treefiles>50 | mapcount+treefiles>50 then do
+  say 'GITWT: checkout exceeds 50 mapped workfiles'
+  exit 8
+ end
+ drop tfn. tft. tpath. toid. tlf. treccount. trecord.
+ do ti=1 to treefiles
+  if emode.ti\='100644' then do
+   say 'GITWT: tree checkout supports flat regular files only'
+   exit 8
+  end
+  call asciitocms ename.ti
+  tpath.ti=result
+  if tpath.ti='ERROR' | pos('/',tpath.ti)>0 then do
+   say 'GITWT: invalid or nested checkout path'
+   exit 8
+  end
+  dotpos=pos('.',tpath.ti)
+  if dotpos=0 then do
+   tfn.ti=translate(tpath.ti)
+   tft.ti='TEXT'
+  end
+  else do
+   if dotpos=1 | dotpos=length(tpath.ti) |,
+      pos('.',substr(tpath.ti,dotpos+1))>0 then do
+    say 'GITWT: path needs one simple CMS filename extension'
+    exit 8
+   end
+   tfn.ti=translate(left(tpath.ti,dotpos-1))
+   tft.ti=translate(substr(tpath.ti,dotpos+1))
+  end
+  call validid tfn.ti
+  if result\='OK' then do
+   say 'GITWT: path cannot map to a CMS filename' tpath.ti
+   exit 8
+  end
+  call validid tft.ti
+  if result\='OK' then do
+   say 'GITWT: path cannot map to a CMS filetype' tpath.ti
+   exit 8
+  end
+  call findpath ename.ti
+  if result>0 then do
+   say 'GITWT: path is already mapped' tpath.ti
+   exit 8
+  end
+  call findfile tfn.ti,tft.ti,'A'
+  if result>0 then do
+   say 'GITWT: CMS target is already mapped' tfn.ti tft.ti
+   exit 8
+  end
+  'STATE' tfn.ti tft.ti 'A'
+  if rc=0 then do
+   say 'GITWT: CMS target already exists' tfn.ti tft.ti
+   exit 8
+  end
+  if rc\=28 then do
+   say 'GITWT: cannot inspect CMS target RC' rc
+   exit 8
+  end
+  toid.ti=eoid.ti
+  call readloose toid.ti
+  if result\='OK' | readtype\='BLOB' then do
+   say 'GITWT: checkout requires an available blob' toid.ti
+   exit 8
+  end
+  call bodyrecords readhex
+  if result\='OK' then do
+   say 'GITWT: unsupported text workfile' tpath.ti
+   exit 8
+  end
+  tlf.ti=final
+  treccount.ti=rec.0
+  do tj=1 to rec.0
+   trecord.ti.tj=rec.tj
+  end
+  do tj=1 to ti-1
+   if tfn.tj=tfn.ti & tft.tj=tft.ti then do
+    say 'GITWT: Git paths collide as CMS file IDs'
+    exit 8
+   end
+  end
+ end
+ drop before.
+ 'STATE GITWORK REPO A'
+ beforeexists=0
+ if rc=0 then do
+  beforeexists=1
+  'EXECIO * DISKR GITWORK REPO A 1 (STEM BEFORE. FINIS'
+  if rc\=0 then do
+   say 'GITWT: cannot save prior worktree map'
+   exit 8
+  end
+ end
+ else if rc=28 then before.0=0
+ else do
+  say 'GITWT: cannot inspect prior worktree map RC' rc
+  exit 8
+ end
+ written=0
+ do ti=1 to treefiles
+  drop rec.
+  rec.0=treccount.ti
+  do tj=1 to rec.0
+   rec.tj=trecord.ti.tj
+  end
+  call writework tfn.ti,tft.ti,'A'
+  if result\='OK' then do
+   'ERASE' tfn.ti tft.ti 'A'
+   do trb=1 to written
+    'ERASE' tfn.trb tft.trb 'A'
+   end
+   exit 8
+  end
+  written=written+1
+ end
+ do ti=1 to treefiles
+  mapcount=mapcount+1
+  pi=mapcount
+  mapfn.pi=tfn.ti
+  mapft.pi=tft.ti
+  mapfm.pi='A'
+  maplf.pi=tlf.ti
+  mapbase.pi=toid.ti
+  mapstage.pi=toid.ti
+  mappath.pi=ename.ti
+ end
+ call savemap
+ if result\='OK' then do
+  'STATE GITWORK REPO A'
+  if rc=0 then 'ERASE GITWORK REPO A'
+  if beforeexists then,
+   'EXECIO' before.0 'DISKW GITWORK REPO A 1 (STEM BEFORE. FINIS'
+  do trb=1 to written
+   'ERASE' tfn.trb tft.trb 'A'
+  end
+  exit 8
+ end
+ do ti=1 to treefiles
+  say 'CHECKED OUT' tpath.ti 'AS' tfn.ti tft.ti 'A'
+  say 'WORKTREE OID' toid.ti 'FINAL-LF' tlf.ti
+ end
+ say 'CHECKED OUT TREE FILES' treefiles
+ exit 0
+end
+
+if command='RESTORE-WORKTREE' then do
+ restorewords=words(rest)
+ restorestart=1
+ restoresource=0
+ sourcearg=''
+ if translate(word(rest,1))='--SOURCE' then do
+  restoresource=1
+  sourcearg=word(rest,2)
+  if sourcearg='' then do
+   say 'Usage: GIT RESTORE --source revision --worktree [--] path...'
+   exit 4
+  end
+  restorestart=3
+ end
+ if word(rest,restorestart)='--' then restorestart=restorestart+1
+ else if left(word(rest,restorestart),1)='-' then do
+  say 'Usage: GIT RESTORE --worktree [--] path [path ...]'
+  exit 4
+ end
+ restorepaths=restorewords-restorestart+1
+ if restorepaths<1 | restorepaths>16 then do
+  say 'Usage: GIT RESTORE --worktree [--] path [path ...] (maximum 16 paths)'
   exit 4
  end
  call loadmap
  if result\='OK' then exit 8
  if mapcount=0 then do
-  say 'STATUS NO TRACKED FILES'
+  say 'GITWT: no mapped paths to restore'
+  exit 4
+ end
+ sourcecommit=''
+ if restoresource=1 then do
+  call readrefs
+  if result\='OK' then do
+   say 'GITWT: cannot read refs for restore source'
+   exit 8
+  end
+  call resolve sourcearg
+  sourcecommit=result
+  if sourcecommit='ERROR' then exit 8
+  call bindnative
+  if result\='OK' then do
+   say 'GITWT: cannot bind native source reader'
+   exit 8
+  end
+ end
+ zeros='0000000000000000000000000000000000000000'
+ drop addpi. addpath. restorepi. restorebody. restorefinal.
+ restorecount=0
+ addcount=0
+ do restorearg=restorestart to restorewords
+  path=word(rest,restorearg)
+  call toasciihex path
+  pathhex=result
+  if pathhex='ERROR' | length(pathhex)>60 then do
+   say 'GITWT: invalid path' path
+   exit 4
+  end
+  wildcard=0
+  do restorewi=1 to length(pathhex) by 2
+   if substr(pathhex,restorewi,2)='2A' |,
+      substr(pathhex,restorewi,2)='3F' then wildcard=1
+  end
+  pathmatches=0
+  if wildcard=0 then do
+   call findpath pathhex
+   restorepiindex=result
+   if restorepiindex>0 then do
+    pathmatches=1
+    call asciitocms mappath.restorepiindex
+    if result='ERROR' then do
+     say 'GITWT: invalid mapped path' mappath.restorepiindex
+     exit 8
+    end
+    call addselected restorepiindex,result
+   end
+  end
+  else do
+   do restorepiindex=1 to mapcount
+    call matchpath pathhex,mappath.restorepiindex
+    if result=1 then do
+     pathmatches=pathmatches+1
+     call asciitocms mappath.restorepiindex
+     if result='ERROR' then do
+      say 'GITWT: invalid mapped path' mappath.restorepiindex
+      exit 8
+     end
+     call addselected restorepiindex,result
+    end
+   end
+  end
+  if pathmatches=0 then do
+   say 'GITWT: pathspec did not match any checked out path' path
+   exit 4
+  end
+ end
+ restorecount=addcount
+ headcommit=''
+ do restorearg=1 to restorecount
+  restorepi.restorearg=addpi.restorearg
+  pi=restorepi.restorearg
+  restoreoldlf.restorearg=maplf.pi
+  'STATE' mapfn.pi mapft.pi mapfm.pi
+  if rc=0 then do
+   restoreexists.restorearg=1
+   drop restoreold.
+   'EXECIO * DISKR' mapfn.pi mapft.pi mapfm.pi '1 (STEM RESTOREOLD. FINIS'
+   if rc\=0 then do
+    say 'GITWT: cannot snapshot restore target' mapfn.pi mapft.pi mapfm.pi
+    exit 8
+   end
+   restoreoldcount.restorearg=restoreold.0
+   do restoreline=1 to restoreold.0
+    restoreoldline.restorearg.restoreline=restoreold.restoreline
+   end
+  end
+  else if rc=28 then do
+   restoreexists.restorearg=0
+   restoreoldcount.restorearg=0
+  end
+  else do
+   say 'GITWT: cannot inspect restore target RC' rc
+   exit 8
+  end
+  if restoresource=0 & mapstage.pi=zeros then do
+   restoretarget.restorearg=zeros
+   restorefinal.restorearg=maplf.pi
+   restorebody.restorearg='DELETE'
+  end
+  else do
+   if restoresource=1 then do
+    call pathoidfor sourcecommit,mappath.pi
+    if result='ERROR' then do
+     say 'GITWT: source path is absent or cannot be read' sourcearg,
+         mappath.pi
+     exit 8
+    end
+    restoretarget.restorearg=pathoid
+    restorebody.restorearg=body
+   end
+   else if mapstage.pi=mapbase.pi & mapbase.pi\=zeros then do
+    if headcommit='' then do
+     call readrefs
+     if result\='OK' then exit 8
+     call resolve 'HEAD'
+     headcommit=result
+     if headcommit='ERROR' then exit 8
+     call bindnative
+     if result\='OK' then exit 8
+    end
+    call pathoidfor headcommit,mappath.pi
+    if result='ERROR' | pathoid\=mapstage.pi then do
+     say 'GITWT: staged base blob does not match current HEAD' mapfn.pi
+     exit 8
+    end
+    restorebody.restorearg=body
+    restoretarget.restorearg=pathoid
+   end
+   else do
+    call readrestoreblob mapstage.pi
+    restorebody.restorearg=result
+    if result='ERROR' then do
+     say 'GITWT: cannot read staged blob' mapstage.pi
+     exit 8
+    end
+    restoretarget.restorearg=mapstage.pi
+   end
+   call bodyrecords restorebody.restorearg
+   if result\='OK' then exit 8
+   restorefinal.restorearg=final
+   restorelinecount.restorearg=rec.0
+   do restoreline=1 to rec.0
+    restoreline.restorearg.restoreline=rec.restoreline
+   end
+  end
+ end
+ 'STATE GITWORK REPO A'
+ if rc\=0 then do
+  say 'GITWT: cannot snapshot worktree map'
+  exit 8
+ end
+ drop before.
+ 'EXECIO * DISKR GITWORK REPO A 1 (STEM BEFORE. FINIS'
+ if rc\=0 then do
+  say 'GITWT: cannot snapshot worktree map'
+  exit 8
+ end
+ do restorearg=1 to restorecount
+  pi=restorepi.restorearg
+  if restorebody.restorearg='DELETE' then do
+   if restoreexists.restorearg=1 then do
+    'ERASE' mapfn.pi mapft.pi mapfm.pi
+    if rc\=0 then do
+     call rollbackrestore
+     say 'GITWT: workfile delete failed; restore rollback RC' result
+     exit 8
+    end
+   end
+  end
+  else do
+   drop rec.
+   rec.0=restorelinecount.restorearg
+   do restoreline=1 to rec.0
+    rec.restoreline=restoreline.restorearg.restoreline
+   end
+   call writework mapfn.pi,mapft.pi,mapfm.pi
+   if result\='OK' then do
+    call rollbackrestore
+    say 'GITWT: workfile write failed; restore rollback RC' result
+    exit 8
+   end
+   call workoid mapfn.pi,mapft.pi,mapfm.pi,restorefinal.restorearg,0
+   if result\=restoretarget.restorearg then do
+    call rollbackrestore
+    say 'GITWT: workfile verification failed; restore rollback RC' result
+    exit 8
+   end
+  end
+ end
+ mapchanged=0
+ do restorearg=1 to restorecount
+  pi=restorepi.restorearg
+  if restorebody.restorearg\='DELETE' then do
+   if maplf.pi\=restorefinal.restorearg then mapchanged=1
+   maplf.pi=restorefinal.restorearg
+  end
+ end
+ if mapchanged=1 then do
+  call savemap
+  if result\='OK' then do
+   do restorearg=1 to restorecount
+    pi=restorepi.restorearg
+    maplf.pi=restoreoldlf.restorearg
+   end
+   call restoremap
+   maprc=result
+   call rollbackrestore
+   say 'GITWT: map save failed; restore rollback RC' maprc result
+   exit 8
+  end
+ end
+ do restorearg=1 to restorecount
+  pi=restorepi.restorearg
+  call asciitocms mappath.pi
+  path=result
+  if restorebody.restorearg='DELETE' then,
+   say 'RESTORED WORKTREE DELETION' path
+  else if restoresource=1 then,
+   say 'RESTORED WORKTREE' path restoretarget.restorearg 'FROM' sourcearg
+  else say 'RESTORED WORKTREE' path mapstage.pi
+ end
+ exit 0
+end
+
+if command='STATUS' then do
+ shortstatus=0
+ statusbranch=0
+ statuswords=words(rest)
+ statusstart=statuswords+1
+ statussep=0
+ do si=1 to statuswords
+  statusopt=translate(word(rest,si))
+  if statusopt='--' then do
+   statusstart=si+1
+   statussep=1
+   leave
+  end
+  else if statusopt='--SHORT' | statusopt='--PORCELAIN' then,
+   shortstatus=1
+  else if statusopt='--BRANCH' then statusbranch=1
+  else do
+   if left(statusopt,1)='-' then do
+    say 'Usage: GIT STATUS [--short|--porcelain] [--branch] [--] [path ...]'
+    exit 4
+   end
+   statusstart=si
+   leave
+  end
+ end
+ statuspaths=statuswords-statusstart+1
+ if statuspaths<0 then statuspaths=0
+ if statuspaths>16 | (statussep=1 & statuspaths=0) then do
+  say 'Usage: GIT STATUS [--short|--porcelain] [--branch] [--] paths'
+  say '(maximum 16 pathspecs)'
+  exit 4
+ end
+ if statusbranch=1 then do
+  call readrefs
+  if result\='OK' then exit 8
+  branchname=substr(headref,12)
+  if shortstatus=1 then say '##' branchname
+  else say 'On branch' branchname
+ end
+ call loadmap
+ if result\='OK' then exit 8
+ if mapcount=0 then do
+  if statuspaths>0 then do
+   say 'GITWT: pathspec did not match a checked out path',
+       word(rest,statusstart)
+   exit 4
+  end
+  if shortstatus=0 then say 'STATUS NO TRACKED FILES'
   exit 0
+ end
+ drop statusselected.
+ statusselectedcount=0
+ if statuspaths=0 then do
+  do si=1 to mapcount
+   statusselected.si=1
+  end
+  statusselectedcount=mapcount
+ end
+ else do
+  do si=statusstart to statuswords
+   path=word(rest,si)
+   call toasciihex path
+   pathhex=result
+   if pathhex='ERROR' | length(pathhex)>60 then do
+    say 'GITWT: invalid path' path
+    exit 4
+   end
+   wildcard=0
+   do wi=1 to length(pathhex) by 2
+    if substr(pathhex,wi,2)='2A' | substr(pathhex,wi,2)='3F' then,
+     wildcard=1
+   end
+   pathmatches=0
+   if wildcard=0 then do
+    call findpath pathhex
+    pi=result
+    if pi>0 then do
+     pathmatches=1
+     if statusselected.pi\=1 then do
+      statusselected.pi=1
+      statusselectedcount=statusselectedcount+1
+     end
+    end
+   end
+   else do
+    do pi=1 to mapcount
+     call matchpath pathhex,mappath.pi
+     if result=1 then do
+      pathmatches=pathmatches+1
+      if statusselected.pi\=1 then do
+       statusselected.pi=1
+       statusselectedcount=statusselectedcount+1
+      end
+     end
+    end
+   end
+   if pathmatches=0 then do
+    say 'GITWT: pathspec did not match any checked out path' path
+    exit 4
+   end
+  end
  end
  changed=0
  staged=0
+ zeros='0000000000000000000000000000000000000000'
  do i=1 to mapcount
+  if statusselected.i\=1 then iterate
   call asciitocms mappath.i
   p=result
   if p='ERROR' then exit 8
   'STATE' mapfn.i mapft.i mapfm.i
   if rc=28 then do
-   state='DELETED'
-   work='-'
-   changed=changed+1
+   work=zeros
+   if mapstage.i=zeros then state='CLEAN'
+   else do
+    state='DELETED'
+    changed=changed+1
+   end
+   if mapstage.i\=mapbase.i then staged=staged+1
   end
   else if rc\=0 then exit 8
   else do
@@ -144,58 +705,969 @@ if command='STATUS' then do
    end
    else do
     changed=changed+1
-    if mapstage.i=mapbase.i then state='MODIFIED'
+    if mapstage.i=zeros then state='ADDED'
+    else if mapstage.i=mapbase.i then state='MODIFIED'
     else do
      state='STAGED+MODIFIED'
      staged=staged+1
     end
    end
   end
-  say 'STATUS' p state
-  say 'BASE' mapbase.i
-  say 'STAGE' mapstage.i
-  say 'WORK' work
+  if shortstatus=1 then do
+   x=' '
+   y=' '
+   if mapstage.i\=mapbase.i then do
+    if mapstage.i=zeros then x='D'
+    else if mapbase.i=zeros then x='A'
+    else x='M'
+   end
+   if state='DELETED' then y='D'
+   else if state='MODIFIED' | state='STAGED+MODIFIED' then y='M'
+   else if state='ADDED' then y='A'
+   if x\=' ' | y\=' ' then say x||y||' '||p
+  end
+  else do
+   say 'STATUS' p state
+   say 'BASE' mapbase.i
+   say 'STAGE' mapstage.i
+   say 'WORK' work
+  end
  end
- say 'STATUS SUMMARY TRACKED' mapcount,
+ if shortstatus=0 then say 'STATUS SUMMARY TRACKED' statusselectedcount,
      'CHANGED' changed 'STAGED' staged
  exit 0
 end
 
-if command='ADD' then do
- parse var rest path extra
- if path='' | extra\='' then do
-  say 'Usage: GIT ADD path'
+if command='DIFF' then do
+ diffarg1=translate(word(rest,1))
+ diffarg2=translate(word(rest,2))
+ cached=0
+ if diffarg1='--CACHED' | diffarg1='--STAGED' then do
+  if words(rest)\=2 | diffarg2\='--NAME-ONLY' then do
+   say 'Usage: GIT DIFF [--cached|--staged] --name-only'
+   exit 4
+  end
+  cached=1
+ end
+ else if words(rest)\=1 | diffarg1\='--NAME-ONLY' then do
+  say 'Usage: GIT DIFF [--cached|--staged] --name-only'
   exit 4
  end
- call toasciihex path
- pathhex=result
- if pathhex='ERROR' | length(pathhex)>60 then exit 4
  call loadmap
  if result\='OK' then exit 8
- call findpath pathhex
- pi=result
- if pi=0 then do
-  say 'GITWT: path is not checked out' path
+ zeros='0000000000000000000000000000000000000000'
+ do i=1 to mapcount
+  changed=0
+  if cached=1 then do
+   if mapstage.i\=mapbase.i then changed=1
+  end
+  else do
+   'STATE' mapfn.i mapft.i mapfm.i
+   if rc=28 then do
+    if mapstage.i\=zeros then changed=1
+   end
+   else if rc\=0 then exit 8
+   else do
+    call workoid mapfn.i,mapft.i,mapfm.i,maplf.i,0
+    work=result
+    if work='ERROR' then exit 8
+    if work\=mapstage.i then changed=1
+   end
+  end
+  if changed=1 then do
+   call asciitocms mappath.i
+   path=result
+   if path='ERROR' then exit 8
+   say path
+  end
+ end
+ exit 0
+end
+
+/* M273: apply a clean fast-forward with an unchanged flat path set. */
+if command='CHECK-PULL' | command='APPLY-PULL' then do
+ parse var rest pullbranch pullold pullnew extra
+ pullref='refs/heads/'||pullbranch
+ if pullbranch='' | pullold='' | pullnew='' | extra\='' then do
+  say 'Usage: GITWT CHECK-PULL|APPLY-PULL branch old-commit new-commit'
   exit 4
  end
- 'STATE' mapfn.pi mapft.pi mapfm.pi
- if rc\=0 then do
-  say 'GITWT: mapped CMS file is absent' path
+ call validref pullref
+ if result\='OK' then exit 4
+ pullold=translate(pullold)
+ pullnew=translate(pullnew)
+ if length(pullold)\=40 | length(pullnew)\=40 |,
+    verify(pullold,'0123456789ABCDEF')\=0 |,
+    verify(pullnew,'0123456789ABCDEF')\=0 | pullold=pullnew then exit 4
+ call readrefs
+ if result\='OK' | headref\=pullref then do
+  say 'GITWT: current branch changed before pull'
   exit 8
  end
- call workoid mapfn.pi,mapft.pi,mapfm.pi,maplf.pi,1
- wo=result
- if wo='ERROR' then exit 8
- oldstage=mapstage.pi
- mapstage.pi=wo
+ foundref=0
+ currentoid=''
+ do ri=1 to refcount
+  if refname.ri=pullref then do
+   foundref=foundref+1
+   currentoid=refoid.ri
+  end
+ end
+ if foundref\=1 then exit 8
+ if command='CHECK-PULL' & currentoid\=pullold then do
+  say 'GITWT: local branch tip changed before pull preflight'
+  exit 8
+ end
+ if command='APPLY-PULL' & currentoid\=pullnew then do
+  say 'GITWT: local branch tip changed before pull apply'
+  exit 8
+ end
+ call preflightpull
+ if result\='OK' then exit 8
+ if command='CHECK-PULL' then do
+  say 'PULL PREFLIGHT SAFE MAPPED' mapcount
+  exit 0
+ end
+ if mapcount=0 then do
+  say 'PULLED WORKTREE FILES 0'
+  exit 0
+ end
+ drop before.
+ 'STATE GITWORK REPO A'
+ if rc\=0 then exit 8
+ 'EXECIO * DISKR GITWORK REPO A 1 (STEM BEFORE. FINIS'
+ if rc\=0 then exit 8
+ restorecount=mapcount
+ drop restorepi. restoreexists. restoreoldcount.
+ drop restoreoldline. restoreline.
+ do pi=1 to mapcount
+  restorepi.pi=pi
+  restoreexists.pi=1
+  drop pullold.
+  'EXECIO * DISKR' mapfn.pi mapft.pi mapfm.pi,
+      '1 (STEM PULLOLD. FINIS'
+  if rc\=0 then do
+   say 'GITWT: cannot snapshot pull workfile' mapfn.pi mapft.pi
+   exit 8
+  end
+  restoreoldcount.pi=pullold.0
+  do li=1 to pullold.0
+   restoreoldline.pi.li=pullold.li
+  end
+ end
+ changedfiles=0
+ do pi=1 to mapcount
+  if pullnewoid.pi=pulloldoid.pi then iterate
+  drop rec.
+  rec.0=pullnewcount.pi
+  do li=1 to rec.0
+   rec.li=pullnewrec.pi.li
+  end
+  call writework mapfn.pi,mapft.pi,mapfm.pi
+  if result\='OK' then do
+   call rollbackrestore
+   say 'GITWT: pull write failed; workfile rollback RC' result
+   exit 8
+  end
+  call workoid mapfn.pi,mapft.pi,mapfm.pi,pullnewlf.pi,0
+  if result\=pullnewoid.pi then do
+   rollbackrc='OK'
+   call rollbackrestore
+   rollbackrc=result
+   if rollbackrc\='OK' then,
+    say 'GITWT: pull hash failed; workfile rollback failed'
+   else say 'GITWT: pull hash failed; workfiles restored'
+   exit 8
+  end
+  changedfiles=changedfiles+1
+ end
+ do pi=1 to mapcount
+  mapbase.pi=pullnewoid.pi
+  mapstage.pi=pullnewoid.pi
+  maplf.pi=pullnewlf.pi
+ end
  call savemap
  if result\='OK' then do
-  mapstage.pi=oldstage
+  call restoremap
+  maprc=result
+  call rollbackrestore
+  filerollback=result
+  say 'GITWT: pull map save failed; rollback map' maprc 'workfiles' filerollback
   exit 8
  end
- say 'ADDED' path wo
- if wo=mapbase.pi then say 'STAGE MATCHES BASE'
- else say 'STAGE DIFFERS FROM BASE'
+ say 'PULLED WORKTREE FILES' changedfiles
+ exit 0
+end
+
+/* Cleanliness and source-content preflight for a changing mapped switch. */
+if command='CHECK-SWITCH-UPDATE' then do
+ parse var rest expectedref targetref extra
+ if expectedref='' | targetref='' | extra\='' then exit 4
+ call validref expectedref
+ if result\='OK' | left(expectedref,11)\='refs/heads/' then exit 4
+ targetoid=''
+ if length(targetref)=40 &,
+    verify(translate(targetref),'0123456789ABCDEF')=0 then,
+  targetoid=translate(targetref)
+ else do
+  call validref targetref
+  if result\='OK' | left(targetref,11)\='refs/heads/' then exit 4
+ end
+ call readrefs
+ if result\='OK' | headref\=expectedref then do
+  say 'GITWT: symbolic HEAD changed during switch preflight'
+  exit 8
+ end
+ call resolve expectedref
+ switchcurrent=result
+ if switchcurrent='ERROR' then exit 8
+ if targetoid='' then do
+  call resolve targetref
+  switchtarget=result
+ end
+ else switchtarget=targetoid
+ if switchtarget='ERROR' then exit 8
+ call loadmap
+ if result\='OK' then exit 8
+ if mapcount=0 then do
+  say 'SWITCH PREFLIGHT SAFE UNMAPPED 0'
+  exit 0
+ end
+ call bindnative
+ if result\='OK' then exit 8
+ do mi=1 to mapcount
+  if mapstage.mi\=mapbase.mi then do
+   say 'GITWT: staged changes block branch switch' mappath.mi
+   exit 8
+  end
+  call checkworkfile mapfn.mi,mapft.mi,mapfm.mi
+  if result\='OK' then do
+   say 'GITWT: missing mapped file blocks branch switch',
+       mapfn.mi mapft.mi mapfm.mi
+   exit 8
+  end
+  call workoid mapfn.mi,mapft.mi,mapfm.mi,maplf.mi,0
+  if result\=mapbase.mi then do
+   say 'GITWT: modified workfile blocks branch switch' mappath.mi
+   exit 8
+  end
+  call pathoidfor switchcurrent,mappath.mi
+  if result\=mapbase.mi then do
+   say 'GITWT: worktree base is stale against current branch',
+       mappath.mi
+   exit 8
+  end
+  call pathoidfor switchtarget,mappath.mi
+  if result='ERROR' then do
+   say 'GITWT: destination path is absent or unreadable' mappath.mi
+   exit 8
+  end
+  call bodyrecords body
+  if result\='OK' then do
+   say 'GITWT: destination file is not CMS-compatible' mappath.mi
+   exit 8
+  end
+ end
+ say 'SWITCH PREFLIGHT SAFE MAPPED' mapcount
+ exit 0
+end
+
+/* Apply a preflighted branch transition, with file and map rollback. */
+if command='APPLY-SWITCH' then do
+ parse var rest expectedref targetref expectedcurrent expectedtarget extra
+ if expectedref='' | targetref='' | expectedcurrent='' |,
+    expectedtarget='' | extra\='' then exit 4
+ call validref expectedref
+ if result\='OK' | left(expectedref,11)\='refs/heads/' then exit 4
+ call validref targetref
+ if result\='OK' | left(targetref,11)\='refs/heads/' then exit 4
+ expectedcurrent=translate(expectedcurrent)
+ expectedtarget=translate(expectedtarget)
+ if length(expectedcurrent)\=40 | length(expectedtarget)\=40 |,
+    verify(expectedcurrent,'0123456789ABCDEF')\=0 |,
+    verify(expectedtarget,'0123456789ABCDEF')\=0 then exit 4
+ call readrefs
+ if result\='OK' | headref\=targetref then do
+  say 'GITWT: HEAD changed before mapped switch apply'
+  exit 8
+ end
+ call resolve expectedref
+ switchcurrent=result
+ call resolve targetref
+ switchtarget=result
+ if switchcurrent\=expectedcurrent | switchtarget\=expectedtarget then do
+  say 'GITWT: branch tips changed before mapped switch apply'
+  exit 8
+ end
+ call loadmap
+ if result\='OK' then exit 8
+ if mapcount=0 then do
+  say 'SWITCHED WORKTREE PATHS 0'
+  exit 0
+ end
+ call bindnative
+ if result\='OK' then exit 8
+ drop restorepi. restorebody. restorefinal. restoretarget.
+ drop restoreexists. restoreoldcount. restoreoldlf.
+ drop restorelinecount. restoreoldline. restoreline.
+ restorecount=mapcount
+ do switchi=1 to mapcount
+  restorepi.switchi=switchi
+  pi=switchi
+  if mapstage.pi\=mapbase.pi then do
+   say 'GITWT: staged changes block branch switch' mappath.pi
+   exit 8
+  end
+  'STATE' mapfn.pi mapft.pi mapfm.pi
+  if rc\=0 then do
+   say 'GITWT: missing mapped file blocks branch switch',
+       mapfn.pi mapft.pi mapfm.pi
+   exit 8
+  end
+  restoreexists.switchi=1
+  drop restoreold.
+  'EXECIO * DISKR' mapfn.pi mapft.pi mapfm.pi '1 (STEM RESTOREOLD. FINIS'
+  if rc\=0 then do
+   say 'GITWT: cannot snapshot switch target' mapfn.pi
+   exit 8
+  end
+  restoreoldcount.switchi=restoreold.0
+  do switchline=1 to restoreold.0
+   restoreoldline.switchi.switchline=restoreold.switchline
+  end
+  call workoid mapfn.pi,mapft.pi,mapfm.pi,maplf.pi,0
+  if result\=mapbase.pi then do
+   say 'GITWT: modified workfile blocks branch switch' mappath.pi
+   exit 8
+  end
+  call pathoidfor switchcurrent,mappath.pi
+  if result\=mapbase.pi then do
+   say 'GITWT: worktree base is stale against current branch',
+       mappath.pi
+   exit 8
+  end
+  call pathoidfor switchtarget,mappath.pi
+  if result='ERROR' then do
+   say 'GITWT: destination path is absent or unreadable' mappath.pi
+   exit 8
+  end
+  restoretarget.switchi=pathoid
+  restorebody.switchi=body
+  call bodyrecords restorebody.switchi
+  if result\='OK' then do
+   say 'GITWT: destination file is not CMS-compatible' mappath.pi
+   exit 8
+  end
+  restorefinal.switchi=final
+  restorelinecount.switchi=rec.0
+  do switchline=1 to rec.0
+   restoreline.switchi.switchline=rec.switchline
+  end
+ end
+ 'STATE GITWORK REPO A'
+ if rc\=0 then exit 8
+ drop before.
+ 'EXECIO * DISKR GITWORK REPO A 1 (STEM BEFORE. FINIS'
+ if rc\=0 then exit 8
+ do switchi=1 to restorecount
+  pi=restorepi.switchi
+  if restoretarget.switchi=mapbase.pi then iterate
+  'ERASE' mapfn.pi mapft.pi mapfm.pi
+  if rc\=0 then do
+   call rollbackrestore
+   say 'GITWT: switch target erase failed; rollback RC' result
+   exit 8
+  end
+  drop rec.
+  rec.0=restorelinecount.switchi
+  do switchline=1 to rec.0
+   rec.switchline=restoreline.switchi.switchline
+  end
+  call writework mapfn.pi,mapft.pi,mapfm.pi
+  if result\='OK' then do
+   call rollbackrestore
+   say 'GITWT: switch write failed; rollback RC' result
+   exit 8
+  end
+  call workoid mapfn.pi,mapft.pi,mapfm.pi,restorefinal.switchi,0
+  if result\=restoretarget.switchi then do
+   call rollbackrestore
+   say 'GITWT: switch verification failed; rollback RC' result
+   exit 8
+  end
+ end
+ do switchi=1 to restorecount
+  pi=restorepi.switchi
+  mapbase.pi=restoretarget.switchi
+  mapstage.pi=restoretarget.switchi
+  maplf.pi=restorefinal.switchi
+ end
+ call savemap
+ if result\='OK' then do
+  call restoremap
+  maprc=result
+  call rollbackrestore
+  say 'GITWT: switch map save failed; rollback RC' maprc result
+  exit 8
+ end
+ say 'SWITCHED WORKTREE PATHS' restorecount
+ exit 0
+end
+
+/* Read-only preflight for a branch switch across different commit tips. */
+if command='CHECK-SWITCH' then do
+ parse var rest expectedref targetref extra
+ if expectedref='' | targetref='' | extra\='' then do
+  say 'Usage: GITWT CHECK-SWITCH expected-head-ref target-branch-ref'
+  exit 4
+ end
+ call validref expectedref
+ if result\='OK' | left(expectedref,11)\='refs/heads/' then exit 4
+ targetoid=''
+ if length(targetref)=40 &,
+    verify(translate(targetref),'0123456789ABCDEF')=0 then do
+  targetoid=translate(targetref)
+ end
+ else do
+  call validref targetref
+  if result\='OK' | left(targetref,11)\='refs/heads/' then exit 4
+end
+ call readrefs
+ if result\='OK' then do
+  say 'GITWT: cannot read REF2 for switch preflight'
+  exit 8
+ end
+ if headref\=expectedref then do
+  say 'GITWT: symbolic HEAD changed during switch preflight'
+  exit 8
+ end
+ call resolve expectedref
+ currentcommit=result
+ if currentcommit='ERROR' then exit 8
+ if targetoid='' then do
+  call resolve targetref
+  targetcommit=result
+ end
+ else targetcommit=targetoid
+ if targetcommit='ERROR' then exit 8
+ call loadmap
+ if result\='OK' then do
+  say 'GITWT: cannot read worktree map for switch preflight'
+  exit 8
+ end
+ if mapcount=0 then do
+  say 'SWITCH PREFLIGHT SAFE UNMAPPED 0'
+  exit 0
+ end
+ call bindnative
+ if result\='OK' then exit 8
+ do mi=1 to mapcount
+  if mapstage.mi\=mapbase.mi then do
+   say 'GITWT: staged changes block branch switch' mappath.mi
+   exit 8
+  end
+  call checkworkfile mapfn.mi,mapft.mi,mapfm.mi
+  if result\='OK' then do
+   say 'GITWT: missing mapped file blocks branch switch',
+       mapfn.mi mapft.mi mapfm.mi
+   exit 8
+  end
+  call workoid mapfn.mi,mapft.mi,mapfm.mi,maplf.mi,0
+  workoid=result
+  if workoid\=mapbase.mi then do
+   say 'GITWT: modified workfile blocks branch switch' mappath.mi
+   exit 8
+  end
+  call pathoidfor currentcommit,mappath.mi
+  currentpath=result
+  if currentpath\=mapbase.mi then do
+   say 'GITWT: worktree base is stale against current branch',
+       mappath.mi
+   exit 8
+  end
+  call pathoidfor targetcommit,mappath.mi
+  targetpath=result
+  if targetpath\=mapbase.mi then do
+   say 'GITWT: destination changes mapped path' mappath.mi
+   exit 8
+  end
+ end
+ say 'SWITCH PREFLIGHT SAFE MAPPED' mapcount
+ exit 0
+end
+
+if command='ADD' then do
+ if translate(word(rest,1))='--NEW' then do
+  newwords=words(rest)
+  if newwords<4 then do
+   say 'Usage: GIT ADD --new path fn ft [fm] [--new path fn ft [fm] ...]'
+   exit 4
+  end
+  drop newpath. newfn. newft. newfm. newhex. newoid.
+  newcount=0
+  newarg=1
+  do while newarg<=newwords
+   if translate(word(rest,newarg))\='--NEW' then do
+    say 'Usage: GIT ADD --new path fn ft [fm] [--new path fn ft [fm] ...]'
+    exit 4
+   end
+   if newarg+3>newwords then do
+    say 'Usage: GIT ADD --new path fn ft [fm] [--new path fn ft [fm] ...]'
+    exit 4
+   end
+   newcount=newcount+1
+   if newcount>16 then do
+    say 'Usage: GIT ADD --new supports a maximum of 16 files'
+    exit 4
+   end
+   newpath.newcount=word(rest,newarg+1)
+   newfn.newcount=translate(word(rest,newarg+2))
+   newft.newcount=translate(word(rest,newarg+3))
+   newfm.newcount='A'
+   newarg=newarg+4
+   if newarg<=newwords then do
+    if translate(word(rest,newarg))\='--NEW' then do
+     newfm.newcount=translate(word(rest,newarg))
+     newarg=newarg+1
+    end
+   end
+   call validid newfn.newcount
+   if result\='OK' then exit 4
+   call validid newft.newcount
+   if result\='OK' then exit 4
+   call validmode newfm.newcount
+   if result\='OK' then exit 4
+   call toasciihex newpath.newcount
+   newhex.newcount=result
+   if newhex.newcount='ERROR' | length(newhex.newcount)>60 then do
+    say 'GITWT: new path must be 1-30 ASCII bytes with relative components'
+    exit 4
+   end
+   call splitpath newhex.newcount
+   if result\='OK' then do
+    say 'GITWT: new path must be 1-30 ASCII bytes with relative components'
+    exit 4
+   end
+   do npi=1 to pcnt
+    if pcomp.npi='2E' | pcomp.npi='2E2E' then do
+     say 'GITWT: new path must be 1-30 ASCII bytes with relative components'
+     exit 4
+    end
+   end
+   if pcnt>16 then do
+    say 'GITWT: new path must be 1-30 ASCII bytes with relative components'
+    exit 4
+   end
+  end
+  call loadmap
+  if result\='OK' then exit 8
+  if mapcount+newcount>50 then do
+   say 'GITWT: worktree map limit reached'
+   exit 8
+  end
+  do ni=1 to newcount
+   call findpath newhex.ni
+   if result>0 then do
+    say 'GITWT: path is already mapped' newpath.ni
+    exit 4
+   end
+   call findfile newfn.ni,newft.ni,newfm.ni
+   if result>0 then do
+    say 'GITWT: CMS file is already mapped',
+        newfn.ni newft.ni newfm.ni
+    exit 4
+   end
+   do nj=1 to ni-1
+    if newhex.ni=newhex.nj then do
+     say 'GITWT: duplicate new path in request' newpath.ni
+     exit 4
+    end
+    if newfn.ni=newfn.nj & newft.ni=newft.nj &,
+       newfm.ni=newfm.nj then do
+     say 'GITWT: duplicate CMS file in request',
+         newfn.ni newft.ni newfm.ni
+     exit 4
+    end
+   end
+   'STATE' newfn.ni newft.ni newfm.ni
+   if rc\=0 then do
+    say 'GITWT: new CMS workfile is absent or unreadable',
+        newfn.ni newft.ni newfm.ni 'RC' rc
+    exit 8
+   end
+  end
+  do ni=1 to newcount
+   call workoid newfn.ni,newft.ni,newfm.ni,1,1
+   newoid.ni=result
+   if newoid.ni='ERROR' then exit 8
+  end
+  'STATE GITWORK REPO A'
+  if rc=0 then do
+   drop before.
+   'EXECIO * DISKR GITWORK REPO A 1 (STEM BEFORE. FINIS'
+   if rc\=0 then exit 8
+   oldmap=1
+  end
+  else if rc=28 then do
+   before.0=0
+   oldmap=0
+  end
+  else exit 8
+  do ni=1 to newcount
+   newindex=mapcount+1
+   mapfn.newindex=newfn.ni
+   mapft.newindex=newft.ni
+   mapfm.newindex=newfm.ni
+   maplf.newindex=1
+   mapbase.newindex='0000000000000000000000000000000000000000'
+   mapstage.newindex=newoid.ni
+   mappath.newindex=newhex.ni
+   mapcount=newindex
+  end
+  call savemap
+  if result\='OK' then do
+   if oldmap=1 then call restoremap
+   else 'ERASE GITWORK REPO A'
+   exit 8
+  end
+  do ni=1 to newcount
+   say 'ADDED' newpath.ni newoid.ni
+  end
+  say 'STAGE DIFFERS FROM BASE'
+  exit 0
+ end
+ addall=0
+ addstart=1
+ addrequested=words(rest)
+  if addrequested=1 & (translate(word(rest,1))='-U' |,
+     translate(word(rest,1))='--UPDATE') then do
+   addall=1
+   addrequested=0
+  end
+  else if translate(word(rest,1))='-U' |,
+          translate(word(rest,1))='--UPDATE' then do
+   addall=1
+   addstart=2
+   addrequested=addrequested-1
+   if translate(word(rest,2))='--' then do
+    addstart=3
+    addrequested=addrequested-1
+   end
+   if addrequested<1 | addrequested>16 then do
+    say 'Usage: GIT ADD -u [--] path [path ...] (maximum 16 paths)'
+    exit 4
+   end
+  end
+ else if word(rest,1)='--' then do
+  addstart=2
+  addrequested=addrequested-1
+ end
+ else if left(word(rest,1),1)='-' then do
+   say 'Usage: GIT ADD [-u|--update [--] path ...] | [--] path [path ...]'
+  exit 4
+ end
+ if addall=0 & (addrequested<1 | addrequested>16) then do
+  say 'Usage: GIT ADD path [path ...] (maximum 16 paths)'
+  exit 4
+ end
+ call loadmap
+ if result\='OK' then exit 8
+ zeros='0000000000000000000000000000000000000000'
+ drop addpi. addpath. addold. addoid.
+ addcount=0
+  if addall=1 & addrequested=0 then do
+  if mapcount=0 then do
+   say 'GITWT: no mapped paths to update'
+   exit 0
+  end
+  do ai=1 to mapcount
+   addcount=addcount+1
+   addpi.addcount=ai
+   call asciitocms mappath.ai
+   path=result
+   if path='ERROR' then do
+    say 'GITWT: invalid mapped path' mappath.ai
+    exit 8
+   end
+   addpath.addcount=path
+  end
+ end
+ else do
+  do ai=addstart to words(rest)
+   path=word(rest,ai)
+   call toasciihex path
+   pathhex=result
+   if pathhex='ERROR' | length(pathhex)>60 then do
+    say 'GITWT: invalid path' path
+    exit 4
+   end
+  wildcard=0
+  do wi=1 to length(pathhex) by 2
+   if substr(pathhex,wi,2)='2A' | substr(pathhex,wi,2)='3F' then,
+    wildcard=1
+  end
+  if wildcard=0 then do
+   call findpath pathhex
+   pi=result
+   if pi=0 then do
+    say 'GITWT: path is not checked out' path
+    exit 4
+   end
+   pathmatches=1
+   call addselected pi,path
+  end
+  else do
+   pathmatches=0
+   do pi=1 to mapcount
+    call matchpath pathhex,mappath.pi
+    if result=1 then do
+     pathmatches=pathmatches+1
+     call asciitocms mappath.pi
+     matchedpath=result
+     if matchedpath='ERROR' then do
+      say 'GITWT: invalid mapped path' mappath.pi
+      exit 8
+     end
+     call addselected pi,matchedpath
+    end
+   end
+   if pathmatches=0 then do
+    say 'GITWT: pathspec did not match any checked out path' path
+    exit 4
+   end
+  end
+  end
+ end
+ do ai=1 to addcount
+  pi=addpi.ai
+  'STATE' mapfn.pi mapft.pi mapfm.pi
+  if rc=28 then addoid.ai=zeros
+  else if rc\=0 then do
+   say 'GITWT: cannot inspect mapped CMS file' addpath.ai
+   exit 8
+  end
+  else do
+   call workoid mapfn.pi,mapft.pi,mapfm.pi,maplf.pi,1
+   wo=result
+   if wo='ERROR' then exit 8
+   addoid.ai=wo
+  end
+  addold.ai=mapstage.pi
+ end
+ do ai=1 to addcount
+  pi=addpi.ai
+  mapstage.pi=addoid.ai
+ end
+ call savemap
+ if result\='OK' then do
+  do ai=1 to addcount
+   pi=addpi.ai
+   mapstage.pi=addold.ai
+  end
+  exit 8
+ end
+ do ai=1 to addcount
+  pi=addpi.ai
+  if addoid.ai=zeros & mapbase.pi\=zeros then,
+   say 'STAGED DELETION' addpath.ai
+  else do
+   say 'ADDED' addpath.ai addoid.ai
+   if addoid.ai=mapbase.pi then say 'STAGE MATCHES BASE'
+   else say 'STAGE DIFFERS FROM BASE'
+  end
+ end
+ exit 0
+end
+
+addselected:
+ parse arg selectedpi,selectedpath
+ duplicate=0
+ do aj=1 to addcount
+  if addpi.aj=selectedpi then duplicate=1
+ end
+ if duplicate=1 then return
+ if addcount>=16 then do
+  say 'GITWT: pathspec expands to more than 16 paths'
+  exit 4
+ end
+ addcount=addcount+1
+ addpi.addcount=selectedpi
+ addpath.addcount=selectedpath
+ return
+
+matchpath:
+ parse arg matchpattern,matchcandidate
+ matchp=1
+ matchc=1
+ matchstar=0
+ matchretry=0
+ do while matchc<=length(matchcandidate)
+  if matchp<=length(matchpattern) then do
+   matchbyte=substr(matchpattern,matchp,2)
+   if matchbyte='3F' | matchbyte=substr(matchcandidate,matchc,2) then do
+    matchp=matchp+2
+    matchc=matchc+2
+   end
+   else if matchbyte='2A' then do
+    matchstar=matchp
+    matchretry=matchc
+    matchp=matchp+2
+   end
+   else if matchstar>0 then do
+    matchp=matchstar+2
+    matchretry=matchretry+2
+    matchc=matchretry
+   end
+   else return 0
+  end
+  else if matchstar>0 then do
+   matchp=matchstar+2
+   matchretry=matchretry+2
+   matchc=matchretry
+  end
+  else return 0
+ end
+ do while matchp<=length(matchpattern) &,
+      substr(matchpattern,matchp,2)='2A'
+  matchp=matchp+2
+ end
+ if matchp>length(matchpattern) then return 1
+ return 0
+
+readrestoreblob:
+ parse upper arg restoreoid
+ if length(restoreoid)\=40 |,
+    verify(restoreoid,'0123456789ABCDEF')\=0 then return 'ERROR'
+ verifycmd='GIT VERIFY-OBJECT'||' '||restoreoid
+ drop restoreverify.
+ restoreverify.0=0
+ 'PIPE CMS' verifycmd '| STEM RESTOREVERIFY.'
+ if rc\=0 | restoreverify.0\=1 |,
+    strip(restoreverify.1)\=restoreoid 'OK' then return 'ERROR'
+ restorefn=substr(restoreoid,1,8)
+ drop restoreobj.
+ 'EXECIO * DISKR' restorefn 'GITOBJ' objectfm ,
+  '1 (STEM RESTOREOBJ. FINIS'
+ if rc\=0 | restoreobj.0<3 then return 'ERROR'
+ if word(restoreobj.1,1)\='OID' | words(restoreobj.1)\=2 |,
+    word(restoreobj.1,2)\=restoreoid |,
+    word(restoreobj.2,1)\='TYPE' | words(restoreobj.2)\=2 |,
+    word(restoreobj.2,2)\='BLOB' then,
+  return 'ERROR'
+ restorehex=''
+ if restoreobj.0=3 & word(restoreobj.3,1)='DATA' then do
+  if words(restoreobj.3)>2 then return 'ERROR'
+  if words(restoreobj.3)=2 then restorehex=word(restoreobj.3,2)
+  if restorehex\='' & (length(restorehex)//2\=0 |,
+     length(restorehex)>128 |,
+     verify(restorehex,'0123456789ABCDEF')\=0) then return 'ERROR'
+  restoresize=length(restorehex)%2
+ end
+ else do
+  if word(restoreobj.3,1)\='SIZE' | words(restoreobj.3)\=2 then,
+   return 'ERROR'
+  restoresize=word(restoreobj.3,2)
+  if datatype(restoresize,'W')\=1 | restoresize<0 |,
+     restoresize>65536 then return 'ERROR'
+  do restoreoi=4 to restoreobj.0
+   if word(restoreobj.restoreoi,1)\='DATA' |,
+      words(restoreobj.restoreoi)\=2 then return 'ERROR'
+   restorechunk=word(restoreobj.restoreoi,2)
+   if restorechunk='' | length(restorechunk)>128 |,
+      length(restorechunk)//2\=0 |,
+      verify(restorechunk,'0123456789ABCDEF')\=0 then return 'ERROR'
+   restorehex=restorehex||restorechunk
+  end
+ end
+ if length(restorehex)//2\=0 | length(restorehex)%2\=restoresize |,
+    verify(restorehex,'0123456789ABCDEF')\=0 then return 'ERROR'
+ return restorehex
+
+rollbackrestore:
+ restorefailed=0
+ do restoreback=1 to restorecount
+  restorebackpi=restorepi.restoreback
+  if restoreexists.restoreback=1 then do
+   drop rec.
+   rec.0=restoreoldcount.restoreback
+   do restorebackline=1 to rec.0
+    rec.restorebackline=restoreoldline.restoreback.restorebackline
+   end
+   call writework mapfn.restorebackpi,mapft.restorebackpi,
+       mapfm.restorebackpi
+   if result\='OK' then restorefailed=1
+  end
+  else do
+   'STATE' mapfn.restorebackpi mapft.restorebackpi,
+       mapfm.restorebackpi
+   if rc=0 then do
+    'ERASE' mapfn.restorebackpi mapft.restorebackpi,
+        mapfm.restorebackpi
+    if rc\=0 then restorefailed=1
+   end
+   else if rc\=28 then restorefailed=1
+  end
+ end
+ if restorefailed=1 then return 'ERROR'
+ return 'OK'
+
+if command='RESET' then do
+ resetstart=1
+ resetrequested=words(rest)
+ if word(rest,1)='--' then do
+  resetstart=2
+  resetrequested=resetrequested-1
+ end
+ else if left(word(rest,1),1)='-' then do
+  say 'Usage: GIT RESET [--] path [path ...]'
+  exit 4
+ end
+ if resetrequested<1 | resetrequested>16 then do
+  say 'Usage: GIT RESET [--] path [path ...] (maximum 16 paths)'
+  exit 4
+ end
+ call loadmap
+ if result\='OK' then exit 8
+ drop resetpi. resetpath. resetold.
+ resetcount=0
+ do ai=resetstart to words(rest)
+  path=word(rest,ai)
+  call toasciihex path
+  pathhex=result
+  if pathhex='ERROR' | length(pathhex)>60 then do
+   say 'GITWT: invalid path' path
+   exit 4
+  end
+  call findpath pathhex
+  pi=result
+  if pi=0 then do
+   say 'GITWT: path is not checked out' path
+   exit 4
+  end
+  duplicate=0
+  do aj=1 to resetcount
+   if resetpi.aj=pi then duplicate=1
+  end
+  if duplicate=1 then iterate
+  resetcount=resetcount+1
+  resetpi.resetcount=pi
+  resetpath.resetcount=path
+  resetold.resetcount=mapstage.pi
+ end
+ do ai=1 to resetcount
+  pi=resetpi.ai
+  mapstage.pi=mapbase.pi
+ end
+ call savemap
+ if result\='OK' then do
+  do ai=1 to resetcount
+   pi=resetpi.ai
+   mapstage.pi=resetold.ai
+  end
+  exit 8
+ end
+ do ai=1 to resetcount
+  say 'UNSTAGED' resetpath.ai
+ end
  exit 0
 end
 
@@ -219,10 +1691,32 @@ if command='ACCEPT' then do
  end
  oldcount=mapcount
  acceptedcount=0
+ deletecount=0
+ drop deleteflag. deletepath. oldbase. oldstage. oldpath.
+ zeros='0000000000000000000000000000000000000000'
  do ai=1 to mapcount
   oldbase.ai=mapbase.ai
+  oldstage.ai=mapstage.ai
+  oldpath.ai=mappath.ai
   if mapstage.ai\=mapbase.ai then acceptedcount=acceptedcount+1
   'STATE' mapfn.ai mapft.ai mapfm.ai
+  if mapstage.ai=zeros & mapbase.ai\=zeros then do
+   if rc=28 then do
+    deleteflag.ai=1
+    deletecount=deletecount+1
+    call asciitocms mappath.ai
+    deletepath.deletecount=result
+    iterate
+   end
+   if rc=0 then do
+    say 'GITWT: deleted workfile reappeared before accept',
+        mapfn.ai mapft.ai mapfm.ai
+    exit 8
+   end
+   say 'GITWT: cannot inspect deleted workfile',
+       mapfn.ai mapft.ai mapfm.ai
+   exit 8
+  end
   if rc\=0 then do
    say 'GITWT: mapped workfile is absent' mapfn.ai mapft.ai mapfm.ai
    exit 8
@@ -231,7 +1725,8 @@ if command='ACCEPT' then do
   accepted=result
   if accepted='ERROR' then exit 8
   if accepted\=mapstage.ai then do
-   say 'GITWT: workfile changed after commit' mapfn.ai mapft.ai mapfm.ai
+   say 'GITWT: workfile changed after commit',
+       mapfn.ai mapft.ai mapfm.ai
    exit 8
   end
  end
@@ -239,8 +1734,28 @@ if command='ACCEPT' then do
   say 'GITWT: no staged change to accept'
   exit 8
  end
- do ai=1 to mapcount
-  mapbase.ai=mapstage.ai
+ keptcount=0
+ do ai=1 to oldcount
+  if deleteflag.ai=1 then iterate
+  keptcount=keptcount+1
+  if keptcount\=ai then do
+   mapfn.keptcount=mapfn.ai
+   mapft.keptcount=mapft.ai
+   mapfm.keptcount=mapfm.ai
+   maplf.keptcount=maplf.ai
+   mappath.keptcount=mappath.ai
+   mapstage.keptcount=mapstage.ai
+  end
+  mapbase.keptcount=mapstage.ai
+ end
+ mapcount=keptcount
+ if deletecount>0 then do
+  'ERASE GITWORK REPO A'
+  if rc\=0 then do
+   call restoremap
+   say 'GITWT: cannot truncate accepted worktree map'
+   exit 8
+  end
  end
  call savemap
  if result\='OK' then do
@@ -249,7 +1764,7 @@ if command='ACCEPT' then do
   exit 8
  end
  call loadmap
- if result\='OK' | mapcount\=oldcount then do
+ if result\='OK' | mapcount\=keptcount then do
   call restoremap
   say 'GITWT: accepted map verification failed'
   exit 8
@@ -260,12 +1775,18 @@ if command='ACCEPT' then do
    say 'GITWT: accepted map verification failed'
    exit 8
   end
-  if oldbase.ai\=mapbase.ai then do
+ end
+ do ai=1 to oldcount
+  if oldstage.ai\=oldbase.ai & deleteflag.ai\=1 then do
    say 'ACCEPTED WORKTREE OLD' oldbase.ai
-   say 'ACCEPTED WORKTREE NEW' mapbase.ai
+   say 'ACCEPTED WORKTREE NEW' oldstage.ai
   end
  end
+ do ai=1 to deletecount
+  say 'ACCEPTED WORKTREE DELETED' deletepath.ai
+ end
  say 'ACCEPTED WORKTREE PATHS' acceptedcount
+ say 'ACCEPTED WORKTREE DELETIONS' deletecount
  exit 0
 end
 
@@ -275,15 +1796,28 @@ if command='COMMIT' then do
  message=''
  ci=1
  do while ci<=words(rest)
+  opt=translate(word(rest,ci))
+  if opt='-M' | opt='--MESSAGE' then do
+   if ci=words(rest) then do
+    say 'Usage: GIT COMMIT -T seconds -Z zone -m message'
+    exit 4
+   end
+   msgstart=wordindex(rest,ci+1)
+   message=strip(substr(rest,msgstart))
+   if left(message,1)='"' & right(message,1)='"' then,
+    message=substr(message,2,length(message)-2)
+   else if left(message,1)="'" & right(message,1)="'" then,
+    message=substr(message,2,length(message)-2)
+   ci=words(rest)+1
+   iterate
+  end
   if ci=words(rest) then do
    say 'Usage: GIT COMMIT-STAGED -T seconds -Z zone -M message'
    exit 4
   end
-  opt=translate(word(rest,ci))
   val=word(rest,ci+1)
   if opt='-T' then stamp=val
   else if opt='-Z' then zone=val
-  else if opt='-M' then message=val
   else do
    say 'GITWT: unknown COMMIT-STAGED option' word(rest,ci)
    exit 4
@@ -302,19 +1836,32 @@ if command='COMMIT' then do
   exit 8
  end
  stagedcount=0
+ zeros='0000000000000000000000000000000000000000'
  do mi=1 to mapcount
   if mapstage.mi\=mapbase.mi then stagedcount=stagedcount+1
   'STATE' mapfn.mi mapft.mi mapfm.mi
-  if rc\=0 then do
-   say 'GITWT: mapped workfile is absent' mapfn.mi mapft.mi mapfm.mi
+  if mapstage.mi=zeros then do
+   if rc=28 then iterate
+   if rc=0 then do
+    say 'GITWT: workfile restored after staging deletion',
+        mapfn.mi mapft.mi mapfm.mi
+    exit 8
+   end
+   say 'GITWT: cannot inspect deleted workfile' mapfn.mi mapft.mi mapfm.mi
    exit 8
   end
-  call workoid mapfn.mi,mapft.mi,mapfm.mi,maplf.mi,0
-  work=result
-  if work='ERROR' then exit 8
-  if work\=mapstage.mi then do
-   say 'GITWT: unstaged workfile change' mapfn.mi mapft.mi mapfm.mi
-   exit 8
+  else do
+   if rc\=0 then do
+    say 'GITWT: mapped workfile is absent' mapfn.mi mapft.mi mapfm.mi
+    exit 8
+   end
+   call workoid mapfn.mi,mapft.mi,mapfm.mi,maplf.mi,0
+   work=result
+   if work='ERROR' then exit 8
+   if work\=mapstage.mi then do
+    say 'GITWT: unstaged workfile change' mapfn.mi mapft.mi mapfm.mi
+    exit 8
+   end
   end
  end
  if stagedcount=0 then do
@@ -331,8 +1878,9 @@ if command='COMMIT' then do
  call rootfor parent
  root=result
  if root='ERROR' then exit 8
- drop nodeparent. nodename. nodeentry. nodeoid. nodedepth.
+ drop nodeparent. nodename. nodeentry. nodeoid. nodedepth. nodeisnew.
  drop nodechanged. nodeentries. nodemode. nodenamehex. nodechildoid.
+ drop nodeentrydeleted.
  drop pathcomp.
  nodecount=1
  nodeparent.1=0
@@ -341,6 +1889,7 @@ if command='COMMIT' then do
  nodeoid.1=root
  nodedepth.1=0
  nodechanged.1=0
+ nodeisnew.1=0
  maxdepth=0
  firstpath=0
  do mi=1 to mapcount
@@ -356,6 +1905,8 @@ if command='COMMIT' then do
   say 'GITWT: cannot load commit root tree'
   exit 8
  end
+ newrootcount=0
+ drop newrootparent. newrootname. newrootmode. newrootoid.
  do mi=1 to mapcount
   if mapstage.mi\=mapbase.mi then do
    call splitpath mappath.mi
@@ -374,8 +1925,48 @@ if command='COMMIT' then do
      end
     end
     if entryindex=0 then do
-     say 'GITWT: staged path entry missing' mi cd
-     exit 8
+     if mapbase.mi=zeros & mapstage.mi\=zeros then do
+      if cd=pcnt then do
+       address command 'EXEC GIT VERIFY-OBJECT' mapstage.mi
+       if rc\=0 then do
+        say 'GITWT: staged new blob is not verified' mi
+        exit 8
+       end
+       newrootcount=newrootcount+1
+       newrootparent.newrootcount=currentnode
+       newrootname.newrootcount=pathcomp.mi.cd
+       newrootmode.newrootcount='100644'
+       newrootoid.newrootcount=mapstage.mi
+       nodechanged.currentnode=1
+       leave
+      end
+      childnode=0
+      do ni=2 to nodecount
+       if nodeparent.ni=currentnode & nodename.ni=pathcomp.mi.cd &,
+          nodeisnew.ni=1 then do
+        childnode=ni
+        leave
+       end
+      end
+      if childnode=0 then do
+       nodecount=nodecount+1
+       childnode=nodecount
+       nodeparent.childnode=currentnode
+       nodename.childnode=pathcomp.mi.cd
+       nodeentry.childnode=0
+       nodeoid.childnode=''
+       nodedepth.childnode=cd
+       nodechanged.childnode=1
+       nodeentries.childnode=0
+       nodeisnew.childnode=1
+      end
+      currentnode=childnode
+      iterate
+     end
+     else do
+      say 'GITWT: staged path entry missing' mi cd
+      exit 8
+     end
     end
     if cd<pcnt then do
      if nodemode.currentnode.entryindex\='40000' then do
@@ -399,6 +1990,7 @@ if command='COMMIT' then do
       nodeoid.childnode=nodechildoid.currentnode.entryindex
       nodedepth.childnode=cd
       nodechanged.childnode=0
+      nodeisnew.childnode=0
       nextdepth=cd+1
       nextcomp=pathcomp.mi.nextdepth
       call loadnode childnode,nodeoid.childnode,nextcomp
@@ -419,34 +2011,58 @@ if command='COMMIT' then do
       say 'GITWT: staged path is not a local blob' mi
       exit 8
      end
-     address command 'EXEC GIT VERIFY-OBJECT' mapstage.mi
-     if rc\=0 then exit 8
-     nodechildoid.currentnode.entryindex=mapstage.mi
+     if mapstage.mi=zeros then do
+      nodeentrydeleted.currentnode.entryindex=1
+     end
+     else do
+      address command 'EXEC GIT VERIFY-OBJECT' mapstage.mi
+      if rc\=0 then exit 8
+      nodechildoid.currentnode.entryindex=mapstage.mi
+     end
      nodechanged.currentnode=1
     end
    end
   end
  end
+ call insertrootadds
+ if result\='OK' then do
+  say 'GITWT: cannot insert new tree entries'
+  exit 8
+ end
  do level=maxdepth to 1 by -1
   do ni=2 to nodecount
    if nodedepth.ni=level & nodechanged.ni=1 then do
-    raw=''
-    do ei=1 to nodeentries.ni
-     call modehex nodemode.ni.ei
-     mh=result
-     if mh='ERROR' then exit 8
-     raw=raw||mh||'20'||nodenamehex.ni.ei||'00'||,
-       nodechildoid.ni.ei
-    end
-    call writehex raw
-    treeoid=result
-    if treeoid='ERROR' then exit 8
-    nodeoid.ni=treeoid
+    call buildraw ni
+    raw=result
+    if raw='ERROR' then exit 8
     parentnode=nodeparent.ni
     parententry=nodeentry.ni
-    nodechildoid.parentnode.parententry=treeoid
+    if buildcount=0 then do
+     if nodeisnew.ni\=1 then,
+      nodeentrydeleted.parentnode.parententry=1
+    end
+    else do
+     call writehex raw
+     treeoid=result
+     if treeoid='ERROR' then exit 8
+     nodeoid.ni=treeoid
+     if nodeisnew.ni=1 then do
+      newrootcount=1
+      newrootparent.1=parentnode
+      newrootname.1=nodename.ni
+      newrootmode.1='40000'
+      newrootoid.1=treeoid
+      call insertrootadds
+      if result\='OK' then do
+       say 'GITWT: cannot insert new directory tree'
+       exit 8
+      end
+     end
+     else nodechildoid.parentnode.parententry=treeoid
+    end
     nodechanged.parentnode=1
-    say 'COMMIT-STAGED TREE DEPTH' level treeoid
+    if buildcount=0 then say 'COMMIT-STAGED PRUNED EMPTY TREE' level
+    else say 'COMMIT-STAGED TREE DEPTH' level treeoid
    end
   end
  end
@@ -454,13 +2070,9 @@ if command='COMMIT' then do
   say 'GITWT: no rewritten root tree'
   exit 8
  end
- raw=''
- do ei=1 to nodeentries.1
-  call modehex nodemode.1.ei
-  mh=result
-  if mh='ERROR' then exit 8
-  raw=raw||mh||'20'||nodenamehex.1.ei||'00'||nodechildoid.1.ei
- end
+ call buildraw 1
+ raw=result
+ if raw='ERROR' then exit 8
  call writehex raw
  newroot=result
  if newroot='ERROR' then exit 8
@@ -496,6 +2108,212 @@ end
 
 say 'GITWT: unknown command' command
 exit 4
+
+preflightpull:
+ call loadmap
+ if result\='OK' then do
+  say 'GITWT: cannot read worktree map for pull'
+  return 'ERROR'
+ end
+ zeros='0000000000000000000000000000000000000000'
+ if mapcount=0 then do
+  call rootfor pullold
+  pullroot=result
+  if pullroot='ERROR' then return 'ERROR'
+  call readtree pullroot,''
+  if result\='OK' & result\='MISSING' then return 'ERROR'
+  if ecount\=0 then do
+   say 'GITWT: pull needs a complete worktree map for the old commit'
+   return 'ERROR'
+  end
+  call rootfor pullnew
+  pullroot=result
+  if pullroot='ERROR' then return 'ERROR'
+  call readtree pullroot,''
+  if result\='OK' & result\='MISSING' then return 'ERROR'
+  if ecount\=0 then do
+   say 'GITWT: pull needs an initial checkout for a nonempty tree'
+   return 'ERROR'
+  end
+  return 'OK'
+ end
+ call rootfor pullold
+ oldroot=result
+ if oldroot='ERROR' then return 'ERROR'
+ call readtree oldroot,''
+ if result\='OK' & result\='MISSING' then return 'ERROR'
+ if ecount\=mapcount then do
+  say 'GITWT: pull path additions or removals are not supported yet'
+  return 'ERROR'
+ end
+ drop pulloldoid. pullseen.
+ do ei=1 to ecount
+  if emode.ei\='100644' then do
+   say 'GITWT: pull supports flat regular text files only'
+   return 'ERROR'
+  end
+  call asciitocms ename.ei
+  path=result
+  if path='ERROR' | pos('/',path)>0 then do
+   say 'GITWT: pull supports flat paths only'
+   return 'ERROR'
+  end
+  call findpath ename.ei
+  pi=result
+  if pi<1 | pullseen.pi=1 then do
+   say 'GITWT: current worktree map differs from the old commit'
+   return 'ERROR'
+  end
+  pullseen.pi=1
+  pulloldoid.pi=eoid.ei
+ end
+ do pi=1 to mapcount
+  if pullseen.pi\=1 | mapbase.pi=zeros |,
+     mapstage.pi\=mapbase.pi then do
+   say 'GITWT: dirty or incomplete worktree blocks pull' mappath.pi
+   return 'ERROR'
+  end
+  if pulloldoid.pi\=mapbase.pi then do
+   say 'GITWT: worktree base differs from old commit' mappath.pi
+   return 'ERROR'
+  end
+  'STATE' mapfn.pi mapft.pi mapfm.pi
+  if rc\=0 then do
+   say 'GITWT: missing mapped file blocks pull' mapfn.pi mapft.pi
+   return 'ERROR'
+  end
+  call workoid mapfn.pi,mapft.pi,mapfm.pi,maplf.pi,0
+  if result\=mapbase.pi then do
+   say 'GITWT: modified mapped file blocks pull' mappath.pi
+   return 'ERROR'
+  end
+ end
+ call rootfor pullnew
+ pullroot=result
+ if pullroot='ERROR' then return 'ERROR'
+ call readtree pullroot,''
+ if result\='OK' & result\='MISSING' then return 'ERROR'
+ if ecount\=mapcount then do
+  say 'GITWT: pull path additions or removals are not supported yet'
+  return 'ERROR'
+ end
+ drop pullseen.
+ do ei=1 to ecount
+  if emode.ei\='100644' then do
+   say 'GITWT: pull supports flat regular text files only'
+   return 'ERROR'
+  end
+  call asciitocms ename.ei
+  path=result
+  if path='ERROR' | pos('/',path)>0 then do
+   say 'GITWT: pull supports flat paths only'
+   return 'ERROR'
+  end
+  call findpath ename.ei
+  pi=result
+  if pi<1 | pullseen.pi=1 then do
+   say 'GITWT: pull path set differs from the current worktree'
+   return 'ERROR'
+  end
+  pullseen.pi=1
+  pullnewoid.pi=eoid.ei
+ end
+ do pi=1 to mapcount
+  if pullseen.pi\=1 then return 'ERROR'
+  call readloose pullnewoid.pi
+  if result\='OK' | readtype\='BLOB' then do
+   say 'GITWT: pulled blob is missing or invalid' pullnewoid.pi
+   return 'ERROR'
+  end
+  call bodyrecords readhex
+  if result\='OK' then do
+   say 'GITWT: pulled blob is not CMS-compatible text' mappath.pi
+   return 'ERROR'
+  end
+  pullnewlf.pi=final
+  pullnewcount.pi=rec.0
+  do li=1 to rec.0
+   pullnewrec.pi.li=rec.li
+  end
+ end
+ return 'OK'
+
+buildraw:
+ parse arg buildnode
+ raw=''
+ buildcount=0
+ do buildentry=1 to nodeentries.buildnode
+  if nodeentrydeleted.buildnode.buildentry\=1 then do
+   call modehex nodemode.buildnode.buildentry
+   mh=result
+   if mh='ERROR' then return 'ERROR'
+   raw=raw||mh||'20'||nodenamehex.buildnode.buildentry||'00'||,
+       nodechildoid.buildnode.buildentry
+   buildcount=buildcount+1
+  end
+ end
+ return raw
+
+insertrootadds:
+ do nai=1 to newrootcount
+  parentid=newrootparent.nai
+  liveentries=0
+  do lei=1 to nodeentries.parentid
+   if nodeentrydeleted.parentid.lei\=1 then liveentries=liveentries+1
+  end
+  if liveentries>=256 then return 'ERROR'
+  insertat=nodeentries.parentid+1
+  newcompare=newrootname.nai
+  if newrootmode.nai='40000' then newcompare=newcompare||'2F'
+  do nej=1 to nodeentries.parentid
+   compare=nodenamehex.parentid.nej
+   if nodemode.parentid.nej='40000' then compare=compare||'2F'
+   sortbefore=0
+   sortdone=0
+   commonlen=min(length(newcompare),length(compare))
+   do cbi=1 to commonlen by 2
+    newbyte=x2d(substr(newcompare,cbi,2))
+    oldbyte=x2d(substr(compare,cbi,2))
+    if newbyte<oldbyte then do
+     sortbefore=1
+     sortdone=1
+     leave
+    end
+    if newbyte>oldbyte then do
+     sortdone=1
+     leave
+    end
+   end
+   if sortbefore=1 then do
+    insertat=nej
+    leave
+   end
+   if sortdone=0 & length(newcompare)=length(compare) then,
+    return 'ERROR'
+   if sortdone=0 & length(newcompare)<length(compare) then do
+    insertat=nej
+    leave
+   end
+  end
+  do nej=nodeentries.parentid to insertat by -1
+   next=nej+1
+   nodemode.parentid.next=nodemode.parentid.nej
+   nodenamehex.parentid.next=nodenamehex.parentid.nej
+   nodechildoid.parentid.next=nodechildoid.parentid.nej
+   nodeentrydeleted.parentid.next=nodeentrydeleted.parentid.nej
+  end
+  do nji=2 to nodecount
+   if nodeparent.nji=parentid & nodeisnew.nji\=1 &,
+      nodeentry.nji>=insertat then nodeentry.nji=nodeentry.nji+1
+  end
+  nodeentries.parentid=nodeentries.parentid+1
+  nodemode.parentid.insertat=newrootmode.nai
+  nodenamehex.parentid.insertat=newrootname.nai
+  nodechildoid.parentid.insertat=newrootoid.nai
+  nodeentrydeleted.parentid.insertat=0
+  nodechanged.parentid=1
+ end
+ return 'OK'
 
 parsepathout:
  closure=0
@@ -543,6 +2361,80 @@ parsepathout:
   return 'ERROR'
  if length(body)%2\=pathsize then return 'ERROR'
  return 'OK'
+
+pathoidfor:
+ parse arg pcommit,ppath
+ call rootfor pcommit
+ treeoid=result
+ if treeoid='ERROR' then do
+  say 'GITWT: cannot read root tree for commit' pcommit
+  return 'ERROR'
+ end
+ call splitpath ppath
+ if result\='OK' then do
+  say 'GITWT: invalid encoded Git path'
+  return 'ERROR'
+ end
+ do pathlevel=1 to pcnt
+  call readtree treeoid,pcomp.pathlevel
+  pathrc=result
+  if pathrc='MISSING' then do
+   say 'GITWT: path component is absent at level' pathlevel
+   return 'ERROR'
+  end
+  if pathrc\='OK' then do
+   say 'GITWT: cannot read tree component' pathlevel 'of' pcnt
+   return 'ERROR'
+  end
+  if pathlevel<pcnt then do
+   if foundmode\='40000' then do
+    say 'GITWT: non-tree path component at level' pathlevel
+    return 'ERROR'
+   end
+   treeoid=foundoid
+  end
+  else do
+   if foundmode='40000' | foundmode='160000' then do
+    say 'GITWT: final path component is not a file'
+    return 'ERROR'
+   end
+   call readloose foundoid
+   if result='OK' then do
+    if readtype\='BLOB' then do
+     say 'GITWT: checkout path does not name a blob' foundoid
+     return 'ERROR'
+    end
+    body=readhex
+    pathoid=foundoid
+   end
+   else if result='MISSING' then do
+    drop out.
+    out.0=0
+    cmd='GITREC PATHFULLCAT GITFIX M15NEW' pcommit ppath
+    'PIPE CMS' cmd '| STEM OUT.'
+    if rc\=0 then do
+     say 'GITWT: native path reader failed' pathlevel 'RC' rc
+     return 'ERROR'
+    end
+    call parsepathout
+    if result\='OK' then do
+     say 'GITWT: native path reader returned invalid data'
+     return 'ERROR'
+    end
+   end
+   else do
+    say 'GITWT: cannot verify checkout blob' foundoid
+    return 'ERROR'
+   end
+  end
+ end
+ return pathoid
+
+checkworkfile:
+ parse arg wfn,wft,wfm
+ 'STATE' wfn wft wfm
+ if rc\=0 then return 'OK'
+ return 'ERROR'
 
 bodyrecords:
  parse arg h
@@ -621,6 +2513,18 @@ workoid:
 
 rootfor:
  parse arg commit
+ call readloose commit
+ if result='OK' then do
+  if readtype\='COMMIT' | length(readhex)<92 |,
+     left(readhex,10)\='7472656520' |,
+     substr(readhex,91,2)\='0A' then return 'ERROR'
+  call asciitocms substr(readhex,11,80)
+  answer=translate(result)
+  if answer='ERROR' | length(answer)\=40 |,
+     verify(answer,'0123456789ABCDEF')\=0 then return 'ERROR'
+  return answer
+ end
+ if result\='MISSING' then return 'ERROR'
  drop sf.
  sf.0=0
  cmd='GITREC SHOWFULL GITFIX M15NEW' commit
@@ -641,6 +2545,49 @@ rootfor:
  end
  if marker\=1 | roots\=1 then return 'ERROR'
  return answer
+
+readloose:
+ parse arg readid
+ readid=translate(readid)
+ readtype=''
+ readhex=''
+ if length(readid)\=40 |,
+    verify(readid,'0123456789ABCDEF')\=0 then return 'ERROR'
+ readfn=substr(readid,1,8)
+ 'STATE' readfn 'GITOBJ' objectfm
+ if rc=28 then return 'MISSING'
+ if rc\=0 then return 'ERROR'
+ verifycmd='GIT VERIFY-OBJECT '||readid
+ drop verifyout.
+ verifyout.0=0
+ 'PIPE CMS' verifycmd '| STEM VERIFYOUT.'
+ if rc\=0 | verifyout.0\=1 |,
+    strip(verifyout.1)\=readid 'OK' then return 'ERROR'
+ drop readobj.
+ 'EXECIO * DISKR' readfn 'GITOBJ' objectfm ,
+    '1 (STEM READOBJ. FINIS'
+ if rc\=0 | readobj.0<3 then return 'ERROR'
+ if words(readobj.1)\=2 | word(readobj.1,1)\='OID' |,
+    translate(word(readobj.1,2))\=readid |,
+    words(readobj.2)\=2 | word(readobj.2,1)\='TYPE' |,
+    words(readobj.3)\=2 | word(readobj.3,1)\='SIZE' then,
+  return 'ERROR'
+ readtype=translate(word(readobj.2,2))
+ readsize=word(readobj.3,2)
+ if readtype\='BLOB' & readtype\='TREE' &,
+    readtype\='COMMIT' then return 'ERROR'
+ if datatype(readsize,'W')\=1 | readsize<0 |,
+    readsize>16777216 then return 'ERROR'
+ do readi=4 to readobj.0
+  if word(readobj.readi,1)\='DATA' |,
+     words(readobj.readi)\=2 then return 'ERROR'
+  chunk=translate(word(readobj.readi,2))
+  if chunk='' | length(chunk)>128 | length(chunk)//2\=0 |,
+     verify(chunk,'0123456789ABCDEF')\=0 then return 'ERROR'
+  readhex=readhex||chunk
+ end
+ if length(readhex)%2\=readsize then return 'ERROR'
+ return 'OK'
 
 splitpath:
  parse arg ph
@@ -677,13 +2624,14 @@ readtree:
  ecount=0
  currente=0
  fn=substr(toid,1,8)
- 'STATE' fn 'GITOBJ A'
+ 'STATE' fn 'GITOBJ' objectfm
  localrc=rc
  if localrc=0 then do
   address command 'EXEC GIT VERIFY-OBJECT' toid
   if rc\=0 then return 'ERROR'
   drop loose.
-  'EXECIO * DISKR' fn 'GITOBJ A 1 (STEM LOOSE. FINIS'
+  'EXECIO * DISKR' fn 'GITOBJ' objectfm ,
+   '1 (STEM LOOSE. FINIS'
   if rc\=0 | loose.0<3 then return 'ERROR'
   if word(loose.1,1)\='OID' |,
      translate(word(loose.1,2))\=toid |,
@@ -787,13 +2735,14 @@ readtree:
    foundindex=ei
   end
  end
- if matches\=1 then return 'ERROR'
+ if matches>1 then return 'ERROR'
+ if matches=0 then return 'MISSING'
  return 'OK'
 
 loadnode:
  parse arg loadid,loadtree,loadtarget
  call readtree loadtree,loadtarget
- if result\='OK' then return 'ERROR'
+ if result\='OK' & result\='MISSING' then return 'ERROR'
  nodeentries.loadid=ecount
  do li=1 to ecount
   nodemode.loadid.li=emode.li
@@ -983,18 +2932,52 @@ readrefs:
   end
   else if word(rr.ri,1)='REF' then do
    if words(rr.ri)\=3 then return 'ERROR'
-   name=word(rr.ri,2)
+   refrecord=word(rr.ri,2)
    roid=translate(word(rr.ri,3))
-   if left(name,11)\='refs/heads/' then return 'ERROR'
+   call validref refrecord
+   if result\='OK' then return 'ERROR'
    if length(roid)\=40 |,
       verify(roid,'0123456789ABCDEF')\=0 then return 'ERROR'
    refcount=refcount+1
-   refname.refcount=name
+   refname.refcount=refrecord
    refoid.refcount=roid
   end
   else return 'ERROR'
  end
  if left(headref,11)\='refs/heads/' then return 'ERROR'
+ call validref headref
+ if result\='OK' then return 'ERROR'
+ return 'OK'
+
+validref:
+ parse arg vr
+ if length(vr)>35 then return 'ERROR'
+ if left(vr,11)='refs/heads/' then do
+  name=substr(vr,12)
+  refchars='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+  refchars=refchars||'0123456789._/-'
+  if name='' | verify(name,refchars)\=0 |,
+     pos('//',name)>0 | pos('..',name)>0 |,
+     left(name,1)='/' | right(name,1)='/' then return 'ERROR'
+  do vi=1 to words(translate(name,' ','/'))
+   part=word(translate(name,' ','/'),vi)
+   if part='' | part='.' | part='..' | left(part,1)='.' |,
+      right(part,1)='.' | right(part,5)='.lock' then return 'ERROR'
+  end
+  return 'OK'
+ end
+ else if left(vr,10)='refs/tags/' then name=substr(vr,11)
+ else return 'ERROR'
+ refchars='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+ refchars=refchars||'0123456789._/-'
+ if name='' | verify(name,refchars)\=0 | pos('//',name)>0 |,
+    pos('..',name)>0 | left(name,1)='/' | right(name,1)='/' |,
+    right(name,1)='.' | right(name,5)='.lock' then return 'ERROR'
+ do vi=1 to words(translate(name,' ','/'))
+  part=word(translate(name,' ','/'),vi)
+  if left(part,1)='.' | right(part,1)='.' |,
+     right(part,5)='.lock' then return 'ERROR'
+ end
  return 'OK'
 
 resolve:
@@ -1012,20 +2995,31 @@ resolve:
  return 'ERROR'
 
 bindnative:
+ success=1
  'FILEDEF SEL0 DISK M15SL0 PTR A'
- if rc\=0 then return 'ERROR'
+ if rc\=0 then success=0
  'FILEDEF SEL1 DISK M15SL1 PTR A'
- if rc\=0 then return 'ERROR'
+ if rc\=0 then success=0
  do bi=1 to 4
   typ=word('STAGE INDEX SEEK GEN',bi)
   dd=word('C0STG C0IDX C0SEEK C0GEN',bi)
   'FILEDEF' dd 'DISK GITFIX' typ 'A'
-  if rc\=0 then return 'ERROR'
+  if rc\=0 then success=0
   dd=word('C1STG C1IDX C1SEEK C1GEN',bi)
   'FILEDEF' dd 'DISK M15NEW' typ 'A'
-  if rc\=0 then return 'ERROR'
+  if rc\=0 then success=0
  end
- return 'OK'
+ if success then return 0
+ /* cleanup on failure */
+ 'FILEDEF SEL0 CLEAR'
+ 'FILEDEF SEL1 CLEAR'
+ do bi=1 to 4
+  dd=word('C0STG C0IDX C0SEEK C0GEN',bi)
+  'FILEDEF' dd 'CLEAR'
+  dd=word('C1STG C1IDX C1SEEK C1GEN',bi)
+  'FILEDEF' dd 'CLEAR'
+ end
+ return 8
 
 validid:
  parse upper arg id

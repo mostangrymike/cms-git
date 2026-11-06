@@ -1,0 +1,48 @@
+{
+  "date": "2026-10-18",
+  "milestone": "M167 integrated commit-to-ref target gate",
+  "runner": "ZMD898D4",
+  "checker_target": "ZTDM167 EXEC A",
+  "upload": {
+    "source_sha256": "28fa5abcb7ac6e019efa4a6b4f9717ff0173e9792e971d1d51a72cf6f9389c81",
+    "input_bytes": 4735,
+    "record_count": 238,
+    "transferred_bytes": 19278,
+    "transfer_complete": true,
+    "target_present_after_transfer": true,
+    "content_readback_verified": false
+  },
+  "cms_sha256": {
+    "program": "GITSHA4 MODULE A1 via FILEDEF HASHIN",
+    "bytes": 4497,
+    "digest": "31E8C6FD72ECE18848A3FCF7AD15C59CC12A80D654A8DD92E33004A0FAC98B3D",
+    "local_cp037_logical_record_digest": "31E8C6FD72ECE18848A3FCF7AD15C59CC12A80D654A8DD92E33004A0FAC98B3D",
+    "match": true
+  },
+  "command": {
+    "request_id": "B619498DEFFC9C1F",
+    "cms_rc": 0,
+    "record_count": 49,
+    "byte_count": 2233,
+    "output_complete": true,
+    "integrity_verified": true,
+    "frames_verified": 161,
+    "screens_observed": 325,
+    "transient_ref": "refs/heads/m167test",
+    "retained_commit": "93E05DA32194B9C61E26418F1A8E2417564C18AE",
+    "preexisting_refs_restored_byte_for_byte": true,
+    "worktree_clean": true,
+    "result": "PASS"
+  },
+  "post_run_state_checks": {
+    "M167TST DATA A": 28,
+    "GITWORK REPO A": 28,
+    "GITTREE REPO A": 28,
+    "meaning": "RC28 confirmed each disposable file absent"
+  },
+  "retained_on_cms": [
+    "ZTDM167 EXEC A",
+    "commit 93E05DA32194B9C61E26418F1A8E2417564C18AE"
+  ],
+  "hashin_cleared": true
+}

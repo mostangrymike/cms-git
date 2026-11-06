@@ -3,10 +3,67 @@
 /* Preserve arguments exactly; normalize only the command verb. */
 parse arg command rest
 command = translate(command)
+objectfm = 'A'
+if command \= 'INIT' then do
+   'STATE GITMETA REPO A'
+   if rc = 0 then do
+      drop config.
+      'EXECIO * DISKR GITMETA REPO A 1 (STEM CONFIG. FINIS'
+      if rc \= 0 | config.0 < 4 |,
+         config.1 \= 'CMS-GIT-REPOSITORY 1' then do
+         say 'GIT: invalid repository metadata'
+         exit 8
+      end
+      objectrecords = 0
+      do ci = 1 to config.0
+         if word(config.ci,1) = 'OBJECT-DISK' then do
+            if words(config.ci) \= 2 then do
+               say 'GIT: invalid OBJECT-DISK setting'
+               exit 8
+            end
+            objectrecords = objectrecords + 1
+            objectfm = translate(word(config.ci,2))
+         end
+      end
+      if objectrecords > 1 | length(objectfm) \= 1 |,
+         verify(objectfm,'ABCDEFGHIJKLMNOPQRSTUVWXYZ') \= 0 then do
+         say 'GIT: invalid OBJECT-DISK setting'
+         exit 8
+      end
+   end
+   else if rc \= 28 then do
+      say 'GIT: cannot inspect repository metadata RC' rc
+      exit 8
+   end
+end
 
 if command = '' then do
    say 'Usage: GIT command [arguments]'
    exit 4
+end
+if command='CHECKOUT' then do
+   parse var rest checkoutarg checkoutrest
+   if checkoutarg='-B' then do
+      say 'GIT CHECKOUT -B is not supported'
+      exit 4
+   end
+   'STATE GITREF2 REPO A'
+   checkoutrc=rc
+   if checkoutrc=28 then do
+      if checkoutarg='-b' | checkoutarg='--branch' then do
+         say 'GIT CHECKOUT -b requires modern REF2'
+         exit 8
+      end
+   end
+   else if checkoutrc=0 then do
+      if checkoutarg='-b' | checkoutarg='--branch' then,
+         rest='-c'||substr(rest,length(checkoutarg)+1)
+      command='SWITCH'
+   end
+   else do
+      say 'GIT CHECKOUT: cannot inspect REF2 RC' checkoutrc
+      exit checkoutrc
+   end
 end
 if command = 'VERSION' then do
    'GITCORE VERSION'
@@ -40,26 +97,509 @@ if command = 'LEVEL' then do
    exit 0
 end
 if command = 'INIT' then do
-   parse var rest extra
-   if extra \= '' then do
-      say 'Usage: GIT INIT'
+   parse upper var rest objectfm extra
+   if extra \= '' | (objectfm \= '' &,
+      verify(objectfm,'ABCDEFGHIJKLMNOPQRSTUVWXYZ') \= 0) then do
+      say 'Usage: GIT INIT [object-filemode]'
       exit 4
    end
-   meta.0 = 4
+   if objectfm = '' then objectfm = 'A'
+   'STATE GITMETA REPO A'
+   if rc = 0 then do
+      call initrefs
+      if result='OK' then do
+         say 'Initialized unborn branch refs/heads/main'
+         exit 0
+      end
+      if result='EXISTS' then do
+         say 'GIT: repository already initialized'
+         exit 8
+      end
+      say 'GIT: could not initialize branch refs'
+      exit 8
+   end
+   if rc \= 28 then do
+      say 'GIT: cannot inspect repository metadata RC' rc
+      exit 8
+   end
+   if objectfm \= 'A' then do
+      drop diskinfo.
+      diskinfo.0 = 0
+      'PIPE CMS QUERY DISK' objectfm '| STEM DISKINFO.'
+      if rc \= 0 then do
+         say 'GIT: cannot inspect object data disk' objectfm
+         exit 8
+      end
+      diskcount = 0
+      freeblocks = ''
+      do di = 1 to diskinfo.0
+         if word(diskinfo.di,3) = objectfm &,
+            word(diskinfo.di,4) = 'R/W' &,
+            word(diskinfo.di,7) = '4096' &,
+            words(diskinfo.di) >= 11 then do
+            diskcount = diskcount + 1
+            freeblocks = word(diskinfo.di,10)
+         end
+      end
+      if diskcount \= 1 | datatype(freeblocks,'W') \= 1 |,
+         freeblocks < 180000 then do
+         say 'GIT: object disk needs R/W 4K and 180000 free blocks'
+         exit 8
+      end
+   end
+   meta.0 = 5
    meta.1 = 'CMS-GIT-REPOSITORY 1'
    meta.2 = 'OBJECT-FORMAT SHA1'
    meta.3 = 'TEXT-RECORD-SEPARATOR LF'
    meta.4 = 'HEAD refs/heads/main'
+   meta.5 = 'OBJECT-DISK' objectfm
    'EXECIO' meta.0 'DISKW GITMETA REPO A 1 (STEM META. FINIS'
    if rc \= 0 then exit rc
-   say 'Initialized native CMS Git repository on filemode A'
+   call initrefs
+   if result\='OK' then do
+      'ERASE GITMETA REPO A'
+      say 'GIT: could not initialize branch refs'
+      exit 8
+   end
+   say 'Initialized native CMS Git repository; objects on filemode' objectfm
    exit 0
 end
 
+/* M262: repository-local HTTPS remote metadata for GitHub workflows. */
+if command = 'REMOTE' then do
+   address command 'EXEC GITREMOT' rest
+   exit rc
+end
+if command = 'CREDENTIAL' then do
+   address command 'EXEC GITCRED' rest
+   exit rc
+end
+
+/* Modern lightweight tag porcelain over the guarded REF2 updater. */
+if command = 'TAG' then do
+   if strip(rest)='' then do
+      address command 'EXEC GITVREF TAGS'
+      exit rc
+   end
+   parse var rest action tagname oid extra fifth
+   verb=translate(action)
+   if verb='-L' | verb='--LIST' then do
+      if oid\='' | extra\='' | fifth\='' then do
+         say 'Usage: GIT TAG [-l|--list [pattern]]'
+         exit 4
+      end
+      if tagname\='' then do
+         call validtag tagname, 'PATTERN'
+         if result\='OK' then do
+            say 'GIT: invalid tag pattern'
+            exit 4
+         end
+      end
+      address command 'EXEC GITVREF TAGS' tagname
+      exit rc
+   end
+   if verb='-F' | verb='--FORCE' then do
+      if tagname='' | oid='' | fifth\='' then do
+         say 'Usage: GIT TAG -f|--force name new-oid [expected-old-oid]'
+         exit 4
+      end
+      call validtag tagname
+      if result\='OK' then do
+         say 'GIT: invalid tag name'
+         exit 4
+      end
+      newoid=translate(oid)
+      if length(newoid)\=40 |,
+         verify(newoid,'0123456789ABCDEF')\=0 then do
+         say 'GIT: invalid new tag object-id'
+         exit 4
+      end
+      zeros='0000000000000000000000000000000000000000'
+      ref='refs/tags/'||tagname
+      if extra='' then do
+         call resolvestart ref
+         oldoid=result
+         if oldoid='ERROR' | oldoid='HEAD' then do
+            say 'GIT: cannot resolve existing tag' ref
+            exit 8
+         end
+      end
+      else oldoid=translate(extra)
+      if length(oldoid)\=40 |,
+         verify(oldoid,'0123456789ABCDEF')\=0 then do
+         say 'GIT: invalid expected tag object-id'
+         exit 4
+      end
+      if oldoid=zeros then do
+         say 'GIT: force update requires an existing tag OID'
+         exit 4
+      end
+      address command 'EXEC GIT VERIFY-OBJECT' newoid
+      if rc\=0 then exit 8
+      call readobject newoid
+      if result\='OK' | objtype\='COMMIT' then do
+         say 'GIT: lightweight tags require a verified COMMIT object'
+         exit 8
+      end
+      address command 'EXEC GIT UPDATE-REF' ref newoid oldoid
+      if rc\=0 then exit rc
+      say 'TAG UPDATED' ref oldoid newoid
+      exit 0
+   end
+   if verb='-D' | verb='--DELETE' then do
+      if tagname='' | extra\='' | fifth\='' then do
+         say 'Usage: GIT TAG -d|--delete name [expected-commit-oid]'
+         exit 4
+      end
+      call validtag tagname
+      if result\='OK' then do
+         say 'GIT: invalid tag name'
+         exit 4
+      end
+      ref='refs/tags/'||tagname
+      if oid='' then do
+         call resolvestart ref
+         expectedoid=result
+         if expectedoid='ERROR' | expectedoid='HEAD' then do
+            say 'GIT: cannot resolve tag' ref
+            exit 8
+         end
+      end
+      else do
+         expectedoid=translate(oid)
+         if length(expectedoid)\=40 |,
+            verify(expectedoid,'0123456789ABCDEF')\=0 then do
+            say 'GIT: invalid expected tag object-id'
+            exit 4
+         end
+      end
+      zeros='0000000000000000000000000000000000000000'
+      address command 'EXEC GIT UPDATE-REF' ref zeros expectedoid
+      if rc\=0 then exit rc
+      say 'TAG DELETED' ref expectedoid
+      exit 0
+   end
+   if action='' | oid\='' | extra\='' | fifth\='' then do
+      say 'Usage: GIT TAG name [start-point]'
+      say '       GIT TAG -d|--delete name [expected-commit-oid]'
+      exit 4
+   end
+   call validtag action
+   if result\='OK' then do
+      say 'GIT: invalid tag name'
+      exit 4
+   end
+   tagstart=tagname
+   if tagstart='' then tagstart='HEAD'
+   call resolvetagtarget tagstart
+   tagoid=result
+   if tagoid='ERROR' then do
+      say 'GIT: cannot resolve tag start point' tagstart
+      exit 4
+   end
+   oid=tagoid
+   if length(oid)\=40 | verify(oid,'0123456789ABCDEF')\=0 then do
+      say 'GIT: tag start point is not a valid object-id'
+      exit 4
+   end
+   address command 'EXEC GIT VERIFY-OBJECT' oid
+   if rc\=0 then exit 8
+   call readobject oid
+   if result\='OK' | objtype\='COMMIT' then do
+      say 'GIT: lightweight tags require a verified COMMIT object'
+      exit 8
+   end
+   zeros='0000000000000000000000000000000000000000'
+   ref='refs/tags/'||action
+   address command 'EXEC GIT UPDATE-REF' ref oid zeros
+   if rc\=0 then exit rc
+   say 'TAG CREATED' ref oid
+   exit 0
+end
+
+/* Bounded porcelain LOG over the verified REF2 revision resolver. */
+if command = 'LOG' then do
+   parse var rest logarg1 logarg2 logarg3 logarg4
+   logdepth='16'
+   logstart='HEAD'
+   logopt=translate(logarg1)
+   if logopt='-N' | logopt='--MAX-COUNT' then do
+      if logarg2='' | logarg4\='' then do
+         say 'Usage: GIT LOG [-n|--max-count count] [revision]'
+         exit 4
+      end
+      logdepth=logarg2
+      if logarg3\='' then logstart=logarg3
+   end
+   else if left(logopt,12)='--MAX-COUNT=' then do
+      if logarg3\='' | logarg4\='' then do
+         say 'Usage: GIT LOG [-n|--max-count count] [revision]'
+         exit 4
+      end
+      logdepth=substr(logarg1,13)
+      if logarg2\='' then logstart=logarg2
+   end
+   else if left(logopt,2)='-N' & logopt\='-N' then do
+      if logarg3\='' | logarg4\='' then do
+         say 'Usage: GIT LOG [-n|--max-count count] [revision]'
+         exit 4
+      end
+      logdepth=substr(logarg1,3)
+      if logarg2\='' then logstart=logarg2
+   end
+   else if logarg1\='' then do
+      if logarg2\='' | logarg3\='' | logarg4\='' then do
+         say 'Usage: GIT LOG [-n|--max-count count] [revision]'
+         exit 4
+      end
+      logstart=logarg1
+   end
+   if logdepth='' | length(logdepth)>2 |,
+      verify(logdepth,'0123456789')\=0 then do
+      say 'GIT: log count must be between 0 and 16'
+      exit 4
+   end
+   if logdepth+0<0 | logdepth+0>16 then do
+      say 'GIT: log count must be between 0 and 16'
+      exit 4
+   end
+   call resolvetagtarget logstart
+   logoid=result
+   if logoid='ERROR' then do
+      say 'GIT: cannot resolve log revision' logstart
+      exit 8
+   end
+   if logdepth+0=0 then exit 0
+   backenddepth=logdepth-1
+   address command 'EXEC GITVREF LOG' logoid backenddepth
+   exit rc
+end
+
+/* Resolve a revision before exposing the full-object SHOW reader. */
+if command = 'SHOW' then do
+   parse var rest showstart showextra
+   if showextra\='' then do
+      say 'Usage: GIT SHOW [revision]'
+      exit 4
+   end
+   if showstart='' then showstart='HEAD'
+   call resolvetagtarget showstart
+   showoid=result
+   if showoid='ERROR' then do
+      say 'GIT: cannot resolve show revision' showstart
+      exit 8
+   end
+   address command 'EXEC GITVREF SHOW' showoid
+   exit rc
+end
+
+/* Prefer modern REF2 branches, retaining M5 refs when REF2 is absent. */
+if command = 'BRANCH' then do
+   'STATE GITREF2 REPO A'
+   if rc=28 then do
+      'EXEC GITREF BRANCH' rest
+      exit rc
+   end
+   if rc\=0 then do
+      say 'GIT: cannot inspect modern REF2 branch store RC' rc
+      exit rc
+   end
+   if strip(rest)='' then do
+      address command 'EXEC GITVREF BRANCHES'
+      exit rc
+   end
+   parse var rest brancharg1 brancharg2 brancharg3 brancharg4 brancharg5
+   verb=translate(brancharg1)
+   zeros='0000000000000000000000000000000000000000'
+   if verb='-R' | verb='--REMOTES' then do
+      if brancharg3\='' | brancharg4\='' | brancharg5\='' then do
+         say 'Usage: GIT BRANCH -r|--remotes [remote]'
+         exit 4
+      end
+      address command 'EXEC GITVREF REMOTE-BRANCHES' brancharg2
+      exit rc
+   end
+   if verb='-L' | verb='--LIST' then do
+      if brancharg3\='' | brancharg4\='' | brancharg5\='' then do
+         say 'Usage: GIT BRANCH [-l|--list [pattern]]'
+         exit 4
+      end
+      if brancharg2\='' then do
+         call validbranch brancharg2, 'PATTERN'
+         if result\='OK' then do
+            say 'GIT: invalid branch-list pattern'
+            exit 4
+         end
+      end
+      address command 'EXEC GITVREF BRANCHES' brancharg2
+      exit rc
+   end
+   if verb='--SHOW-CURRENT' then do
+      if brancharg2\='' | brancharg3\='' |,
+         brancharg4\='' | brancharg5\='' then do
+         say 'Usage: GIT BRANCH --show-current'
+         exit 4
+      end
+      drop showhead.
+      showhead.0=0
+      'PIPE CMS EXEC GITVREF HEAD | STEM SHOWHEAD.'
+      if rc\=0 | showhead.0\=1 then do
+         say 'GIT: cannot resolve current symbolic HEAD'
+         exit 8
+      end
+      call branchnamefromhead showhead.1
+      if result='ERROR' then do
+         say 'GIT: invalid current symbolic HEAD'
+         exit 8
+      end
+      say result
+      exit 0
+   end
+   if brancharg1='-m' | verb='--MOVE' then do
+      if brancharg2='' | brancharg3='' |,
+         brancharg4\='' | brancharg5\='' then do
+         say 'Usage: GIT BRANCH -m|--move old-name new-name'
+         exit 4
+      end
+      call validbranch brancharg3
+      if result\='OK' then do
+         say 'GIT: invalid destination branch name'
+         exit 4
+      end
+      call resolvestart brancharg2
+      expectedoid=result
+      if expectedoid='ERROR' | expectedoid='HEAD' then do
+         say 'GIT: cannot resolve old branch' brancharg2
+         exit 4
+      end
+      oldref='refs/heads/'||brancharg2
+      newref='refs/heads/'||brancharg3
+      cmd='EXEC GIT UPDATE-REF MOVE-REF' oldref newref expectedoid
+      address command cmd
+      if rc\=0 then exit rc
+      say 'BRANCH RENAMED' brancharg2 brancharg3
+      exit 0
+   end
+   if verb='-D' | verb='--DELETE' then do
+      if brancharg2='' | brancharg4\='' | brancharg5\='' then do
+         say 'Usage: GIT BRANCH -d|--delete name [expected-old-oid]'
+         exit 4
+      end
+      call validbranch brancharg2
+      if result\='OK' then do
+         say 'GIT: invalid branch name'
+         exit 4
+      end
+      branchref='refs/heads/'||brancharg2
+      if brancharg3='' then do
+         call resolvestart branchref
+         branchoid=result
+         if branchoid='ERROR' | branchoid='HEAD' then do
+            say 'GIT: cannot resolve branch' branchref
+            exit 8
+         end
+      end
+      else do
+         branchoid=translate(brancharg3)
+         if length(branchoid)\=40 |,
+            verify(branchoid,'0123456789ABCDEF')\=0 then do
+            say 'GIT: invalid expected branch object-id'
+            exit 4
+         end
+      end
+      address command 'EXEC GIT UPDATE-REF' branchref zeros branchoid
+      if rc\=0 then exit rc
+      say 'BRANCH DELETED' brancharg2 branchoid
+      exit 0
+   end
+   if brancharg1='' | brancharg3\='' |,
+      brancharg4\='' | brancharg5\='' then do
+      say 'Usage: GIT BRANCH name [start-point]'
+      say '       GIT BRANCH -d|--delete name [expected-old-oid]'
+      exit 4
+   end
+   call validbranch brancharg1
+   if result\='OK' then do
+      say 'GIT: invalid branch name'
+      exit 4
+   end
+   branchref='refs/heads/'||brancharg1
+   branchstart=brancharg2
+   if branchstart='' then branchstart='HEAD'
+   call resolvetagtarget branchstart
+   branchoid=result
+   if branchoid='ERROR' then do
+      say 'GIT: cannot resolve branch start point' branchstart
+      exit 4
+   end
+   address command 'EXEC GIT UPDATE-REF' branchref branchoid zeros
+   if rc\=0 then exit rc
+   say 'BRANCH CREATED' brancharg1 branchoid
+   exit 0
+end
+
+/* M218: change symbolic HEAD only when the branch tips are identical. */
+if command = 'SWITCH' then do
+   parse var rest switcharg brancharg startpoint extra
+   switchmode=translate(switcharg)
+   if switchmode='-C' | switchmode='--CREATE' then do
+      if brancharg='' | extra\='' then do
+         say 'Usage: GIT SWITCH -c|--create name [start-point]'
+         exit 4
+      end
+      call validbranch brancharg
+      if result\='OK' then do
+         say 'GIT: invalid branch name'
+         exit 4
+      end
+      if startpoint='' then startpoint='HEAD'
+      call resolvestart startpoint
+      if result='ERROR' then do
+         say 'GIT: invalid branch start point' startpoint
+         exit 4
+      end
+      startpoint=result
+   end
+   else do
+      branchname=switcharg
+      if branchname='' | brancharg\='' |,
+         startpoint\='' | extra\='' then do
+         say 'Usage: GIT SWITCH branch'
+         exit 4
+      end
+      call validbranch branchname
+      if result\='OK' then do
+         say 'GIT: invalid branch name'
+         exit 4
+      end
+   end
+   drop currenthead.
+   currenthead.0=0
+   'PIPE CMS EXEC GITVREF HEAD | STEM CURRENTHEAD.'
+   hrc=rc
+   if hrc\=0 | currenthead.0\=1 then do
+      say 'GIT: cannot resolve current symbolic HEAD'
+      exit 8
+   end
+   headref=strip(currenthead.1)
+   if left(headref,11)\='refs/heads/' then do
+      say 'GIT: invalid current symbolic HEAD'
+      exit 8
+   end
+   if switchmode='-C' | switchmode='--CREATE' then do
+      cmd='EXEC GITUPD CREATE-HEAD refs/heads/'||brancharg||' '||,
+          headref||' '||startpoint
+   end
+   else do
+      cmd='EXEC GITUPD HEAD refs/heads/'||branchname||' '||headref
+   end
+   address command cmd
+   exit rc
+end
+
 /* M5D integration boundary.  Keep the target-proven M4 object core below
- * unchanged while routing ref/HEAD commands through the independently proven
- * M5A/M5B/M5C implementations. */
-if command = 'BRANCH' | command = 'SHOW-REF' |,
+ * unchanged while routing remaining legacy ref commands through M5A/M5B/M5C. */
+if command = 'SHOW-REF' |,
    command = 'SYMBOLIC-REF' | command = 'REV-PARSE' then do
    'EXEC GITREF' command rest
    exit rc
@@ -300,6 +840,233 @@ if command = 'FETCH-STORE' then do
    'EXEC GITPOST STORE' rest
    exit rc
 end
+if command = 'FETCH-PACK' then do
+   'EXEC GITFPACK' rest
+   exit rc
+end
+if command = 'FETCH-IMPORT' then do
+   'EXEC GITFIMP' rest
+   exit rc
+end
+if command = 'FETCH-ACTIVATE' then do
+   'EXEC GITFACT' rest
+   exit rc
+end
+if command = 'FETCH-TRACK' then do
+   parse var rest trackremote trackbranch trackoid expectedoid extra
+   if trackremote='' | trackbranch='' | trackoid='' | extra\='' then do
+      say 'Usage: GIT FETCH-TRACK remote branch new-oid [expected-old-oid]'
+      exit 4
+   end
+   if expectedoid='' then,
+      expectedoid='0000000000000000000000000000000000000000'
+   call validremotename trackremote
+   if result\='OK' then do
+      say 'GIT: invalid remote name'
+      exit 4
+   end
+   call validbranch trackbranch
+   if result\='OK' then do
+      say 'GIT: invalid remote branch name'
+      exit 4
+   end
+   trackingref='refs/remotes/'||trackremote||'/'||trackbranch
+   if length(trackingref)>35 then do
+      say 'GIT: remote-tracking ref exceeds the REF2 record limit'
+      exit 4
+   end
+   trackoid=translate(trackoid)
+   expectedoid=translate(expectedoid)
+   if length(trackoid)\=40 | length(expectedoid)\=40 |,
+      verify(trackoid,'0123456789ABCDEF')\=0 |,
+      verify(expectedoid,'0123456789ABCDEF')\=0 |,
+      trackoid='0000000000000000000000000000000000000000' then do
+      say 'GIT: invalid remote-tracking object-id'
+      exit 4
+   end
+   'EXEC GITUPD' trackingref trackoid expectedoid
+   exit rc
+end
+/* M273: fetch, verify and apply one fast-forward pull to a clean flat tree. */
+if command='PULL' then do
+   parse var rest pullremote pullbridge pullport pullpack pullindex,
+       pullbranch pullextra
+   if pullremote='' | pullbridge='' | pullport='' | pullpack='' |,
+      pullindex='' | pullextra\='' then do
+      say 'Usage: GIT PULL remote bridge port pack index [branch|HEAD]'
+      exit 4
+   end
+   if pullbranch='' then pullbranch='HEAD'
+   call validremotename pullremote
+   if result\='OK' then exit 4
+   call validbranch pullbranch
+   if result\='OK' then exit 4
+   pullport=strip(pullport)
+   if datatype(pullport,'W')\=1 | pullport<1 | pullport>65535 then exit 4
+   pullbridge=strip(pullbridge)
+   bridgechars='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+   bridgechars=bridgechars||'0123456789.-'
+   if pullbridge='' | length(pullbridge)>255 |,
+      verify(pullbridge,bridgechars)\=0 then exit 4
+   pullpack=translate(pullpack)
+   pullindex=translate(pullindex)
+   cmsnames='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+   if length(pullpack)<1 | length(pullpack)>8 |,
+      verify(pullpack,cmsnames)\=0 |,
+      length(pullindex)<1 | length(pullindex)>8 |,
+      verify(pullindex,cmsnames)\=0 | pullpack=pullindex then do
+      say 'GIT PULL: pack and index names must be distinct CMS filenames'
+      exit 4
+   end
+   if objectfm='A' then do
+      say 'GIT PULL: repository must use its dedicated non-A object disk'
+      exit 8
+   end
+   drop headout.
+   headout.0=0
+   'PIPE CMS EXEC GITVREF HEAD | STEM HEADOUT.'
+   if rc\=0 | headout.0\=1 then exit 8
+   parse var headout.1 pullhead extra
+   if extra\='' | left(pullhead,11)\='refs/heads/' then exit 8
+   currentbranch=substr(pullhead,12)
+   call validbranch currentbranch
+   if result\='OK' then exit 8
+   if translate(pullbranch)='HEAD' then pullrequest='HEAD'
+   else do
+      if left(pullbranch,11)='refs/heads/' then,
+         pullrequested=substr(pullbranch,12)
+      else pullrequested=pullbranch
+      call validbranch pullrequested
+      if result\='OK' | pullrequested\=currentbranch then do
+         say 'GIT PULL: selected remote branch must match the current branch'
+         exit 8
+      end
+      pullrequest=pullrequested
+   end
+   drop statusout.
+   statusout.0=0
+   'PIPE CMS EXEC GITWT STATUS --SHORT | STEM STATUSOUT.'
+   if rc\=0 then do
+      say 'GIT PULL: cannot verify a clean worktree'
+      exit 8
+   end
+   do si=1 to statusout.0
+      if left(statusout.si,2)\='##' then do
+         say 'GIT PULL: local worktree has changes; no fetch started'
+         exit 8
+      end
+   end
+   drop fetchout.
+   fetchout.0=0
+   fetchcmd='EXEC GITFPACK'||' '||pullremote||' '||pullbridge||' '||,
+       pullport||' '||pullpack||' '||pullrequest
+   'PIPE CMS' fetchcmd '| STEM FETCHOUT.'
+   if rc\=0 then do
+      say 'GIT PULL: fetch failed; local refs and workfiles unchanged'
+      exit rc
+   end
+   /* CMS PIPE STEM wraps long output at column 80, even inside an OID. */
+   fetchline=''
+   do fi=1 to fetchout.0
+      fetchline=fetchline||strip(fetchout.fi)
+   end
+   if words(fetchline)\=11 |,
+      word(fetchline,1)\='FETCH' | word(fetchline,2)\='PACK' |,
+      word(fetchline,3)\='VERIFIED' |,
+      translate(word(fetchline,4))\=translate(pullremote) |,
+      word(fetchline,8)\='BYTES' | word(fetchline,10)\='OBJECTS' |,
+      datatype(word(fetchline,9),'W')\=1 |,
+      datatype(word(fetchline,11),'W')\=1 then do
+      say 'GIT PULL: verified fetch result framing failed'
+      exit 8
+   end
+   pullbranchref=word(fetchline,5)
+   pullnew=translate(word(fetchline,6))
+   if word(fetchline,7)\=pullpack | length(pullnew)\=40 |,
+      verify(pullnew,'0123456789ABCDEF')\=0 |,
+      left(pullbranchref,11)\='refs/heads/' then do
+      say 'GIT PULL: verified fetch did not identify one branch tip'
+      exit 8
+   end
+   branchfromremote=substr(pullbranchref,12)
+   call validbranch branchfromremote
+   if result\='OK' | branchfromremote\=currentbranch then do
+      say 'GIT PULL: remote branch does not match current branch'
+      exit 8
+   end
+   'EXEC GIT FETCH-IMPORT' pullpack objectfm
+   if rc\=0 then do
+      say 'GIT PULL: import failed; pack retained for recovery'
+      exit rc
+   end
+   'EXEC GIT FETCH-ACTIVATE' pullpack pullindex objectfm
+   if rc\=0 then do
+      say 'GIT PULL: activation failed; stage and index retained'
+      exit rc
+   end
+   drop headcheck.
+   headcheck.0=0
+   'PIPE CMS EXEC GITVREF RESOLVE HEAD | STEM HEADCHECK.'
+   if rc\=0 | headcheck.0\=1 | words(headcheck.1)\=4 |,
+      word(headcheck.1,1)\='VERIFIED' |,
+      word(headcheck.1,2)\='REF' | word(headcheck.1,3)\='HEAD' then exit 8
+   pullold=translate(word(headcheck.1,4))
+   if length(pullold)\=40 | verify(pullold,'0123456789ABCDEF')\=0 then exit 8
+   if pullnew=pullold then do
+      say 'Already up to date' pullold
+      exit 0
+   end
+   drop ancestorout.
+   ancestorout.0=0
+   ancestorcmd='EXEC GITVREF IS-ANCESTOR'||' '||pullold||' '||pullnew
+   'PIPE CMS' ancestorcmd '| STEM ANCESTOROUT.'
+   if rc\=0 | ancestorout.0\=1 |,
+      strip(ancestorout.1)\='ANCESTOR YES' pullold pullnew then do
+      say 'GIT PULL: remote tip is not a fast-forward; local refs unchanged'
+      exit 8
+   end
+   pullcheckcmd='EXEC GITWT CHECK-PULL'||' '||currentbranch||' '||,
+       pullold||' '||pullnew
+   drop pullcheckout.
+   pullcheckout.0=0
+   'PIPE CMS' pullcheckcmd '| STEM PULLCHECKOUT.'
+   if rc\=0 then do
+      say 'GIT PULL: worktree preflight failed; local refs unchanged'
+      exit 8
+   end
+   trackingref='refs/remotes/'||pullremote||'/'||branchfromremote
+   if length(trackingref)>35 then do
+      say 'GIT PULL: remote-tracking ref exceeds the REF2 limit'
+      exit 8
+   end
+   'EXECIO * DISKR GITREF2 REPO A 1 (STEM PULLREFS. FINIS'
+   if rc\=0 | PULLREFS.0<2 | PULLREFS.1\='REF2 1' then exit 8
+   oldtracking='0000000000000000000000000000000000000000'
+   trackcount=0
+   do ri=2 to PULLREFS.0
+      if word(PULLREFS.ri,1)='REF' &,
+         word(PULLREFS.ri,2)=trackingref then do
+         if words(PULLREFS.ri)\=3 then exit 8
+         oldtracking=translate(word(PULLREFS.ri,3))
+         trackcount=trackcount+1
+      end
+   end
+   if trackcount>1 | length(oldtracking)\=40 |,
+      verify(oldtracking,'0123456789ABCDEF')\=0 then exit 8
+   'EXEC GIT FETCH-TRACK' pullremote branchfromremote pullnew oldtracking
+   if rc\=0 then do
+      say 'GIT PULL: remote-tracking ref update failed; local branch unchanged'
+      exit rc
+   end
+   'EXEC GITUPD PULL-HEAD' currentbranch pullold pullnew
+   if rc\=0 then do
+      say 'GIT PULL: branch unchanged; tracking ref records fetched tip'
+      exit rc
+   end
+   say 'PULL COMPLETE' pullremote branchfromremote pullold pullnew
+   say 'PULL PACK RETAINED' pullpack 'INDEX' pullindex objectfm
+   exit 0
+end
 if command = 'PACK-CENSUS' then do
    if strip(rest)\='' then do
       say 'Usage: GIT PACK-CENSUS'
@@ -383,8 +1150,60 @@ if command = 'CHECKOUT-FILE' then do
    'EXEC GITWT CHECKOUT' rest
    exit rc
 end
+if command = 'CHECKOUT-TREE' then do
+   'EXEC GITWT CHECKOUT-TREE' rest
+   exit rc
+end
 if command = 'STATUS' then do
    'EXEC GITWT STATUS' rest
+   exit rc
+end
+if command = 'DIFF' then do
+   'EXEC GITWT DIFF' rest
+   exit rc
+end
+if command = 'RESET' then do
+   'EXEC GITWT RESET' rest
+   exit rc
+end
+if command = 'RESTORE' then do
+   parse var rest restoreopt restorepaths
+   if translate(restoreopt)='--SOURCE' then do
+      parse var restorepaths restorespec restoretarget sourcepaths
+      if restorespec='' | translate(restoretarget)\='--WORKTREE' |,
+         strip(sourcepaths)='' then do
+         say 'Usage: GIT RESTORE --source revision --worktree [--] path...'
+         exit 4
+      end
+      address command 'EXEC GITWT RESTORE-WORKTREE --SOURCE' restorespec,
+         sourcepaths
+      exit rc
+   end
+   if left(translate(restoreopt),9)='--SOURCE=' then do
+      restorespec=substr(restoreopt,10)
+      parse var restorepaths restoretarget sourcepaths
+      if restorespec='' | translate(restoretarget)\='--WORKTREE' |,
+         strip(sourcepaths)='' then do
+         say 'Usage: GIT RESTORE --source revision --worktree [--] path...'
+         exit 4
+      end
+      address command 'EXEC GITWT RESTORE-WORKTREE --SOURCE' restorespec,
+         sourcepaths
+      exit rc
+   end
+   if translate(restoreopt)='--WORKTREE' then do
+      if strip(restorepaths)='' then do
+         say 'Usage: GIT RESTORE --worktree [--] path...'
+         exit 4
+      end
+      address command 'EXEC GITWT RESTORE-WORKTREE' restorepaths
+      exit rc
+   end
+   if translate(restoreopt)\='--STAGED' | strip(restorepaths)='' then do
+      say 'Usage: GIT RESTORE --staged [--] path...'
+      exit 4
+   end
+   address command 'EXEC GITWT RESET' restorepaths
    exit rc
 end
 if command = 'ADD' then do
@@ -393,6 +1212,10 @@ if command = 'ADD' then do
 end
 if command = 'COMMIT-STAGED' then do
    'EXEC GITWT COMMIT' rest
+   exit rc
+end
+if command = 'COMMIT' then do
+   'EXEC GIT COMMIT-CURRENT' rest
    exit rc
 end
 if command = 'COMMIT-STAGED-REF' then do
@@ -896,13 +1719,13 @@ end
 say 'GIT: unknown command' command
 exit 4
 
-storeobject: procedure
+storeobject: procedure expose objectfm
    parse upper arg oid, type, datahex
    objfn = substr(oid,1,8)
-   'STATE' objfn 'GITOBJ A'
+   'STATE' objfn 'GITOBJ' objectfm
    if rc = 0 then do
       drop old.
-      'EXECIO * DISKR' objfn 'GITOBJ A 1 (STEM OLD. FINIS'
+      'EXECIO * DISKR' objfn 'GITOBJ' objectfm '1 (STEM OLD. FINIS'
       if rc \= 0 then do
          say 'GIT: cannot inspect existing object' objfn
          return 'ERROR'
@@ -926,18 +1749,19 @@ storeobject: procedure
       pos = pos + take
    end
    out.0 = n
-   'EXECIO' out.0 'DISKW' objfn 'GITOBJ A 1 (STEM OUT. FINIS'
+   'EXECIO' out.0 'DISKW' objfn 'GITOBJ' objectfm ,
+      '1 (STEM OUT. FINIS'
    if rc \= 0 then do
       say 'GIT: cannot store object' oid
       return 'ERROR'
    end
    return 'OK'
 
-readobject: procedure expose storedoid objtype datahex
+readobject: procedure expose storedoid objtype datahex objectfm
    parse upper arg oid
    objfn = substr(oid,1,8)
    drop obj.
-   'EXECIO * DISKR' objfn 'GITOBJ A 1 (STEM OBJ. FINIS'
+   'EXECIO * DISKR' objfn 'GITOBJ' objectfm '1 (STEM OBJ. FINIS'
    if rc \= 0 then do
       say 'GIT: object not found' oid
       return 'ERROR'
@@ -1068,3 +1892,113 @@ hashstored: procedure
    pull oid
    'DROPBUF'
    return oid
+
+branchnamefromhead: procedure
+   parse arg headline
+   headref=strip(headline)
+   if left(headref,11)\='refs/heads/' then return 'ERROR'
+   branchname=substr(headref,12)
+   call validbranch branchname
+   if result\='OK' then return 'ERROR'
+   return branchname
+
+validremotename: procedure
+   parse arg remote
+   allowed='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+   allowed=allowed||'0123456789._-'
+   if remote='' | length(remote)>16 | remote='.' | remote='..' |,
+      verify(remote,allowed)\=0 | pos('..',remote)>0 |,
+      left(remote,1)='.' | right(remote,1)='.' then return 'ERROR'
+   return 'OK'
+
+initrefs:
+   'STATE GITREF2 REPO A'
+   if rc=0 then return 'EXISTS'
+   if rc\=28 then return 'ERROR'
+   initial.0=2
+   initial.1='REF2 1'
+   initial.2='HEAD refs/heads/main'
+   'EXECIO 2 DISKW GITREF2 REPO A 1 (STEM INITIAL. FINIS'
+   if rc\=0 then return 'ERROR'
+   drop initial.
+   'EXECIO * DISKR GITREF2 REPO A 1 (STEM INITIAL. FINIS'
+   if rc\=0 | initial.0\=2 | initial.1\='REF2 1' |,
+      initial.2\='HEAD refs/heads/main' then return 'ERROR'
+   return 'OK'
+
+validtag: procedure
+   parse arg vt, mode
+   tagchars='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+   tagchars=tagchars||'0123456789._/-'
+   if mode='PATTERN' then tagchars=tagchars||'*?'
+   if vt='' | length(vt)>25 | verify(vt,tagchars)\=0 |,
+      pos('//',vt)>0 | pos('..',vt)>0 |,
+      left(vt,1)='/' | right(vt,1)='/' |,
+      right(vt,1)='.' | right(vt,5)='.lock' then return 'ERROR'
+   do vi=1 to words(translate(vt,' ','/'))
+      part=word(translate(vt,' ','/'),vi)
+      if part='' | part='.' | part='..' | left(part,1)='.' |,
+         right(part,1)='.' | right(part,5)='.lock' then return 'ERROR'
+   end
+   return 'OK'
+
+validbranch: procedure
+   parse arg vb, mode
+   refchars='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+   refchars=refchars||'0123456789._/-'
+   if mode='PATTERN' then refchars=refchars||'*?'
+   if vb='' | length(vb)>24 | verify(vb,refchars)\=0 |,
+      pos('//',vb)>0 | pos('..',vb)>0 |,
+      left(vb,1)='/' | right(vb,1)='/' then return 'ERROR'
+   do vi=1 to words(translate(vb,' ','/'))
+      part=word(translate(vb,' ','/'),vi)
+      if part='' | part='.' | part='..' | left(part,1)='.' |,
+         right(part,1)='.' | right(part,5)='.lock' then return 'ERROR'
+   end
+   return 'OK'
+
+resolvetagtarget: procedure expose rs.
+   parse arg wanted
+   if wanted='HEAD' then do
+      call queryref 'HEAD'
+      if result\='OK' | rs.0\=1 | words(rs.1)\=4 |,
+         word(rs.1,1)\='VERIFIED' | word(rs.1,2)\='REF' |,
+         word(rs.1,3)\='HEAD' then return 'ERROR'
+      resolvedoid=translate(word(rs.1,4))
+   end
+   else do
+      call resolvestart wanted
+      if result='ERROR' | result='HEAD' then return 'ERROR'
+      resolvedoid=translate(result)
+   end
+   if length(resolvedoid)\=40 |,
+      verify(resolvedoid,'0123456789ABCDEF')\=0 then return 'ERROR'
+   return resolvedoid
+
+resolvestart: procedure expose rs.
+   parse arg wanted
+   if wanted='HEAD' then return 'HEAD'
+   direct=translate(wanted)
+   if length(direct)=40 &,
+      verify(direct,'0123456789ABCDEF')=0 then return direct
+   startchars='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+   startchars=startchars||'0123456789._/-'
+   if wanted='' | length(wanted)>35 |,
+      verify(wanted,startchars)\=0 then return 'ERROR'
+   call queryref wanted
+   if result\='OK' | rs.0\=1 | words(rs.1)\=4 |,
+      word(rs.1,1)\='VERIFIED' | word(rs.1,2)\='REF' |,
+      word(rs.1,3)\=wanted then return 'ERROR'
+   resolvedoid=translate(word(rs.1,4))
+   if length(resolvedoid)\=40 |,
+      verify(resolvedoid,'0123456789ABCDEF')\=0 then return 'ERROR'
+   return resolvedoid
+
+queryref: procedure expose rs.
+   parse arg qspec
+   drop rs.
+   rs.0=0
+   cmd='EXEC GITVREF RESOLVE' qspec
+   'PIPE CMS' cmd '| STEM RS.'
+   if rc\=0 then return 'ERROR'
+   return 'OK'

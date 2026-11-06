@@ -1,4 +1,4 @@
-/* M206: stratified index sample, full SHA with exact cleanup. */
+/* M206/M207: stratified index sample, full SHA with exact cleanup. */
 address cms
 parse upper arg fm mode max requested extra
 /* New OBJECTS route is isolated; CHECK/RUN stay byte-exact below. */
@@ -31,7 +31,7 @@ if datatype(max,'W')\=1 then exit 4
 if datatype(requested,'W')\=1 then exit 4
 if max<1 | max>64 then exit 4
 count=requested
-if count<2 | count>32 then exit 4
+ if count<2 | count>128 then exit 4
 drop d.
 d.0=0
 'PIPE CMS QUERY DISK G | STEM d.'
@@ -101,8 +101,10 @@ end
 'STATE GITR199 DATA A'
 if rc\=28 then exit 8
 say 'M206 STRATIFIED INDEX PLANS PASS' count
+if count>32 then say 'M207 STRATIFIED INDEX PLANS PASS' count
 if mode='CHECK' then do
  say 'M206 SAMPLE CHECK NO SCRATCH PASS' count
+ if count>32 then say 'M207 SAMPLE CHECK NO SCRATCH PASS' count
  exit 0
 end
 do i=1 to count
@@ -123,6 +125,7 @@ do i=1 to count
  say 'M206 SCRATCH CLEAN VERIFIED' i word(span.i,1)
 end
 say 'M206 STRATIFIED FULL SHA CLEAN PASS' count
+if count>32 then say 'M207 STRATIFIED FULL SHA CLEAN PASS' count
 exit 0
 
 /* Inline original M203 run path; GITC23 remains rollback. */

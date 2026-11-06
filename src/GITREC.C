@@ -659,7 +659,8 @@ static int rec_logfull(const unsigned char *starting,
   if(!rec_ascii_oid(idx_body+5,trees[hop])) return 8;
   if(hop==depth) break;
   if(sz<=46||!rec_ascii_key(idx_body+46,sz-46,"parent")) {
-   puts("LOG ROOT REACHED");return 4;
+   depth=hop;
+   break;
   }
   if(!rec_ascii_oid(idx_body+53,next)) return 8;
   memcpy(commits[hop+1],next,20);

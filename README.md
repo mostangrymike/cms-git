@@ -6,8 +6,8 @@ GitHub `main` is canonical. The repository has **181 tracked files** after
 lossless consolidation from 425, a reduction of 244 tracked paths (57.4%).
 This measures file count, **not** lines of code or executable complexity.
 The latest fully verified host CI commit is
-`932058719dfa7e21c2b05b9d6ed6535378200326`, workflow run
-[38598877946](https://github.com/mostangrymike/ibm-sandbox/actions/runs/38598877946).
+`9fa27106b476562382a5ea3f105b4d7d1c289e21`, workflow run
+[39147362503](https://github.com/mostangrymike/ibm-sandbox/actions/runs/39147362503).
 This is a complete host-CI success, not new CMS target validation.
 
 The consolidated Python test runner is `tests/test-m203-bounded-batch.py`;
@@ -82,6 +82,349 @@ programs for every milestone. M206's real-CMS
 the preserved baseline; it is not a complete
 280-object reachable history walk.
 
+The in-place M207 extension raises the sampler limit
+to 128 disjoint bands in those same sources. Host C89
+and REXX source checks cover 2–128 bands, full SHA-1
+verification for every selected object, rejection at
+129, and fail-closed empty bands. This extension is
+host-tested only; it has not been compiled or run on CMS.
+
+M208 adds lightweight commit tags to the modern `GITREF2` store. M209 makes
+listing output tag names and accepts `-l`/`--list`; M210 adds `*` and `?`
+list-pattern wildcards (no bracket classes). `GIT TAG` and `GIT TAG -l`/
+`--list` list tag names in lexical order. `GIT TAG <name> <full-commit-oid>` creates a tag;
+`GIT TAG -f|--force <name> <new-oid> [expected-old-oid]` updates an existing
+tag using compare-and-swap; if the expected OID is omitted, the current tag OID
+is resolved first. A supplied OID must be nonzero and match the current tag;
+`GIT TAG -d|--delete <name> [expected-commit-oid]` deletes one using
+compare-and-swap. If omitted, the current tag OID is resolved first. Creation
+verifies the target commit; deletion still passes an exact old OID to the updater.
+Names use a safe ASCII subset and the stored full ref is limited to 35
+characters to fit the existing 80-column records. `GIT VERIFY-REF` resolves
+tag refs; worktree checkout remains branch-only. Annotated tags and tags of
+non-commit objects are not supported. Host source/REXX checks pass; CMS
+compilation and target behavior remain unverified.
+
+M217 routes `GIT BRANCH` through `GITREF2` when that modern store exists, with
+the legacy M5 branch path retained when it does not. The modern path lists
+current/noncurrent branches, creates a branch from an explicit commit OID, and
+deletes with an expected-old-OID CAS; deletion of the current branch is refused
+by the updater. M234 resolves the expected OID when omitted. Host REXX checks
+pass; CMS behavior remains unverified.
+
+M218 adds `GIT SWITCH <branch>` for modern REF2 branches. It verifies the
+symbolic HEAD and destination branch, and changes HEAD only when both branches
+resolve to the same verified commit. Switching between different tips is
+refused until the client can update mapped CMS workfiles and stage state as one
+guarded worktree transition. Host REXX checks pass; CMS behavior remains
+unverified.
+
+M219 extends switching across different commit tips when the mapped worktree
+is clean and every mapped path has the same blob OID in both commits. It refuses
+staged or modified workfiles, missing mapped files, stale base mappings, and
+destination commits that change a mapped path. Unmapped CMS files are preserved;
+the command does not materialize paths that are absent from the current map.
+Host REXX checks pass; CMS behavior remains unverified.
+
+M220 adds `GIT SWITCH -c|--create <name> [<full-commit-oid>]`. Without an OID,
+the new branch starts at current HEAD; with an OID, it starts at that verified
+commit and uses the M219 worktree preflight when the tip differs. Branch
+creation and symbolic HEAD movement share one REF2 rewrite with rollback and
+readback checks. Branch or worktree conflicts leave REF2 unchanged. Host REXX
+checks pass; CMS behavior remains unverified.
+
+M221 extends the optional start point to short or full branch/tag refs using
+GITVREF's verified resolver. It also accepts `HEAD` and full 40-character
+object IDs. The argument is restricted to a safe ref-name alphabet before it
+enters CMS PIPE, and the returned record must match the requested ref and carry
+one full OID. Abbreviated OIDs are not accepted. Host REXX checks pass; CMS
+behavior remains unverified.
+
+M222 adds `GIT BRANCH -m|--move <old-name> <new-name>`. It resolves the old
+branch to an expected OID, refuses stale/missing sources and existing
+destinations, and updates REF2 with rollback/readback checks. Renaming the
+current branch moves symbolic HEAD in the same rewrite; renaming another branch
+preserves HEAD. No force-rename mode is provided. Host REXX checks pass; CMS
+behavior remains unverified.
+
+M223 applies the same strict ASCII branch-name validator in the REF2 updater,
+resolver, and worktree code. It accepts alphanumeric names plus `.`, `_`, `/`,
+and `-`, while rejecting unsafe delimiters, empty or dot-prefixed components,
+`..`, trailing dots, and `.lock` components. Host REXX fixtures verify accepted
+and rejected names and require the three validator implementations to match;
+CMS behavior remains unverified.
+
+M224 checks branch operands in `GIT.EXEC` before they are interpolated into
+CMS command strings for create, delete, rename, or switch operations. The same
+CMS-safe name rules apply at this boundary; source-derived REXX cases and
+dispatch-order guards cover it. CMS behavior remains unverified.
+
+M225 validates lightweight tag names and list patterns before GIT.EXEC forwards
+them to CMS commands. Tag names use the safe ASCII ref alphabet; list patterns
+also allow Git's `*` and `?` wildcards. Exact-source fixtures cover both forms
+and unsafe delimiters. CMS behavior remains unverified.
+
+M226 lets `GIT TAG name [start-point]` create a lightweight tag at `HEAD`, a
+full object ID, or a resolvable branch/tag ref. Omitting the start point uses
+`HEAD`; the resolved target still must verify as a commit. Host fixtures cover
+framing, missing refs, malformed OIDs, and unsafe input. CMS behavior remains
+unverified.
+
+M227 sorts modern `GIT BRANCH` output with the same ref-name comparator used by
+tag listing, while preserving the current-branch marker. The host fixture starts
+from deliberately unsorted refs and checks the exact rendered order. CMS
+behavior remains unverified.
+
+M228 adds `GIT BRANCH --show-current`. It reads the symbolic HEAD through
+GITVREF, requires one valid branch ref, and prints the short branch name. The
+host fixtures cover nested and malformed HEAD values. CMS behavior remains
+unverified.
+
+M229 adds `GIT BRANCH -l|--list [pattern]`. It filters the sorted modern branch
+listing with the same `*`/`?` matcher used for tags and keeps pattern characters
+inside the validated ASCII alphabet. Fixtures cover nested matches, ordering,
+current-branch marking, and unsafe direct input. CMS behavior remains
+unverified.
+
+M230 lets `GIT BRANCH name [start-point]` create a branch at `HEAD` by default
+or at a resolved full object ID, branch, or tag. The update still uses the
+expected-absent ref compare-and-swap path. Source-derived fixtures cover the
+default, resolved ref, unsafe name, missing start point, and extra arguments.
+CMS behavior remains unverified.
+
+M231 adds `GIT CHECKOUT <branch>` and `GIT CHECKOUT -b|--branch name
+[start-point]` aliases to the guarded switch flow. `-B` is rejected because
+force-reset behavior is not implemented. Detached checkout and path restore are
+not part of the current symbolic-HEAD model. When REF2 is absent, plain branch
+checkout retains the legacy GITHEAD route; branch creation requires REF2. CMS
+behavior remains unverified.
+
+M232 guards the checkout alias selection: only a present REF2 store enters the
+modern switch path, and the absent-store result preserves the legacy path.
+Source-derived tests also require `checkout -b` to reject the legacy store.
+CMS behavior remains unverified.
+
+M233 allows `GIT TAG -d|--delete name` without an explicit OID. It resolves the
+exact tag ref and passes the observed OID to the existing compare-and-swap
+updater; supplying an expected OID remains supported. The delete still fails
+if the ref is absent, malformed, or stale. CMS behavior remains unverified.
+
+M234 allows `GIT BRANCH -d|--delete name` without an explicit expected OID. It
+resolves the exact branch ref, validates supplied OIDs, and passes the observed
+or supplied OID to the existing compare-and-swap updater. Current-branch
+deletion remains refused by that updater. CMS behavior remains unverified.
+
+M235 adds `GIT LOG [-n|--max-count count] [revision]`. It defaults to `HEAD`
+and a 16-commit window, resolves the revision through the verified REF2 resolver,
+and accepts a maximum count from 0 through the CMS history limit of 16. M237
+adjusts the backend's inclusive depth to return the exact requested count. CMS
+behavior remains unverified.
+
+M236 adds `GIT SHOW [revision]`, defaulting to `HEAD`. It resolves the revision
+before calling the existing full-object reader and rejects extra operands. CMS
+behavior remains unverified.
+
+M238 lets `GIT TAG -f|--force name new-oid` resolve the existing tag OID when
+the caller omits the CAS expectation. Explicit expectations remain supported;
+missing tags, invalid IDs, and zero expected IDs fail closed. CMS behavior
+remains unverified.
+
+M239 lets `GIT ADD path1 [path2 ...]` stage up to 16 already mapped worktree
+paths. It validates and looks up every path, hashes all selected workfiles,
+then updates GITWORK once; duplicate paths are collapsed. Unmapped or missing
+CMS files fail without saving the map. Directory expansion is unsupported.
+M257 adds `*` and `?` pathspec matching over mapped Git paths. CMS behavior
+remains unverified.
+
+M240 makes `GIT LOG` treat its maximum as a limit: if the selected history
+reaches a root before the requested count, it returns the available commits
+instead of failing. CMS behavior remains unverified.
+
+M241 lets multi-path `GIT ADD` use the conventional `--` separator before
+paths, so names beginning with a dash can be passed unambiguously. CMS behavior
+remains unverified.
+
+M242 adds `GIT ADD -u` and `GIT ADD --update` for all mapped worktree files
+(maximum 50). It hashes every mapped CMS file before updating the stage map
+once; if a mapped CMS file is absent, the command fails without changing the
+map. M248 adds staged deletions, and M256 adds selected update pathspecs. CMS
+behavior remains unverified.
+
+M243 adds `GIT STATUS --short` and `GIT STATUS --porcelain`, reporting staged
+and unstaged additions, modifications, and deletions in two-column status
+form. It reports mapped worktree paths only; untracked-file discovery remains
+unsupported. M258 adds exact and wildcard path filtering. CMS behavior remains
+unverified.
+
+M244 adds `GIT DIFF --name-only` for unstaged mapped changes and
+`GIT DIFF --cached|--staged --name-only` for staged changes. It lists paths
+without patch content and does not include unmapped or untracked files. CMS
+behavior remains unverified.
+
+M245 adds `GIT RESET [--] path...` for up to 16 mapped paths. It restores each
+selected stage OID to its base OID in one worktree-map save; CMS workfiles and
+HEAD remain unchanged. CMS behavior remains unverified.
+
+M246 adds `GIT RESTORE --staged [--] path...` as a path-only alias for that
+mapped stage reset. M259 adds `GIT RESTORE --worktree [--] path...`, restoring
+selected CMS files from their staged blobs or removing files staged for
+deletion. M260 adds `GIT RESTORE --source revision --worktree [--] path...`
+for mapped files present in a resolved source commit. CMS behavior remains
+unverified.
+
+M247 adds `GIT STATUS --branch`, `--short --branch`, and
+`--porcelain --branch`. It reports the current symbolic branch before tracked
+worktree status; detached HEAD and unborn-branch formats remain unsupported.
+CMS behavior remains unverified.
+
+M248 lets `GIT ADD -u|--update` stage missing mapped CMS files as deletions.
+Short status and name-only diff distinguish staged deletion from an unstaged
+worktree deletion. Commit-tree deletion and map acceptance were added in M249
+and M250. CMS behavior remains unverified.
+
+M249 lets staged deletions pass `GIT COMMIT` preflight, removes their leaf
+entries from rewritten trees, and prunes newly empty subtrees. CMS workfiles
+must remain absent while committing. M250 adds post-commit worktree-map
+acceptance; CMS behavior remains unverified.
+
+M250 lets `GIT ACCEPT` verify absent staged deletions and remove those paths
+from the worktree map after commit, while advancing remaining map baselines.
+It rejects a deleted workfile that reappears before acceptance. CMS behavior
+remains unverified.
+
+M251 adds the conventional `GIT COMMIT -T seconds -Z zone -m message` entry
+point. It updates the currently checked out branch with compare-and-swap,
+verifies the ref, and accepts the worktree map; quoted multiword messages are
+supported. The CMS clock and zone must be supplied explicitly. CMS behavior
+remains unverified.
+
+M252 adds `GIT ADD --new path fn ft [fm]` for an existing, previously unmapped
+CMS workfile at the repository root. It records a zero base OID and the
+verified workfile blob as the staged OID. New-file tree insertion during commit
+is a separate follow-up; this command alone does not make a new path
+committable yet. Host source-derived cases pass; CMS behavior remains
+unverified.
+
+M253 lets the current-branch commit add staged repository-root files whose base
+OID is zero. It verifies each staged blob, inserts root tree entries in Git
+byte-sort order (including directory sort semantics), and refuses additions
+that would exceed 256 live tree entries or target nested paths. A staged
+deletion frees capacity for an addition in the same tree rewrite. Host
+source-derived serialization and rejection cases pass; CMS behavior remains
+unverified.
+
+M254 extends `GIT ADD --new` to safe nested relative paths up to 30 ASCII bytes
+and 16 components. `GIT COMMIT` creates missing directory tree objects from
+the leaves upward, reuses shared missing directories for multiple staged
+files, and inserts directories using Git's trailing-slash sort rule. It keeps
+the 256 live-entry limit at every tree level and rejects absolute, empty, `.`
+and `..` path components. Empty directories are not recorded. Host
+source-derived tree serialization and path validation pass; CMS behavior
+remains unverified.
+
+M255 lets one `GIT ADD` stage up to 16 new files by repeating
+`--new path fn ft [fm]` groups. It checks every path, CMS file ID and workfile
+before hashing, then saves the worktree map once with rollback on save failure.
+Duplicate paths and CMS file IDs within the batch are rejected. Host
+source-derived batch fixtures pass; CMS behavior remains unverified.
+
+M256 lets `GIT ADD -u|--update [--] path...` stage changes or deletions for up
+to 16 selected mapped paths. Omitting paths keeps the existing all-mapped
+update form. It uses one map save for the selected paths and leaves unselected
+entries untouched. Host source-derived fixtures pass; CMS behavior remains
+unverified.
+
+M257 lets ordinary `GIT ADD` and selected `GIT ADD -u|--update` expand `*` and
+`?` pathspecs over mapped Git paths. `*` matches any sequence of path bytes,
+including `/`; `?` matches one byte. Unmatched pathspecs fail, duplicate
+matches collapse, and a command can select no more than 16 paths. Directory
+discovery and bracket expressions are unsupported. Host source-derived
+fixtures pass; CMS behavior remains unverified.
+
+M258 lets `GIT STATUS [--short|--porcelain] [--branch] [--] [path ...]` report
+only selected mapped worktree paths. Exact paths, `*`, and `?` pathspecs are
+supported, up to 16 input pathspecs. The branch heading is still shown when
+requested, and the verbose summary counts only selected paths. Unmatched
+pathspecs fail; host source-derived fixtures pass. CMS behavior remains
+unverified.
+
+M259 adds `GIT RESTORE --worktree [--] path...`, restoring up to 16 selected
+mapped CMS workfiles to their staged content. Staged deletion removes the CMS
+file; restored text blobs must fit CMS's 80-byte records. It validates every
+target before writing, verifies restored blob OIDs, rolls back file writes on
+failure, and updates final-newline metadata in one worktree-map save. Exact
+and wildcard paths are supported. Host source-derived fixtures pass; CMS
+behavior remains unverified.
+
+M260 adds `GIT RESTORE --source revision --worktree [--] path...`. It resolves
+the source to a commit and restores selected mapped files from that commit's
+authenticated full-root closure. The source path must exist and contain a CMS
+compatible text blob; all selected contents are checked before writes. The
+worktree map's staged and base OIDs remain unchanged. CMS behavior remains
+unverified.
+
+M261 extends `GIT SWITCH <branch>` and `GIT SWITCH -c` to update mapped CMS
+workfiles when a destination commit changes their blob contents. The current
+worktree must be clean, and each mapped path must exist in both commits as
+CMS-compatible text. File writes and worktree-map updates roll back on failure;
+unmapped files are preserved. Mapped path additions or removals remain
+unsupported. CMS behavior remains unverified.
+
+M262 adds repository-local GitHub HTTPS remote metadata with
+`GIT REMOTE ADD|GET|REMOVE` and listing. It accepts GitHub owner/repository
+URLs only. `GIT CREDENTIAL IMPORT <github-user>` imports a `TOKEN <value>` or
+`APIKEY <value>` record from `GHTOKEN REPO A`. `GIT CREDENTIAL IMPORT-USERPASS`
+imports `USER <name>` and `PASSWORD <token>` records from `GHPASS REPO A`.
+Both forms verify the stored credential and erase the temporary input. For
+GitHub HTTPS Git operations, the password field must contain a personal access
+token; GitHub account-password authentication is no longer supported. Status
+output never includes the secret; the CMS credential file is plain text
+protected by CMS disk access controls.
+M263 makes `GITFETCH` and `GITPOST` send that stored credential using HTTP
+Basic authentication, and refuses to send it to a host other than
+`github.com`. M264 lets discovery request `HEAD` and checks GitHub's advertised
+default-branch symref against both advertised OIDs before reporting it. M265
+adds an explicit username/password import form while retaining API-key import.
+M266 adds `GIT FETCH-PACK remote bridge port new-file [branch|HEAD]`. It
+discovers the selected branch, downloads and stores its pack, checks the
+stored metadata, and independently verifies the PACK checksum with `GITPCHK`.
+The downloaded pack is retained as `<new-file> PACK A`; it is not yet imported
+into the active repository. M267 adds
+`GIT FETCH-IMPORT <new-file> <data-filemode>`, which imports that retained
+pack into a new `<new-file> STAGE` on an explicitly selected non-A 4KB CMS
+disk, then independently reads back and verifies every staged object. It
+requires at least 180,000 free blocks and the `GITPCHK` and `GITPIMP` modules;
+it retains failed stage output for diagnosis. The importer rejects REF_DELTA
+packs. Do not run this command until the dedicated data-disk and backup gates
+in `docs/M173_PERSISTENT_DISK_RUNBOOK.md` are satisfied. The stage is not
+active repository storage and no refs are updated. M268 adds
+`GIT INIT <data-filemode>` for a repository whose loose objects live on that
+dedicated disk, and `GIT FETCH-ACTIVATE <stage-file> <index-file>
+<data-filemode>` to verify the staged object set, check its reachable commit
+closure, and materialize supported non-tag objects up to 64KB as ordinary
+`GITOBJ` files. `GITWT CHECKOUT` is the mapped workfile reader for those loose
+objects. M271 passed a single-file checkout on CMS against the activated
+three-object fixture: the workfile contents and blob hash matched. Multi-file
+tree materialization remains unimplemented.
+Activation leaves refs unchanged and can be retried after a partial install;
+it only proceeds when `GIT INIT` selected the same object disk. It also keeps
+the verified stage and index for recovery. M268 passed CMS validation on an
+isolated three-object fixture. M269 adds `GIT FETCH-TRACK remote branch
+new-oid [expected-old-oid]` for compare-and-swap remote-tracking refs and
+`GIT BRANCH -r [remote]` to list them. Those ref operations also passed on
+CMS. M270 fixed REF2 resolution so ordinary branch listing and exact ref
+display also work with full ref names; those paths passed on CMS. M273 adds an
+initial `GIT PULL remote bridge port pack index [branch|HEAD]` path. It
+downloads and verifies a pack, imports and activates its objects, confirms the
+remote tip descends from the current local tip, then updates the tracking ref,
+branch ref and mapped workfiles. The selected remote branch must match the
+current branch, and the clean worktree map must cover an unchanged flat set of
+regular CMS-compatible text paths. Dirty or incomplete maps, path additions or
+removals, nested paths, binary blobs and non-fast-forward updates are rejected.
+Pack, stage and index files remain available for recovery. The initial pull
+path has not passed CMS validation; no-argument upstream pull, clone and push
+remain in progress. See `docs/GITHUB_SYNC_PLAN.md`.
+
 ---
 
 ## M206 full 32-object CMS PASS and A-disk audit (October 13, 2026)
@@ -123,9 +466,9 @@ creating more M-numbered C/EXEC/ASSEMBLE files. The
 current stable reader sources are `GITP26M.C` and
 `GITC26.EXEC`. Preserve working MODULEs until new
 versions pass both host CI and real CMS; use GitHub
-history for rollback. A previously started M207
-numbered-file scratch branch remains unmerged and
-must not be deployed.
+history for rollback. The earlier numbered-file M207
+scratch branch remains separate and must not be deployed;
+the current in-place M207 update does not use it.
 
 See `docs/M201-M205_HISTORY.md` and
 `docs/M173_PERSISTENT_DISK_RUNBOOK.md`. Next safe cleanup commands
@@ -178,11 +521,12 @@ sixteen separated index regions. Console output
 was heavily interleaved, and final independent
 FILEDEF/STATE was not supplied.
 
-M206's **32-object real CMS gate remains pending**;
-do not replace the current M206 module before it.
-The separate unmerged M207 scratch branch is not
-part of the canonical build and no M207 files
-should be uploaded.
+The M206 32-object real CMS gate was subsequently
+completed as recorded above. The earlier unmerged
+M207 scratch branch remains outside the canonical build.
+The current in-place M207 source change is host-only
+and must pass full host CI and a real CMS compile,
+CHECK and RUN before replacing the proven module.
 
 After merge, Mac `ibm-sandbox/src`:
 
@@ -223,7 +567,7 @@ The authenticated objects were Git index ordinals
 three commits, four blobs and one tree; 8,043 decoded
 bytes overall. All eight expected OIDs and physical
 record coordinates are preserved in
-`docs/M201-M205_HISTORY.md` and `CHAT_STATE.md`.
+`docs/M201-M205_HISTORY.md` and `NOTES.md`.
 The original protected G stage/index remained read-only.
 No final independent FILEDEF listing was supplied.
 
@@ -1655,7 +1999,7 @@ through it while G holds data.
 
 Detailed current checkpoints and instructions:
 `docs/M173_PERSISTENT_DISK_RUNBOOK.md` and
-`CHAT_STATE.md`. Historical status farther down
+`NOTES.md`. Historical status farther down
 is retained as chronological context.
 
 ---
@@ -1691,7 +2035,11 @@ Current GitHub uses an ECC Sectigo certificate chain that the old z/VM 6.3
 service level cannot currently validate/import with the installed crypto
 facilities, so it is no longer the practical blocker for GitHub transport.
 
-See `docs/NATIVE_REF.md`, `docs/CURRENT_STATE.md`, and `CHAT_STATE.md`.
+See `docs/NATIVE_REF.md`, `docs/CURRENT_STATE.md`, and `NOTES.md`.
+
+The minimum GitHub synchronization scope (`clone`, fast-forward `pull`, and
+authenticated `push`) and its implementation sequence are tracked in
+`docs/GITHUB_SYNC_PLAN.md`.
 
 ## Native PACK checkpoint: staging and index prototypes
 
@@ -1956,7 +2304,7 @@ standard compact GITRUN and preserves independent original audits,
 all negative/recovery tests and all protected original files. Source
 record and runner static checks have passed; independent complete
 GitHub Actions and real CMS execution of M38 remain unconfirmed.
-See `docs/NATIVE_REF.md` and the last section of `CHAT_STATE.md`.
+See `docs/NATIVE_REF.md` and the last section of `NOTES.md`.
 
 ## September 28 follow-on: M38/M39 host-CI-complete
 
@@ -1987,19 +2335,19 @@ selector pointers and captured PACK remain immutable.
 
 M39 completed its actual CMS regression on September 28: two independent 1,808-object full-generation audits, verified batched nested links, fail-closed negatives, older-slot recovery, newer-slot restoration and protected originals. The complete run used 454.77 seconds CPU and 464.18 seconds elapsed.
 
-Further host-tested work adds M40 atomic terminal-directory parsing for PATH/LSDIR, M41 LSDIRV to authenticate immediate directory references, and M42 LSDIRDEPTH to authenticate referenced local subtrees to caller-selected depth 0–4. Full native C89 integration, source-guard and staging/index/REF PACK Actions suite passed: https://github.com/mostangrymike/ibm-sandbox/actions/runs/36484134487 . M40–M42 require one combined actual CMS M42 test before target-proof claims. See docs/NATIVE_REF.md and CHAT_STATE.md.
+Further host-tested work adds M40 atomic terminal-directory parsing for PATH/LSDIR, M41 LSDIRV to authenticate immediate directory references, and M42 LSDIRDEPTH to authenticate referenced local subtrees to caller-selected depth 0–4. Full native C89 integration, source-guard and staging/index/REF PACK Actions suite passed: https://github.com/mostangrymike/ibm-sandbox/actions/runs/36484134487 . M40–M42 require one combined actual CMS M42 test before target-proof claims. See docs/NATIVE_REF.md and NOTES.md.
 
 ## Latest: M42 native CMS and M43/M44 full host CI
 
 On September 28 M42's actual CMS compile and complete compact gate passed both independent original 1,808-object generation audits, authentic historical `src` directory to depth one, all recovery/fail-closed cases and protected-file checks (522.41 CPU / 533.40 elapsed seconds). M40–M42 are target-proven.
 
-M43 fixes the 256-tree-entry bound to count external Gitlinks without trying to dereference their external commits. M44 introduces iterative, bounded `GITREC CLOSURE`, which SHA-authenticates and validates all local tree/blob descendants of a commit and every parent root without the former depth-four ceiling, within a shared 1,024-tree-visit limit. Host synthetic regressions test deep missing/mis-typed objects, 256/257 external Gitlinks and exactly 1024/1025 visited-tree budget boundaries. Strict C89 complete native-stage Actions passed: https://github.com/mostangrymike/ibm-sandbox/actions/runs/36487140427 . M43/M44 are host-proven, not yet CMS-proven. The standard M44 `GITRUN.EXEC` batches one actual target gate. Consult `CHAT_STATE.md` and `docs/NATIVE_REF.md` for exact two-file upload and read-only CMS commands.
+M43 fixes the 256-tree-entry bound to count external Gitlinks without trying to dereference their external commits. M44 introduces iterative, bounded `GITREC CLOSURE`, which SHA-authenticates and validates all local tree/blob descendants of a commit and every parent root without the former depth-four ceiling, within a shared 1,024-tree-visit limit. Host synthetic regressions test deep missing/mis-typed objects, 256/257 external Gitlinks and exactly 1024/1025 visited-tree budget boundaries. Strict C89 complete native-stage Actions passed: https://github.com/mostangrymike/ibm-sandbox/actions/runs/36487140427 . M43/M44 are host-proven, not yet CMS-proven. The standard M44 `GITRUN.EXEC` batches one actual target gate. Consult `NOTES.md` and `docs/NATIVE_REF.md` for exact two-file upload and read-only CMS commands.
 
 ## M44 native proof; M45 complete directory closure
 
 Actual z/VM CMS compiled and passed the entire M44 compact regression, including independent original 1,808-object audits, complete child/parent tree closure, recovery/fail-closed cases and final protected files (638.32 CPU, 652.08 elapsed seconds). M43 and M44 are target-proven.
 
-M45 adds read-only `GITREC LSDIRFULL`, which authenticates every local tree/blob descendant beneath an explicitly requested commit-relative directory before revealing directory metadata or listing; traversal is iterative with the established 256 entries/tree and 1,024 tree visits bounds. All source and synthetic deep failure tests, including older fallback and both-invalid rejection, passed full native host CI: https://github.com/mostangrymike/ibm-sandbox/actions/runs/36489401717 . M45 has not yet run on actual CMS. The one standard M45 compact GITRUN tests the real historical `src` directory and preserves all original full-generation/protection checks. Only GITREC.C and GITRUN.EXEC need transferring; see `CHAT_STATE.md` and `docs/NATIVE_REF.md`.
+M45 adds read-only `GITREC LSDIRFULL`, which authenticates every local tree/blob descendant beneath an explicitly requested commit-relative directory before revealing directory metadata or listing; traversal is iterative with the established 256 entries/tree and 1,024 tree visits bounds. All source and synthetic deep failure tests, including older fallback and both-invalid rejection, passed full native host CI: https://github.com/mostangrymike/ibm-sandbox/actions/runs/36489401717 . M45 has not yet run on actual CMS. The one standard M45 compact GITRUN tests the real historical `src` directory and preserves all original full-generation/protection checks. Only GITREC.C and GITRUN.EXEC need transferring; see `NOTES.md` and `docs/NATIVE_REF.md`.
 
 ## Current native proof and M46 follow-on
 

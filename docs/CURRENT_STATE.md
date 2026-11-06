@@ -2714,7 +2714,7 @@ unproven. Do not claim these remaining tasks completed.
 
 ## Mandatory execution rule (2026-09-26)
 
-Maximize useful autonomous work in every turn. Do not pause, request permission, or stop after an intermediate documentation/code step when more repository work can be completed independently. Stop only when actual CMS target validation is required; at that point provide exact Mac transfer and CMS test commands. Document completed work and target results in CHAT_STATE.md and docs/STATUS.md, follow all existing project rules, and never claim untested code is target-proven.
+Maximize useful autonomous work in every turn. Do not pause, request permission, or stop after an intermediate documentation/code step when more repository work can be completed independently. Stop only when actual CMS target validation is required; at that point provide exact Mac transfer and CMS test commands. Document completed work and target results in NOTES.md and docs/STATUS.md, follow all existing project rules, and never claim untested code is target-proven.
 
 ## 2026-09-26 Native STAGE gate prepared (CMS validation pending)
 
@@ -3463,7 +3463,7 @@ Native read-only GITREC recovery integration already landed and passed host CI: 
 
 # NEW CHAT HANDOFF — 2026-09-27 (verified current repository)
 
-When a new chat begins, read THIS LAST SECTION of CHAT_STATE.md,
+When a new chat begins, read THIS LAST SECTION of NOTES.md,
 docs/STATUS.md, docs/NATIVE_RECOVERY_GATE.md and project rules on
 GitHub before touching code. Repo: mostangrymike/ibm-sandbox,
 default main. Continue maximizing independent development; do not

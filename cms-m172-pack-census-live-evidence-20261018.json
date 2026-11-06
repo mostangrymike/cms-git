@@ -1,0 +1,47 @@
+{
+  "date": "2026-10-18",
+  "milestone": "M172 retained generalized PACK structural census target gate",
+  "runner": "ZMD898D4",
+  "checker_target": "M172CHK EXEC A",
+  "checker_source": {
+    "logical_bytes": 2565,
+    "cms_sha256": "456FDC277384CBA91B5A06A9811602362EFD62ECE44E8CBFFD69E9A015ECDD0E",
+    "local_cp037_logical_record_sha256": "456FDC277384CBA91B5A06A9811602362EFD62ECE44E8CBFFD69E9A015ECDD0E",
+    "match": true,
+    "hash_request_id": "6868E25748D38E46"
+  },
+  "input": {
+    "pack": "M171NET PACK A",
+    "metadata": "M171NET META A",
+    "state_checks_rc0": true,
+    "retained_input_modified": false,
+    "pack_bytes": 2171129,
+    "version": 2,
+    "objects": 7736,
+    "pack_sha1": "A705122BC39A3383BC05ABC6C888A1F788B1D067",
+    "main_oid": "ADA83FF3B3813961CEF2A9FFC50A453540039E0B"
+  },
+  "command": {
+    "command": "EXEC M172CHK",
+    "request_id": "0116685325D89682",
+    "cms_rc": 0,
+    "record_count": 22,
+    "byte_count": 1572,
+    "adler32": "e3e25fc0",
+    "frames_verified": 103,
+    "screens_observed": 216,
+    "output_complete": true,
+    "integrity_verified": true,
+    "ordinary_objects": 2432,
+    "ofs_delta_objects": 5304,
+    "ref_delta_objects": 0,
+    "max_inflated_bytes": 393767,
+    "max_compressed_bytes": 122378,
+    "final_marker": "M172 GENERALIZED PACK CENSUS TARGET GATE PASS",
+    "result": "PASS"
+  },
+  "retained_on_cms": [
+    "M171NET PACK A",
+    "M171NET META A"
+  ]
+}
