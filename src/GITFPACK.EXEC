@@ -1,0 +1,231 @@
+/* M266: discover, download and verify one GitHub branch pack. */
+address cms
+parse arg remote bridge port storefn branch extra
+if remote='' | bridge='' | port='' | storefn='' | extra\='' then do
+ say 'Usage: GIT FETCH-PACK remote bridge port new-file [branch|HEAD]'
+ exit 4
+end
+call validname remote
+if result\='OK' then exit 4
+call safehost bridge
+if result\='OK' then exit 4
+if datatype(port,'W')\=1 | port<1 | port>65535 then exit 4
+storefn=translate(storefn)
+if length(storefn)<1 | length(storefn)>8 |,
+   verify(storefn,'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')\=0 then,
+ exit 4
+if branch='' then branch='HEAD'
+call validbranch branch
+if result\='OK' then exit 4
+
+drop remoteout.
+remoteout.0=0
+cmd='EXEC GITREMOT GET' remote
+'PIPE CMS' cmd '| STEM REMOTEOUT.'
+rrc=rc
+if rrc\=0 | remoteout.0\=1 then do
+ say 'GITFPACK: remote lookup failed RC' rrc
+ exit 8
+end
+parse var remoteout.1 tag actualname authority repo remextra
+if words(remoteout.1)\=4 | tag\='REMOTE-DATA' |,
+   translate(actualname)\=translate(remote) |,
+   translate(authority)\='GITHUB.COM' then do
+ say 'GITFPACK: invalid remote record'
+ exit 8
+end
+
+drop discover.
+discover.0=0
+say 'GITFPACK: discovering remote refs...'
+cmd='EXEC GITFETCH DISCOVER' bridge port authority repo branch
+'PIPE CMS' cmd '| STEM DISCOVER.'
+drc=rc
+if drc\=0 then do
+ say 'GITFPACK: branch discovery failed RC' drc
+ exit drc
+end
+oid=''
+oidcount=0
+branchref=''
+branchcount=0
+discoverpass=0
+do i=1 to discover.0
+ if word(discover.i,1)='FETCH' & word(discover.i,2)='OID' &,
+    words(discover.i)=3 then do
+  candidate=translate(word(discover.i,3))
+  if length(candidate)=40 &,
+     verify(candidate,'0123456789ABCDEF')=0 then do
+   oidcount=oidcount+1
+   oid=candidate
+  end
+ end
+ if word(discover.i,1)='FETCH' &,
+    word(discover.i,2)='DEFAULT' &,
+    word(discover.i,3)='BRANCH' & words(discover.i)=4 then do
+  branchcount=branchcount+1
+  branchref=word(discover.i,4)
+ end
+ if discover.i='M169 FETCH DISCOVERY PASS' then,
+  discoverpass=discoverpass+1
+end
+if oidcount\=1 | discoverpass\=1 then do
+ say 'GITFPACK: discovery response framing failed'
+ exit 8
+end
+if translate(branch)='HEAD' then do
+ if branchcount\=1 then do
+  say 'GITFPACK: remote default branch was not advertised'
+  exit 8
+ end
+end
+else do
+ branchcount=0
+ if left(branch,11)='refs/heads/' then branchref=branch
+ else branchref='refs/heads/'||branch
+end
+
+drop posted.
+posted.0=0
+say 'GITFPACK: downloading pack from' authority '...'
+cmd='EXEC GITPOST STORE' bridge port authority repo oid storefn
+'PIPE CMS' cmd '| STEM POSTED.'
+prc=rc
+if prc\=0 then do
+ say 'GITFPACK: pack download failed RC' prc
+ exit prc
+end
+postbytes=''
+postversion=''
+postobjects=''
+storemarker=0
+do i=1 to posted.0
+ if word(posted.i,1)='FETCH' & word(posted.i,2)='POST' &,
+    word(posted.i,3)='PACK' & word(posted.i,4)='BYTES' &,
+    words(posted.i)=5 then postbytes=word(posted.i,5)
+ if word(posted.i,1)='FETCH' & word(posted.i,2)='POST' &,
+    word(posted.i,3)='PACK' & word(posted.i,4)='VERSION' &,
+    word(posted.i,6)='OBJECTS' & words(posted.i)=7 then do
+  postversion=word(posted.i,5)
+  postobjects=word(posted.i,7)
+ end
+ if posted.i='M171 FETCH STORE PASS' then,
+  storemarker=storemarker+1
+end
+if datatype(postbytes,'W')\=1 | datatype(postversion,'W')\=1 |,
+   datatype(postobjects,'W')\=1 | storemarker\=1 then do
+ say 'GITFPACK: stored pack metadata is incomplete'
+ exit 8
+end
+
+'STATE' storefn 'META A'
+if rc\=0 then do
+ say 'GITFPACK: stored metadata is missing; retained pack for diagnosis'
+ exit 8
+end
+drop meta.
+'EXECIO 1 DISKR' storefn 'META A 1 (STEM META. FINIS'
+if rc\=0 | meta.0\=1 then do
+ say 'GITFPACK: cannot read stored metadata; retained pack'
+ exit 8
+end
+parse var meta.1 mtag moid mbytes mversion mobjects metextra
+if words(meta.1)\=5 | mtag\='META' | translate(moid)\=oid |,
+   mbytes\=postbytes | mversion\=postversion |,
+   mobjects\=postobjects then do
+ say 'GITFPACK: stored metadata mismatch; retained pack'
+ exit 8
+end
+
+'STATE GITPCHK MODULE A'
+if rc\=0 then do
+ say 'GITFPACK: GITPCHK MODULE A is required'
+ exit 8
+end
+drop defs.
+defs.0=0
+'PIPE CMS QUERY FILEDEF | STEM DEFS.'
+if rc\=0 then do
+ say 'GITFPACK: cannot inspect FILEDEFs'
+ exit 8
+end
+do i=1 to defs.0
+ if translate(word(defs.i,1))='PACKIN' then do
+  say 'GITFPACK: PACKIN is already defined'
+  exit 8
+ end
+end
+'FILEDEF PACKIN DISK' storefn 'PACK A'
+if rc\=0 then do
+ say 'GITFPACK: PACKIN FILEDEF failed'
+ exit 8
+end
+say 'GITFPACK: verifying pack checksum...'
+drop verifyout.
+verifyout.0=0
+'PIPE CMS GITPCHK | STEM VERIFYOUT.'
+vrc=rc
+'FILEDEF PACKIN CLEAR'
+clearrc=rc
+if vrc\=0 | clearrc\=0 then do
+ say 'GITFPACK: PACK checksum verification failed RC' vrc
+ say 'GITFPACK: retained' storefn 'PACK A for diagnosis'
+ exit 8
+end
+vbytes=''
+vversion=''
+vobjects=''
+vsha=''
+vpass=0
+do i=1 to verifyout.0
+ if word(verifyout.i,1)='PACK' & word(verifyout.i,2)='VERIFY' &,
+    word(verifyout.i,3)='BYTES' & words(verifyout.i)=4 then,
+  vbytes=word(verifyout.i,4)
+ if word(verifyout.i,1)='PACK' & word(verifyout.i,2)='VERIFY' &,
+    word(verifyout.i,3)='VERSION' & word(verifyout.i,5)='OBJECTS' &,
+    words(verifyout.i)=6 then do
+  vversion=word(verifyout.i,4)
+  vobjects=word(verifyout.i,6)
+ end
+ if word(verifyout.i,1)='PACK' & word(verifyout.i,2)='VERIFY' &,
+    word(verifyout.i,3)='SHA1' & words(verifyout.i)=4 then,
+  vsha=translate(word(verifyout.i,4))
+ if verifyout.i='M171 PACK VERIFY PASS' then vpass=vpass+1
+end
+if vbytes\=postbytes | vversion\=postversion |,
+   vobjects\=postobjects | length(vsha)\=40 |,
+   verify(vsha,'0123456789ABCDEF')\=0 | vpass\=1 then do
+ say 'GITFPACK: downloaded pack failed independent verification'
+ say 'GITFPACK: retained' storefn 'PACK A for diagnosis'
+ exit 8
+end
+say 'FETCH PACK VERIFIED' remote branchref oid storefn,
+    'BYTES' vbytes 'OBJECTS' vobjects
+exit 0
+
+validname:
+ parse arg value
+ if value='' | length(value)>16 | pos('..',value)>0 then,
+  return 'ERROR'
+ allowed='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+ allowed=allowed||'0123456789._-'
+ if verify(value,allowed)\=0 then return 'ERROR'
+ return 'OK'
+
+safehost:
+ parse arg value
+ if value='' | length(value)>255 then return 'ERROR'
+ allowed='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+ allowed=allowed||'0123456789.-'
+ if verify(value,allowed)\=0 then return 'ERROR'
+ return 'OK'
+
+validbranch:
+ parse arg value
+ if translate(value)='HEAD' then return 'OK'
+ if value='' | length(value)>255 | pos('..',value)>0 |,
+    left(value,1)='/' | right(value,1)='/' then return 'ERROR'
+ allowed='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+ allowed=allowed||'0123456789._/-'
+ if verify(value,allowed)\=0 then return 'ERROR'
+ return 'OK'

@@ -81,6 +81,7 @@ if readrc\=0 | clearrc\=0 | plan.0\=count then do
 end
 drop span.
 do i=1 to count
+ say 'M207 PLAN' i 'OF' count 'BEGIN'
  parse upper var plan.i tag n hdr cnt typ size oid extra
  if tag\='P201' | extra\='' then exit 8
  if datatype(n,'W')\=1 | datatype(hdr,'W')\=1 then exit 8
@@ -181,6 +182,7 @@ if mode='OBJECTS' then do
  exit 0
 end
 do i=1 to count
+ say 'M207 RUN' i 'OF' count 'OBJECT' objs.i
  obj=objs.i
  say 'M203 FULL OBJECT SHA BEGIN' i obj
  'STATE GITR199 DATA A'
