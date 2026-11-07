@@ -496,6 +496,24 @@ if result\='OK' then exit 8
 call resolve spec
 if result='ERROR' then exit 8
 oid=result
+if command='RESOLVE' then do
+  /* RESOLVE works from REF2 plus the loose store; the native store
+     (GITFIX/M15NEW) is not required and is absent in shallow repos. */
+  objectfn=substr(oid,1,8)
+  objectfm='G'
+  'STATE' objectfn 'GITOBJ' objectfm
+  if rc\=0 then do
+   objectfm='A'
+   'STATE' objectfn 'GITOBJ' objectfm
+  end
+  if rc\=0 then do
+   say 'GITVREF: commit not in loose store' oid
+   exit 8
+  end
+  call emitverified
+  say oid
+  exit 0
+end
 call bindnative
 if result\='OK' then exit 8
 if command='LOG' then do
