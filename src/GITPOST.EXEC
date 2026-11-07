@@ -492,14 +492,17 @@ pktfeed:
    pwork=substr(pwork,ptake*2+1)
    pneed=pneed-ptake
    if pneed=0 then do
-    if ppay='4E414B0A' then do
+    if ppay\='4E414B0A' then do
+     if left(ppay,14)='7368616C6C6F77' then shallows=shallows+1
+     else if left(ppay,18)='756E7368616C6C6F77' then,
+      unshallows=unshallows+1
+     else if left(ppay,6)='41434B' then acks=acks+1
+     else return 'ERROR'
+    end
+    else do
      nak=nak+1
      if nak\=1 then return 'ERROR'
     end
-    else if left(ppay,14)='7368616C6C6F77' then shallows=shallows+1
-    else if left(ppay,18)='756E7368616C6C6F77' then unshallows=unshallows+1
-    else if left(ppay,6)='41434B' then acks=acks+1
-    else return 'ERROR'
     ppay=''
     pstate='HDR'
    end

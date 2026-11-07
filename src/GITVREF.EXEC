@@ -2560,21 +2560,22 @@ resolve:
  return 'ERROR'
 
 validref:
- /* Private variables only: this routine is not a PROCEDURE, so writing NAME
-    here would clobber the full ref name that readrefs is about to store. */
+ procedure
+ /* Private vars: this routine is a PROCEDURE, so writing NAME here cannot
+    clobber the full ref name readrefs stores across the call. */
  parse arg vr
  if length(vr)>35 then return 'ERROR'
  if left(vr,11)='refs/heads/' then do
-  vrname=substr(vr,12)
+  name=substr(vr,12)
   refchars='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
   refchars=refchars||'0123456789._/-'
-  if vrname='' | verify(vrname,refchars)\=0 |,
-     pos('//',vrname)>0 | pos('..',vrname)>0 |,
-     left(vrname,1)='/' | right(vrname,1)='/' then return 'ERROR'
-  do vrvi=1 to words(translate(vrname,' ','/'))
-   vrpart=word(translate(vrname,' ','/'),vrvi)
-   if vrpart='' | vrpart='.' | vrpart='..' | left(vrpart,1)='.' |,
-      right(vrpart,1)='.' | right(vrpart,5)='.lock' then return 'ERROR'
+  if name='' | verify(name,refchars)\=0 |,
+     pos('//',name)>0 | pos('..',name)>0 |,
+     left(name,1)='/' | right(name,1)='/' then return 'ERROR'
+  do vi=1 to words(translate(name,' ','/'))
+   part=word(translate(name,' ','/'),vi)
+   if part='' | part='.' | part='..' | left(part,1)='.' |,
+      right(part,1)='.' | right(part,5)='.lock' then return 'ERROR'
   end
   return 'OK'
  end

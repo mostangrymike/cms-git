@@ -16,6 +16,7 @@ struct idxent {
  int type;
  long offset;
  unsigned char state;
+ unsigned char read;
  unsigned char *cache;
 };
 
@@ -200,10 +201,15 @@ static int readbody(FILE *f,unsigned long n,unsigned char **body) {
    return 0;
   }
  }
- for(k=0;k<n;k+=take) {
-  take=n-k;
-  if(take>2000) take=2000;
-  if(!linein(f,line,sizeof line)||strlen(line)!=take*2) {
+ /* Accept either historical 32-byte or RECFM V 4096 2000-byte chunks. */
+ for(k=0;k<n;) {
+  if(!linein(f,line,sizeof line)) {
+   resident-=n;
+   free(p);
+   return 0;
+  }
+  take=(unsigned long)strlen(line)/2;
+  if(take==0||strlen(line)%2||take>n-k) {
    resident-=n;
    free(p);
    return 0;
@@ -218,6 +224,7 @@ static int readbody(FILE *f,unsigned long n,unsigned char **body) {
    }
    p[k+m]=(unsigned char)((hi<<4)|lo);
   }
+  k+=take;
  }
  *body=p;
  return 1;
@@ -293,10 +300,11 @@ static int skipbody(FILE *f,unsigned long n) {
  unsigned long k,take;
  if(n==0)
   return linein(f,line,sizeof line)&&line[0]==0;
- for(k=0;k<n;k+=take) {
-  take=n-k;
-  if(take>2000) take=2000;
-  if(!linein(f,line,sizeof line)||strlen(line)!=take*2) return 0;
+ for(k=0;k<n;) {
+  if(!linein(f,line,sizeof line)) return 0;
+  take=(unsigned long)strlen(line)/2;
+  if(take==0||strlen(line)%2||take>n-k) return 0;
+  k+=take;
  }
  return 1;
 }
@@ -320,6 +328,7 @@ static int scan_trees(void) {
  static char line[8192];
  unsigned char stored[20],got[20],*body;
  unsigned long num,size,slot;
+ long lp;
  int type;
  f=fopen("dd:STGIN","r");
  if(!f) {
@@ -338,18 +347,30 @@ static int scan_trees(void) {
    fclose(f);
    return 0;
   }
-  if(num<1||num>ixtotal||!bynum[num]) {
+  if(num<1||num>ixtotal) {
    puts("TREE CLOSURE INDEX MISMATCH");
    fclose(f);
    return 0;
   }
-  slot=bynum[num]-1;
+  /* Duplicate objects share one unique index entry, so a stage record
+     number may not appear in BYNUM.  Resolve it by OID instead. */
+  if(bynum[num]) slot=bynum[num]-1;
+  else {
+   lp=locate(stored);
+   if(lp<0) {
+    puts("TREE CLOSURE INDEX MISMATCH");
+    fclose(f);
+    return 0;
+   }
+   slot=(unsigned long)lp;
+  }
   if(ix[slot].type!=type||ix[slot].size!=size||
      memcmp(ix[slot].oid,stored,20)!=0) {
    puts("TREE CLOSURE INDEX MISMATCH");
    fclose(f);
    return 0;
   }
+  if(size>largest) largest=size;
   if(type==2) {
    body=0;
    if(!readbody(f,size,&body)) {
@@ -363,8 +384,8 @@ static int scan_trees(void) {
     fclose(f);
     return 0;
    }
-   ix[slot].cache=body;
-   if(size>largest) largest=size;
+   if(ix[slot].cache) freebody(body,size);
+   else ix[slot].cache=body;
   } else if(!skipbody(f,size)) {
    puts("TREE CLOSURE STAGE BODY FAIL");
    fclose(f);
@@ -382,6 +403,7 @@ static int verify_reachable(void) {
  static char line[8192];
  unsigned char stored[20],got[20],*body;
  unsigned long num,size,slot,readback=0;
+ long lp;
  int type;
  f=fopen("dd:STGIN","r");
  if(!f) {
@@ -396,22 +418,38 @@ static int verify_reachable(void) {
    return 0;
   }
   if(!parse_header(line,&num,&type,&size,stored)||
-     num<1||num>ixtotal||!bynum[num]) {
+     num<1||num>ixtotal) {
    puts("TREE CLOSURE READBACK HEADER FAIL");
    fclose(f);
    return 0;
   }
-  slot=bynum[num]-1;
-  if(ix[slot].state==2) {
+  if(bynum[num]) slot=bynum[num]-1;
+  else {
+   lp=locate(stored);
+   if(lp<0) {
+    puts("TREE CLOSURE READBACK HEADER FAIL");
+    fclose(f);
+    return 0;
+   }
+   slot=(unsigned long)lp;
+  }
+  if(ix[slot].type!=type||ix[slot].size!=size||
+     memcmp(ix[slot].oid,stored,20)!=0) {
+   puts("TREE CLOSURE READBACK HEADER FAIL");
+   fclose(f);
+   return 0;
+  }
+  if(ix[slot].state==2&&!ix[slot].read) {
    body=0;
    if(!readbody(f,size,&body)||
       !object_oid(type,body,size,got)||memcmp(got,stored,20)!=0) {
     free(body);
-    puts("TREE CLOSURE READBACK VERIFY FAIL");
+    puts("TREE CLOSURE STAGE VERIFY FAIL");
     fclose(f);
     return 0;
    }
    freebody(body,size);
+   ix[slot].read=1;
    readback++;
   } else if(!skipbody(f,size)) {
    puts("TREE CLOSURE READBACK BODY FAIL");

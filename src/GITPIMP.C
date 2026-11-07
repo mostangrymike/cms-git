@@ -638,17 +638,17 @@ static int verify_stage(unsigned long count) {
   if(n==0) {
    if(!stage_line(f,line,sizeof line)||line[0]) goto bad;
   }
-  for(k=0;k<n;k+=take) {
-   take=n-k;
-   if(take>2000) take=2000;
-   if(!stage_line(f,line,sizeof line)||
-      strlen(line)!=take*2) goto bad;
+  for(k=0;k<n;) {
+   if(!stage_line(f,line,sizeof line)) goto bad;
+   take=(unsigned long)strlen(line)/2;
+   if(take==0||strlen(line)%2||take>n-k) goto bad;
    for(m=0;m<take;m++) {
     hi=nib((unsigned char)line[m*2]);
     lo=nib((unsigned char)line[m*2+1]);
     if(hi<0||lo<0) goto bad;
     body[k+m]=(unsigned char)((hi<<4)|lo);
    }
+   k+=take;
   }
   if(!object_oid(typ,body,n,got)||
      memcmp(stored,got,20)!=0) goto bad;

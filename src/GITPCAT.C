@@ -185,10 +185,16 @@ static int readbody(FILE *f,unsigned long n,unsigned char **body) {
    return 0;
   }
  }
- for(k=0;k<n;k+=take) {
-  take=n-k;
-  if(take>2000) take=2000;
-  if(!linein(f,line,sizeof line)||strlen(line)!=take*2) {
+ /* Accept either 32-byte (historical 64-column) or 2000-byte
+    (RECFM V 4096) chunk records.  The body length and hex validity
+    still pin the exact byte count. */
+ for(k=0;k<n;) {
+  if(!linein(f,line,sizeof line)) {
+   free(p);
+   return 0;
+  }
+  take=(unsigned long)strlen(line)/2;
+  if(take==0||strlen(line)%2||take>n-k) {
    free(p);
    return 0;
   }
@@ -201,6 +207,7 @@ static int readbody(FILE *f,unsigned long n,unsigned char **body) {
    }
    p[k+m]=(unsigned char)((hi<<4)|lo);
   }
+  k+=take;
  }
  *body=p;
  return 1;
