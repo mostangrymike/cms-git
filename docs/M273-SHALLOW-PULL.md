@@ -60,7 +60,9 @@ An empty pack (server already has everything) is accepted; the pull reports
 | --- | --- | --- |
 | `0E5E3F27` -> `4B260B02` (3 objects) | `PULL COMPLETE` | ~4.2 s |
 | `4B260B02` -> `CE5F0D5B` (3 objects) | `PULL COMPLETE` | ~4.3 s |
-| already at `CE5F0D5B` | `Already up to date` | ~3.7 s |
+| `CE5F0D5B` -> `5C2CA58C` (25 objects, 110 KB) | `PULL COMPLETE` | 15.65 s |
+| `5C2CA58C` -> `3FDEC0AE` (6 objects, 11.5 KB, 3 commits) | `PULL COMPLETE` | 5.27 s |
+| already up to date | `Already up to date` | ~3.7 s |
 
 ## Transport
 
