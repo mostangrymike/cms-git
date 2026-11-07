@@ -1146,6 +1146,11 @@ if command='PULL' then do
    say 'PULL PACK RETAINED' pullpack 'INDEX' pullindex objectfm
    exit 0
 end
+/* M281: push local commits to a remote Git repository. */
+if command='PUSH' then do
+   'EXEC GITPUSH' rest
+   exit rc
+end
 /* M274: clone a GitHub repository into an empty CMS file area. */
 if command='CLONE' then do
    parse var rest cloneurl clonefm cloneextra

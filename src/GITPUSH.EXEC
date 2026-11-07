@@ -1,0 +1,1061 @@
+/* M281: GIT PUSH - push local commits to a remote Git repository.
+ *
+ * Usage: GIT PUSH remote bridge port pack index [branch|HEAD]
+ *   or:  GIT PUSH  (uses first configured remote and default bridge)
+ *
+ * Flow:
+ *  1. Resolve remote config (GITREMOT)
+ *  2. Get local branch tip from REF2
+ *  3. Discover remote refs (GET info/refs?service=git-receive-pack)
+ *  4. If remote already has local tip: Already up to date
+ *  5. Walk local tree to enumerate all reachable objects (iterative, depth-capped)
+ *  6. Write staging file, call GITPMK BUILD to create packfile
+ *  7. POST ref updates + packfile to git-receive-pack
+ *  8. Parse response, update remote-tracking ref
+ */
+address cms
+numeric digits 20
+parse arg remote bridge port pack index rest
+remote=translate(remote)
+bridge=translate(bridge)
+port=translate(port)
+pack=translate(pack)
+index=translate(index)
+branch=strip(rest)
+if branch='' then branch='HEAD'
+
+if remote='' | bridge='' | port='' | pack='' | index='' then do
+   say 'Usage: GIT PUSH remote bridge port pack index [branch|HEAD]'
+   say '   or: GIT PUSH  (uses first configured remote)'
+   exit 4
+end
+if datatype(port,'W')\=1 | port<1 | port>65535 then do
+   say 'GIT PUSH: invalid port' port
+   exit 4
+end
+if length(pack)>8 | length(index)>8 then do
+   say 'GIT PUSH: pack and index names must be <= 8 characters'
+   exit 4
+end
+call validname pack
+if result\='OK' then do
+   say 'GIT PUSH: invalid pack filename' pack
+   exit 4
+end
+call validname index
+if result\='OK' then do
+   say 'GIT PUSH: invalid index filename' index
+   exit 4
+end
+
+/* Object disk from GITMETA. */
+objectfm='A'
+'STATE GITMETA REPO A'
+mstate=rc
+if mstate=0 then do
+   drop config.
+   config.0=0
+   'EXECIO * DISKR GITMETA REPO A 1 (STEM CONFIG. FINIS'
+   if rc=0 & config.0>=4 & config.1='CMS-GIT-REPOSITORY 1' then do
+      objectrecords=0
+      do ci=1 to config.0
+         if word(config.ci,1)='OBJECT-DISK' then do
+            if words(config.ci)\=2 then do
+               say 'GIT PUSH: invalid OBJECT-DISK setting'
+               exit 8
+            end
+            objectrecords=objectrecords+1
+            objectfm=translate(word(config.ci,2))
+         end
+      end
+      if objectrecords>1 | length(objectfm)\=1 |,
+         verify(objectfm,'ABCDEFGHIJKLMNOPQRSTUVWXYZ')\=0 then do
+         say 'GIT PUSH: invalid OBJECT-DISK setting'
+         exit 8
+      end
+   end
+end
+else if mstate\=28 then do
+   say 'GIT PUSH: cannot inspect repository metadata RC' mstate
+   exit 8
+end
+
+/* Resolve remote configuration. */
+drop remoterec.
+remoterec.0=0
+'STATE GITREMOT REPO A'
+rstate=rc
+if rstate=0 then do
+   'EXECIO * DISKR GITREMOT REPO A 1 (STEM REMOTEREC. FINIS'
+   if rc\=0 | REMOTEREC.0<1 | word(REMOTEREC.1,1)\='GITREMOT' then do
+      say 'GIT PUSH: invalid remote database'
+      exit 8
+   end
+   foundremote=0
+   do ri=2 to REMOTEREC.0
+      if words(REMOTEREC.ri)=3 & word(REMOTEREC.ri,1)='REMOTE' then do
+         if translate(word(REMOTEREC.ri,2))=translate(remote) then do
+            foundremote=1
+            rauthority='github.com'
+            rrepo=word(REMOTEREC.ri,3)
+         end
+      end
+   end
+   if foundremote\=1 then do
+      say 'GIT PUSH: remote not configured' remote
+      exit 8
+   end
+end
+else do
+   say 'GIT PUSH: no remote database; configure with GIT REMOTE ADD'
+   exit 8
+end
+call safehost rauthority
+if result\='OK' then do
+   say 'GIT PUSH: invalid remote authority' rauthority
+   exit 8
+end
+call safepath rrepo
+if result\='OK' then do
+   say 'GIT PUSH: invalid remote repo path' rrepo
+   exit 8
+end
+
+/* Discover remote refs via git-receive-pack advertisement. */
+drop refadv.
+refadv.0=0
+say 'GIT PUSH: discovering remote refs...'
+
+/* Check for GitHub credentials. */
+drop cred.
+cred.0=0
+'STATE GHCRED REPO A'
+if rc=28 then do
+   say 'GIT PUSH: GHCRED REPO A not found; configure with GitHub token'
+   exit 8
+end
+if rc\=0 then do
+   say 'GIT PUSH: cannot inspect GHCRED RC' rc
+   exit 8
+end
+path='/'||rrepo||'.git/info/refs?service=git-receive-pack'
+call toasciihex 'GET '||path||' HTTP/1.1'
+wire=result||'0D0A'
+call toasciihex 'Host: '||rauthority
+wire=wire||result||'0D0A'
+call toasciihex 'Accept: application/x-git-upload-pack-advertisement'
+wire=wire||result||'0D0A'
+call toasciihex 'Connection: close'
+wire=wire||result||'0D0A0D0A'
+raw=x2c(wire)
+
+s=''
+r=Socket('Initialize','GITPUSH')
+parse var r src rest
+if src\=0 then do
+   say 'GIT PUSH: socket initialize failed RC' src
+   exit 8
+end
+if verify(bridge,'0123456789.')=0 then ip=bridge
+else do
+   r=Socket('GetHostByName',bridge)
+   parse var r src addrs
+   if src\=0 then do
+      say 'GIT PUSH: host resolution failed for' bridge
+      exit 8
+   end
+   ip=word(addrs,1)
+   if ip='' then do
+      say 'GIT PUSH: no address for' bridge
+      exit 8
+   end
+end
+r=Socket('Socket')
+parse var r src s
+if src\=0 then do
+   say 'GIT PUSH: socket creation failed'
+   exit 8
+end
+r=Socket('GetSockOpt',s,'SOL_SOCKET','SO_ASCII')
+parse var r src opt
+if src\=0 | translate(opt)\='OFF' then do
+   say 'GIT PUSH: SO_ASCII setup failed'
+   exit 8
+end
+r=Socket('Connect',s,'AF_INET' port ip)
+parse var r src rest
+if src\=0 then do
+   say 'GIT PUSH: connect failed to' ip port
+   exit 8
+end
+r=Socket('Send',s,raw)
+parse var r src sent
+if src\=0 | sent\=length(raw) then do
+   say 'GIT PUSH: send failed'
+   exit 8
+end
+
+/* Parse receive-pack advertisement response (HTTP + PKT-LINE). */
+hstate='HEAD'
+header=''
+cstate='SIZE'
+cline=''
+cneed=0
+ccrlf=''
+chunkdone=0
+refs=0
+total=0
+
+do forever
+   r=Socket('Recv',s,256)
+   parse var r src got data
+   if src\=0 then do
+      say 'GIT PUSH: receive failed'
+      exit 8
+   end
+   if got=0 then leave
+   if got>256 | length(data)\=got then do
+      say 'GIT PUSH: receive length error'
+      exit 8
+   end
+   total=total+got
+   if total>4194304 then do
+      say 'GIT PUSH: response too large'
+      exit 8
+   end
+   call httpfeed c2x(data)
+   if result\='OK' then do
+      say 'GIT PUSH: HTTP parse failed'
+      exit 8
+   end
+end
+r=Socket('Close',s)
+r=Socket('Terminate')
+
+if hstate\='BODY' | chunkdone\=1 then do
+   say 'GIT PUSH: incomplete discovery response'
+   exit 8
+end
+
+/* Parse PKT-LINE ref advertisements. */
+refcount=0
+do ri=1 to refadv.0
+   line=refadv.ri
+   if line='0000' then leave
+   if left(line,4)='0011' then do
+      iterate
+   end
+   pktlen=0
+   do ci=1 to 4
+      c=substr(line,ci*2-1,2)
+      if verify(c,'0123456789ABCDEF')\=0 then leave
+      pktlen=pktlen*16+x2d(c)
+   end
+   if pktlen<4 then iterate
+   payload=substr(line,9,pktlen-4)
+   posnul=pos('00',payload)
+   if posnul=0 then iterate
+   refoid=left(payload,posnul-2)
+   restpayload=substr(payload,posnul)
+   refname=strip(substr(restpayload,3))
+   if length(refoid)=40 & verify(refoid,'0123456789ABCDEF')=0 then do
+      refcount=refcount+1
+      advref.refcount=refname
+   ado=refcount
+   advid.ado=refoid
+   end
+end
+
+if refcount=0 then do
+   say 'GIT PUSH: no remote refs advertised'
+   exit 8
+end
+
+/* Get local branch tip from REF2. */
+drop ref2.
+ref2.0=0
+'EXECIO * DISKR GITREF2 REPO A 1 (STEM REF2. FINIS'
+if rc\=0 | REF2.0<2 | word(REF2.1,1)\='REF2 1' then do
+   say 'GIT PUSH: cannot read REF2 repository state'
+   exit 8
+end
+headref=''
+do ri=2 to REF2.0
+   if word(REF2.ri,1)='HEAD' then do
+      if words(REF2.ri)\=2 then do
+         say 'GIT PUSH: invalid HEAD record'
+         exit 8
+      end
+      headref=word(REF2.ri,2)
+   end
+end
+
+if branch='HEAD' then do
+   if headref='' then do
+      say 'GIT PUSH: cannot determine current branch'
+      exit 8
+   end
+   if left(headref,11)\='refs/heads/' then do
+      say 'GIT PUSH: HEAD is not on a branch'
+      exit 8
+   end
+   localbranch=headref
+   shortbranch=substr(headref,12)
+   localtip=''
+   do ri=2 to REF2.0
+      if word(REF2.ri,1)='REF' & word(REF2.ri,2)=headref then do
+         localtip=translate(word(REF2.ri,3))
+      end
+   end
+end
+else do
+   localbranch='refs/heads/'||branch
+   shortbranch=branch
+   localtip=''
+   do ri=2 to REF2.0
+      if word(REF2.ri,1)='REF' & word(REF2.ri,2)=localbranch then do
+         localtip=translate(word(REF2.ri,3))
+      end
+   end
+end
+
+if localtip='' then do
+   say 'GIT PUSH: local branch' branch 'not found'
+   exit 8
+end
+if length(localtip)\=40 | verify(localtip,'0123456789ABCDEF')\=0 then do
+   say 'GIT PUSH: invalid local tip OID' localtip
+   exit 8
+end
+
+/* Check if remote already has this tip. */
+remotehas=0
+remoteadoid=''
+do ri=1 to refcount
+   if advref.ri=localbranch then do
+      remotehas=1
+      remoteadoid=advid.ri
+   end
+end
+if remotehas=1 then do
+   if remoteadoid=localtip then do
+      say 'Already up to date' localtip
+      exit 0
+   end
+   /* Remote has a different tip - check fast-forward via GITVREF. */
+   drop ancout.
+   ancout.0=0
+   'PIPE CMS EXEC GITVREF IS-ANCESTOR'||' '||remoteadoid||' '||localtip||' | STEM ANCOUT.'
+   if rc\=0 then do
+      say 'GIT PUSH: ancestry check failed'
+      exit 8
+   end
+   ancestryline=''
+   do ai=1 to ancout.0
+      ancestryline=ancestryline||strip(ancout.ai)
+   end
+   if ancestryline\='ANCESTOR YES' remoteadoid localtip then do
+      say 'GIT PUSH: not a fast-forward; remote has diverged'
+      exit 8
+   end
+end
+
+/* Enumerate objects reachable from local tip (iterative, depth-capped). */
+say 'GIT PUSH: enumerating objects from' localtip
+drop objlist.
+objlist.0=0
+drop objsseen.
+objsseen.0=0
+depth.0=0
+call walk_commit localtip 0
+if objlist.0=0 then do
+   say 'GIT PUSH: no objects to push'
+   exit 8
+end
+say 'GIT PUSH: enumerated' objlist.0 'objects'
+
+/* Write staging file for GITPMK. */
+stagefn='PUSHSTG'
+'STATE' stagefn 'STAGE' objectfm
+stagerc=rc
+if stagerc=0 then do
+   say 'GIT PUSH: staging file already exists' stagefn
+   exit 8
+end
+if stagerc\=28 then do
+   say 'GIT PUSH: staging STATE failed RC' stagerc
+   exit 8
+end
+'FILEDEF OBJSTG DISK' stagefn 'STAGE' objectfm ' (RECFM V LRECL 80'
+if rc\=0 then do
+   say 'GIT PUSH: staging FILEDEF failed'
+   exit 8
+end
+drop stgout.
+stgout.0=0
+do oi=1 to objlist.0
+   oidcur=objlist.oi
+   objfn=substr(oidcur,1,8)
+   'EXECIO * DISKR' objfn 'GITOBJ' objectfm '1 (STEM OBJCUR. FINIS'
+   if rc\=0 then do
+      say 'GIT PUSH: cannot read object' oidcur
+      exit 8
+   end
+   objtype=''
+   objsize=0
+   objhex=''
+   do bi=1 to OBJCUR.0
+      if word(OBJCUR.bi,1)='TYPE' then objtype=translate(word(OBJCUR.bi,2))
+      else if word(OBJCUR.bi,1)='SIZE' then objsize=word(OBJCUR.bi,2)
+      else if word(OBJCUR.bi,1)='DATA' then objhex=objhex||translate(word(OBJCUR.bi,2))
+   end
+   if objtype='' | objsize='' then do
+      say 'GIT PUSH: corrupt object' oidcur
+      exit 8
+   end
+   if length(objhex)%2\=objsize then do
+      say 'GIT PUSH: object size mismatch' oidcur
+      exit 8
+   end
+   n=3
+   stgout.n='OBJ' objtype objsize oidcur
+   n=n+1
+   pos=1
+   do while pos<=length(objhex)
+      take=min(64,length(objhex)-pos+1)
+      n=n+1
+      stgout.n=substr(objhex,pos,take)
+      pos=pos+take
+   end
+   if objsize=0 then do
+      n=n+1
+      stgout.n=''
+   end
+   stgout.0=n
+   'EXECIO' stgout.0 'DISKW' stagefn 'STAGE' objectfm||' 1 (STEM STGOUT. FINIS'
+   if rc\=0 then do
+      say 'GIT PUSH: staging write failed'
+      exit 8
+   end
+end
+'FILEDEF OBJSTG CLEAR'
+clearrc=rc
+
+/* Build packfile. */
+say 'GIT PUSH: building packfile...'
+'FILEDEF OBJSTG DISK' stagefn 'STAGE' objectfm ' (RECFM V LRECL 80'
+if rc\=0 then do
+   say 'GIT PUSH: staging FILEDEF failed'
+   exit 8
+end
+'FILEDEF OBJOUT DISK' pack 'PACK' objectfm
+if rc\=0 then do
+   say 'GIT PUSH: pack FILEDEF failed'
+   exit 8
+end
+'EXEC GITPMK BUILD'
+pmkrc=rc
+if pmkrc\=0 then do
+   say 'GIT PUSH: pack creation failed'
+   exit 8
+end
+'STATE' pack 'PACK' objectfm
+if rc\=0 then do
+   say 'GIT PUSH: pack file not created'
+   exit 8
+end
+
+/* Send push to git-receive-pack. */
+say 'GIT PUSH: sending pack to' rauthority '...'
+path='/'||rrepo||'.git/git-receive-pack'
+call toasciihex 'POST '||path||' HTTP/1.1'
+wire=result||'0D0A'
+call toasciihex 'Host: '||rauthority
+wire=wire||result||'0D0A'
+call authheader
+authvalue=result
+if authvalue='ERROR' then do
+   say 'GIT PUSH: invalid stored GitHub credential'
+   exit 8
+end
+if authvalue\='' then do
+   if translate(rauthority)\='GITHUB.COM' then do
+      say 'GIT PUSH: credential limited to github.com'
+      exit 8
+   end
+   call toasciihex authvalue
+   if result='ERROR' then exit 8
+   wire=wire||result||'0D0A'
+end
+call toasciihex 'Content-Type: application/x-git-receive-pack-request'
+wire=wire||result||'0D0A'
+call toasciihex 'Accept: application/x-git-receive-pack-result'
+wire=wire||result||'0D0A'
+call toasciihex 'Connection: close'
+wire=wire||result||'0D0A'
+
+/* Build request body: ref update command + pack data. */
+if remotehas=1 then do
+   refupdate=localtip||' '||remoteadoid||' '||localbranch||'0A'
+end
+else do
+   refupdate=localtip||' 0000000000000000000000000000000000000000 '||localbranch||'0A'
+end
+call toasciihex refupdate
+wire=wire||result||'0D0A'
+call toasciihex '0000'
+wire=wire||result||'0D0A'
+
+/* Read pack file and append to wire. */
+packhex=''
+'EXECIO * DISKR' pack 'PACK' objectfm '1 (STEM PACKHEX. FINIS'
+if rc\=0 then do
+   say 'GIT PUSH: cannot read pack file'
+   exit 8
+end
+do pi=1 to PACKHEX.0
+   packhex=packhex||translate(word(PACKHEX.pi,2))
+end
+call toasciihex packhex
+wire=wire||result||'0D0A'
+call toasciihex '0000'
+wire=wire||result||'0D0A'
+
+raw=x2c(wire)
+clen=length(raw)
+
+r=Socket('Initialize','GITPUSH2')
+parse var r src rest
+if src\=0 then do
+   say 'GIT PUSH: socket initialize failed RC' src
+   exit 8
+end
+if verify(bridge,'0123456789.')=0 then ip=bridge
+else do
+   r=Socket('GetHostByName',bridge)
+   parse var r src addrs
+   if src\=0 then do
+      say 'GIT PUSH: host resolution failed for' bridge
+      exit 8
+   end
+   ip=word(addrs,1)
+end
+r=Socket('Socket')
+parse var r src s
+if src\=0 then do
+   say 'GIT PUSH: socket creation failed'
+   exit 8
+end
+r=Socket('GetSockOpt',s,'SOL_SOCKET','SO_ASCII')
+parse var r src opt
+if src\=0 | translate(opt)\='OFF' then do
+   say 'GIT PUSH: SO_ASCII setup failed'
+   exit 8
+end
+r=Socket('Connect',s,'AF_INET' port ip)
+parse var r src rest
+if src\=0 then do
+   say 'GIT PUSH: connect failed'
+   exit 8
+end
+r=Socket('Send',s,raw)
+parse var r src sent
+if src\=0 | sent\=length(raw) then do
+   say 'GIT PUSH: send failed'
+   exit 8
+end
+
+/* Receive response. */
+hstate='HEAD'
+header=''
+cstate='SIZE'
+cline=''
+cneed=0
+ccrlf=''
+chunkdone=0
+respbody=''
+total=0
+drop pushresp.
+pushresp.0=0
+
+do forever
+   r=Socket('Recv',s,256)
+   parse var r src got data
+   if src\=0 then do
+      say 'GIT PUSH: receive failed'
+      exit 8
+   end
+   if got=0 then leave
+   if got>256 | length(data)\=got then do
+      say 'GIT PUSH: receive length error'
+      exit 8
+   end
+   total=total+got
+   call httpfeed_push c2x(data)
+   if result\='OK' then do
+      say 'GIT PUSH: HTTP parse failed'
+      exit 8
+   end
+end
+r=Socket('Close',s)
+r=Socket('Terminate')
+
+/* Parse PKT-LINE response. */
+pushok=0
+pushfail=''
+do ri=1 to pushresp.0
+   line=pushresp.ri
+   if line='0000' then leave
+   pktlen=0
+   do ci=1 to 4
+      c=substr(line,ci*2-1,2)
+      if verify(c,'0123456789ABCDEF')\=0 then leave
+      pktlen=pktlen*16+x2d(c)
+   end
+   if pktlen<4 then iterate
+   payload=substr(line,9,pktlen-4)
+   call asciitocms payload
+   msg=result
+   if left(msg,2)='ok ' then do
+      pushok=1
+      say 'GIT PUSH: accepted' substr(msg,4)
+   end
+   else if left(msg,2)='ng ' then do
+      pushfail=substr(msg,4)
+      say 'GIT PUSH: rejected' pushfail
+   end
+end
+
+if pushfail\='' then do
+   say 'GIT PUSH: push failed:' pushfail
+   exit 8
+end
+if pushok\=1 then do
+   say 'GIT PUSH: no acceptance response from server'
+   exit 8
+end
+
+/* Update remote-tracking ref. */
+trackingref='refs/remotes/'||remote||'/'||shortbranch
+drop ref2upd.
+ref2upd.0=0
+'EXECIO * DISKR GITREF2 REPO A 1 (STEM REF2UPD. FINIS'
+if rc\=0 | REF2UPD.0<2 | word(REF2UPD.1,1)\='REF2 1' then do
+   say 'GIT PUSH: cannot read REF2 for tracking update'
+   exit 8
+end
+drop newrefs.
+newrefs.1='REF2 1'
+newrefs.2='HEAD '||localbranch
+newrefcount=2
+headwritten=0
+found_tracking=0
+do ri=2 to REF2UPD.0
+   if word(REF2UPD.ri,1)='HEAD' then do
+      newrefcount=newrefcount+1
+      newrefs.newrefcount='HEAD '||localbranch
+      headwritten=1
+   end
+   else if word(REF2UPD.ri,1)='REF' then do
+      refname3=word(REF2UPD.ri,2)
+      refval3=translate(word(REF2UPD.ri,3))
+      if refname3=trackingref then do
+         newrefcount=newrefcount+1
+         newrefs.newrefcount='REF ' trackingref ' ' localtip
+         found_tracking=1
+      end
+      else if refname3=localbranch then do
+         newrefcount=newrefcount+1
+         newrefs.newrefcount='REF ' refname3 ' ' refval3
+      end
+      else do
+         newrefcount=newrefcount+1
+         newrefs.newrefcount=REF2UPD.ri
+      end
+   end
+end
+if headwritten\=1 then do
+   newrefcount=newrefcount+1
+   newrefs.newrefcount='HEAD '||localbranch
+end
+if \found_tracking then do
+   newrefcount=newrefcount+1
+   newrefs.newrefcount='REF ' trackingref ' ' localtip
+end
+newrefs.0=newrefcount
+'EXECIO' newrefcount 'DISKW GITREF2 REPO A 1 (STEM NEWREFS. FINIS'
+if rc\=0 then do
+   say 'GIT PUSH: failed to update REF2 tracking ref'
+   exit 8
+end
+
+say 'PUSH COMPLETE' remote localbranch localtip
+exit 0
+
+/* ======================================================================== */
+/* Helper routines                                                          */
+/* ======================================================================== */
+
+/* Walk a commit and all reachable objects iteratively (no recursion). */
+walk_commit: procedure expose objlist. objsseen. objectfm MAXDEPTH
+   parse arg cmt,startdepth
+   /* Use a queue for iterative BFS. */
+   drop queue.
+   queue.0=1
+   queue.1=cmt
+   qnext=1
+   do while qnext<=queue.0
+      current=queue.qnext
+      qnext=qnext+1
+      /* Skip if already seen. */
+      do si=1 to objsseen.0
+         if objsseen.si=current then do
+            iterate
+         end
+      end
+      objsseen.0=objsseen.0+1
+      objsseen.objsseen.0=current
+      objlist.0=objlist.0+1
+      objlist.objlist.0=current
+
+      /* Read commit object. */
+      objfn=substr(current,1,8)
+      drop cmtobj.
+      cmtobj.0=0
+      'EXECIO * DISKR' objfn 'GITOBJ' objectfm '1 (STEM CMTOBJ. FINIS'
+      if rc\=0 then do
+         say 'GIT PUSH: cannot read commit' current
+         exit 8
+      end
+      ctype=''
+      cdata=''
+      do bi=1 to CMTOBJ.0
+         if word(CMTOBJ.bi,1)='TYPE' then ctype=translate(word(CMTOBJ.bi,2))
+         else if word(CMTOBJ.bi,1)='DATA' then cdata=cdata||translate(word(CMTOBJ.bi,2))
+      end
+      if ctype\='COMMIT' then do
+         say 'GIT PUSH: object is not a commit' current
+         exit 8
+      end
+      cdata=translate(cdata)
+
+      /* Parse tree OID from commit data. */
+      treepos=pos('7472656520',cdata)
+      if treepos=0 then do
+         say 'GIT PUSH: commit has no tree' current
+         exit 8
+      end
+      treeoid=substr(cdata,treepos+10,40)
+      if length(treeoid)\=40 | verify(treeoid,'0123456789ABCDEF')\=0 then do
+         say 'GIT PUSH: invalid tree OID in commit' current
+         exit 8
+      end
+
+      /* Enqueue tree for processing. */
+      queue.0=queue.0+1
+      queue.queue.0=treeoid
+
+      /* Enqueue parents for processing. */
+      ppos=1
+      do forever
+         ppos=pos('706172656e7420',cdata,ppos)
+         if ppos=0 then leave
+         poid=substr(cdata,ppos+14,40)
+         if length(poid)=40 & verify(poid,'0123456789ABCDEF')=0 then do
+            queue.0=queue.0+1
+            queue.queue.0=poid
+         end
+         ppos=ppos+54
+      end
+   end
+   return
+
+/* Walk a tree object and enqueue all referenced objects iteratively. */
+walk_tree: procedure expose objlist. objsseen. objectfm
+   parse arg treeoid
+   drop queue.
+   queue.0=1
+   queue.1=treeoid
+   qnext=1
+   do while qnext<=queue.0
+      current=queue.qnext
+      qnext=qnext+1
+      /* Skip if already seen. */
+      do si=1 to objsseen.0
+         if objsseen.si=current then do
+            iterate
+         end
+      end
+      objsseen.0=objsseen.0+1
+      objsseen.objsseen.0=current
+      objlist.0=objlist.0+1
+      objlist.objlist.0=current
+
+      /* Read tree object. */
+      objfn=substr(current,1,8)
+      drop treeobj.
+      treeobj.0=0
+      'EXECIO * DISKR' objfn 'GITOBJ' objectfm '1 (STEM TREEOBJ. FINIS'
+      if rc\=0 then do
+         say 'GIT PUSH: cannot read tree' current
+         exit 8
+      end
+      tdata=''
+      do bi=1 to treeobj.0
+         if word(treeobj.bi,1)='DATA' then tdata=tdata||translate(word(treeobj.bi,2))
+      end
+      tdata=translate(tdata)
+
+      /* Parse tree entries. */
+      tpos=1
+      do while tpos<=length(tdata)-2
+         mend=tpos
+         do while tpos<=length(tdata)-2 & substr(tdata,tpos,2)\='20'
+            tpos=tpos+2
+         end
+         if tpos>length(tdata)-2 then leave
+         modehex=substr(tdata,mend,tpos-mend)
+         tpos=tpos+2
+         do while tpos<=length(tdata)-2 & substr(tdata,tpos,2)\='00'
+            tpos=tpos+2
+         end
+         if tpos>length(tdata)-2 then leave
+         tpos=tpos+2
+         childoid=substr(tdata,tpos,40)
+         tpos=tpos+40
+         if length(childoid)\=40 | verify(childoid,'0123456789ABCDEF')\=0 then do
+            say 'GIT PUSH: invalid entry OID in tree' current
+            exit 8
+         end
+         /* If mode is "40000" (3430303030 hex), it's a subtree - enqueue. */
+         if modehex='3430303030' then do
+            queue.0=queue.0+1
+            queue.queue.0=childoid
+         end
+      end
+   end
+   return
+
+httpfeed:
+ parse arg hx
+ hx=translate(hx)
+ if hstate='HEAD' then do
+  header=header||hx
+  hp=pos('0D0A0D0A',header)
+  if hp=0 then return 'OK'
+  hpart=left(header,hp+7)
+  call checkhdr hpart
+  if result\='OK' then return 'ERROR'
+  hstate='BODY'
+  header=''
+  if substr(header,hp+8)\='' then do
+   call httpfeed_body substr(header,hp+8)
+   if result\='OK' then return 'ERROR'
+  end
+  return 'OK'
+ end
+ if hstate\='BODY' then return 'ERROR'
+ call httpfeed_body hx
+ return 'OK'
+
+httpfeed_body:
+ parse arg hx
+ do while hx\=''
+  if cstate='SIZE' then do
+   cline=cline||left(hx,2)
+   hx=substr(hx,3)
+   if right(cline,4)='0D0A' then do
+    ch=left(cline,length(cline)-4)
+    cline=''
+    pktlen=0
+    do ci=1 to length(ch) by 2
+     pktlen=pktlen*16+x2d(substr(ch,ci,2))
+    end
+    if pktlen=0 then do
+     chunkdone=1
+     return 'OK'
+    end
+    cneed=pktlen-4
+    cstate='PAYLOAD'
+   end
+  end
+  else if cstate='PAYLOAD' then do
+   take=cneed
+   if take>length(hx) then take=length(hx)
+   refadv.0=refadv.0+1
+   refadv.refadv.0=left(hx,take*2)
+   hx=substr(hx,take*2+1)
+   cneed=cneed-take
+   if cneed=0 then cstate='SIZE'
+  end
+ end
+ return 'OK'
+
+checkhdr:
+ parse arg hh
+ /* Accept any HTTP status line (HTTP/1.x <code> ...). */
+ if left(hh,14)\='485454502F312E' then return 'ERROR'
+ call asciitocms hh
+ ht=result
+ if ht='ERROR' then return 'ERROR'
+ hu=translate(ht)
+ if pos('CONTENT-TYPE:',hu)=0 then return 'ERROR'
+ return 'OK'
+
+httpfeed_push:
+ parse arg hx
+ hx=translate(hx)
+ if hstate='HEAD' then do
+  header=header||hx
+  hp=pos('0D0A0D0A',header)
+  if hp=0 then return 'OK'
+  hpart=left(header,hp+7)
+  call checkhdr_push hpart
+  if result\='OK' then return 'ERROR'
+  hstate='BODY'
+  header=''
+  if substr(header,hp+8)\='' then do
+   call httpfeed_push_body substr(header,hp+8)
+   if result\='OK' then return 'ERROR'
+  end
+  return 'OK'
+ end
+ if hstate\='BODY' then return 'ERROR'
+ call httpfeed_push_body hx
+ return 'OK'
+
+httpfeed_push_body:
+ parse arg hx
+ do while hx\=''
+  if cstate='SIZE' then do
+   cline=cline||left(hx,2)
+   hx=substr(hx,3)
+   if right(cline,4)='0D0A' then do
+    ch=left(cline,length(cline)-4)
+    cline=''
+    pktlen=0
+    do ci=1 to length(ch) by 2
+     pktlen=pktlen*16+x2d(substr(ch,ci,2))
+    end
+    if pktlen=0 then do
+     chunkdone=1
+     return 'OK'
+    end
+    cneed=pktlen-4
+    cstate='PAYLOAD'
+   end
+  end
+  else if cstate='PAYLOAD' then do
+   take=cneed
+   if take>length(hx) then take=length(hx)
+   pushresp.0=pushresp.0+1
+   pushresp.pushresp.0=left(hx,take*2)
+   hx=substr(hx,take*2+1)
+   cneed=cneed-take
+   if cneed=0 then cstate='SIZE'
+  end
+ end
+ return 'OK'
+
+checkhdr_push:
+ parse arg hh
+ if left(hh,14)\='485454502F312E' then return 'ERROR'
+ return 'OK'
+
+toasciihex: procedure
+ parse arg text
+ e2ahex='000102031A091A7F1A1A1A0B0C0D0E0F'||,
+        '101112131A1A081A18191A1A1C1D1E1F'||,
+        '1A1A1C1A1A0A171B1A1A1A1A1A050607'||,
+        '1A1A161A1A1E1A041A1A1A1A14151A1A'||,
+        '20A6E180EB909FE2AB8B9B2E3C282B7C'||,
+        '26A9AA9CDBA599E3A89E21242A293B5E'||,
+        '2D2FDFDC9ADDDE989DACBA2C255F3E3F'||,
+        'D78894B0B1B2FCD6FB603A2340273D22'||,
+        'F861626364656667686996A4F3AFAEC5'||,
+        '8C6A6B6C6D6E6F7071729787CE93F1FE'||,
+        'C87E737475767778797AEFC0DA5BF2F9'||,
+        'B5B6FDB7B8B9E6BBBCBD8DD9BF5DD8C4'||,
+        '7B414243444546474849CBCABEE8ECED'||,
+        '7D4A4B4C4D4E4F505152A1ADF5F4A38F'||,
+        '5CE7535455565758595AA0858EE9E4D1'||,
+        '30313233343536373839B3F7F0FAA7FF'
+ e2a=x2c(e2ahex)
+ bytes=xrange('00'x,'FF'x)
+ return c2x(translate(text,e2a,bytes))
+
+asciitocms: procedure
+ parse arg ah
+ if ah='' then return ''
+ if length(ah)//2\=0 then return 'ERROR'
+ ah=translate(ah)
+ do ai=1 to length(ah)
+  if pos(substr(ah,ai,1),'0123456789ABCDEF')=0 then return 'ERROR'
+ end
+ ascii=x2c(ah)
+ e2a='000102031A091A7F1A1A1A0B0C0D0E0F'
+ e2a=e2a||'101112131A1A081A18191A1A1C1D1E1F'
+ e2a=e2a||'1A1A1C1A1A0A171B1A1A1A1A1A050607'
+ e2a=e2a||'1A1A161A1A1E1A041A1A1A1A14151A1A'
+ e2a=e2a||'20A6E180EB909FE2AB8B9B2E3C282B7C'
+ e2a=e2a||'26A9AA9CDBA599E3A89E21242A293B5E'
+ e2a=e2a||'2D2FDFDC9ADDDE989DACBA2C255F3E3F'
+ e2a=e2a||'D78894B0B1B2FCD6FB603A2340273D22'
+ e2a=e2a||'F861626364656667686996A4F3AFAEC5'
+ e2a=e2a||'8C6A6B6C6D6E6F7071729787CE93F1FE'
+ e2a=e2a||'C87E737475767778797AEFC0DA5BF2F9'
+ e2a=e2a||'B5B6FDB7B8B9E6BBBCBD8DD9BF5DD8C4'
+ e2a=e2a||'7B414243444546474849CBCABEE8ECED'
+ e2a=e2a||'7D4A4B4C4D4E4F505152A1ADF5F4A38F'
+ e2a=e2a||'5CE7535455565758595AA0858EE9E4D1'||,
+        '30313233343536373839B3F7F0FAA7FF'
+ tab=x2c(e2a)
+ bytes=xrange('00'x,'FF'x)
+ cms=translate(ascii,bytes,tab)
+ call toasciihex cms
+ if translate(result)\=translate(ah) then return 'ERROR'
+ return cms
+
+authheader: procedure
+ drop cred.
+ cred.0=0
+ 'STATE GHCRED REPO A'
+ if rc=28 then return ''
+ if rc\=0 then return 'ERROR'
+ 'EXECIO * DISKR GHCRED REPO A 1 (STEM CRED. FINIS'
+ if rc\=0 | cred.0<1 then return ''
+ if word(cred.1,1)='GHCRED' & words(cred.1)=2 then do
+  token=word(cred.1,2)
+  call toasciihex 'Authorization: Bearer '||token
+  return result
+ end
+ return ''
+
+safehost:
+ parse arg value
+ if value='' | length(value)>255 then return 'ERROR'
+ allowed='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+ allowed=allowed||'0123456789.-'
+ if verify(value,allowed)\=0 then return 'ERROR'
+ return 'OK'
+
+safepath:
+ parse arg p
+ slash=pos('/',p)
+ if slash<2 | slash=length(p) |,
+    pos('/',substr(p,slash+1))>0 then return 'ERROR'
+ owner=substr(p,1,slash-1)
+ repo=substr(p,slash+1)
+ if length(owner)>39 | length(repo)>39 then return 'ERROR'
+ allowed='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-'
+ if verify(translate(owner),allowed)\=0 |,
+    verify(translate(repo),allowed)\=0 then return 'ERROR'
+ return 'OK'
+
+validname:
+ parse arg n
+ if n='' | length(n)>16 | n='.' | n='..' | pos('..',n)>0 then return 'ERROR'
+ allowed='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-'
+ if verify(translate(n),allowed)\=0 then return 'ERROR'
+ if left(n,1)='.' | right(n,1)='.' then return 'ERROR'
+ return 'OK'

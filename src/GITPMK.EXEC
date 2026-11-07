@@ -1,0 +1,352 @@
+/* M280: create a Git packfile from CMS loose objects (pure REXX).
+ * Reads dd:OBJSTG, writes dd:OBJOUT. Pure REXX: SHA1, Adler-32,
+ * DEFLATE stored blocks, zlib wrapper, Git pack format. */
+address cms
+numeric digits 20
+parse arg cmd extra
+if cmd\='BUILD' | extra\='' then do
+   say 'Usage: GITPMK BUILD'
+   say '   reads dd:OBJSTG, writes dd:OBJOUT'
+   exit 4
+end
+
+/* ---- Main program ---- */
+objectfm = 'A'
+drop objs.
+objs.0 = 0
+'EXECIO * DISKR OBJSTG STAGE' objectfm '1 (STEM OBJREC. FINIS'
+if rc\=0 then do
+   say 'GITPMK: cannot read OBJSTG'
+   exit 8
+end
+oi = 0
+ri = 1
+do while ri <= OBJREC.0
+   line = OBJREC.ri
+   if line = '' then do
+      ri = ri + 1
+      iterate
+   end
+   parse var line dummy otype_str osize_str oid_str
+   otype = otype_str + 0
+   osize = osize_str + 0
+   ri = ri + 1
+   ohex = ''
+   do while ri <= OBJREC.0
+      line = OBJREC.ri
+      if line = '' then do
+         ri = ri + 1
+         leave
+      end
+      if left(line,3) = 'OBJ' then leave
+      ohex = ohex || line
+      ri = ri + 1
+   end
+   obin = ''
+   do i = 1 to length(ohex) by 2
+      obin = obin || x2c(substr(ohex,i,2))
+   end
+   if length(obin) \= osize then do
+      say 'GITPMK: size mismatch for object' oid_str
+      exit 8
+   end
+   oi = oi + 1
+   objs.oi.otype = otype
+   objs.oi.osize = osize
+   objs.oi.oid = oid_str
+   objs.oi.data = obin
+end
+objs.0 = oi
+
+if objs.0 = 0 then do
+   say 'GITPMK: no objects to pack'
+   exit 8
+end
+
+/* Build pack */
+pack = ''
+pack = pack || x2c('5041434B')     /* "PACK" */
+pack = pack || x2c(right(num2hex(2),8,'0'))     /* version 2 */
+pack = pack || x2c(right(num2hex(objs.0),8,'0')) /* count */
+
+do i = 1 to objs.0
+   deflated = deflate_stored(objs.i.data)
+   zlibbed = zlib_wrap(deflated)
+   hdr = pack_header(objs.i.otype, objs.i.osize)
+   pack = pack || hdr || zlibbed
+end
+
+/* SHA1 trailer */
+plen = length(pack)
+do pos = 1 to plen - 63 by 64
+   call sha_block(substr(pack,pos,64))
+end
+rem = plen - (pos - 1)
+tail = ''
+do i = 1 to rem
+   tail = tail || substr(pack, pos + i - 1, 1)
+end
+tail = tail || '80'x
+do while (length(tail) // 64) \= 56
+   tail = tail || '00'x
+end
+bitlen = plen * 8
+do i = 7 to 0 by -1
+   byteval = bitlen // 256
+   bitlen = bitlen % 256
+   tail = tail || x2c(right(num2hex(byteval),2,'0'))
+end
+do pos = 1 to length(tail) by 64
+   call sha_block(substr(tail,pos,64))
+end
+digest = num2hex(h0) || num2hex(h1) || num2hex(h2)
+   digest = digest || num2hex(h3) || num2hex(h4)
+digest_bin = ''
+do i = 1 to 40 by 2
+   digest_bin = digest_bin || x2c(substr(digest,i,2))
+end
+pack = pack || digest_bin
+
+'EXECIO' length(pack) 'DISKW OBJOUT STAGE' objectfm '1 (STEM PACKOUT. FINIS'
+if rc\=0 then do
+   say 'GITPMK: cannot write OBJOUT'
+   exit 8
+end
+
+say 'PACK CREATED OBJECTS' objs.0
+say 'M280 PACK BUILD PASS'
+exit 0
+
+/* ======================================================================== */
+/* All internal functions below this point                                  */
+/* ======================================================================== */
+
+/* ----- 32-bit helpers via hex strings ----- */
+num2hex: procedure
+   parse arg n
+   n = n + 0
+   n = n // 4294967296
+   h = ''
+   do i = 1 to 8
+      h = substr('0123456789ABCDEF', n % 16 + 1, 1) || h
+      n = n // 16
+   end
+   return h
+
+hex2num: procedure
+   parse arg h
+   n = 0
+   do i = 1 to length(h)
+      c = substr(h,i,1)
+      select
+         when c='0' then d=0
+         when c='1' then d=1
+         when c='2' then d=2
+         when c='3' then d=3
+         when c='4' then d=4
+         when c='5' then d=5
+         when c='6' then d=6
+         when c='7' then d=7
+         when c='8' then d=8
+         when c='9' then d=9
+         when c='A' then d=10
+         when c='B' then d=11
+         when c='C' then d=12
+         when c='D' then d=13
+         when c='E' then d=14
+         when c='F' then d=15
+      end
+      n = n * 16 + d
+   end
+   return n
+
+and32: procedure
+   parse arg a,b
+   a = right(num2hex(a),8,'0')
+   b = right(num2hex(b),8,'0')
+   r = ''
+   do i = 1 to 8
+      r = r || c2x(x2c(substr(a,i,1)) & x2c(substr(b,i,1)))
+   end
+   return hex2num(r)
+
+or32: procedure
+   parse arg a,b
+   a = right(num2hex(a),8,'0')
+   b = right(num2hex(b),8,'0')
+   r = ''
+   do i = 1 to 8
+      r = r || c2x(x2c(substr(a,i,1)) | x2c(substr(b,i,1)))
+   end
+   return hex2num(r)
+
+xor32: procedure
+   parse arg a,b
+   a = right(num2hex(a),8,'0')
+   b = right(num2hex(b),8,'0')
+   r = ''
+   do i = 1 to 8
+      r = r || c2x(x2c(substr(a,i,1)) && x2c(substr(b,i,1)))
+   end
+   return hex2num(r)
+
+not32: procedure
+   parse arg a
+   a = right(num2hex(a),8,'0')
+   r = ''
+   do i = 1 to 8
+      r = r || c2x(\ x2c(substr(a,i,1)))
+   end
+   return hex2num(r)
+
+rol32: procedure
+   parse arg val,n
+   val = val // 4294967296
+   if n = 0 then return val
+   leftpart = (val // (2**(32-n))) * (2**n)
+   rightpart = val % (2**(32-n))
+   return (leftpart + rightpart) // 4294967296
+
+/* ----- SHA-1 (FIPS 180-1) ----- */
+h0 = h1 = h2 = h3 = h4 = 0
+sha_init:
+   h0 = 1732584193; h1 = 4023233417; h2 = 2562383102
+   h3 = 271733878; h4 = 3285377520
+   return
+
+sha_block: procedure expose h0 h1 h2 h3 h4
+   parse arg block
+   do i = 0 to 15
+      w.i = 0
+      do j = 0 to 3
+         w.i = w.i * 256 + c2d(substr(block, i*4+j+1,1))
+      end
+   end
+   do i = 16 to 79
+      w.i = rol32(xor32(xor32(w.(i-3), w.(i-8)), xor32(w.(i-14), w.(i-16))), 1)
+   end
+   a = h0; b = h1; c = h2; d = h3; e = h4
+   do i = 0 to 79
+      if i < 20 then do
+         f = or32(and32(b,c), and32(not32(b), d))
+         k = 1518500249
+      end
+      else if i < 40 then do
+         f = xor32(xor32(b,c), d)
+         k = 1859775393
+      end
+      else if i < 60 then do
+         f = or32(or32(and32(b,c), and32(b,d)), and32(c,d))
+         k = 2400959708
+      end
+      else do
+         f = xor32(xor32(b,c), d)
+         k = 3395469782
+      end
+      temp = (rol32(a,5) + f + e + k + w.i) // 4294967296
+      e = d; d = c; c = rol32(b,30); b = a; a = temp
+   end
+   h0 = (h0 + a) // 4294967296
+   h1 = (h1 + b) // 4294967296
+   h2 = (h2 + c) // 4294967296
+   h3 = (h3 + d) // 4294967296
+   h4 = (h4 + e) // 4294967296
+   return
+
+sha1_bin: procedure expose h0 h1 h2 h3 h4
+   parse arg data
+   call sha_init
+   len = length(data)
+   do pos = 1 to len - 63 by 64
+      call sha_block(substr(data,pos,64))
+   end
+   rem = len - (pos - 1)
+   tail = ''
+   do i = 1 to rem
+      tail = tail || substr(data, pos + i - 1, 1)
+   end
+   tail = tail || '80'x
+   do while (length(tail) // 64) \= 56
+      tail = tail || '00'x
+   end
+   bitlen = len * 8
+   do i = 7 to 0 by -1
+      byteval = bitlen // 256
+      bitlen = bitlen % 256
+      tail = tail || x2c(right(num2hex(byteval),2,'0'))
+   end
+   do pos = 1 to length(tail) by 64
+      call sha_block(substr(tail,pos,64))
+   end
+   digest = num2hex(h0) || num2hex(h1) || num2hex(h2)
+   digest = digest || num2hex(h3) || num2hex(h4)
+   bin = ''
+   do i = 1 to 40 by 2
+      bin = bin || x2c(substr(digest,i,2))
+   end
+   return bin
+
+/* ----- Adler-32 ----- */
+adler32_num: procedure
+   parse arg data
+   a = 1; b = 0
+   do i = 1 to length(data)
+      a = (a + c2d(substr(data,i,1))) % 65521
+      b = (b + a) % 65521
+   end
+   return b * 65536 + a
+
+/* ----- DEFLATE stored blocks ----- */
+deflate_stored: procedure
+   parse arg in
+   inlen = length(in)
+   out = ''
+   ip = 1
+   do while ip <= inlen
+      blocklen = inlen - ip + 1
+      if blocklen > 65535 then blocklen = 65535
+      final = (ip + blocklen - 1 = inlen)
+      if final then out = out || '80'x
+      else out = out || '00'x
+      len_low = blocklen // 256
+      len_high = blocklen % 256
+      nlen_low = 255 - len_low
+      nlen_high = 255 - len_high
+      out = out || x2c(right(num2hex(len_low),2,'0'))
+      out = out || x2c(right(num2hex(len_high),2,'0'))
+      out = out || x2c(right(num2hex(nlen_low),2,'0'))
+      out = out || x2c(right(num2hex(nlen_high),2,'0'))
+      out = out || substr(in, ip, blocklen)
+      ip = ip + blocklen
+   end
+   return out
+
+/* ----- zlib wrapper ----- */
+zlib_wrap: procedure
+   parse arg deflate
+   dlen = length(deflate)
+   ad = adler32_num(deflate)
+   ad_hex = num2hex(ad)
+   out = '7801'x || deflate
+   do i = 1 to 4
+      out = out || x2c(substr(ad_hex, (i-1)*2+1, 2))
+   end
+   return out
+
+/* ----- Pack object header ----- */
+pack_header: procedure
+   parse arg typ,size
+   out = ''
+   firstbyte = typ * 16 + (size // 16)
+   cont = (size > 15)
+   if cont then firstbyte = firstbyte + 128
+   out = out || x2c(right(num2hex(firstbyte),2,'0'))
+   size = size % 16
+   do while cont
+      byteval = size // 128
+      size = size % 128
+      cont = (size > 0)
+      if cont then byteval = byteval + 128
+      out = out || x2c(right(num2hex(byteval),2,'0'))
+   end
+   return out
