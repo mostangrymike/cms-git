@@ -283,6 +283,16 @@ bad:
 
 storefeed:
  parse arg shex
+ /* A nearly full A disk used to abort the transfer midway, leaving a PACK
+    with no META.  Check once before the first write and fail clearly. */
+ if storechecked\=1 then do
+  storechecked=1
+  call afree
+  if result='ERROR' | result<64 then do
+   say 'GITPOST: disk A has fewer than 64 free blocks; not storing the pack'
+   return 'ERROR'
+  end
+ end
  sbuf=sbuf||shex
  do while length(sbuf)>=128
   srecs=srecs+1
@@ -312,6 +322,14 @@ storefinal:
  end
  call storeflush
  if result\='OK' then return 'ERROR'
+ /* META needs at least one block.  If A filled during the transfer, roll
+    back the partial PACK instead of leaving an unusable pair. */
+ call afree
+ if result='ERROR' | result<2 then do
+  say 'GITPOST: disk A is full; erasing partial' storefn 'PACK A'
+  'ERASE' storefn 'PACK A'
+  return 'ERROR'
+ end
  sm.1='META' oid packbytes pver pobjects
  sm.0=1
  'EXECIO 1 DISKW' storefn 'META A 1 (STEM SM. FINIS'
@@ -707,3 +725,17 @@ asciitocms: procedure
  tab=x2c(e2a)
  bytes=xrange('00'x,'FF'x)
  return translate(ascii,bytes,tab)
+
+afree:
+ /* Return the blocks left on the A disk, or ERROR. */
+ drop af.
+af.0=0
+'PIPE CMS QUERY DISK A | STEM AF.'
+if rc\=0 then return 'ERROR'
+found=''
+do afi=1 to af.0
+ if word(af.afi,3)='A' & word(af.afi,4)='R/W' & words(af.afi)>=11 then,
+  found=word(af.afi,10)
+end
+if datatype(found,'W')\=1 then return 'ERROR'
+return found
