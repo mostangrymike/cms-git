@@ -26,6 +26,83 @@ if rc=0 then do
 end
 else if rc\=28 then exit 8
 
+/* Administrative ref update, used to adopt an imported shallow tip.
+   SET-REF branch new-oid expected-old-oid|FORCE
+   FORCE is required to move a ref across history the local repository does
+   not contain; it deliberately leaves workfiles untouched. */
+if ref='SET-REF' then do
+ branch=newoid
+ newoid=translate(oldoid)
+ expected=translate(extra)
+ if branch='' | newoid='' | expected='' then do
+  say 'Usage: GITUPD SET-REF branch new-oid expected-old-oid|FORCE'
+  exit 4
+ end
+ branchref='refs/heads/'||branch
+ call validref branchref
+ if result\='OK' | length(newoid)\=40 |,
+    verify(newoid,'0123456789ABCDEF')\=0 then exit 4
+ if expected='FORCE' then force=1
+ else do
+  force=0
+  if length(expected)\=40 |,
+     verify(expected,'0123456789ABCDEF')\=0 then exit 4
+ end
+ call readrefs
+ if result\='OK' then exit 8
+ call requirecommit newoid
+ if result\='OK' then exit 8
+ slot=0
+ localold=''
+ do i=1 to refcount
+  if refname.i=branchref then do
+   slot=i
+   localold=refoid.i
+  end
+ end
+ if force=0 then do
+  if slot=0 | localold\=expected then do
+   say 'GITUPD: ref does not match expected old tip' branchref
+   exit 8
+  end
+ end
+ else if slot>0 then,
+  say 'GITUPD: SET-REF FORCE replacing' branchref localold 'with' newoid
+ drop bak.
+ bak.0=rr.0
+ do bi=1 to rr.0
+  bak.bi=rr.bi
+ end
+ if slot=0 then do
+  refcount=refcount+1
+  refname.refcount=branchref
+  slot=refcount
+ end
+ refoid.slot=newoid
+ call writerefs
+ if result\='OK' then do
+  call restore
+  exit 8
+ end
+ call readrefs
+ if result\='OK' then do
+  say 'GITUPD: ref readback failed; restoring REF2'
+  call restore
+  exit 8
+ end
+ readback=0
+ do i=1 to refcount
+  if refname.i=branchref & refoid.i=newoid then readback=readback+1
+ end
+ if readback\=1 then do
+  say 'GITUPD: ref verification failed; restoring REF2'
+  call restore
+  exit 8
+ end
+ say 'GITUPD: ref set' branchref newoid
+ exit 0
+end
+
 /* Rename one branch with an expected-OID check and optional HEAD move. */
 if ref='MOVE-REF' then do
  if newoid='' | oldoid='' | extra='' then do
@@ -270,8 +347,13 @@ if ref='PULL-HEAD' then do
  ancestry.0=0
  ancestrycmd='EXEC GITVREF IS-ANCESTOR'||' '||oldoid||' '||newoid
  'PIPE CMS' ancestrycmd '| STEM ANCESTRY.'
- if rc\=0 | ancestry.0\=1 |,
-    strip(ancestry.1)\='ANCESTOR YES' oldoid newoid then do
+ /* CMS PIPE STEM wraps at column 80, including inside an OID. */
+ ancestryline=''
+ do ai=1 to ancestry.0
+  ancestryline=ancestryline||strip(ancestry.ai)
+ end
+ if rc\=0 |,
+    ancestryline\='ANCESTOR YES' oldoid newoid then do
   say 'GITUPD: update is not a verified fast-forward'
   exit 8
  end

@@ -1,0 +1,321 @@
+/* M274: batch-install a verified stage as CMS loose objects. */
+address cms
+parse upper arg stage index datafm extra
+if stage='' | index='' | datafm='' |,
+   \validfn(stage) | \validfn(index) | stage=index |,
+   length(datafm)\=1 | verify(datafm,'BCDEFGHIJKLMNOPQRSTUVWXYZ')\=0 then do
+ say 'Usage: GIT FETCH-ACTIVATE stage-file index-file data-filemode [INCREMENTAL]'
+ exit 4
+end
+incremental=0
+if extra\='' then do
+ if translate(extra)='INCREMENTAL' then incremental=1
+ else do
+  say 'FETCH-ACTIVATE: unknown option' extra
+  exit 4
+ end
+end
+
+/* Existing repositories must select this same dedicated object disk. */
+objectfm='A'
+'STATE GITMETA REPO A'
+if rc\=0 then do
+ say 'FETCH-ACTIVATE: initialize the repository first with GIT INIT' datafm
+ exit 8
+end
+drop cfg.
+'EXECIO * DISKR GITMETA REPO A 1 (STEM CFG. FINIS'
+if rc\=0 | cfg.0<4 | cfg.1\='CMS-GIT-REPOSITORY 1' then do
+ say 'FETCH-ACTIVATE: invalid repository metadata'
+ exit 8
+end
+objects=0
+do i=1 to cfg.0
+ if word(cfg.i,1)='OBJECT-DISK' then do
+  if words(cfg.i)\=2 then exit 8
+  objects=objects+1
+  objectfm=translate(word(cfg.i,2))
+ end
+end
+if objects\=1 | objectfm\=datafm then do
+ say 'FETCH-ACTIVATE: repository object disk must match' datafm
+ exit 8
+end
+
+/* Require the same isolated, accessed R/W 4K disk used by import. */
+drop disk.
+disk.0=0
+'PIPE CMS QUERY DISK' datafm '| STEM DISK.'
+if rc\=0 then exit 8
+matched=0
+freeblocks=''
+do i=1 to disk.0
+ if word(disk.i,3)=datafm & word(disk.i,4)='R/W' &,
+    word(disk.i,7)='4096' & words(disk.i)>=11 then do
+  matched=matched+1
+  freeblocks=word(disk.i,10)
+ end
+end
+if matched\=1 | datatype(freeblocks,'W')\=1 |,
+   freeblocks<1 then do
+ say 'FETCH-ACTIVATE: object data disk is not ready' datafm
+ exit 8
+end
+
+'STATE' stage 'STAGE' datafm
+if rc\=0 then do
+ say 'FETCH-ACTIVATE: verified STAGE not found' stage 'STAGE' datafm
+ exit 8
+end
+'STATE' stage 'META A'
+if rc\=0 then do
+ say 'FETCH-ACTIVATE: pack metadata not found' stage 'META A'
+ exit 8
+end
+drop meta.
+'EXECIO 1 DISKR' stage 'META A 1 (STEM META. FINIS'
+if rc\=0 | meta.0\=1 then exit 8
+parse var meta.1 mtag wanted packbytes packver objectcount metextra
+wanted=translate(wanted)
+if words(meta.1)\=5 | mtag\='META' | length(wanted)\=40 |,
+   verify(wanted,'0123456789ABCDEF')\=0 |,
+   datatype(objectcount,'W')\=1 | objectcount<1 | objectcount>100000 then do
+ say 'FETCH-ACTIVATE: invalid retained pack metadata'
+ exit 8
+end
+
+'STATE' index 'INDEX' datafm
+if rc=0 then do
+ say 'FETCH-ACTIVATE: index output already exists' index 'INDEX' datafm
+ exit 8
+end
+if rc\=28 then exit 8
+do i=1 to 4
+ module=word('GITPIDX GITPTRE GITPLOAD GITPCAT',i)
+ 'STATE' module 'MODULE A'
+ if rc\=0 then do
+  say 'FETCH-ACTIVATE: required CMS module missing' module
+  exit 8
+ end
+end
+
+/* Never replace a caller-owned data definition. */
+drop defs.
+defs.0=0
+'PIPE CMS QUERY FILEDEF | STEM DEFS.'
+if rc\=0 then exit 8
+do i=1 to defs.0
+ dd=translate(word(defs.i,1))
+ if dd='STGIN' | dd='IDXIN' | dd='IDXOUT' | dd='OBJOUT' then do
+  say 'FETCH-ACTIVATE: FILEDEF already active for' dd
+  exit 8
+ end
+end
+
+'FILEDEF STGIN DISK' stage 'STAGE' datafm
+if rc\=0 then exit 8
+
+'FILEDEF IDXOUT DISK' index 'INDEX' datafm '(RECFM V LRECL 80'
+if rc\=0 then do
+ 'FILEDEF STGIN CLEAR'
+ exit 8
+end
+drop built.
+built.0=0
+'PIPE CMS GITPIDX BUILD CHECKED | STEM BUILT.'
+brc=rc
+'FILEDEF IDXOUT CLEAR'
+if brc\=0 then do
+ 'FILEDEF STGIN CLEAR'
+ say 'FETCH-ACTIVATE: object index build failed; stage retained'
+ exit 8
+end
+bpass=0
+do i=1 to built.0
+ if built.i='M174 INDEX BUILD PASS' then bpass=bpass+1
+end
+if bpass\=1 then do
+ 'FILEDEF STGIN CLEAR'
+ exit 8
+end
+
+'FILEDEF IDXIN DISK' index 'INDEX' datafm
+if rc\=0 then do
+ 'FILEDEF STGIN CLEAR'
+ exit 8
+end
+/* BUILD CHECKED hashes every stage object while making the index. */
+drop checked.
+checked.0=0
+'PIPE CMS GITPIDX CHECK | STEM CHECKED.'
+arc=rc
+if arc\=0 | checked.0<1 then do
+ 'FILEDEF IDXIN CLEAR'
+ 'FILEDEF STGIN CLEAR'
+ say 'FETCH-ACTIVATE: index readback failed; stage retained'
+ exit 8
+end
+checkpass=0
+checktotal=''
+checkunique=''
+do i=1 to checked.0
+ if word(checked.i,1)='INDEX' &,
+    word(checked.i,2)='VERIFIED' &,
+    word(checked.i,4)='UNIQUE' & words(checked.i)=5 then do
+  checktotal=word(checked.i,3)
+  checkunique=word(checked.i,5)
+ end
+ if checked.i='M174 INDEX CHECK PASS' then,
+  checkpass=checkpass+1
+end
+if checkpass\=1 | checktotal\=objectcount |,
+   datatype(checkunique,'W')\=1 | checkunique<1 |,
+   checkunique>objectcount then do
+ 'FILEDEF IDXIN CLEAR'
+ 'FILEDEF STGIN CLEAR'
+ say 'FETCH-ACTIVATE: index readback marker mismatch'
+ exit 8
+end
+
+/* Resolve the advertised commit's root tree before walking its closure. */
+drop commitout.
+commitout.0=0
+'PIPE CMS GITPCAT INFO' wanted '| STEM COMMITOUT.'
+crc=rc
+if crc\=0 then do
+ 'FILEDEF IDXIN CLEAR'
+ 'FILEDEF STGIN CLEAR'
+ say 'FETCH-ACTIVATE: requested commit could not be read from the stage'
+ exit 8
+end
+treeoid=''
+treecount=0
+commitpass=0
+do i=1 to commitout.0
+ if word(commitout.i,1)='PACKOBJ' &,
+    word(commitout.i,2)='COMMIT' &,
+    word(commitout.i,3)='TREE' & words(commitout.i)=4 then do
+  candidate=translate(word(commitout.i,4))
+  if length(candidate)=40 &,
+     verify(candidate,'0123456789ABCDEF')=0 then do
+   treecount=treecount+1
+   treeoid=candidate
+  end
+ end
+ if commitout.i='M175 PACK INFO PASS' then,
+  commitpass=commitpass+1
+end
+if treecount\=1 | commitpass\=1 then do
+ 'FILEDEF IDXIN CLEAR'
+ 'FILEDEF STGIN CLEAR'
+ say 'FETCH-ACTIVATE: requested commit metadata is invalid'
+ exit 8
+end
+
+/* Refuse a stage that does not contain a complete checkout closure.
+   An incremental (HAVE) pack holds only new objects; its unchanged closure
+   already lives in the verified loose store, so the full stage walk cannot
+   apply.  The root tree presence check below covers the new commit. */
+if incremental then,
+ say 'FETCH-ACTIVATE: incremental pack; full closure stays in the loose store'
+else do
+drop closure.
+closure.0=0
+'PIPE CMS GITPTRE WALK' treeoid '| STEM CLOSURE.'
+crc=rc
+if crc\=0 then do
+ 'FILEDEF IDXIN CLEAR'
+ 'FILEDEF STGIN CLEAR'
+ say 'FETCH-ACTIVATE: requested commit closure is incomplete'
+ exit 8
+end
+cpass=0
+do i=1 to closure.0
+ if closure.i='M176 TREE CLOSURE PASS' then cpass=cpass+1
+end
+if cpass\=1 then do
+ 'FILEDEF IDXIN CLEAR'
+ 'FILEDEF STGIN CLEAR'
+ exit 8
+end
+end
+'FILEDEF IDXIN CLEAR'
+
+/* Check the bounded index header before the native batch loader. */
+'EXECIO 1 DISKR' index 'INDEX' datafm '1 (STEM IDX. FINIS'
+if rc\=0 | idx.0\=1 then do
+ 'FILEDEF STGIN CLEAR'
+ exit 8
+end
+parse var idx.1 itag total unique extra
+if words(idx.1)\=3 | itag\='PIDX1' |,
+   datatype(total,'W')\=1 | datatype(unique,'W')\=1 |,
+   unique<1 | unique>objectcount then do
+ 'FILEDEF STGIN CLEAR'
+ say 'FETCH-ACTIVATE: invalid index header'
+ exit 8
+end
+installed=0
+already=0
+skipped=0
+'FILEDEF IDXIN DISK' index 'INDEX' datafm
+if rc\=0 then do
+ 'FILEDEF STGIN CLEAR'
+ exit 8
+end
+drop loaded.
+loaded.0=0
+say 'FETCH-ACTIVATE: installing' objectcount 'objects as CMS loose objects ...'
+pipecmd='PIPE (ENDCHAR ?) CMS M274L5 BATCH' datafm objectcount
+pipecmd=pipecmd||' | A: FANOUT | STEM LOADED. ? A: | CONSOLE'
+pipecmd
+lrc=rc
+'FILEDEF IDXIN CLEAR'
+icrc=rc
+'FILEDEF STGIN CLEAR'
+scrc=rc
+if lrc\=0 | icrc\=0 | scrc\=0 then do
+ say 'FETCH-ACTIVATE: batch object install failed' lrc icrc scrc
+ exit 8
+end
+lpass=0
+batchprocessed=''
+batchunique=''
+do li=1 to loaded.0
+ if word(loaded.li,1)='PACKOBJ' &,
+    word(loaded.li,2)='BATCH' &,
+    word(loaded.li,3)='PASS' & words(loaded.li)=13 then do
+  lpass=lpass+1
+  installed=word(loaded.li,5)
+  already=word(loaded.li,7)
+  skipped=word(loaded.li,9)
+  batchprocessed=word(loaded.li,11)
+  batchunique=word(loaded.li,13)
+ end
+end
+if lpass\=1 | batchprocessed\=unique | batchunique\=unique |,
+   datatype(installed,'W')\=1 | datatype(already,'W')\=1 |,
+   datatype(skipped,'W')\=1 |,
+   installed+already+skipped\=unique then do
+ say 'FETCH-ACTIVATE: batch install summary mismatch'
+ exit 8
+end
+if incremental then do
+ 'STATE' substr(treeoid,1,8) 'GITOBJ' objectfm
+ if rc\=0 then do
+  say 'FETCH-ACTIVATE: incremental pack left the root tree missing' treeoid
+  exit 8
+ end
+end
+say 'FETCH OBJECTS ACTIVE' installed 'INSTALLED' already 'ALREADY VERIFIED',
+    skipped 'TAGS SKIPPED INDEX' index 'DISK' datafm 'COMMIT' wanted
+exit 0
+
+validfn:
+ parse arg value
+ if value='' | length(value)>8 then return 0
+ if verify(left(value,1),'ABCDEFGHIJKLMNOPQRSTUVWXYZ@$#')\=0 then,
+  return 0
+ if verify(value,'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@$#')\=0 then,
+  return 0
+ return 1

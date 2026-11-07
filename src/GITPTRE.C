@@ -16,13 +16,14 @@ struct idxent {
  int type;
  long offset;
  unsigned char state;
+ unsigned char *cache;
 };
 
 static struct idxent *ix;
+static unsigned long *bynum;
 static unsigned long ixtotal,ixunique;
 static unsigned long trees,blobs,gitlinks,entries,verified;
 static unsigned long largest,resident,peak;
-static FILE *stage;
 static unsigned long sh[5];
 
 static int nib(int c) {
@@ -39,7 +40,7 @@ static int linein(FILE *f,char *line,int cap) {
  if(n==cap-1&&line[n-1]!='\n') return 0;
  while(n>0&&(line[n-1]=='\n'||line[n-1]=='\r'||
              line[n-1]==' ')) line[--n]=0;
- return n<=80;
+ return 1;
 }
 
 static int hexoid(const char *s,unsigned char oid[20]) {
@@ -182,7 +183,7 @@ static int parse_header(const char *line,unsigned long *num,
 
 static int readbody(FILE *f,unsigned long n,unsigned char **body) {
  unsigned char *p;
- char line[128];
+ static char line[8192];
  unsigned long k,m,take;
  int hi,lo;
  if(n>MEMMAX-resident) {
@@ -201,7 +202,7 @@ static int readbody(FILE *f,unsigned long n,unsigned char **body) {
  }
  for(k=0;k<n;k+=take) {
   take=n-k;
-  if(take>32) take=32;
+  if(take>2000) take=2000;
   if(!linein(f,line,sizeof line)||strlen(line)!=take*2) {
    resident-=n;
    free(p);
@@ -284,29 +285,147 @@ static long locate(const unsigned char oid[20]) {
  return (long)lo;
 }
 
-static int fetch(long pos,unsigned char **body) {
- char line[128];
- unsigned char stored[20],got[20];
- unsigned long num,size;
+/* Consume one object body without decoding it.  Skipping a body is much
+   cheaper than inflating hex, and the single-pass walk only needs the tree
+   objects in memory. */
+static int skipbody(FILE *f,unsigned long n) {
+ static char line[8192];
+ unsigned long k,take;
+ if(n==0)
+  return linein(f,line,sizeof line)&&line[0]==0;
+ for(k=0;k<n;k+=take) {
+  take=n-k;
+  if(take>2000) take=2000;
+  if(!linein(f,line,sizeof line)||strlen(line)!=take*2) return 0;
+ }
+ return 1;
+}
+
+static int init_bynum(void) {
+ unsigned long i;
+ bynum=(unsigned long *)calloc((size_t)(ixtotal+1),sizeof *bynum);
+ if(!bynum) return 0;
+ for(i=0;i<ixunique;i++) {
+  if(ix[i].num<1||ix[i].num>ixtotal) return 0;
+  bynum[ix[i].num]=i+1;
+ }
+ return 1;
+}
+
+/* One sequential pass caches and authenticates every tree body.  Random
+   fseek into the stage is O(offset) on CMS, so the closure is resolved in
+   memory and blobs are checked by a second sequential pass. */
+static int scan_trees(void) {
+ FILE *f;
+ static char line[8192];
+ unsigned char stored[20],got[20],*body;
+ unsigned long num,size,slot;
  int type;
- if(pos<0||(unsigned long)pos>=ixunique) return 0;
- if(fseek(stage,ix[pos].offset,SEEK_SET)!=0||
-    !linein(stage,line,sizeof line)||
-    !parse_header(line,&num,&type,&size,stored)||
-    num!=ix[pos].num||type!=ix[pos].type||
-    size!=ix[pos].size||
-    memcmp(stored,ix[pos].oid,20)!=0||
-    !readbody(stage,size,body)||
-    !object_oid(type,*body,size,got)||
-    memcmp(got,stored,20)!=0) {
-  if(*body) {
-   freebody(*body,size);
-   *body=0;
-  }
-  puts("TREE CLOSURE STAGE VERIFY FAIL");
+ f=fopen("dd:STGIN","r");
+ if(!f) {
+  perror("STGIN");
   return 0;
  }
- if(size>largest) largest=size;
+ while(1) {
+  if(!linein(f,line,sizeof line)) {
+   if(feof(f)) break;
+   puts("TREE CLOSURE STAGE READ FAIL");
+   fclose(f);
+   return 0;
+  }
+  if(!parse_header(line,&num,&type,&size,stored)) {
+   puts("TREE CLOSURE STAGE HEADER FAIL");
+   fclose(f);
+   return 0;
+  }
+  if(num<1||num>ixtotal||!bynum[num]) {
+   puts("TREE CLOSURE INDEX MISMATCH");
+   fclose(f);
+   return 0;
+  }
+  slot=bynum[num]-1;
+  if(ix[slot].type!=type||ix[slot].size!=size||
+     memcmp(ix[slot].oid,stored,20)!=0) {
+   puts("TREE CLOSURE INDEX MISMATCH");
+   fclose(f);
+   return 0;
+  }
+  if(type==2) {
+   body=0;
+   if(!readbody(f,size,&body)) {
+    puts("TREE CLOSURE STAGE BODY FAIL");
+    fclose(f);
+    return 0;
+   }
+   if(!object_oid(type,body,size,got)||memcmp(got,stored,20)!=0) {
+    freebody(body,size);
+    puts("TREE CLOSURE STAGE VERIFY FAIL");
+    fclose(f);
+    return 0;
+   }
+   ix[slot].cache=body;
+   if(size>largest) largest=size;
+  } else if(!skipbody(f,size)) {
+   puts("TREE CLOSURE STAGE BODY FAIL");
+   fclose(f);
+   return 0;
+  }
+  if(num==1||num%1000==0)
+   printf("TREE CLOSURE SCAN %lu\n",num);
+ }
+ if(fclose(f)!=0) return 0;
+ return 1;
+}
+
+static int verify_reachable(void) {
+ FILE *f;
+ static char line[8192];
+ unsigned char stored[20],got[20],*body;
+ unsigned long num,size,slot,readback=0;
+ int type;
+ f=fopen("dd:STGIN","r");
+ if(!f) {
+  perror("STGIN");
+  return 0;
+ }
+ while(1) {
+  if(!linein(f,line,sizeof line)) {
+   if(feof(f)) break;
+   puts("TREE CLOSURE READBACK READ FAIL");
+   fclose(f);
+   return 0;
+  }
+  if(!parse_header(line,&num,&type,&size,stored)||
+     num<1||num>ixtotal||!bynum[num]) {
+   puts("TREE CLOSURE READBACK HEADER FAIL");
+   fclose(f);
+   return 0;
+  }
+  slot=bynum[num]-1;
+  if(ix[slot].state==2) {
+   body=0;
+   if(!readbody(f,size,&body)||
+      !object_oid(type,body,size,got)||memcmp(got,stored,20)!=0) {
+    free(body);
+    puts("TREE CLOSURE READBACK VERIFY FAIL");
+    fclose(f);
+    return 0;
+   }
+   freebody(body,size);
+   readback++;
+  } else if(!skipbody(f,size)) {
+   puts("TREE CLOSURE READBACK BODY FAIL");
+   fclose(f);
+   return 0;
+  }
+ }
+ if(fclose(f)!=0) return 0;
+ if(readback!=verified) {
+  printf("TREE CLOSURE READBACK COUNT %lu EXPECTED %lu\n",
+         readback,verified);
+  return 0;
+ }
+ printf("TREE CLOSURE READBACK %lu\n",readback);
  return 1;
 }
 
@@ -342,8 +461,6 @@ static int walk(long pos,unsigned long depth) {
   return 0;
  }
  if(ix[pos].type==3) {
-  if(!fetch(pos,&body)) return 0;
-  freebody(body,ix[pos].size);
   ix[pos].state=2;
   blobs++;verified++;
   if(verified%1000==0)
@@ -355,7 +472,11 @@ static int walk(long pos,unsigned long depth) {
   return 0;
  }
  ix[pos].state=1;
- if(!fetch(pos,&body)) goto done;
+ body=ix[pos].cache;
+ if(ix[pos].size&&!body) {
+  puts("TREE CLOSURE TREE NOT CACHED");
+  return 0;
+ }
  trees++;verified++;
  while(at<ix[pos].size) {
   if(!mode_value(body,ix[pos].size,&at,&mode)) {
@@ -404,11 +525,30 @@ static int walk(long pos,unsigned long depth) {
  ix[pos].state=2;
  ok=1;
 done:
- freebody(body,ix[pos].size);
  if(!ok) ix[pos].state=0;
  if(ok&&verified%1000==0)
   printf("TREE CLOSURE PROGRESS %lu\n",verified);
  return ok;
+}
+
+static void drop_caches(void) {
+ unsigned long i;
+ if(ix) {
+  for(i=0;i<ixunique;i++) {
+   if(ix[i].cache) {
+    freebody(ix[i].cache,ix[i].size);
+    ix[i].cache=0;
+   }
+  }
+ }
+}
+
+static void release(void) {
+ drop_caches();
+ free(bynum);
+ bynum=0;
+ free(ix);
+ ix=0;
 }
 
 static int run_walk(const char *text) {
@@ -420,23 +560,22 @@ static int run_walk(const char *text) {
   return 4;
  }
  if(!read_index()) return 8;
+ if(!init_bynum()) goto done;
  rp=locate(root);
  if(rp<0||ix[rp].type!=2) {
   puts("TREE CLOSURE ROOT NOT TREE");
   goto done;
  }
- stage=fopen("dd:STGIN","r");
- if(!stage) {
-  perror("STGIN");
-  goto done;
- }
  printf("TREE CLOSURE ROOT ");
  printoid(stdout,root);
  putchar('\n');
- if(!walk(rp,0)) goto closeout;
+ if(!scan_trees()) goto done;
+ if(!walk(rp,0)) goto done;
+ if(!verify_reachable()) goto done;
+ drop_caches();
  if(resident!=0) {
   puts("TREE CLOSURE RESIDENT LEAK");
-  goto closeout;
+  goto done;
  }
  printf("TREE CLOSURE TREES %lu BLOBS %lu GITLINKS %lu\n",
         trees,blobs,gitlinks);
@@ -448,11 +587,8 @@ static int run_walk(const char *text) {
         ixtotal,ixunique);
  puts("M176 TREE CLOSURE PASS");
  rc=0;
-closeout:
- if(fclose(stage)!=0) rc=8;
- stage=0;
 done:
- free(ix);ix=0;
+ release();
  return rc;
 }
 

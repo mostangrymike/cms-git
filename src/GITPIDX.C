@@ -31,7 +31,7 @@ static int linein(FILE *f,char *line,int cap) {
  if(n==cap-1&&line[n-1]!='\n') return 0;
  while(n>0&&(line[n-1]=='\n'||line[n-1]=='\r'||
              line[n-1]==' ')) line[--n]=0;
- return n<=80;
+ return 1;
 }
 
 static int hexoid(const char *s,unsigned char oid[20]) {
@@ -162,7 +162,7 @@ static int object_oid(int type,const unsigned char *body,
 
 static int readbody(FILE *f,unsigned long n,unsigned char **body) {
  unsigned char *p;
- char line[128];
+ static char line[8192];
  unsigned long k,m,take;
  int hi,lo;
  p=(unsigned char *)malloc((size_t)(n?n:1));
@@ -175,7 +175,7 @@ static int readbody(FILE *f,unsigned long n,unsigned char **body) {
  }
  for(k=0;k<n;k+=take) {
   take=n-k;
-  if(take>32) take=32;
+  if(take>2000) take=2000;
   if(!linein(f,line,sizeof line)||strlen(line)!=take*2) {
    free(p);
    return 0;

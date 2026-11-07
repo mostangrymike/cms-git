@@ -165,7 +165,8 @@ int main(int argc,char **argv) {
  objects=((unsigned long)head[8]<<24)|
          ((unsigned long)head[9]<<16)|
          ((unsigned long)head[10]<<8)|head[11];
- if((version!=2&&version!=3)||objects<1) {
+ /* An up-to-date fetch legitimately returns a PACK with zero objects. */
+ if(version!=2&&version!=3) {
   puts("PACK VERIFY HEADER FAIL");
   return 8;
  }

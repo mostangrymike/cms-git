@@ -294,7 +294,7 @@ static int write_object(FILE *out,unsigned long idx,int type,
                         const unsigned char *body,unsigned long n,
                         const unsigned char oid[20]) {
  static const char hex[]="0123456789ABCDEF";
- char line[65];
+ static char line[8192];
  unsigned long k,m,take;
  if(fprintf(out,"OBJ %lu %d %lu ",idx,type,n)<0) return 0;
  for(k=0;k<20;k++) {
@@ -305,7 +305,7 @@ static int write_object(FILE *out,unsigned long idx,int type,
  if(fputs(line,out)==EOF||fputc('\n',out)==EOF) return 0;
  for(k=0;k<n;k+=take) {
   take=n-k;
-  if(take>32) take=32;
+  if(take>2000) take=2000;
   for(m=0;m<take;m++) {
    line[m*2]=hex[body[k+m]>>4];
    line[m*2+1]=hex[body[k+m]&15];
@@ -600,7 +600,7 @@ static int stage_line(FILE *f,char *line,int cap) {
  if(n==cap-1&&line[n-1]!='\n') return 0;
  while(n>0&&(line[n-1]=='\n'||line[n-1]=='\r'||
              line[n-1]==' ')) line[--n]=0;
- return n<=80;
+ return 1;
 }
 
 static int hex_oid(const char *s,unsigned char oid[20]) {
@@ -617,7 +617,8 @@ static int hex_oid(const char *s,unsigned char oid[20]) {
 
 static int verify_stage(unsigned long count) {
  FILE *f;
- char line[128],oidtext[41],extra;
+ static char line[8192];
+ char oidtext[41],extra;
  unsigned char stored[20],got[20],*body=0;
  unsigned long j,num,n,k,take,m;
  int typ,fields,hi,lo;
@@ -639,7 +640,7 @@ static int verify_stage(unsigned long count) {
   }
   for(k=0;k<n;k+=take) {
    take=n-k;
-   if(take>32) take=32;
+   if(take>2000) take=2000;
    if(!stage_line(f,line,sizeof line)||
       strlen(line)!=take*2) goto bad;
    for(m=0;m<take;m++) {

@@ -1,0 +1,241 @@
+/* M267: import a retained and verified GitHub pack to an isolated stage. */
+address cms
+parse upper arg store datafm extra
+if store='' | datafm='' | extra\='' | length(store)>8 |,
+   verify(store,'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@$#')\=0 |,
+   verify(left(store,1),'ABCDEFGHIJKLMNOPQRSTUVWXYZ@$#')\=0 |,
+   length(datafm)\=1 | verify(datafm,'BCDEFGHIJKLMNOPQRSTUVWXYZ')\=0 then do
+ say 'Usage: GIT FETCH-IMPORT pack-file data-filemode'
+ exit 4
+end
+stage=store
+
+/* Require the dedicated non-A data disk used by the M173 import gate. */
+drop d.
+d.0=0
+'PIPE CMS QUERY DISK' datafm '| STEM D.'
+diskrc=rc
+avail=''
+matched=0
+if diskrc=0 then do
+ do di=1 to d.0
+  if word(d.di,3)=datafm & word(d.di,4)='R/W' &,
+     word(d.di,7)='4096' & words(d.di)>=11 then do
+   avail=word(d.di,10)
+   matched=matched+1
+  end
+ end
+end
+if matched\=1 | datatype(avail,'W')\=1 then do
+ say 'FETCH-IMPORT: need an accessed R/W 4K data disk' datafm
+ exit 8
+end
+if avail<180000 then do
+ say 'FETCH-IMPORT: data disk space below 180000 blocks'
+ exit 8
+end
+
+'STATE' store 'PACK A'
+if rc\=0 then do
+ say 'FETCH-IMPORT: retained PACK missing' store 'PACK A'
+ exit 8
+end
+'STATE' store 'META A'
+if rc\=0 then do
+ say 'FETCH-IMPORT: retained META missing' store 'META A'
+ exit 8
+end
+'STATE' stage 'STAGE' datafm
+if rc=0 then do
+ say 'FETCH-IMPORT: output already exists' stage 'STAGE' datafm
+ exit 8
+end
+if rc\=28 then do
+ say 'FETCH-IMPORT: output STATE failed RC' rc
+ exit 8
+end
+'STATE GITPCHK MODULE A'
+if rc\=0 then do
+ say 'FETCH-IMPORT: GITPCHK MODULE A is required'
+ exit 8
+end
+'STATE GITPIMP MODULE A'
+if rc\=0 then do
+ say 'FETCH-IMPORT: GITPIMP MODULE A is required'
+ exit 8
+end
+
+/* Do not take ownership of an existing caller FILEDEF. */
+drop defs.
+defs.0=0
+'PIPE CMS QUERY FILEDEF | STEM DEFS.'
+if rc\=0 then do
+ say 'FETCH-IMPORT: cannot inspect FILEDEFs'
+ exit 8
+end
+do di=1 to defs.0
+ dd=translate(word(defs.di,1))
+ if dd='PACKIN' | dd='OBJOUT' | dd='STGIN' then do
+  say 'FETCH-IMPORT: FILEDEF already active for' dd
+  exit 8
+ end
+end
+
+drop m.
+'EXECIO 1 DISKR' store 'META A 1 (STEM M. FINIS'
+if rc\=0 | m.0\=1 then do
+ say 'FETCH-IMPORT: META read failed'
+ exit 8
+end
+parse var m.1 mtag moid mbytes mver mobs mextra
+moid=translate(moid)
+if words(m.1)\=5 | mtag\='META' | length(moid)\=40 |,
+   verify(moid,'0123456789ABCDEF')\=0 |,
+   datatype(mbytes,'W')\=1 | datatype(mver,'W')\=1 |,
+   datatype(mobs,'W')\=1 | mbytes<32 | mbytes>16777216 |,
+   (mver\=2 & mver\=3) | mobs<1 | mobs>100000 then do
+ say 'FETCH-IMPORT: invalid retained metadata'
+ exit 8
+end
+
+'FILEDEF PACKIN DISK' store 'PACK A'
+if rc\=0 then do
+ say 'FETCH-IMPORT: PACKIN FILEDEF failed'
+ exit 8
+end
+drop p.
+p.0=0
+'PIPE CMS GITPCHK | STEM P.'
+prc=rc
+if prc\=0 then do
+ 'FILEDEF PACKIN CLEAR'
+ say 'FETCH-IMPORT: retained pack verification failed RC' prc
+ exit 8
+end
+pbytes=''
+pver=''
+pobjs=''
+ppass=0
+do i=1 to p.0
+ if word(p.i,1)='PACK' & word(p.i,2)='VERIFY' &,
+    word(p.i,3)='BYTES' & words(p.i)=4 then pbytes=word(p.i,4)
+ if word(p.i,1)='PACK' & word(p.i,2)='VERIFY' &,
+    word(p.i,3)='VERSION' & word(p.i,5)='OBJECTS' &,
+    words(p.i)=6 then do
+  pver=word(p.i,4)
+  pobjs=word(p.i,6)
+ end
+ if p.i='M171 PACK VERIFY PASS' then ppass=ppass+1
+end
+if pbytes\=mbytes | pver\=mver | pobjs\=mobs | ppass\=1 then do
+ 'FILEDEF PACKIN CLEAR'
+ say 'FETCH-IMPORT: PACK/META verification mismatch'
+ exit 8
+end
+
+'FILEDEF OBJOUT DISK' stage 'STAGE' datafm '(RECFM V LRECL 4096'
+if rc\=0 then do
+ 'FILEDEF PACKIN CLEAR'
+ say 'FETCH-IMPORT: OBJOUT FILEDEF failed'
+ exit 8
+end
+drop imported.
+imported.0=0
+/* FANOUT copies each progress record to the console as it is produced while
+   STEM still captures the complete output for framing checks.  Without this
+   a multi-minute import looks hung: CMS PIPE otherwise buffers everything
+   until GITPIMP exits. */
+pipecmd='PIPE (ENDCHAR ?) CMS GITPIMP IMPORT CHECKED | A: FANOUT'
+pipecmd=pipecmd||' | STEM IMPORTED. ? A: | CONSOLE'
+pipecmd
+irc=rc
+'FILEDEF OBJOUT CLEAR'
+oclear=rc
+'FILEDEF PACKIN CLEAR'
+pclear=rc
+if irc\=0 | oclear\=0 | pclear\=0 then do
+ do i=1 to imported.0
+  say imported.i
+ end
+ say 'FETCH-IMPORT: failed output retained for diagnosis' ,
+     stage 'STAGE' datafm
+ exit 8
+end
+ibytes=''
+iver=''
+iobjs=''
+ordinary=''
+ofs=''
+iref=''
+istaged=''
+ipass=0
+do i=1 to imported.0
+ if word(imported.i,1)='IMPORT' & word(imported.i,2)='PACK' &,
+    word(imported.i,3)='BYTES' & words(imported.i)=8 then do
+  ibytes=word(imported.i,4)
+  if word(imported.i,5)='VERSION' then iver=word(imported.i,6)
+  if word(imported.i,7)='OBJECTS' then iobjs=word(imported.i,8)
+ end
+ if word(imported.i,1)='IMPORT' & word(imported.i,2)='ORDINARY' &,
+    word(imported.i,4)='OFS' & word(imported.i,6)='REF' &,
+    words(imported.i)=7 then do
+  ordinary=word(imported.i,3)
+  ofs=word(imported.i,5)
+  iref=word(imported.i,7)
+ end
+ if word(imported.i,1)='IMPORT' & word(imported.i,2)='STAGED' &,
+    words(imported.i)=3 then istaged=word(imported.i,3)
+ if imported.i='M173 PACK IMPORT PASS' then ipass=ipass+1
+end
+if ibytes\=mbytes | iver\=mver | iobjs\=mobs | istaged\=mobs |,
+   ipass\=1 | datatype(ordinary,'W')\=1 | datatype(ofs,'W')\=1 |,
+   datatype(iref,'W')\=1 then do
+ say 'FETCH-IMPORT: import result mismatch; output retained' ,
+     stage 'STAGE' datafm
+ exit 8
+end
+if ordinary+ofs+iref\=mobs | iref\=0 then do
+ say 'FETCH-IMPORT: unsupported delta counts; stage retained'
+ exit 8
+end
+
+'STATE' stage 'STAGE' datafm
+if rc\=0 then do
+ say 'FETCH-IMPORT: stage missing after import'
+ exit 8
+end
+'FILEDEF STGIN DISK' stage 'STAGE' datafm
+if rc\=0 then do
+ say 'FETCH-IMPORT: readback FILEDEF failed; stage retained'
+ exit 8
+end
+drop checked.
+checked.0=0
+pipecmd='PIPE (ENDCHAR ?) CMS GITPIMP VERIFY' mobs '| A: FANOUT'
+pipecmd=pipecmd||' | STEM CHECKED. ? A: | CONSOLE'
+pipecmd
+vrc=rc
+'FILEDEF STGIN CLEAR'
+vclear=rc
+if vrc\=0 | vclear\=0 then do
+ do i=1 to checked.0
+  say checked.i
+ end
+ say 'FETCH-IMPORT: independent stage readback failed; stage retained'
+ exit 8
+end
+vobjects=''
+vpass=0
+do i=1 to checked.0
+ if word(checked.i,1)='IMPORT' & word(checked.i,2)='VERIFY' &,
+    word(checked.i,3)='OBJECTS' & words(checked.i)=4 then,
+  vobjects=word(checked.i,4)
+ if checked.i='M173 STAGE VERIFY PASS' then vpass=vpass+1
+end
+if vobjects\=mobs | vpass\=1 then do
+ say 'FETCH-IMPORT: stage readback mismatch; stage retained'
+ exit 8
+end
+say 'FETCH IMPORT VERIFIED' store '->' stage 'STAGE' datafm ,
+    'OBJECTS' mobs 'PACK' moid
+exit 0

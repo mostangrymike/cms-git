@@ -1,0 +1,13 @@
+/* Convert a CMS file to fixed 80-character records for the assembler. */
+parse arg src ft fm dst .
+if src='' | ft='' | fm='' | dst='' then do
+ say 'Usage: CONV80 source type fmode target'
+ exit 4
+end
+address command
+'FILEDEF CVTOUT DISK' dst ft fm '(RECFM F LRECL 80'
+if rc\=0 then exit rc
+'EXECIO * DISKR' src ft fm '(FINIS STEM CVT.'
+if rc\=0 then exit rc
+'EXECIO' cvt.0 'DISKW CVTOUT (FINIS STEM CVT.'
+exit rc

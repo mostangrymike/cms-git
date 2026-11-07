@@ -5,7 +5,7 @@ cmd=translate(cmd)
 oid=translate(oid)
 storemode=cmd='STORE'
 if (cmd\='POST' & cmd\='STORE') | bridge='' | port='' |,
-   authority='' | repo='' | oid='' | extra\='' then do
+   authority='' | repo='' | oid='' then do
  say 'Usage: GITPOST POST bridge port host repo oid'
  say '   or: GITPOST STORE bridge port host repo oid fn'
  exit 4
@@ -38,16 +38,35 @@ if left(repo,1)='/' | right(repo,1)='/' | pos('..',repo)>0 then exit 4
 if length(oid)\=40 | verify(oid,'0123456789ABCDEF')\=0 then exit 4
 
 have=''
-if word(rest,1)='HAVE' then do
- have=translate(word(rest,2))
- if length(have)\=40 | verify(have,'0123456789ABCDEF')\=0 then do
-  say 'GITPOST: invalid have OID'
-  exit 8
+depth=0
+rest=extra
+do while strip(rest)\=''
+ parse var rest kw val rest
+ kw=translate(kw)
+ if kw='HAVE' then do
+  have=translate(val)
+  if length(have)\=40 | verify(have,'0123456789ABCDEF')\=0 then do
+   say 'GITPOST: invalid have OID'
+   exit 8
+  end
  end
- rest=substr(rest,length(word(rest,1))+2)
+ else if kw='DEPTH' then do
+  if datatype(val,'W')\=1 | val<1 | val>1 then do
+   say 'GITPOST: depth must be 1'
+   exit 8
+  end
+  depth=val
+ end
+ else do
+  say 'GITPOST: unknown request option' kw
+  exit 4
+ end
 end
 wantoid=translate(oid,'abcdef','ABCDEF')
 
+/* Protocol v0 upload-request: want lines, shallow lines, depth request,
+   flush, have lines, done.  DEPTH 1 asks the server for the tip closure
+   only, which keeps a CMS pull small and fast. */
 want='want '||wantoid||' side-band-64k ofs-delta'
 plen=4+length(want)+1
 ph=right(d2x(plen),4,'0')
@@ -55,12 +74,26 @@ call toasciihex ph
 body=result
 call toasciihex want
 body=body||result||'0A'
-if have \= '' then do
- call toasciihex have
+if depth>0 & have\='' then do
+ deepen='deepen '||depth
+ plen=4+length(deepen)+1
+ ph=right(d2x(plen),4,'0')
+ call toasciihex ph
+ body=body||result
+ call toasciihex deepen
  body=body||result||'0A'
 end
 call toasciihex '0000'
 body=body||result
+if have\='' then do
+ haveline='have '||have
+ plen=4+length(haveline)+1
+ ph=right(d2x(plen),4,'0')
+ call toasciihex ph
+ body=body||result
+ call toasciihex haveline
+ body=body||result||'0A'
+end
 call toasciihex '0009done'
 body=body||result||'0A'
 clen=length(body)%2
@@ -157,6 +190,9 @@ pneed=0
 ppay=''
 pband=''
 nak=0
+shallows=0
+unshallows=0
+acks=0
 pktcount=0
 flushes=0
 packets=0
@@ -198,7 +234,7 @@ if pstate\='HDR' | phdr\='' | pneed\=0 then do
  fail='FINAL-PKT'
  call bad
 end
-if nak\=1 | packbytes<12 | length(packhead)\=24 then do
+if (nak=0 & acks=0) | packbytes<12 | length(packhead)\=24 then do
  fail='FINAL-UPLOAD-PACK'
  call bad
 end
@@ -208,7 +244,7 @@ if left(packhead,8)\='5041434B' then do
 end
 pver=x2d(substr(packhead,9,8))
 pobjects=x2d(substr(packhead,17,8))
-if (pver\=2 & pver\=3) | pobjects<1 then do
+if (pver\=2 & pver\=3) then do
  fail='PACK-HEADER'
  call bad
 end
@@ -223,6 +259,7 @@ r=Socket('Terminate')
 say 'FETCH POST WANT' oid
 say 'FETCH POST PACK VERSION' pver 'OBJECTS' pobjects
 say 'FETCH POST PACK BYTES' packbytes
+say 'FETCH POST SHALLOW LINES' shallows 'UNSHALLOW' unshallows 'ACK' acks
 say 'FETCH POST PROGRESS BYTES' progress
 say 'FETCH POST HTTP BYTES' total
 if storemode then do
@@ -414,8 +451,12 @@ pktfeed:
    pneed=pn-4
    if pneed<1 | pneed>65516 then return 'ERROR'
    pktcount=pktcount+1
-   if nak=0 then do
-    if pneed>16 then return 'ERROR'
+   /* The pre-pack phase holds NAK/ACK/shallow lines and is over as soon as
+      either one has been seen; everything after that is side-band data.
+      Keying only on NAK breaks a HAVE request, where the server replies
+      "ACK <oid>" and then goes straight to side-band progress packets. */
+   if nak=0 & acks=0 then do
+    if pneed>200 then return 'ERROR'
     ppay=''
     pstate='PRE'
    end
@@ -433,9 +474,14 @@ pktfeed:
    pwork=substr(pwork,ptake*2+1)
    pneed=pneed-ptake
    if pneed=0 then do
-    if ppay\='4E414B0A' then return 'ERROR'
-    nak=nak+1
-    if nak\=1 then return 'ERROR'
+    if ppay='4E414B0A' then do
+     nak=nak+1
+     if nak\=1 then return 'ERROR'
+    end
+    else if left(ppay,14)='7368616C6C6F77' then shallows=shallows+1
+    else if left(ppay,18)='756E7368616C6C6F77' then unshallows=unshallows+1
+    else if left(ppay,6)='41434B' then acks=acks+1
+    else return 'ERROR'
     ppay=''
     pstate='HDR'
    end

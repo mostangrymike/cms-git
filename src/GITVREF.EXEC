@@ -109,13 +109,15 @@ if command='IS-ANCESTOR' then do
    parentpos=pos('706172656E7420',commitheader,parentpos)
    if parentpos=0 then leave
    if parentpos>1 & substr(commitheader,parentpos-2,2)\='0A' then do
-    parentpos=parentpos+12
+    parentpos=parentpos+2
     iterate
    end
-   parentoid=substr(commitheader,parentpos+12,40)
+   parenth=substr(commitheader,parentpos+14,80)
+   call asciitocms parenth
+   parentoid=translate(result)
    if length(parentoid)\=40 |,
       verify(parentoid,'0123456789ABCDEF')\=0 |,
-      substr(commitheader,parentpos+52,2)\='0A' then do
+      substr(commitheader,parentpos+94,2)\='0A' then do
     say 'GITVREF: invalid parent in ancestry commit' current
     exit 8
    end
@@ -138,7 +140,7 @@ if command='IS-ANCESTOR' then do
     queue.0=nextqueue
     seen.parentoid=1
    end
-   parentpos=parentpos+54
+   parentpos=parentpos+96
   end
   if found=1 then leave
  end
@@ -2558,56 +2560,58 @@ resolve:
  return 'ERROR'
 
 validref:
+ /* Private variables only: this routine is not a PROCEDURE, so writing NAME
+    here would clobber the full ref name that readrefs is about to store. */
  parse arg vr
  if length(vr)>35 then return 'ERROR'
  if left(vr,11)='refs/heads/' then do
-  name=substr(vr,12)
+  vrname=substr(vr,12)
   refchars='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
   refchars=refchars||'0123456789._/-'
-  if name='' | verify(name,refchars)\=0 |,
-     pos('//',name)>0 | pos('..',name)>0 |,
-     left(name,1)='/' | right(name,1)='/' then return 'ERROR'
-  do vi=1 to words(translate(name,' ','/'))
-   part=word(translate(name,' ','/'),vi)
-   if part='' | part='.' | part='..' | left(part,1)='.' |,
-      right(part,1)='.' | right(part,5)='.lock' then return 'ERROR'
+  if vrname='' | verify(vrname,refchars)\=0 |,
+     pos('//',vrname)>0 | pos('..',vrname)>0 |,
+     left(vrname,1)='/' | right(vrname,1)='/' then return 'ERROR'
+  do vrvi=1 to words(translate(vrname,' ','/'))
+   vrpart=word(translate(vrname,' ','/'),vrvi)
+   if vrpart='' | vrpart='.' | vrpart='..' | left(vrpart,1)='.' |,
+      right(vrpart,1)='.' | right(vrpart,5)='.lock' then return 'ERROR'
   end
   return 'OK'
  end
  else if left(vr,13)='refs/remotes/' then do
-  name=substr(vr,14)
-  slash=pos('/',name)
-  if slash<2 then return 'ERROR'
-  remotename=left(name,slash-1)
-  branchname=substr(name,slash+1)
+  vrname=substr(vr,14)
+  vrslash=pos('/',vrname)
+  if vrslash<2 then return 'ERROR'
+  vrremote=left(vrname,vrslash-1)
+  vrbranch=substr(vrname,vrslash+1)
   remotechars='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
   remotechars=remotechars||'0123456789._-'
-  if length(remotename)>16 | verify(remotename,remotechars)\=0 |,
-     remotename='.' | remotename='..' | pos('..',remotename)>0 |,
-     left(remotename,1)='.' | right(remotename,1)='.' then return 'ERROR'
+  if length(vrremote)>16 | verify(vrremote,remotechars)\=0 |,
+     vrremote='.' | vrremote='..' | pos('..',vrremote)>0 |,
+     left(vrremote,1)='.' | right(vrremote,1)='.' then return 'ERROR'
   refchars='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
   refchars=refchars||'0123456789._/-'
-  if branchname='' | verify(branchname,refchars)\=0 |,
-     pos('//',branchname)>0 | pos('..',branchname)>0 |,
-     left(branchname,1)='/' | right(branchname,1)='/' then return 'ERROR'
-  do vi=1 to words(translate(branchname,' ','/'))
-   part=word(translate(branchname,' ','/'),vi)
-   if part='' | part='.' | part='..' | left(part,1)='.' |,
-      right(part,1)='.' | right(part,5)='.lock' then return 'ERROR'
+  if vrbranch='' | verify(vrbranch,refchars)\=0 |,
+     pos('//',vrbranch)>0 | pos('..',vrbranch)>0 |,
+     left(vrbranch,1)='/' | right(vrbranch,1)='/' then return 'ERROR'
+  do vrvi=1 to words(translate(vrbranch,' ','/'))
+   vrpart=word(translate(vrbranch,' ','/'),vrvi)
+   if vrpart='' | vrpart='.' | vrpart='..' | left(vrpart,1)='.' |,
+      right(vrpart,1)='.' | right(vrpart,5)='.lock' then return 'ERROR'
   end
   return 'OK'
  end
- else if left(vr,10)='refs/tags/' then name=substr(vr,11)
+ else if left(vr,10)='refs/tags/' then vrname=substr(vr,11)
  else return 'ERROR'
  refchars='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
  refchars=refchars||'0123456789._/-'
- if name='' | verify(name,refchars)\=0 | pos('//',name)>0 |,
-    pos('..',name)>0 | left(name,1)='/' | right(name,1)='/' |,
-    right(name,1)='.' | right(name,5)='.lock' then return 'ERROR'
- do vi=1 to words(translate(name,' ','/'))
-  part=word(translate(name,' ','/'),vi)
-  if left(part,1)='.' | right(part,1)='.' |,
-     right(part,5)='.lock' then return 'ERROR'
+ if vrname='' | verify(vrname,refchars)\=0 | pos('//',vrname)>0 |,
+    pos('..',vrname)>0 | left(vrname,1)='/' | right(vrname,1)='/' |,
+    right(vrname,1)='.' | right(vrname,5)='.lock' then return 'ERROR'
+ do vrvi=1 to words(translate(vrname,' ','/'))
+  vrpart=word(translate(vrname,' ','/'),vrvi)
+  if left(vrpart,1)='.' | right(vrpart,1)='.' |,
+     right(vrpart,5)='.lock' then return 'ERROR'
  end
  return 'OK'
 
@@ -5372,3 +5376,35 @@ bindnative:
   if rc\=0 then return 'ERROR'
  end
  return 'OK'
+
+asciitocms: procedure
+ /* Convert an even-length ASCII hex string to CMS characters.  X2C alone
+    yields EBCDIC code points, so translate through the ASCII table. */
+ parse arg ah
+ if ah='' then return ''
+ if length(ah)//2\=0 then return 'ERROR'
+ ah=translate(ah)
+ do ai=1 to length(ah)
+  if pos(substr(ah,ai,1),'0123456789ABCDEF')=0 then return 'ERROR'
+ end
+ ascii=x2c(ah)
+ e2a='000102031A091A7F1A1A1A0B0C0D0E0F'
+ e2a=e2a||'101112131A1A081A18191A1A1C1D1E1F'
+ e2a=e2a||'1A1A1C1A1A0A171B1A1A1A1A1A050607'
+ e2a=e2a||'1A1A161A1A1E1A041A1A1A1A14151A1A'
+ e2a=e2a||'20A6E180EB909FE2AB8B9B2E3C282B7C'
+ e2a=e2a||'26A9AA9CDBA599E3A89E21242A293B5E'
+ e2a=e2a||'2D2FDFDC9ADDDE989DACBA2C255F3E3F'
+ e2a=e2a||'D78894B0B1B2FCD6FB603A2340273D22'
+ e2a=e2a||'F861626364656667686996A4F3AFAEC5'
+ e2a=e2a||'8C6A6B6C6D6E6F7071729787CE93F1FE'
+ e2a=e2a||'C87E737475767778797AEFC0DA5BF2F9'
+ e2a=e2a||'B5B6FDB7B8B9E6BBBCBD8DD9BF5DD8C4'
+ e2a=e2a||'7B414243444546474849CBCABEE8ECED'
+ e2a=e2a||'7D4A4B4C4D4E4F505152A1ADF5F4A38F'
+ e2a=e2a||'5CE7535455565758595AA0858EE9E4D1'
+ e2a=e2a||'30313233343536373839B3F7F0FAA7FF'
+ if length(e2a)\=512 then return 'ERROR'
+ tab=x2c(e2a)
+ bytes=xrange('00'x,'FF'x)
+ return translate(ascii,bytes,tab)

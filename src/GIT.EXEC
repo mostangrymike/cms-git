@@ -942,6 +942,29 @@ if command='PULL' then do
       say 'GIT PULL: repository must use its dedicated non-A object disk'
       exit 8
    end
+   /* A failed pull deliberately retains its pack, stage and index for
+      recovery.  A retry with the same fixed names would otherwise stop at
+      "already exists", so clear stale pull artifacts up front and say so. */
+   stale.1=pullpack 'PACK A'
+   stale.2=pullpack 'META A'
+   stale.3=pullpack 'STAGE' objectfm
+   stale.4=pullindex 'INDEX' objectfm
+   do sci=1 to 4
+      parse var stale.sci sfn sft sfm
+      'STATE' sfn sft sfm
+      if rc=0 then do
+         'ERASE' sfn sft sfm
+         if rc\=0 then do
+            say 'GIT PULL: cannot erase stale' sfn sft sfm
+            exit 8
+         end
+         say 'GIT PULL: erased stale' sfn sft sfm
+      end
+      else if rc\=28 then do
+         say 'GIT PULL: cannot inspect' sfn sft sfm
+         exit 8
+      end
+   end
    drop headout.
    headout.0=0
    'PIPE CMS EXEC GITVREF HEAD | STEM HEADOUT.'
@@ -951,7 +974,9 @@ if command='PULL' then do
    currentbranch=substr(pullhead,12)
    call validbranch currentbranch
    if result\='OK' then exit 8
-   if translate(pullbranch)='HEAD' then pullrequest='HEAD'
+   /* HEAD means "the current branch"; the fetch must name it explicitly so
+      the later remote-branch match check can compare like with like. */
+   if translate(pullbranch)='HEAD' then pullrequest=currentbranch
    else do
       if left(pullbranch,11)='refs/heads/' then,
          pullrequested=substr(pullbranch,12)
@@ -976,19 +1001,32 @@ if command='PULL' then do
          exit 8
       end
    end
+   /* Tell the server which commit we already have so it can include the
+      connecting commit chain.  A depth-1 pack omits parent commits, which
+      makes the later ancestry check impossible.  Read the tip straight from
+      REF2: GITVREF RESOLVE also loads the native object store, which a
+      shallow loose-object repository does not populate. */
+   call localbranchtip currentbranch
+   pullhave=result
+   if pullhave='' then,
+      say 'GIT PULL: no local tip; requesting a shallow depth-1 pack'
    drop fetchout.
    fetchout.0=0
    fetchcmd='EXEC GITFPACK'||' '||pullremote||' '||pullbridge||' '||,
        pullport||' '||pullpack||' '||pullrequest
+   if pullhave\='' then fetchcmd=fetchcmd||' HAVE '||pullhave
    'PIPE CMS' fetchcmd '| STEM FETCHOUT.'
    if rc\=0 then do
       say 'GIT PULL: fetch failed; local refs and workfiles unchanged'
       exit rc
    end
-   /* CMS PIPE STEM wraps long output at column 80, even inside an OID. */
+   /* CMS PIPE STEM wraps long output at column 80, even inside an OID.
+      Progress lines are not part of the verified-result record. */
    fetchline=''
    do fi=1 to fetchout.0
-      fetchline=fetchline||strip(fetchout.fi)
+      fline=strip(fetchout.fi)
+      if left(fline,9)='GITFPACK:' then iterate
+      fetchline=fetchline||fline
    end
    if words(fetchline)\=11 |,
       word(fetchline,1)\='FETCH' | word(fetchline,2)\='PACK' |,
@@ -1014,23 +1052,39 @@ if command='PULL' then do
       say 'GIT PULL: remote branch does not match current branch'
       exit 8
    end
+   /* The server returns a valid empty pack when the local tip already
+      contains everything it asked for.  Nothing to import or activate. */
+   if word(fetchline,11)=0 then do
+      if pullhave=pullnew then do
+         say 'Already up to date' pullnew
+         exit 0
+      end
+      say 'GIT PULL: server returned an empty pack for a new tip'
+      exit 8
+   end
    'EXEC GIT FETCH-IMPORT' pullpack objectfm
    if rc\=0 then do
       say 'GIT PULL: import failed; pack retained for recovery'
       exit rc
    end
-   'EXEC GIT FETCH-ACTIVATE' pullpack pullindex objectfm
+   incopt=''
+   if pullhave\='' then incopt=' INCREMENTAL'
+   'EXEC GIT FETCH-ACTIVATE' pullpack pullindex objectfm||incopt
    if rc\=0 then do
       say 'GIT PULL: activation failed; stage and index retained'
       exit rc
    end
-   drop headcheck.
-   headcheck.0=0
-   'PIPE CMS EXEC GITVREF RESOLVE HEAD | STEM HEADCHECK.'
-   if rc\=0 | headcheck.0\=1 | words(headcheck.1)\=4 |,
-      word(headcheck.1,1)\='VERIFIED' |,
-      word(headcheck.1,2)\='REF' | word(headcheck.1,3)\='HEAD' then exit 8
-   pullold=translate(word(headcheck.1,4))
+   call localbranchtip currentbranch
+   pullold=result
+   if pullold='' then do
+      drop headcheck.
+      headcheck.0=0
+      'PIPE CMS EXEC GITVREF RESOLVE HEAD | STEM HEADCHECK.'
+      if rc\=0 | headcheck.0\=1 | words(headcheck.1)\=4 |,
+         word(headcheck.1,1)\='VERIFIED' |,
+         word(headcheck.1,2)\='REF' | word(headcheck.1,3)\='HEAD' then exit 8
+      pullold=translate(word(headcheck.1,4))
+   end
    if length(pullold)\=40 | verify(pullold,'0123456789ABCDEF')\=0 then exit 8
    if pullnew=pullold then do
       say 'Already up to date' pullold
@@ -1040,8 +1094,13 @@ if command='PULL' then do
    ancestorout.0=0
    ancestorcmd='EXEC GITVREF IS-ANCESTOR'||' '||pullold||' '||pullnew
    'PIPE CMS' ancestorcmd '| STEM ANCESTOROUT.'
-   if rc\=0 | ancestorout.0\=1 |,
-      strip(ancestorout.1)\='ANCESTOR YES' pullold pullnew then do
+   /* CMS PIPE STEM wraps at column 80, including inside an OID. */
+   ancestorline=''
+   do ai=1 to ancestorout.0
+      ancestorline=ancestorline||strip(ancestorout.ai)
+   end
+   if rc\=0 |,
+      ancestorline\='ANCESTOR YES' pullold pullnew then do
       say 'GIT PULL: remote tip is not a fast-forward; local refs unchanged'
       exit 8
    end
@@ -2059,3 +2118,23 @@ queryref: procedure expose rs.
    'PIPE CMS' cmd '| STEM RS.'
    if rc\=0 then return 'ERROR'
    return 'OK'
+
+localbranchtip:
+   /* Cheap REF2-only lookup of one local branch tip.  Unlike GITVREF RESOLVE
+      this does not touch the native object store, so it works in a shallow
+      loose-object repository. */
+   parse arg lbtbranch
+   lbtref='refs/heads/'||lbtbranch
+   lbtip=''
+   drop lbt.
+   lbt.0=0
+   'EXECIO * DISKR GITREF2 REPO A 1 (STEM LBT. FINIS'
+   if rc\=0 | lbt.0<2 | lbt.1\='REF2 1' then return ''
+   do lbti=2 to lbt.0
+      if words(lbt.lbti)=3 & word(lbt.lbti,1)='REF' &,
+         word(lbt.lbti,2)=lbtref then,
+         lbtip=translate(word(lbt.lbti,3))
+   end
+   if length(lbtip)\=40 |,
+      verify(lbtip,'0123456789ABCDEF')\=0 then lbtip=''
+   return lbtip

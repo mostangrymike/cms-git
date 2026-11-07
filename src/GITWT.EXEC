@@ -2117,24 +2117,9 @@ preflightpull:
  end
  zeros='0000000000000000000000000000000000000000'
  if mapcount=0 then do
-  call rootfor pullold
-  pullroot=result
-  if pullroot='ERROR' then return 'ERROR'
-  call readtree pullroot,''
-  if result\='OK' & result\='MISSING' then return 'ERROR'
-  if ecount\=0 then do
-   say 'GITWT: pull needs a complete worktree map for the old commit'
-   return 'ERROR'
-  end
-  call rootfor pullnew
-  pullroot=result
-  if pullroot='ERROR' then return 'ERROR'
-  call readtree pullroot,''
-  if result\='OK' & result\='MISSING' then return 'ERROR'
-  if ecount\=0 then do
-   say 'GITWT: pull needs an initial checkout for a nonempty tree'
-   return 'ERROR'
-  end
+  /* Nothing is checked out, so a pull cannot overwrite or lose a workfile.
+     The refs-only pull is safe even when the commit tree is large. */
+  say 'GITWT: no mapped workfiles; pull will update refs only'
   return 'OK'
  end
  call rootfor pullold
@@ -2950,33 +2935,58 @@ readrefs:
  return 'OK'
 
 validref:
+ /* Private variables only: this routine is not a PROCEDURE, so writing NAME
+    here would clobber the full ref name that readrefs is about to store. */
  parse arg vr
  if length(vr)>35 then return 'ERROR'
  if left(vr,11)='refs/heads/' then do
-  name=substr(vr,12)
+  vrname=substr(vr,12)
   refchars='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
   refchars=refchars||'0123456789._/-'
-  if name='' | verify(name,refchars)\=0 |,
-     pos('//',name)>0 | pos('..',name)>0 |,
-     left(name,1)='/' | right(name,1)='/' then return 'ERROR'
-  do vi=1 to words(translate(name,' ','/'))
-   part=word(translate(name,' ','/'),vi)
-   if part='' | part='.' | part='..' | left(part,1)='.' |,
-      right(part,1)='.' | right(part,5)='.lock' then return 'ERROR'
+  if vrname='' | verify(vrname,refchars)\=0 |,
+     pos('//',vrname)>0 | pos('..',vrname)>0 |,
+     left(vrname,1)='/' | right(vrname,1)='/' then return 'ERROR'
+  do vrvi=1 to words(translate(vrname,' ','/'))
+   vrpart=word(translate(vrname,' ','/'),vrvi)
+   if vrpart='' | vrpart='.' | vrpart='..' | left(vrpart,1)='.' |,
+      right(vrpart,1)='.' | right(vrpart,5)='.lock' then return 'ERROR'
   end
   return 'OK'
  end
- else if left(vr,10)='refs/tags/' then name=substr(vr,11)
+ else if left(vr,13)='refs/remotes/' then do
+  vrname=substr(vr,14)
+  vrslash=pos('/',vrname)
+  if vrslash<2 then return 'ERROR'
+  vrremote=left(vrname,vrslash-1)
+  vrbranch=substr(vrname,vrslash+1)
+  remotechars='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+  remotechars=remotechars||'0123456789._-'
+  if length(vrremote)>16 | verify(vrremote,remotechars)\=0 |,
+     vrremote='.' | vrremote='..' | pos('..',vrremote)>0 |,
+     left(vrremote,1)='.' | right(vrremote,1)='.' then return 'ERROR'
+  refchars='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+  refchars=refchars||'0123456789._/-'
+  if vrbranch='' | verify(vrbranch,refchars)\=0 |,
+     pos('//',vrbranch)>0 | pos('..',vrbranch)>0 |,
+     left(vrbranch,1)='/' | right(vrbranch,1)='/' then return 'ERROR'
+  do vrvi=1 to words(translate(vrbranch,' ','/'))
+   vrpart=word(translate(vrbranch,' ','/'),vrvi)
+   if vrpart='' | vrpart='.' | vrpart='..' | left(vrpart,1)='.' |,
+      right(vrpart,1)='.' | right(vrpart,5)='.lock' then return 'ERROR'
+  end
+  return 'OK'
+ end
+ else if left(vr,10)='refs/tags/' then vrname=substr(vr,11)
  else return 'ERROR'
  refchars='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
  refchars=refchars||'0123456789._/-'
- if name='' | verify(name,refchars)\=0 | pos('//',name)>0 |,
-    pos('..',name)>0 | left(name,1)='/' | right(name,1)='/' |,
-    right(name,1)='.' | right(name,5)='.lock' then return 'ERROR'
- do vi=1 to words(translate(name,' ','/'))
-  part=word(translate(name,' ','/'),vi)
-  if left(part,1)='.' | right(part,1)='.' |,
-     right(part,5)='.lock' then return 'ERROR'
+ if vrname='' | verify(vrname,refchars)\=0 | pos('//',vrname)>0 |,
+    pos('..',vrname)>0 | left(vrname,1)='/' | right(vrname,1)='/' |,
+    right(vrname,1)='.' | right(vrname,5)='.lock' then return 'ERROR'
+ do vrvi=1 to words(translate(vrname,' ','/'))
+  vrpart=word(translate(vrname,' ','/'),vrvi)
+  if left(vrpart,1)='.' | right(vrpart,1)='.' |,
+     right(vrpart,5)='.lock' then return 'ERROR'
  end
  return 'OK'
 
@@ -2986,8 +2996,10 @@ resolve:
  if length(direct)=40 &,
     verify(direct,'0123456789ABCDEF')=0 then return direct
  if translate(wanted)='HEAD' then wanted=headref
- else if left(wanted,11)\='refs/heads/' then,
-  wanted='refs/heads/'||wanted
+ else if left(wanted,11)\='refs/heads/' then do
+  /* Accept an explicit refs/remotes/... name unchanged. */
+  if left(wanted,5)\='refs/' then wanted='refs/heads/'||wanted
+ end
  do ri=1 to refcount
   if refname.ri=wanted then return refoid.ri
  end

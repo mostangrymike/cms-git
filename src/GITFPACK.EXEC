@@ -1,9 +1,36 @@
 /* M266: discover, download and verify one GitHub branch pack. */
 address cms
 parse arg remote bridge port storefn branch extra
-if remote='' | bridge='' | port='' | storefn='' | extra\='' then do
- say 'Usage: GIT FETCH-PACK remote bridge port new-file [branch|HEAD]'
+if remote='' | bridge='' | port='' | storefn='' then do
+ say 'Usage: GIT FETCH-PACK remote bridge port new-file [branch|HEAD] [DEPTH 1|HAVE oid]'
  exit 4
+end
+/* Shallow by default: a full-history pack is too large for a CMS minidisk
+   and too slow to import.  DEPTH 1 fetches only the requested tip closure. */
+depth=1
+have=''
+rest=extra
+do while strip(rest)\=''
+ parse var rest kw val rest
+ kw=translate(kw)
+ if kw='DEPTH' then do
+  if datatype(val,'W')\=1 | val\=1 then do
+   say 'GITFPACK: depth must be 1'
+   exit 4
+  end
+  depth=val
+ end
+ else if kw='HAVE' then do
+  have=translate(val)
+  if length(have)\=40 | verify(have,'0123456789ABCDEF')\=0 then do
+   say 'GITFPACK: invalid have OID'
+   exit 4
+  end
+ end
+ else do
+  say 'GITFPACK: unknown option' kw
+  exit 4
+ end
 end
 call validname remote
 if result\='OK' then exit 4
@@ -88,7 +115,10 @@ end
 drop posted.
 posted.0=0
 say 'GITFPACK: downloading pack from' authority '...'
-cmd='EXEC GITPOST STORE' bridge port authority repo oid storefn
+postopt=''
+if have\='' then postopt=' HAVE '||have
+else if depth>0 then postopt=' DEPTH '||depth
+cmd='EXEC GITPOST STORE' bridge port authority repo oid storefn||postopt
 'PIPE CMS' cmd '| STEM POSTED.'
 prc=rc
 if prc\=0 then do
