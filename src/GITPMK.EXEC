@@ -71,7 +71,7 @@ pack = pack || x2c(right(num2hex(objs.0),8,'0')) /* count */
 
 do i = 1 to objs.0
    deflated = deflate_stored(objs.i.data)
-   zlibbed = zlib_wrap(deflated)
+   zlibbed = zlib_wrap(deflated, objs.i.data)
    hdr = pack_header(objs.i.otype, objs.i.osize)
    pack = pack || hdr || zlibbed
 end
@@ -91,11 +91,7 @@ do while (length(tail) // 64) \= 56
    tail = tail || '00'x
 end
 bitlen = plen * 8
-do i = 7 to 0 by -1
-   byteval = bitlen // 256
-   bitlen = bitlen % 256
-   tail = tail || x2c(right(num2hex(byteval),2,'0'))
-end
+tail = tail || '00000000'x||x2c(num2hex(bitlen))
 do pos = 1 to length(tail) by 64
    call sha_block(substr(tail,pos,64))
 end
@@ -128,8 +124,8 @@ num2hex: procedure
    n = n // 4294967296
    h = ''
    do i = 1 to 8
-      h = substr('0123456789ABCDEF', n % 16 + 1, 1) || h
-      n = n // 16
+      h = substr('0123456789ABCDEF', n // 16 + 1, 1) || h
+      n = n % 16
    end
    return h
 
@@ -160,44 +156,67 @@ hex2num: procedure
    end
    return n
 
+/* 32-bit operations are arithmetic so they work in any REXX. */
 and32: procedure
    parse arg a,b
-   a = right(num2hex(a),8,'0')
-   b = right(num2hex(b),8,'0')
-   r = ''
-   do i = 1 to 8
-      r = r || c2x(x2c(substr(a,i,1)) & x2c(substr(b,i,1)))
+   a = a // 4294967296
+   b = b // 4294967296
+   r = 0
+   p = 1
+   do i = 1 to 32
+      ab = a // 2
+      bb = b // 2
+      if ab = 1 & bb = 1 then r = r + p
+      a = a % 2
+      b = b % 2
+      p = p * 2
    end
-   return hex2num(r)
+   return r
 
 or32: procedure
    parse arg a,b
-   a = right(num2hex(a),8,'0')
-   b = right(num2hex(b),8,'0')
-   r = ''
-   do i = 1 to 8
-      r = r || c2x(x2c(substr(a,i,1)) | x2c(substr(b,i,1)))
+   a = a // 4294967296
+   b = b // 4294967296
+   r = 0
+   p = 1
+   do i = 1 to 32
+      ab = a // 2
+      bb = b // 2
+      if ab = 1 | bb = 1 then r = r + p
+      a = a % 2
+      b = b % 2
+      p = p * 2
    end
-   return hex2num(r)
+   return r
 
 xor32: procedure
    parse arg a,b
-   a = right(num2hex(a),8,'0')
-   b = right(num2hex(b),8,'0')
-   r = ''
-   do i = 1 to 8
-      r = r || c2x(x2c(substr(a,i,1)) && x2c(substr(b,i,1)))
+   a = a // 4294967296
+   b = b // 4294967296
+   r = 0
+   p = 1
+   do i = 1 to 32
+      ab = a // 2
+      bb = b // 2
+      if ab \= bb then r = r + p
+      a = a % 2
+      b = b % 2
+      p = p * 2
    end
-   return hex2num(r)
+   return r
 
 not32: procedure
    parse arg a
-   a = right(num2hex(a),8,'0')
-   r = ''
-   do i = 1 to 8
-      r = r || c2x(\ x2c(substr(a,i,1)))
+   a = a // 4294967296
+   r = 0
+   p = 1
+   do i = 1 to 32
+      ab = a // 2
+      if ab = 0 then r = r + p
+      a = a % 2
+      p = p * 2
    end
-   return hex2num(r)
+   return r
 
 rol32: procedure
    parse arg val,n
@@ -223,7 +242,8 @@ sha_block: procedure expose h0 h1 h2 h3 h4
       end
    end
    do i = 16 to 79
-      w.i = rol32(xor32(xor32(w.(i-3), w.(i-8)), xor32(w.(i-14), w.(i-16))), 1)
+      i3 = i - 3; i8 = i - 8; i14 = i - 14; i16 = i - 16
+      w.i = rol32(xor32(xor32(w.i3, w.i8), xor32(w.i14, w.i16)), 1)
    end
    a = h0; b = h1; c = h2; d = h3; e = h4
    do i = 0 to 79
@@ -270,11 +290,7 @@ sha1_bin: procedure expose h0 h1 h2 h3 h4
       tail = tail || '00'x
    end
    bitlen = len * 8
-   do i = 7 to 0 by -1
-      byteval = bitlen // 256
-      bitlen = bitlen % 256
-      tail = tail || x2c(right(num2hex(byteval),2,'0'))
-   end
+   tail = tail || '00000000'x||x2c(num2hex(bitlen))
    do pos = 1 to length(tail) by 64
       call sha_block(substr(tail,pos,64))
    end
@@ -291,8 +307,8 @@ adler32_num: procedure
    parse arg data
    a = 1; b = 0
    do i = 1 to length(data)
-      a = (a + c2d(substr(data,i,1))) % 65521
-      b = (b + a) % 65521
+      a = (a + c2d(substr(data,i,1))) // 65521
+      b = (b + a) // 65521
    end
    return b * 65536 + a
 
@@ -306,7 +322,7 @@ deflate_stored: procedure
       blocklen = inlen - ip + 1
       if blocklen > 65535 then blocklen = 65535
       final = (ip + blocklen - 1 = inlen)
-      if final then out = out || '80'x
+      if final then out = out || '01'x
       else out = out || '00'x
       len_low = blocklen // 256
       len_high = blocklen % 256
@@ -323,9 +339,9 @@ deflate_stored: procedure
 
 /* ----- zlib wrapper ----- */
 zlib_wrap: procedure
-   parse arg deflate
+   parse arg deflate, plain
    dlen = length(deflate)
-   ad = adler32_num(deflate)
+   ad = adler32_num(plain)
    ad_hex = num2hex(ad)
    out = '7801'x || deflate
    do i = 1 to 4

@@ -4202,7 +4202,7 @@ cat "$tmp/index.log"
 echo 'HOST STAGING, INDEX AND GIT OID TEST PASSED'
 
 )
-exit 0
+exit $?
 fi
 # Fail closed on unknown selector names; never run an unrelated default gate.
 if [ "$#" -gt 1 ]; then
@@ -4266,7 +4266,8 @@ grep -q 'OFFLINE COPY AND BYTE COMPARISON PASSED' "$tmp/backup.log"
 echo "OFFLINE DASD BACKUP HELPER GUARDS PASSED"
 
 )
-exit 0
+gate_rc=$?
+if [ "$gate_rc" -ne 0 ]; then exit "$gate_rc"; fi
 fi
 if [ "${1:-}" = "CONFIG" ]; then
 (
@@ -4301,7 +4302,8 @@ fi
 echo 'HERCULES CONFIG READ-ONLY INVENTORY GUARDS PASSED'
 
 )
-exit 0
+gate_rc=$?
+if [ "$gate_rc" -ne 0 ]; then exit "$gate_rc"; fi
 fi
 set -euo pipefail
 repo=$(cd "$(dirname "$0")/.." && pwd -P)
@@ -4336,7 +4338,7 @@ fi
 echo 'CP/HERCULES REAL DEVICE READ-ONLY MAPPING GUARDS PASSED'
 
 )
-exit 0
+exit $?
 fi
 # Preserved complete verified-REF host guard as independent CI mode.
 if [ "${1:-}" = "VREF" ]; then
@@ -5076,11 +5078,10 @@ grep -Fq "if final = '1' then hex = hex || '0A'" "$g"
 echo "M164 PRACTICAL WORKTREE ROUTE GUARDS PASSED"
 
 )
-exit 0
+exit $?
 fi
 # Independent M155 and M157 source guards retained verbatim.
 if [ "${1:-}" = "M155" ] || [ "${1:-}" = "M157" ]; then
-  shift
   (
 # Preserved standalone M157 assertions, selected independently in CI.
 if [ "${1:-}" = "M157" ]; then
@@ -5109,7 +5110,8 @@ awk 'length($0)>80 {print "FAIL: M157GATE record >80:",NR; bad=1}
 echo "M157 DIRECT TARGET GATE SOURCE CHECK PASSED"
 
 )
-exit 0
+gate_rc=$?
+if [ "$gate_rc" -ne 0 ]; then exit "$gate_rc"; fi
 fi
 set -eu
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
@@ -5146,7 +5148,7 @@ awk 'length($0)>80 {print "FAIL: M155CHK record >80:",NR; bad=1}
 echo "M155 DIRECT CMS TARGET GATE SOURCE CHECK PASSED"
 
   )
-  exit 0
+  exit $?
 fi
 # Preserved read-only GITRCHK guard in independent mode.
 if [ "${1:-}" = "READONLY" ]; then
@@ -5213,7 +5215,7 @@ done
 echo "READ-ONLY GITRCHK AND COMPACT GITRUN M62 GUARDS PASSED"
 
 )
-exit 0
+exit $?
 fi
 # Independent CMSCLNK guard retained as a selectable host-only mode.
 if [ "${1:-}" = "CMSCLNK" ]; then
@@ -5242,12 +5244,12 @@ grep -Fq "'LOAD' name 'GITCAPI GITINFA (NOAUTO NOMAP'" "$file"
 grep -Fq "'LOAD' name '(NOAUTO NOMAP'" "$file"
 grep -Fq "'GENMOD' name" "$file"
 grep -Fq 'COPYFILE CMSCLNK EXEC A CMSCLNK EXEC F' \
- "$root/docs/BUILD.md"
-grep -Fq 'QUERY DISK F' "$root/docs/BUILD.md"
+ "$root/docs/NATIVE_REF.md"
+grep -Fq 'QUERY DISK F' "$root/docs/NATIVE_REF.md"
 echo 'CMSCLNK source and F-disk installation checks passed'
 
 )
-exit 0
+exit $?
 fi
 # Guard against host-only tests missing the CMS EBCDIC hash bug.
 set -eu

@@ -156,6 +156,12 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --yes regina-rexx
+      - name: Test M280 host Git pack builder
+        run: python3 tests/test-m280-pack.py
+      - name: Test M274 host loose-object installer
+        run: python3 tests/test-m274-install.py
+      - name: Test M281 and M282 push/GC source guards
+        run: python3 tests/test-m281-m282-push-gc.py
       - name: Check M210 REF2 tag listing and wildcard fixtures
         run: sh tests/check-canonical-source.sh M210
       - name: Check M213 REF2 ref-name validator parity

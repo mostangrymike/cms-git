@@ -9,7 +9,7 @@ if [[ $# != 3 ]]; then
   echo "  bash scripts/map-cms-minidisk.sh 0125 /path/hercules.cnf /path/hercules-working-dir" >&2
   exit 2
 fi
-rdev=${1^^}
+rdev=$(printf '%s' "$1" | tr '[:lower:]' '[:upper:]')
 cfg=$2
 cwd=$3
 if [[ ! $rdev =~ ^[0-9A-F]{1,4}$ ]]; then
@@ -29,7 +29,10 @@ echo "VERIFIED HERCULES CWD: $cwd"
 # Match only straightforward, uncommented CKD config statements.
 # This helper intentionally refuses ambiguity and INCLUDE, aliases,
 # dynamically attached devices and unexpanded environment variables.
-mapfile -t candidates < <(awk -v needle="$rdev" '
+candidates=()
+while IFS= read -r line; do
+  candidates+=("$line")
+done < <(awk -v needle="$rdev" '
   /^[[:space:]]*([*#]|$)/ {next}
   {
     addr=toupper($1)

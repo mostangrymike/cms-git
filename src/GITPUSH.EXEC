@@ -8,7 +8,8 @@
  *  2. Get local branch tip from REF2
  *  3. Discover remote refs (GET info/refs?service=git-receive-pack)
  *  4. If remote already has local tip: Already up to date
- *  5. Walk local tree to enumerate all reachable objects (iterative, depth-capped)
+ *  5. Walk local tree to enumerate reachable objects (iterative,
+ *     depth-capped)
  *  6. Write staging file, call GITPMK BUILD to create packfile
  *  7. POST ref updates + packfile to git-receive-pack
  *  8. Parse response, update remote-tracking ref
@@ -345,7 +346,8 @@ if remotehas=1 then do
    /* Remote has a different tip - check fast-forward via GITVREF. */
    drop ancout.
    ancout.0=0
-   'PIPE CMS EXEC GITVREF IS-ANCESTOR'||' '||remoteadoid||' '||localtip||' | STEM ANCOUT.'
+   'PIPE CMS EXEC GITVREF IS-ANCESTOR'||' '||remoteadoid||' '||,
+      localtip||' | STEM ANCOUT.'
    if rc\=0 then do
       say 'GIT PUSH: ancestry check failed'
       exit 8
@@ -407,7 +409,8 @@ do oi=1 to objlist.0
    do bi=1 to OBJCUR.0
       if word(OBJCUR.bi,1)='TYPE' then objtype=translate(word(OBJCUR.bi,2))
       else if word(OBJCUR.bi,1)='SIZE' then objsize=word(OBJCUR.bi,2)
-      else if word(OBJCUR.bi,1)='DATA' then objhex=objhex||translate(word(OBJCUR.bi,2))
+      else if word(OBJCUR.bi,1)='DATA' then,
+         objhex=objhex||translate(word(OBJCUR.bi,2))
    end
    if objtype='' | objsize='' then do
       say 'GIT PUSH: corrupt object' oidcur
@@ -499,7 +502,8 @@ if remotehas=1 then do
    refupdate=localtip||' '||remoteadoid||' '||localbranch||'0A'
 end
 else do
-   refupdate=localtip||' 0000000000000000000000000000000000000000 '||localbranch||'0A'
+   zero='0000000000000000000000000000000000000000'
+   refupdate=localtip||' '||zero||' '||localbranch||'0A'
 end
 call toasciihex refupdate
 wire=wire||result||'0D0A'
@@ -697,22 +701,24 @@ exit 0
 /* ======================================================================== */
 
 /* Walk a commit and all reachable objects iteratively (no recursion). */
-walk_commit: procedure expose objlist. objsseen. objectfm MAXDEPTH
-   parse arg cmt,startdepth
-   /* Use a queue for iterative BFS. */
-   drop queue.
-   queue.0=1
-   queue.1=cmt
-   qnext=1
-   do while qnext<=queue.0
-      current=queue.qnext
-      qnext=qnext+1
-      /* Skip if already seen. */
+walk_commit: procedure expose objlist. objsseen. objectfm
+   parse arg cmt
+   /* Use a queue for iterative BFS over commits. */
+   drop cqueue.
+   cqueue.0=1
+   cqueue.1=cmt
+   cnext=1
+   do while cnext<=cqueue.0
+      current=cqueue.cnext
+      cnext=cnext+1
+      seen=0
       do si=1 to objsseen.0
          if objsseen.si=current then do
-            iterate
+            seen=1
+            leave
          end
       end
+      if seen then iterate
       objsseen.0=objsseen.0+1
       objsseen.objsseen.0=current
       objlist.0=objlist.0+1
@@ -730,8 +736,10 @@ walk_commit: procedure expose objlist. objsseen. objectfm MAXDEPTH
       ctype=''
       cdata=''
       do bi=1 to CMTOBJ.0
-         if word(CMTOBJ.bi,1)='TYPE' then ctype=translate(word(CMTOBJ.bi,2))
-         else if word(CMTOBJ.bi,1)='DATA' then cdata=cdata||translate(word(CMTOBJ.bi,2))
+         if word(CMTOBJ.bi,1)='TYPE' then,
+            ctype=translate(word(CMTOBJ.bi,2))
+         else if word(CMTOBJ.bi,1)='DATA' then,
+            cdata=cdata||translate(word(CMTOBJ.bi,2))
       end
       if ctype\='COMMIT' then do
          say 'GIT PUSH: object is not a commit' current
@@ -746,14 +754,14 @@ walk_commit: procedure expose objlist. objsseen. objectfm MAXDEPTH
          exit 8
       end
       treeoid=substr(cdata,treepos+10,40)
-      if length(treeoid)\=40 | verify(treeoid,'0123456789ABCDEF')\=0 then do
+      if length(treeoid)\=40 |,
+         verify(treeoid,'0123456789ABCDEF')\=0 then do
          say 'GIT PUSH: invalid tree OID in commit' current
          exit 8
       end
 
-      /* Enqueue tree for processing. */
-      queue.0=queue.0+1
-      queue.queue.0=treeoid
+      /* Walk the commit tree and all of its subtrees. */
+      call walk_tree treeoid
 
       /* Enqueue parents for processing. */
       ppos=1
@@ -761,9 +769,10 @@ walk_commit: procedure expose objlist. objsseen. objectfm MAXDEPTH
          ppos=pos('706172656e7420',cdata,ppos)
          if ppos=0 then leave
          poid=substr(cdata,ppos+14,40)
-         if length(poid)=40 & verify(poid,'0123456789ABCDEF')=0 then do
-            queue.0=queue.0+1
-            queue.queue.0=poid
+         if length(poid)=40 &,
+            verify(poid,'0123456789ABCDEF')=0 then do
+            cqueue.0=cqueue.0+1
+            cqueue.cqueue.0=poid
          end
          ppos=ppos+54
       end
@@ -773,19 +782,21 @@ walk_commit: procedure expose objlist. objsseen. objectfm MAXDEPTH
 /* Walk a tree object and enqueue all referenced objects iteratively. */
 walk_tree: procedure expose objlist. objsseen. objectfm
    parse arg treeoid
-   drop queue.
-   queue.0=1
-   queue.1=treeoid
-   qnext=1
-   do while qnext<=queue.0
-      current=queue.qnext
-      qnext=qnext+1
-      /* Skip if already seen. */
+   drop tqueue.
+   tqueue.0=1
+   tqueue.1=treeoid
+   tnext=1
+   do while tnext<=tqueue.0
+      current=tqueue.tnext
+      tnext=tnext+1
+      seen=0
       do si=1 to objsseen.0
          if objsseen.si=current then do
-            iterate
+            seen=1
+            leave
          end
       end
+      if seen then iterate
       objsseen.0=objsseen.0+1
       objsseen.objsseen.0=current
       objlist.0=objlist.0+1
@@ -802,7 +813,8 @@ walk_tree: procedure expose objlist. objsseen. objectfm
       end
       tdata=''
       do bi=1 to treeobj.0
-         if word(treeobj.bi,1)='DATA' then tdata=tdata||translate(word(treeobj.bi,2))
+         if word(treeobj.bi,1)='DATA' then,
+            tdata=tdata||translate(word(treeobj.bi,2))
       end
       tdata=translate(tdata)
 
@@ -810,27 +822,45 @@ walk_tree: procedure expose objlist. objsseen. objectfm
       tpos=1
       do while tpos<=length(tdata)-2
          mend=tpos
-         do while tpos<=length(tdata)-2 & substr(tdata,tpos,2)\='20'
+         do while tpos<=length(tdata)-2 &,
+            substr(tdata,tpos,2)\='20'
             tpos=tpos+2
          end
          if tpos>length(tdata)-2 then leave
          modehex=substr(tdata,mend,tpos-mend)
          tpos=tpos+2
-         do while tpos<=length(tdata)-2 & substr(tdata,tpos,2)\='00'
+         do while tpos<=length(tdata)-2 &,
+            substr(tdata,tpos,2)\='00'
             tpos=tpos+2
          end
          if tpos>length(tdata)-2 then leave
          tpos=tpos+2
          childoid=substr(tdata,tpos,40)
          tpos=tpos+40
-         if length(childoid)\=40 | verify(childoid,'0123456789ABCDEF')\=0 then do
+         if length(childoid)\=40 |,
+            verify(childoid,'0123456789ABCDEF')\=0 then do
             say 'GIT PUSH: invalid entry OID in tree' current
             exit 8
          end
-         /* If mode is "40000" (3430303030 hex), it's a subtree - enqueue. */
+         /* Mode 40000 (hex 3430303030) is a subtree. */
          if modehex='3430303030' then do
-            queue.0=queue.0+1
-            queue.queue.0=childoid
+            tqueue.0=tqueue.0+1
+            tqueue.tqueue.0=childoid
+         end
+         else do
+            isdup=0
+            do si=1 to objsseen.0
+               if objsseen.si=childoid then do
+                  isdup=1
+                  leave
+               end
+            end
+            if isdup\=1 then do
+               objsseen.0=objsseen.0+1
+               objsseen.objsseen.0=childoid
+               objlist.0=objlist.0+1
+               objlist.objlist.0=childoid
+            end
          end
       end
    end
@@ -846,10 +876,11 @@ httpfeed:
   hpart=left(header,hp+7)
   call checkhdr hpart
   if result\='OK' then return 'ERROR'
+  leftover=substr(header,hp+8)
   hstate='BODY'
   header=''
-  if substr(header,hp+8)\='' then do
-   call httpfeed_body substr(header,hp+8)
+  if leftover\='' then do
+   call httpfeed_body leftover
    if result\='OK' then return 'ERROR'
   end
   return 'OK'
@@ -912,10 +943,11 @@ httpfeed_push:
   hpart=left(header,hp+7)
   call checkhdr_push hpart
   if result\='OK' then return 'ERROR'
+  leftover=substr(header,hp+8)
   hstate='BODY'
   header=''
-  if substr(header,hp+8)\='' then do
-   call httpfeed_push_body substr(header,hp+8)
+  if leftover\='' then do
+   call httpfeed_push_body leftover
    if result\='OK' then return 'ERROR'
   end
   return 'OK'

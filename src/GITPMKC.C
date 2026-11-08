@@ -102,11 +102,14 @@ static void initsha(void) {
  sh[2]=0x98badcfeUL;sh[3]=0x10325476UL;sh[4]=0xc3d2e1f0UL;
 }
 
-static void sha_final(unsigned char digest[20],unsigned long totalbytes) {
+static void sha_final(unsigned char digest[20],
+                      const unsigned char *taildata,unsigned long taillen,
+                      unsigned long totalbytes) {
  unsigned char tail[128];
  unsigned long rem, i, j;
- rem=totalbytes%64;
+ rem=taillen;
  for(i=0;i<128;i++) tail[i]=0;
+ if(rem>0) memcpy(tail,taildata,(size_t)rem);
  tail[rem]=0x80;
  for(i=0;i<8;i++)
   tail[(rem<56?56:120)+i]=
@@ -131,14 +134,18 @@ static unsigned long adler32(const unsigned char *data,unsigned long len) {
 static unsigned long deflate_stored(const unsigned char *in,unsigned long inlen,
                                     unsigned char *out,unsigned long outcap) {
  unsigned long op=0,ip=0;
+ if(inlen==0) {
+  if(outcap<5) return 0;
+  out[0]=1; out[1]=0; out[2]=0; out[3]=0xff; out[4]=0xff;
+  return 5;
+ }
  while(ip<inlen) {
   unsigned long blocklen=inlen-ip;
   int final;
   if(blocklen>CHUNK) blocklen=CHUNK;
   final=(ip+blocklen>=inlen)?1:0;
   if(op>=outcap) return 0;
-  out[op++]=(unsigned char)((final<<1)|0x00);
-  out[op-1]=(unsigned char)(out[op-1]<<5);
+  out[op++]=(unsigned char)final;
   if(op+4>outcap) return 0;
   out[op++]=(unsigned char)(blocklen&0xFF);
   out[op++]=(unsigned char)((blocklen>>8)&0xFF);
@@ -153,13 +160,14 @@ static unsigned long deflate_stored(const unsigned char *in,unsigned long inlen,
 }
 
 static unsigned long zlib_wrap(const unsigned char *deflate,unsigned long dlen,
+                               const unsigned char *plain,unsigned long plen,
                                unsigned char *out,unsigned long outcap) {
  unsigned long adler;
  if(outcap<dlen+6) return 0;
  out[0]=0x78;
  out[1]=0x01;
  memcpy(out+2,deflate,dlen);
- adler=adler32(deflate,dlen);
+ adler=adler32(plain,plen);
  out[dlen+2]=(unsigned char)((adler>>24)&0xFF);
  out[dlen+3]=(unsigned char)((adler>>16)&0xFF);
  out[dlen+4]=(unsigned char)((adler>>8)&0xFF);
@@ -282,23 +290,27 @@ int main(int argc,char **argv) {
  head[11]=(unsigned char)(nobj&0xFF);
  if(!append_bytes(head,12)) { fprintf(stderr,"GITPMK: pack too large\n");return 8; }
 
- /* Compression buffers. */
- unsigned char *deflate=malloc(CHUNK+4096);
- unsigned char *zlib=malloc(CHUNK+4096+64);
+ /* Compression buffers sized for the largest object. */
+ unsigned long maxsize=0;
+ unsigned long i;
+ for(i=0;i<nobj;i++) if(objs[i].size>maxsize) maxsize=objs[i].size;
+ unsigned long deflatecap=maxsize+maxsize/CHUNK*5+64;
+ if(deflatecap<CHUNK+4096) deflatecap=CHUNK+4096;
+ unsigned char *deflate=malloc(deflatecap);
+ unsigned char *zlib=malloc(deflatecap+64);
  if(!deflate||!zlib) { fprintf(stderr,"GITPMK: out of memory\n");return 8; }
 
  initsha();
- unsigned long packtotalbytes=12;
 
- unsigned long i;
  for(i=0;i<nobj;i++) {
   unsigned long comp_len=deflate_stored(objs[i].data,objs[i].size,
-                                        deflate,CHUNK+4096);
+                                        deflate,deflatecap);
   if(comp_len==0) {
    fprintf(stderr,"GITPMK: deflate failed for object %lu\n",i+1);
    return 8;
   }
-  unsigned long zlen=zlib_wrap(deflate,comp_len,zlib,CHUNK+4096+64);
+  unsigned long zlen=zlib_wrap(deflate,comp_len,objs[i].data,objs[i].size,
+                               zlib,deflatecap+64);
   if(zlen==0) {
    fprintf(stderr,"GITPMK: zlib wrap failed for object %lu\n",i+1);
    return 8;
@@ -313,7 +325,6 @@ int main(int argc,char **argv) {
 
   if(!append_bytes(hdr,hlen)) { fprintf(stderr,"GITPMK: pack too large\n");return 8; }
   if(!append_bytes(zlib,zlen)) { fprintf(stderr,"GITPMK: pack too large\n");return 8; }
-  packtotalbytes+=hlen+zlen;
  }
 
  /* SHA1 trailer. */
@@ -321,13 +332,13 @@ int main(int argc,char **argv) {
  /* Process all full 64-byte blocks of packbuf through SHA1. */
  unsigned long shaoff=0;
  while(packlen-shaoff>=64) { block(packbuf+shaoff); shaoff+=64; }
- sha_final(digest,packtotalbytes);
+ sha_final(digest,packbuf+shaoff,packlen-shaoff,packlen);
  if(!append_bytes(digest,20)) { fprintf(stderr,"GITPMK: pack too large\n");return 8; }
 
  FILE *fout=fopen("dd:OBJOUT","w");
  if(!fout) { perror("OBJOUT"); return 8; }
  if(fwrite(packbuf,1,packlen,fout)!=packlen) {
-  perror(argv[3]);fclose(fout);return 8;
+  perror("OBJOUT");fclose(fout);return 8;
  }
  fclose(fout);
 

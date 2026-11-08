@@ -328,19 +328,21 @@ exit 0
 /* Walk a commit and all reachable objects iteratively (BFS). */
 walk_commit: procedure expose objlist. objsseen. objectfm
    parse arg cmt
-   drop queue.
-   queue.0=1
-   queue.1=cmt
-   qnext=1
-   do while qnext<=queue.0
-      current=queue.qnext
-      qnext=qnext+1
-      /* Skip if already seen. */
+   drop cqueue.
+   cqueue.0=1
+   cqueue.1=cmt
+   cnext=1
+   do while cnext<=cqueue.0
+      current=cqueue.cnext
+      cnext=cnext+1
+      seen=0
       do si=1 to objsseen.0
          if objsseen.si=current then do
-            iterate
+            seen=1
+            leave
          end
       end
+      if seen then iterate
       objsseen.0=objsseen.0+1
       objsseen.objsseen.0=current
       objlist.0=objlist.0+1
@@ -358,10 +360,10 @@ walk_commit: procedure expose objlist. objsseen. objectfm
       ctype=''
       cdata=''
       do bi=1 to CMTOBJ.0
-         if word(CMTOBJ.bi,1)='TYPE' then ctype=translate(word(CMTOBJ.bi,2))
-         else if word(CMTOBJ.bi,1)='DATA' then do
+         if word(CMTOBJ.bi,1)='TYPE' then,
+            ctype=translate(word(CMTOBJ.bi,2))
+         else if word(CMTOBJ.bi,1)='DATA' then,
             cdata=cdata||translate(word(CMTOBJ.bi,2))
-         end
       end
       if ctype\='COMMIT' then do
          say 'GIT GC: object is not a commit' current
@@ -376,14 +378,14 @@ walk_commit: procedure expose objlist. objsseen. objectfm
          exit 8
       end
       treeoid=substr(cdata,treepos+10,40)
-      if length(treeoid)\=40 | verify(treeoid,'0123456789ABCDEF')\=0 then do
+      if length(treeoid)\=40 |,
+         verify(treeoid,'0123456789ABCDEF')\=0 then do
          say 'GIT GC: invalid tree OID in commit' current
          exit 8
       end
 
-      /* Enqueue tree for processing. */
-      queue.0=queue.0+1
-      queue.queue.0=treeoid
+      /* Walk the commit tree and all of its subtrees. */
+      call walk_tree treeoid
 
       /* Enqueue parents for processing. */
       ppos=1
@@ -391,9 +393,10 @@ walk_commit: procedure expose objlist. objsseen. objectfm
          ppos=pos('706172656e7420',cdata,ppos)
          if ppos=0 then leave
          poid=substr(cdata,ppos+14,40)
-         if length(poid)=40 & verify(poid,'0123456789ABCDEF')=0 then do
-            queue.0=queue.0+1
-            queue.queue.0=poid
+         if length(poid)=40 &,
+            verify(poid,'0123456789ABCDEF')=0 then do
+            cqueue.0=cqueue.0+1
+            cqueue.cqueue.0=poid
          end
          ppos=ppos+54
       end
@@ -403,19 +406,21 @@ walk_commit: procedure expose objlist. objsseen. objectfm
 /* Walk a tree object and enqueue all referenced objects iteratively. */
 walk_tree: procedure expose objlist. objsseen. objectfm
    parse arg treeoid
-   drop queue.
-   queue.0=1
-   queue.1=treeoid
-   qnext=1
-   do while qnext<=queue.0
-      current=queue.qnext
-      qnext=qnext+1
-      /* Skip if already seen. */
+   drop tqueue.
+   tqueue.0=1
+   tqueue.1=treeoid
+   tnext=1
+   do while tnext<=tqueue.0
+      current=tqueue.tnext
+      tnext=tnext+1
+      seen=0
       do si=1 to objsseen.0
          if objsseen.si=current then do
-            iterate
+            seen=1
+            leave
          end
       end
+      if seen then iterate
       objsseen.0=objsseen.0+1
       objsseen.objsseen.0=current
       objlist.0=objlist.0+1
@@ -432,9 +437,8 @@ walk_tree: procedure expose objlist. objsseen. objectfm
       end
       tdata=''
       do bi=1 to treeobj.0
-         if word(treeobj.bi,1)='DATA' then do
+         if word(treeobj.bi,1)='DATA' then,
             tdata=tdata||translate(word(treeobj.bi,2))
-         end
       end
       tdata=translate(tdata)
 
@@ -442,13 +446,15 @@ walk_tree: procedure expose objlist. objsseen. objectfm
       tpos=1
       do while tpos<=length(tdata)-2
          mend=tpos
-         do while tpos<=length(tdata)-2 & substr(tdata,tpos,2)\='20'
+         do while tpos<=length(tdata)-2 &,
+            substr(tdata,tpos,2)\='20'
             tpos=tpos+2
          end
          if tpos>length(tdata)-2 then leave
          modehex=substr(tdata,mend,tpos-mend)
          tpos=tpos+2
-         do while tpos<=length(tdata)-2 & substr(tdata,tpos,2)\='00'
+         do while tpos<=length(tdata)-2 &,
+            substr(tdata,tpos,2)\='00'
             tpos=tpos+2
          end
          if tpos>length(tdata)-2 then leave
@@ -463,10 +469,10 @@ walk_tree: procedure expose objlist. objsseen. objectfm
             say 'GIT GC: invalid entry OID in tree' current
             exit 8
          end
-         /* If mode is "40000" (3430303030 hex), it's a subtree - enqueue. */
+         /* Mode 40000 (hex 3430303030) is a subtree. */
          if modehex='3430303030' then do
-            queue.0=queue.0+1
-            queue.queue.0=childoid
+            tqueue.0=tqueue.0+1
+            tqueue.tqueue.0=childoid
          end
          else do
             /* Blob (or other leaf) - add to objlist directly. */

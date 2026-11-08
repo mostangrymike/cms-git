@@ -19,9 +19,11 @@
 extern int gitpfs(unsigned long *);
 
 static unsigned char batch_body[OBJMAXSZ];
+#ifndef GITPLOAD_HOST
 static unsigned char cms_records[CMSMAXREC][CMSREC];
 static unsigned char cms_fileid[24];
 static unsigned long cms_api[4];
+#endif
 static unsigned long sh[5];
 
 #ifndef GITPLOAD_HOST
@@ -282,17 +284,6 @@ static int read_loose_into(FILE *f,const char *want,int wanttype,
   goto done;
  ok=1;
 done:
- return ok;
-}
-
-static int read_loose(FILE *f,const char *want,int wanttype,
-                      unsigned long wantsize) {
- unsigned char *body;
- int ok;
- body=(unsigned char *)malloc((size_t)(wantsize?wantsize:1));
- if(!body) return 0;
- ok=read_loose_into(f,want,wanttype,wantsize,body);
- free(body);
  return ok;
 }
 

@@ -30,6 +30,22 @@ CMS text-file access costs roughly 80 microseconds per record and a random
 4. Install loose objects in stage-object-number order with one sequential
    scan (`M274L5 BATCH`).
 
+## Assembling M274L5
+
+`M274L5` is a CMS C program that needs the native `gitpfs` helper from
+`M274PF2.ASSEMBLE` (or `M274PFS.ASSEMBLE` for the shared-library
+variant).  Assemble in this order on a writable GCC F disk:
+
+    ASSEMBLE M274PF2 (or M274PFS)
+    GLOBAL TXTLIB PDPCLIB
+    GCC M274L5 C (NOAUTO NOMAP)
+    LOAD M274L5 (NOAUTO NOMAP)
+    GENMOD M274L5
+
+The host stand-in is built with `gcc -DGITPLOAD_HOST` and reads/writes
+`dd:IDXIN` and `dd:STGIN` directly, so the same BATCH logic can be
+exercised outside CMS.
+
 ## Incremental (HAVE) packs
 
 An incremental pack contains only the new objects; the unchanged closure is
