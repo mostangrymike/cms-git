@@ -1,0 +1,93 @@
+/* Bounded Git object OID: spool bytes, then feed GITSTRM. */
+parse arg command size extra
+command=translate(command)
+if extra \= '' | datatype(size,'W') \= 1 then do
+ say 'Usage: GITBOID COMMIT|TREE|BLOB|TAG size'
+ exit 4
+end
+ok=command='COMMIT' | command='TREE' | command='BLOB' | command='TAG'
+if \ok then exit 4
+address command
+dec=size
+digits=''
+if dec=0 then digits='30'
+else do while dec>0
+ d=dec//10
+ digits=d2x(48+d,2)||digits
+ dec=dec%10
+end
+if command='COMMIT' then head='636F6D6D697420'
+else if command='TREE' then head='7472656520'
+else if command='BLOB' then head='626C6F6220'
+else head='74616720'
+head=head||digits||'00'
+total=length(head)%2+size
+/* Validate finalized object metadata before direct bounded record reads. */
+drop meta.
+'EXECIO 1 DISKR GITOMETA DATA A 1 (STEM META. FINIS'
+if rc\=0 | meta.0\=1 then exit 8
+parse var meta.1 mtag msize mtail mfinal mextra
+if mtag\='META' | msize\=size | mfinal\='1' |,
+ mextra\='' | mtail\='-' then exit 8
+data=head
+pos=0
+'ERASE GITHASH DATA A'
+drop r.
+r.0=0
+do while pos<size
+ first=pos%64+1
+ within=pos//64
+ count=size-pos
+ if count>1024-within then count=1024-within
+ last=(pos+count-1)%64+1
+ batch=last-first+1
+ drop in.
+ 'EXECIO' batch 'DISKR GITOBUF DATA A' first,
+  '(STEM IN. FINIS'
+ if rc\=0 | in.0\=batch then exit 8
+ joined=''
+ do i=1 to batch
+  chunk=strip(in.i)
+  if chunk='' | length(chunk)>128 | length(chunk)//2\=0 |,
+   verify(chunk,'0123456789ABCDEF')\=0 then exit 8
+  if i<batch & length(chunk)\=128 then exit 8
+  joined=joined||chunk
+ end
+ if length(joined)<(within+count)*2 then exit 8
+ data=data||substr(joined,within*2+1,count*2)
+ do while length(data)>=128
+  r.0=r.0+1
+  idx=r.0
+  r.idx=left(data,128)
+  data=substr(data,129)
+  if r.0=16 then do
+   'EXECIO' r.0 'DISKW GITHASH DATA A 0 (STEM R. FINIS'
+   if rc\=0 then exit 8
+   drop r.
+   r.0=0
+  end
+ end
+ pos=pos+count
+end
+if data\='' then do
+ r.0=r.0+1
+ idx=r.0
+ r.idx=data
+end
+if r.0>0 then do
+ 'EXECIO' r.0 'DISKW GITHASH DATA A 0 (STEM R. FINIS'
+ if rc\=0 then exit 8
+end
+'MAKEBUF'
+queue 'F'||right(d2x(total),8,'0')
+'GITSTRM'
+save=rc
+if save\=0 then do
+ 'DROPBUF'
+ exit save
+end
+parse pull digest
+'DROPBUF'
+'ERASE GITHASH DATA A'
+queue translate(digest)
+exit 0
