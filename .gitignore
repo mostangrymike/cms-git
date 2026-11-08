@@ -4,9 +4,12 @@ __pycache__/
 .venv/
 
 # CMS live evidence and temp files
-cms-*-evidence*.json
+cms-*.json
 cms-source-inventory.txt
 src/mainframe_output*.tmp
+src/*.tmp
+/*.PACK
+/*.META
 src/*.PACK
 src/*.bin
 src/*.CERT
@@ -21,3 +24,24 @@ src/*.MACLIB
 src/upload-cms.sh
 src/cms-upload.sh.bak
 M173DIR.EXEC
+src/Z272TR.REPO
+
+# Hand-written assembly sources required to build tracked modules.
+!src/M12ABEG.ASSEMBLE
+!src/M12BOPN.ASSEMBLE
+!src/M173VQ.ASSEMBLE
+!src/M274PF2.ASSEMBLE
+!src/M274PFS.ASSEMBLE
+
+# Generated on demand by scripts/restore-ph-wrappers.py; CI regenerates and
+# audits these, and tracking them makes the archive audit reject duplicates.
+src/GITPFAST.EXEC
+src/GITPH2.EXEC
+src/GITPH3.EXEC
+src/GITPH5.EXEC
+src/GITPH8.EXEC
+src/GITPH9.EXEC
+src/GITPHX.EXEC
+src/GITPONCE.EXEC
+src/GITPPROF.EXEC
+src/GITPSK.EXEC
