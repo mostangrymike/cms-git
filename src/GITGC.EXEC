@@ -1,0 +1,489 @@
+/* M282: GIT GC / REPACK - garbage collection and packfile repacking.
+ *
+ * Usage: GIT GC [--prune=now]
+ *        GIT REPACK [-d] [-a]
+ *
+ * GC: Enumerate all objects reachable from refs, pack them into a single
+ *     packfile, then delete unreachable loose objects.
+ * REPACK: Pack all loose objects into a single packfile.  With -d, delete
+ *         loose objects after successful packing.  With -a, pack all loose
+ *         objects (not just unreachable ones).
+ *
+ * Pack files are stored on the object disk as PACKnnnn PACK files.
+ */
+address cms
+numeric digits 20
+parse arg cmd rest
+cmd=translate(cmd)
+extra=strip(rest)
+
+/* Defaults */
+aggressive=0
+prune=0
+repack_delete=0
+repack_all=0
+
+do while extra\=''
+   parse var extra opt extra
+   opt=translate(strip(opt))
+   if cmd='GC' then do
+      if opt='--PRUNE=NOW' then prune=1
+      else if opt='--AGGRESSIVE' then aggressive=1
+      else do
+         say 'GIT GC: unknown option' opt
+         say 'Usage: GIT GC [--prune=now] [--aggressive]'
+         exit 4
+      end
+   end
+   else if cmd='REPACK' then do
+      if opt='-D' then repack_delete=1
+      else if opt='-A' then repack_all=1
+      else do
+         say 'GIT REPACK: unknown option' opt
+         say 'Usage: GIT REPACK [-d] [-a]'
+         exit 4
+      end
+   end
+end
+
+if cmd\='GC' & cmd\='REPACK' then do
+   say 'Usage: GIT GC [--prune=now] [--aggressive]'
+   say '       GIT REPACK [-d] [-a]'
+   exit 4
+end
+
+/* Object disk from GITMETA. */
+objectfm='A'
+'STATE GITMETA REPO A'
+mstate=rc
+if mstate=0 then do
+   drop config.
+   config.0=0
+   'EXECIO * DISKR GITMETA REPO A 1 (STEM CONFIG. FINIS'
+   if rc=0 & config.0>=4 & config.1='CMS-GIT-REPOSITORY 1' then do
+      objectrecords=0
+      do ci=1 to config.0
+         if word(config.ci,1)='OBJECT-DISK' then do
+            if words(config.ci)\=2 then do
+               say 'GIT GC: invalid OBJECT-DISK setting'
+               exit 8
+            end
+            objectrecords=objectrecords+1
+            objectfm=translate(word(config.ci,2))
+         end
+      end
+      if objectrecords>1 | length(objectfm)\=1 |,
+         verify(objectfm,'ABCDEFGHIJKLMNOPQRSTUVWXYZ')\=0 then do
+         say 'GIT GC: invalid OBJECT-DISK setting'
+         exit 8
+      end
+   end
+end
+else if mstate\=28 then do
+   say 'GIT GC: cannot inspect repository metadata RC' mstate
+   exit 8
+end
+
+/* Read all refs from REF2. */
+drop ref2.
+ref2.0=0
+'EXECIO * DISKR GITREF2 REPO A 1 (STEM REF2. FINIS'
+if rc\=0 | REF2.0<2 | word(REF2.1,1)\='REF2 1' then do
+   say 'GIT GC: cannot read REF2 repository state'
+   exit 8
+end
+headref=''
+refcount=0
+do ri=2 to REF2.0
+   if word(REF2.ri,1)='HEAD' then do
+      if words(REF2.ri)\=2 then do
+         say 'GIT GC: invalid HEAD record'
+         exit 8
+      end
+      headref=word(REF2.ri,2)
+   end
+   else if word(REF2.ri,1)='REF' then do
+      if words(REF2.ri)\=3 then do
+         say 'GIT GC: invalid REF record'
+         exit 8
+      end
+      refcount=refcount+1
+      refname.refcount=word(REF2.ri,2)
+      refoid.refcount=translate(word(REF2.ri,3))
+   end
+end
+
+if refcount=0 then do
+   say 'GIT GC: no refs found; nothing to pack'
+   exit 0
+end
+
+say 'GIT GC: found' refcount 'ref(s)'
+
+/* Enumerate all reachable objects from all refs. */
+drop objlist.
+objlist.0=0
+drop objsseen.
+objsseen.0=0
+drop reachable.
+reachable.0=0
+
+do ri=1 to refcount
+   rtoid=refoid.ri
+   rname=refname.ri
+   if length(rtoid)\=40 | verify(rtoid,'0123456789ABCDEF')\=0 then do
+      say 'GIT GC: invalid OID for ref' rname rtoid
+      exit 8
+   end
+   say 'GIT GC: walking' rname '=' rtoid
+   call walk_commit rtoid
+end
+
+say 'GIT GC: enumerated' objlist.0 'reachable object(s)'
+
+if objlist.0=0 then do
+   say 'GIT GC: no reachable objects; nothing to pack'
+   exit 0
+end
+
+/* Determine pack file number. */
+packnum=0
+do forever
+   packnum=packnum+1
+   packfn='PACK'||right(packnum,4,'0')
+   'STATE' packfn 'PACK' objectfm
+   if rc=28 then leave
+   if rc\=0 then do
+      say 'GIT GC: cannot check pack file' packfn
+      exit 8
+   end
+end
+
+packfn='PACK'||right(packnum,4,'0')
+say 'GIT GC: writing pack' packfn
+
+/* Write staging file for GITPMK. */
+stagefn='PACKSTG'
+'STATE' stagefn 'STAGE' objectfm
+stagerc=rc
+if stagerc=0 then do
+   say 'GIT GC: staging file already exists' stagefn
+   exit 8
+end
+if stagerc\=28 then do
+   say 'GIT GC: staging STATE failed RC' stagerc
+   exit 8
+end
+'FILEDEF OBJSTG DISK' stagefn 'STAGE' objectfm ' (RECFM V LRECL 80'
+if rc\=0 then do
+   say 'GIT GC: staging FILEDEF failed'
+   exit 8
+end
+drop stgout.
+stgout.0=0
+packed=0
+do oi=1 to objlist.0
+   oidcur=objlist.oi
+   objfn=substr(oidcur,1,8)
+   'EXECIO * DISKR' objfn 'GITOBJ' objectfm '1 (STEM OBJCUR. FINIS'
+   if rc\=0 then do
+      say 'GIT GC: cannot read object' oidcur
+      exit 8
+   end
+   objtype=''
+   objsize=0
+   objhex=''
+   do bi=1 to OBJCUR.0
+      if word(OBJCUR.bi,1)='TYPE' then objtype=translate(word(OBJCUR.bi,2))
+      else if word(OBJCUR.bi,1)='SIZE' then objsize=word(OBJCUR.bi,2)
+      else if word(OBJCUR.bi,1)='DATA' then do
+         objhex=objhex||translate(word(OBJCUR.bi,2))
+      end
+   end
+   if objtype='' | objsize='' then do
+      say 'GIT GC: corrupt object' oidcur
+      exit 8
+   end
+   if length(objhex)%2\=objsize then do
+      say 'GIT GC: object size mismatch' oidcur
+      exit 8
+   end
+   n=3
+   stgout.n='OBJ' objtype objsize oidcur
+   n=n+1
+   pos=1
+   do while pos<=length(objhex)
+      take=min(64,length(objhex)-pos+1)
+      n=n+1
+      stgout.n=substr(objhex,pos,take)
+      pos=pos+take
+   end
+   if objsize=0 then do
+      n=n+1
+      stgout.n=''
+   end
+   stgout.0=n
+   'EXECIO' stgout.0 'DISKW' stagefn 'STAGE' objectfm||' 1 (STEM STGOUT. FINIS'
+   if rc\=0 then do
+      say 'GIT GC: staging write failed'
+      exit 8
+   end
+   packed=packed+1
+end
+'FILEDEF OBJSTG CLEAR'
+clearrc=rc
+
+/* Build packfile. */
+say 'GIT GC: building pack' packfn' with' packed 'object(s)...'
+'FILEDEF OBJSTG DISK' stagefn 'STAGE' objectfm ' (RECFM V LRECL 80'
+if rc\=0 then do
+   say 'GIT GC: staging FILEDEF failed'
+   exit 8
+end
+'FILEDEF OBJOUT DISK' packfn 'PACK' objectfm
+if rc\=0 then do
+   say 'GIT GC: pack FILEDEF failed'
+   exit 8
+end
+'EXEC GITPMK BUILD'
+pmkrc=rc
+if pmkrc\=0 then do
+   say 'GIT GC: pack creation failed'
+   exit 8
+end
+'STATE' packfn 'PACK' objectfm
+if rc\=0 then do
+   say 'GIT GC: pack file not created'
+   exit 8
+end
+
+say 'GIT GC: pack' packfn' created with' packed 'object(s)'
+
+/* Prune unreachable loose objects (GC only). */
+if cmd='GC' & prune=1 then do
+   say 'GIT GC: pruning unreachable loose objects...'
+   pruned=0
+   kept=0
+   /* Enumerate all GITOBJ files on the object disk. */
+   'FILEDEF OBJENUM DISK * GITOBJ' objectfm
+   if rc\=0 then do
+      say 'GIT GC: cannot enumerate GITOBJ files'
+      exit 8
+   end
+   drop enum.
+   enum.0=0
+   'EXECIO * DISKR * GITOBJ' objectfm '1 (STEM ENUM. FINIS'
+   enumrc=rc
+   'FILEDEF OBJENUM CLEAR'
+   if enumrc\=0 then do
+      say 'GIT GC: cannot enumerate loose objects RC' enumrc
+      exit 8
+   end
+   do ei=1 to enum.0
+      if word(enum.ei,1)\='GITOBJ' then iterate
+      objfn=enum.ei
+      /* Check if this object is reachable. */
+      isreach=0
+      do oi=1 to objlist.0
+         if substr(objlist.oi,1,8)=objfn then do
+            isreach=1
+            leave
+         end
+      end
+      if isreach=0 then do
+         'ERASE' objfn 'GITOBJ' objectfm
+         if rc\=0 then do
+            say 'GIT GC: cannot erase unreachable object' objfn
+         end
+         else pruned=pruned+1
+      end
+      else kept=kept+1
+   end
+   say 'GIT GC: pruned' pruned 'unreachable object(s), kept' kept 'reachable'
+end
+
+/* Delete packed loose objects (REPACK -d). */
+if cmd='REPACK' & repack_delete=1 then do
+   say 'GIT REPACK: deleting packed loose objects...'
+   deleted=0
+   do oi=1 to objlist.0
+      oidcur=objlist.oi
+      objfn=substr(oidcur,1,8)
+      'ERASE' objfn 'GITOBJ' objectfm
+      if rc\=0 then do
+         say 'GIT REPACK: cannot erase packed object' oidcur
+      end
+      else deleted=deleted+1
+   end
+   say 'GIT REPACK: deleted' deleted 'packed loose object(s)'
+end
+
+say 'GIT GC: done'
+exit 0
+
+/* ======================================================================== */
+/* Helper routines                                                          */
+/* ======================================================================== */
+
+/* Walk a commit and all reachable objects iteratively (BFS). */
+walk_commit: procedure expose objlist. objsseen. objectfm
+   parse arg cmt
+   drop queue.
+   queue.0=1
+   queue.1=cmt
+   qnext=1
+   do while qnext<=queue.0
+      current=queue.qnext
+      qnext=qnext+1
+      /* Skip if already seen. */
+      do si=1 to objsseen.0
+         if objsseen.si=current then do
+            iterate
+         end
+      end
+      objsseen.0=objsseen.0+1
+      objsseen.objsseen.0=current
+      objlist.0=objlist.0+1
+      objlist.objlist.0=current
+
+      /* Read commit object. */
+      objfn=substr(current,1,8)
+      drop cmtobj.
+      cmtobj.0=0
+      'EXECIO * DISKR' objfn 'GITOBJ' objectfm '1 (STEM CMTOBJ. FINIS'
+      if rc\=0 then do
+         say 'GIT GC: cannot read commit' current
+         exit 8
+      end
+      ctype=''
+      cdata=''
+      do bi=1 to CMTOBJ.0
+         if word(CMTOBJ.bi,1)='TYPE' then ctype=translate(word(CMTOBJ.bi,2))
+         else if word(CMTOBJ.bi,1)='DATA' then do
+            cdata=cdata||translate(word(CMTOBJ.bi,2))
+         end
+      end
+      if ctype\='COMMIT' then do
+         say 'GIT GC: object is not a commit' current
+         exit 8
+      end
+      cdata=translate(cdata)
+
+      /* Parse tree OID from commit data. */
+      treepos=pos('7472656520',cdata)
+      if treepos=0 then do
+         say 'GIT GC: commit has no tree' current
+         exit 8
+      end
+      treeoid=substr(cdata,treepos+10,40)
+      if length(treeoid)\=40 | verify(treeoid,'0123456789ABCDEF')\=0 then do
+         say 'GIT GC: invalid tree OID in commit' current
+         exit 8
+      end
+
+      /* Enqueue tree for processing. */
+      queue.0=queue.0+1
+      queue.queue.0=treeoid
+
+      /* Enqueue parents for processing. */
+      ppos=1
+      do forever
+         ppos=pos('706172656e7420',cdata,ppos)
+         if ppos=0 then leave
+         poid=substr(cdata,ppos+14,40)
+         if length(poid)=40 & verify(poid,'0123456789ABCDEF')=0 then do
+            queue.0=queue.0+1
+            queue.queue.0=poid
+         end
+         ppos=ppos+54
+      end
+   end
+   return
+
+/* Walk a tree object and enqueue all referenced objects iteratively. */
+walk_tree: procedure expose objlist. objsseen. objectfm
+   parse arg treeoid
+   drop queue.
+   queue.0=1
+   queue.1=treeoid
+   qnext=1
+   do while qnext<=queue.0
+      current=queue.qnext
+      qnext=qnext+1
+      /* Skip if already seen. */
+      do si=1 to objsseen.0
+         if objsseen.si=current then do
+            iterate
+         end
+      end
+      objsseen.0=objsseen.0+1
+      objsseen.objsseen.0=current
+      objlist.0=objlist.0+1
+      objlist.objlist.0=current
+
+      /* Read tree object. */
+      objfn=substr(current,1,8)
+      drop treeobj.
+      treeobj.0=0
+      'EXECIO * DISKR' objfn 'GITOBJ' objectfm '1 (STEM TREEOBJ. FINIS'
+      if rc\=0 then do
+         say 'GIT GC: cannot read tree' current
+         exit 8
+      end
+      tdata=''
+      do bi=1 to treeobj.0
+         if word(treeobj.bi,1)='DATA' then do
+            tdata=tdata||translate(word(treeobj.bi,2))
+         end
+      end
+      tdata=translate(tdata)
+
+      /* Parse tree entries. */
+      tpos=1
+      do while tpos<=length(tdata)-2
+         mend=tpos
+         do while tpos<=length(tdata)-2 & substr(tdata,tpos,2)\='20'
+            tpos=tpos+2
+         end
+         if tpos>length(tdata)-2 then leave
+         modehex=substr(tdata,mend,tpos-mend)
+         tpos=tpos+2
+         do while tpos<=length(tdata)-2 & substr(tdata,tpos,2)\='00'
+            tpos=tpos+2
+         end
+         if tpos>length(tdata)-2 then leave
+         tpos=tpos+2
+         childoid=substr(tdata,tpos,40)
+         tpos=tpos+40
+         if length(childoid)\=40 then do
+            say 'GIT GC: invalid entry OID in tree' current
+            exit 8
+         end
+         if verify(childoid,'0123456789ABCDEF')\=0 then do
+            say 'GIT GC: invalid entry OID in tree' current
+            exit 8
+         end
+         /* If mode is "40000" (3430303030 hex), it's a subtree - enqueue. */
+         if modehex='3430303030' then do
+            queue.0=queue.0+1
+            queue.queue.0=childoid
+         end
+         else do
+            /* Blob (or other leaf) - add to objlist directly. */
+            isdup=0
+            do si=1 to objsseen.0
+               if objsseen.si=childoid then do
+                  isdup=1
+                  leave
+               end
+            end
+            if isdup\=1 then do
+               objsseen.0=objsseen.0+1
+               objsseen.objsseen.0=childoid
+               objlist.0=objlist.0+1
+               objlist.objlist.0=childoid
+            end
+         end
+      end
+   end
+   return

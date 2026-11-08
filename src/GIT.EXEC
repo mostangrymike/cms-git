@@ -1267,6 +1267,10 @@ if command = 'PACK-TREE' then do
    'GITPTRE WALK' oid
    exit rc
 end
+if command = 'GC' | command = 'REPACK' then do
+   'EXEC GITGC' command rest
+   exit rc
+end
 if command = 'CHECKOUT-FILE' then do
    'EXEC GITWT CHECKOUT' rest
    exit rc
