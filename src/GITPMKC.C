@@ -21,18 +21,52 @@
 #define MAXOBJS 2048UL
 #define CHUNK 65535UL
 #define W32 0xffffffffUL
-#define PACKMAX (4UL*1024UL*1024UL)
 
 static unsigned long sh[5];
+static void block(const unsigned char *p);
 
-/* Pack output buffer (global so append_bytes can use it). */
-static unsigned char packbuf[PACKMAX];
-static unsigned long packlen=0;
+/* Streaming output and SHA: hash raw pack bytes; in HEX mode emit
+ * uppercase hex text (128 cols/record) without buffering the pack. */
+static FILE *outf=NULL;
+static unsigned long packtotal=0;
+static unsigned char sha_tail[64];
+static unsigned long sha_n=0;
+static int hex_mode=0;
+static char hex_line[129];
+static unsigned long hex_n=0;
 
-static int append_bytes(const unsigned char *d,unsigned long n) {
- if(packlen+n>PACKMAX) return 0;
- memcpy(packbuf+packlen,d,n);
- packlen+=n;
+static void sha_update(const unsigned char *d,unsigned long n) {
+ unsigned long i=0;
+ while(i<n) {
+  sha_tail[sha_n++]=d[i++];
+  if(sha_n==64) { block(sha_tail); sha_n=0; }
+ }
+}
+
+static int hex_flush(void) {
+ if(hex_n==0) return 1;
+ if(fwrite(hex_line,1,(size_t)hex_n,outf)!=hex_n) return 0;
+ if(fputc('\n',outf)==EOF) return 0;
+ hex_n=0;
+ return 1;
+}
+
+static int emit_bytes(const unsigned char *d,unsigned long n) {
+ static const char hx[]="0123456789ABCDEF";
+ unsigned long i;
+ if(!outf) return 0;
+ sha_update(d,n);
+ packtotal+=n;
+ if(!hex_mode) {
+  if(fwrite(d,1,(size_t)n,outf)!=n) return 0;
+  return 1;
+ }
+ for(i=0;i<n;i++) {
+  unsigned char b=d[i];
+  hex_line[hex_n++]=hx[(b>>4)&0x0F];
+  hex_line[hex_n++]=hx[b&0x0F];
+  if(hex_n==128) { if(!hex_flush()) return 0; }
+ }
  return 1;
 }
 
@@ -102,20 +136,18 @@ static void initsha(void) {
  sh[2]=0x98badcfeUL;sh[3]=0x10325476UL;sh[4]=0xc3d2e1f0UL;
 }
 
-static void sha_final(unsigned char digest[20],
-                      const unsigned char *taildata,unsigned long taillen,
-                      unsigned long totalbytes) {
- unsigned char tail[128];
- unsigned long rem, i, j;
- rem=taillen;
- for(i=0;i<128;i++) tail[i]=0;
- if(rem>0) memcpy(tail,taildata,(size_t)rem);
- tail[rem]=0x80;
+static void sha_final(unsigned char digest[20]) {
+ unsigned char pad[128];
+ unsigned long i,j,rem;
+ rem=sha_n;
+ for(i=0;i<128;i++) pad[i]=0;
+ if(rem>0) memcpy(pad,sha_tail,(size_t)rem);
+ pad[rem]=0x80;
  for(i=0;i<8;i++)
-  tail[(rem<56?56:120)+i]=
-   (unsigned char)(i<4?0:((totalbytes*8)>>(8*(7-i))));
- block(tail);
- if(rem>=56) block(tail+64);
+  pad[(rem<56?56:120)+i]=
+   (unsigned char)(i<4?0:((packtotal*8)>>(8*(7-i))));
+ block(pad);
+ if(rem>=56) block(pad+64);
  for(i=0;i<5;i++) for(j=0;j<4;j++)
   digest[i*4+j]=(unsigned char)(sh[i]>>(24-j*8));
 }
@@ -267,7 +299,7 @@ static int read_objrecs(FILE *f,struct objrec *objs,unsigned long *count) {
 
 int main(int argc,char **argv) {
  int hexout=0;
- packlen=0; /* reset: CMS MODULE statics persist across invocations */
+ outf=NULL; packtotal=0; sha_n=0; hex_n=0;
  if(argc<2||argc>3||strcmp(argv[1],"BUILD")!=0) {
   fprintf(stderr,"Usage: GITPMK BUILD [HEX]\n");
   return 4;
@@ -276,6 +308,7 @@ int main(int argc,char **argv) {
   if(strcmp(argv[2],"HEX")==0) hexout=1;
   else { fprintf(stderr,"Usage: GITPMK BUILD [HEX]\n"); return 4; }
  }
+ hex_mode=hexout;
  FILE *fin=fopen("dd:OBJSTG","r");
  if(!fin) { perror("OBJSTG"); return 8; }
  struct objrec objs[MAXOBJS];
@@ -288,6 +321,9 @@ int main(int argc,char **argv) {
   return 8;
  }
 
+ outf=fopen("dd:OBJOUT","w");
+ if(!outf) { perror("OBJOUT"); return 8; }
+
  /* Pack header.  Signature bytes are numeric ASCII, not a C string
     literal, because CMS C compiles literals as EBCDIC. */
  unsigned char head[12];
@@ -295,9 +331,8 @@ int main(int argc,char **argv) {
  head[4]=0;head[5]=0;head[6]=0;head[7]=2;
  head[8]=0;head[9]=0;head[10]=(unsigned char)((nobj>>8)&0xFF);
  head[11]=(unsigned char)(nobj&0xFF);
- if(!append_bytes(head,12)) {
-  fprintf(stderr,"GITPMK: pack too large\n");
-  return 8;
+ if(!emit_bytes(head,12)) {
+  fprintf(stderr,"GITPMK: write failed\n"); fclose(outf); return 8;
  }
 
  /* Compression buffers sized for the largest object. */
@@ -333,51 +368,22 @@ int main(int argc,char **argv) {
    return 8;
   }
 
-  if(!append_bytes(hdr,hlen)) {
-   fprintf(stderr,"GITPMK: pack too large\n");
-   return 8;
-  }
-  if(!append_bytes(zlib,zlen)) {
-   fprintf(stderr,"GITPMK: pack too large\n");
-   return 8;
+  if(!emit_bytes(hdr,hlen)||!emit_bytes(zlib,zlen)) {
+   fprintf(stderr,"GITPMK: write failed\n"); fclose(outf); return 8;
   }
  }
 
  /* SHA1 trailer. */
  unsigned char digest[20];
- /* Process all full 64-byte blocks of packbuf through SHA1. */
- unsigned long shaoff=0;
- while(packlen-shaoff>=64) { block(packbuf+shaoff); shaoff+=64; }
- sha_final(digest,packbuf+shaoff,packlen-shaoff,packlen);
- if(!append_bytes(digest,20)) {
-  fprintf(stderr,"GITPMK: pack too large\n");
-  return 8;
+ sha_final(digest);
+ if(!emit_bytes(digest,20)) {
+  fprintf(stderr,"GITPMK: write failed\n"); fclose(outf); return 8;
  }
-
- FILE *fout=fopen("dd:OBJOUT","w");
- if(!fout) { perror("OBJOUT"); return 8; }
- if(hexout) {
-  /* CMS stores packs as uppercase hex text, 128 columns per record.
-     Write the newline as a record separator (not counted in LRECL). */
-  static const char hx[]="0123456789ABCDEF";
-  char hline[129];
-  unsigned long hp=0;
-  while(hp<packlen) {
-   unsigned long hk=0;
-   while(hk<128&&hp<packlen) {
-    unsigned char b=packbuf[hp++];
-    hline[hk++]=hx[(b>>4)&0x0F];
-    hline[hk++]=hx[b&0x0F];
-   }
-   if(fwrite(hline,1,hk,fout)!=hk||fputc('\n',fout)==EOF) {
-    perror("OBJOUT");fclose(fout);return 8;
-   }
-  }
+ if(hex_mode && !hex_flush()) {
+  fprintf(stderr,"GITPMK: write failed\n"); fclose(outf); return 8;
  }
- else if(fwrite(packbuf,1,packlen,fout)!=packlen) {
-  perror("OBJOUT");fclose(fout);return 8;
- }
- fclose(fout);
+ if(fclose(outf)!=0) { perror("OBJOUT"); return 8; }
+ outf=NULL;
 
  for(i=0;i<nobj;i++) free(objs[i].data);
  free(deflate);free(zlib);

@@ -231,7 +231,7 @@ with tempfile.TemporaryDirectory(prefix="m280-") as td:
     # Optional HEX output for CMS text pack files.
     assert "int hexout=0;" in csrc
     assert 'strcmp(argv[2],"HEX")==0' in csrc
-    assert "hline[hk++]=hx[(b>>4)&0x0F];" in csrc
+    assert "hex_line[hex_n++]=hx[(b>>4)&0x0F];" in csrc
     # Source is accepted by GCCE on CMS (80-column card reader).
     assert max(len(line) for line in csrc.splitlines()) <= 80
     # Stored-block final bit is set.
