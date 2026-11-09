@@ -29,8 +29,15 @@ assert "git-receive-pack" in PUSH
 assert "info/refs?service=git-receive-pack" in PUSH
 
 # Credential requirement and no credential echoing.
-assert "GHCRED REPO A not found" in PUSH
+assert "valid GitHub credential required for push" in PUSH
 assert "STATE GHCRED REPO A" in PUSH
+assert "Authorization: Basic" in PUSH
+assert "Bearer" not in PUSH
+
+# Discovery must be authenticated and use receive-pack advertisement.
+assert "call authheader" in PUSH
+assert "application/x-git-receive-pack-advertisement" in PUSH
+assert "application/x-git-upload-pack-advertisement" not in PUSH
 for src, name in ((PUSH, "GITPUSH"), (CRED, "GITCRED")):
     for line in src.splitlines():
         if "say" not in line.lower():

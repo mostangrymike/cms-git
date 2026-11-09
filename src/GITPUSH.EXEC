@@ -127,16 +127,14 @@ drop refadv.
 refadv.0=0
 say 'GIT PUSH: discovering remote refs...'
 
-/* Check for GitHub credentials. */
-drop cred.
-cred.0=0
-'STATE GHCRED REPO A'
-if rc=28 then do
-   say 'GIT PUSH: GHCRED REPO A not found; configure with GitHub token'
+call authheader
+authvalue=result
+if authvalue='ERROR' | authvalue='' then do
+   say 'GIT PUSH: valid GitHub credential required for push'
    exit 8
 end
-if rc\=0 then do
-   say 'GIT PUSH: cannot inspect GHCRED RC' rc
+if translate(rauthority)\='GITHUB.COM' then do
+   say 'GIT PUSH: credential limited to github.com'
    exit 8
 end
 path='/'||rrepo||'.git/info/refs?service=git-receive-pack'
@@ -144,7 +142,11 @@ call toasciihex 'GET '||path||' HTTP/1.1'
 wire=result||'0D0A'
 call toasciihex 'Host: '||rauthority
 wire=wire||result||'0D0A'
-call toasciihex 'Accept: application/x-git-upload-pack-advertisement'
+call toasciihex authvalue
+wire=wire||result||'0D0A'
+call toasciihex 'Accept: application/x-git-receive-pack-advertisement'
+wire=wire||result||'0D0A'
+call toasciihex 'User-Agent: git/cms-git'
 wire=wire||result||'0D0A'
 call toasciihex 'Connection: close'
 wire=wire||result||'0D0A0D0A'
@@ -206,6 +208,11 @@ ccrlf=''
 chunkdone=0
 refs=0
 total=0
+httpstatus=''
+pstate='HDR'
+phdr=''
+pneed=0
+ppkt=''
 
 do forever
    r=Socket('Recv',s,256)
@@ -234,41 +241,52 @@ r=Socket('Close',s)
 r=Socket('Terminate')
 
 if hstate\='BODY' | chunkdone\=1 then do
+   if httpstatus\='' then,
+      say 'GIT PUSH: discovery HTTP' strip(httpstatus)
+   say 'GIT PUSH: debug state='hstate 'chunk='chunkdone
+   say 'GIT PUSH: debug cstate='cstate 'refs='refadv.0 'bytes='total
+   if refadv.0>0 then do
+      _dx=refadv.0
+      say 'GIT PUSH: debug nrefs='refadv.0
+   end
    say 'GIT PUSH: incomplete discovery response'
    exit 8
 end
 
-/* Parse PKT-LINE ref advertisements. */
+/* Parse PKT-LINE ref advertisements (lines are full pkt hex). */
 refcount=0
 do ri=1 to refadv.0
-   line=refadv.ri
-   if line='0000' then leave
-   if left(line,4)='0011' then do
-      iterate
-   end
-   pktlen=0
-   do ci=1 to 4
-      c=substr(line,ci*2-1,2)
-      if verify(c,'0123456789ABCDEF')\=0 then leave
-      pktlen=pktlen*16+x2d(c)
-   end
-   if pktlen<4 then iterate
-   payload=substr(line,9,pktlen-4)
-   posnul=pos('00',payload)
-   if posnul=0 then iterate
-   refoid=left(payload,posnul-2)
-   restpayload=substr(payload,posnul)
-   refname=strip(substr(restpayload,3))
-   if length(refoid)=40 & verify(refoid,'0123456789ABCDEF')=0 then do
-      refcount=refcount+1
-      advref.refcount=refname
-   ado=refcount
-   advid.ado=refoid
-   end
+   line=translate(refadv.ri)
+   if left(line,8)='30303030' then leave /* 0000 flush */
+   /* decode pkt length from 4 ASCII hex digit chars */
+   call pktlen substr(line,1,8)
+   plen=result
+   if plen='ERROR' | plen<4 then iterate
+   /* payload as hex: (plen-4) bytes = (plen-4)*2 hex chars */
+   phex=substr(line,9,(plen-4)*2)
+   if plen<=4 | length(phex)<2 then iterate
+   /* strip trailing LF (0A) */
+   if right(phex,2)='0A' then phex=left(phex,length(phex)-2)
+   posnul=pos('00',phex)
+   if posnul>0 then phex=left(phex,posnul-1)
+   /* first 40 ASCII chars = 80 hex chars are the OID text */
+   if length(phex)<81 then iterate
+   call asciitocms left(phex,80)
+   refoid=translate(result)
+   if length(refoid)\=40 | verify(refoid,'0123456789ABCDEF')\=0 then iterate
+   call asciitocms substr(phex,83)
+   refname=strip(result)
+   if refname='' then iterate
+   refcount=refcount+1
+   advref.refcount=refname
+   advid.refcount=refoid
 end
+say 'GIT PUSH: remote refs='||refcount
 
 if refcount=0 then do
    say 'GIT PUSH: no remote refs advertised'
+   /* debug: show first raw pkt */
+   if refadv.0>0 then say 'GIT PUSH: pkt1='||left(refadv.1,72)
    exit 8
 end
 
@@ -904,38 +922,125 @@ httpfeed:
  return 'OK'
 
 httpfeed_body:
- parse arg hx
- do while hx\=''
+ /* Chunked transfer decoding for discovery; feeds pkt lines to pktfeed. */
+ parse arg cwork
+ cwork=translate(cwork)
+ do while cwork\=''
   if cstate='SIZE' then do
-   cline=cline||left(hx,2)
-   hx=substr(hx,3)
+   cb=left(cwork,2)
+   cwork=substr(cwork,3)
+   cline=cline||cb
+   if length(cline)>128 then return 'ERROR'
    if right(cline,4)='0D0A' then do
     ch=left(cline,length(cline)-4)
     cline=''
-    pktlen=0
-    do ci=1 to length(ch) by 2
-     pktlen=pktlen*16+x2d(substr(ch,ci,2))
+    ep=pos('3B',ch)
+    if ep>0 then ch=left(ch,ep-1)
+    if ch='' | length(ch)//2\=0 | length(ch)>16 then return 'ERROR'
+    cneed=0
+    do cj=1 to length(ch) by 2
+     cv=x2d(substr(ch,cj,2))
+     if cv>=48 & cv<=57 then cn=cv-48
+     else if cv>=65 & cv<=70 then cn=cv-55
+     else if cv>=97 & cv<=102 then cn=cv-87
+     else return 'ERROR'
+     cneed=cneed*16+cn
     end
-    if pktlen=0 then do
-     chunkdone=1
-     return 'OK'
+    if cneed>1048576 then return 'ERROR'
+    if cneed=0 then do
+     cstate='DONE'; chunkdone=1; cwork=''
     end
-    cneed=pktlen-4
-    cstate='PAYLOAD'
+    else cstate='DATA'
    end
   end
-  else if cstate='PAYLOAD' then do
-   take=cneed
-   if take>length(hx) then take=length(hx)
-   refadv.0=refadv.0+1
-   refadvx=refadv.0
-   refadv.refadvx=left(hx,take*2)
-   hx=substr(hx,take*2+1)
-   cneed=cneed-take
-   if cneed=0 then cstate='SIZE'
+  else if cstate='DATA' then do
+   cavail=length(cwork)%2
+   ctake=cneed
+   if ctake>cavail then ctake=cavail
+   if ctake=0 then return 'OK'
+   cpiece=left(cwork,ctake*2)
+   cwork=substr(cwork,ctake*2+1)
+   call pktfeed cpiece
+   if result\='OK' then return 'ERROR'
+   cneed=cneed-ctake
+   if cneed=0 then do
+    cstate='CRLF'; ccrlf=''
+   end
   end
+  else if cstate='CRLF' then do
+   ctake=4-length(ccrlf)
+   if ctake>length(cwork) then ctake=length(cwork)
+   ccrlf=ccrlf||left(cwork,ctake)
+   cwork=substr(cwork,ctake+1)
+   if length(ccrlf)=4 then do
+    if ccrlf\='0D0A' then return 'ERROR'
+    ccrlf=''; cstate='SIZE'
+   end
+  end
+  else if cstate='DONE' then cwork=''
+  else return 'ERROR'
  end
  return 'OK'
+
+pktfeed:
+ /* Reassemble complete pkt-lines (hex) into refadv. */
+ parse arg pwork
+ pwork=translate(pwork)
+ do while pwork\=''
+  if pstate='HDR' then do
+   ptake=8-length(phdr)
+   if ptake>length(pwork) then ptake=length(pwork)
+   phdr=phdr||left(pwork,ptake)
+   pwork=substr(pwork,ptake+1)
+   if length(phdr)<8 then iterate
+   call pktlen phdr
+   pn=result
+   if pn='ERROR' then return 'ERROR'
+   if pn=0 then do
+    refadv.0=refadv.0+1; refadvx=refadv.0
+    refadv.refadvx='0000'
+    phdr=''; iterate
+   end
+   pneed=(pn-4)*2
+   ppkt=phdr
+   phdr=''
+   if pneed=0 then do
+    refadv.0=refadv.0+1; refadvx=refadv.0
+    refadv.refadvx=ppkt; ppkt=''
+    iterate
+   end
+   pstate='BODY'
+  end
+  else if pstate='BODY' then do
+   ptake=pneed
+   if ptake>length(pwork) then ptake=length(pwork)
+   ppkt=ppkt||left(pwork,ptake)
+   pwork=substr(pwork,ptake+1)
+   pneed=pneed-ptake
+   if pneed=0 then do
+    refadv.0=refadv.0+1; refadvx=refadv.0
+    refadv.refadvx=ppkt
+    ppkt=''; pstate='HDR'
+   end
+  end
+  else return 'ERROR'
+ end
+ return 'OK'
+
+pktlen:
+ /* 4-byte pkt-line length header (8 hex chars) -> integer, or 'ERROR'. */
+ parse arg h
+ if length(h)\=8 then return 'ERROR'
+ n=0
+ do pi=1 to 4
+  b=x2d(substr(h,pi*2-1,2))
+  if b>=48 & b<=57 then v=b-48
+  else if b>=65 & b<=70 then v=b-55
+  else if b>=97 & b<=102 then v=b-87
+  else return 'ERROR'
+  n=n*16+v
+ end
+ return n
 
 checkhdr:
  parse arg hh
@@ -944,6 +1049,7 @@ checkhdr:
  call asciitocms hh
  ht=result
  if ht='ERROR' then return 'ERROR'
+ parse var ht httpstatus 13 .
  hu=translate(ht)
  if pos('CONTENT-TYPE:',hu)=0 then return 'ERROR'
  return 'OK'
@@ -1065,19 +1171,82 @@ asciitocms: procedure
  return cms
 
 authheader: procedure
- drop cred.
- cred.0=0
+ /* Read GHCRED REPO A and return "Authorization: Basic ..." (plain
+    text).  Returns '' if absent, 'ERROR' if malformed. */
+ address cms
+ tokenalphabet='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+ tokenalphabet=tokenalphabet||'0123456789_-'
  'STATE GHCRED REPO A'
  if rc=28 then return ''
  if rc\=0 then return 'ERROR'
+ drop cred.
  'EXECIO * DISKR GHCRED REPO A 1 (STEM CRED. FINIS'
- if rc\=0 | cred.0<1 then return ''
- if word(cred.1,1)='GHCRED' & words(cred.1)=2 then do
-  token=word(cred.1,2)
-  call toasciihex 'Authorization: Bearer '||token
-  return result
+ if rc\=0 | cred.0<4 then return 'ERROR'
+ if cred.1='GHCRED 1' then do
+  authmode='APIKEY'
+  userrec=2; lenrec=3; firstsecret=4
+  lenlabel='TOKEN-LENGTH'; chunkprefix='TOKEN'
  end
- return ''
+ else if cred.1='GHCRED 2' then do
+  if words(cred.2)\=2 | word(cred.2,1)\='MODE' then return 'ERROR'
+  authmode=word(cred.2,2)
+  if authmode\='APIKEY' & authmode\='USERPASS' then return 'ERROR'
+  userrec=3; lenrec=4; firstsecret=5
+  lenlabel='SECRET-LENGTH'; chunkprefix='SECRET'
+ end
+ else return 'ERROR'
+ if words(cred.userrec)\=2 | word(cred.userrec,1)\='USER' then,
+  return 'ERROR'
+ authuser=word(cred.userrec,2)
+ if authuser='' | length(authuser)>39 |,
+    verify(translate(authuser),'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-')\=0 then,
+  return 'ERROR'
+ if words(cred.lenrec)\=2 | word(cred.lenrec,1)\=lenlabel then,
+  return 'ERROR'
+ tokenlength=word(cred.lenrec,2)
+ if datatype(tokenlength,'W')\=1 | tokenlength<1 | tokenlength>240 then,
+  return 'ERROR'
+ chunks=(tokenlength+63)%64
+ if cred.0\=firstsecret+chunks-1 then return 'ERROR'
+ authtoken=''
+ do authi=1 to chunks
+  rec=firstsecret+authi-1
+  parse var cred.rec authlabel authpart
+  authpart=strip(authpart)
+  if authi=1 then expected=chunkprefix
+  else expected=chunkprefix||'+'||(authi-1)
+  wantlen=tokenlength-((authi-1)*64)
+  if wantlen>64 then wantlen=64
+  if words(cred.rec)\=2 | authlabel\=expected |,
+     length(authpart)\=wantlen |,
+     verify(authpart,tokenalphabet)\=0 then return 'ERROR'
+  authtoken=authtoken||authpart
+ end
+ if length(authtoken)\=tokenlength then return 'ERROR'
+ call toasciihex authuser||':'||authtoken
+ authbytes=result
+ if authbytes='ERROR' | length(authbytes)//2\=0 then return 'ERROR'
+ alphabet='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+ alphabet=alphabet||'0123456789+/'
+ auth64=''
+ do authi=1 to length(authbytes) by 6
+  remain=length(authbytes)-authi+1
+  if remain<2 then return 'ERROR'
+  b1=x2d(substr(authbytes,authi,2)); b2=0; b3=0
+  if remain>=4 then b2=x2d(substr(authbytes,authi+2,2))
+  if remain>=6 then b3=x2d(substr(authbytes,authi+4,2))
+  six1=b1%4
+  six2=(b1//4)*16+b2%16
+  six3=(b2//16)*4+b3%64
+  six4=b3//64
+  auth64=auth64||substr(alphabet,six1+1,1)||,
+         substr(alphabet,six2+1,1)
+  if remain>=4 then auth64=auth64||substr(alphabet,six3+1,1)
+  else auth64=auth64||'='
+  if remain>=6 then auth64=auth64||substr(alphabet,six4+1,1)
+  else auth64=auth64||'='
+ end
+ return 'Authorization: Basic '||auth64
 
 safehost:
  parse arg value
