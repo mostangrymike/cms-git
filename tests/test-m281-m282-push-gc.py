@@ -133,4 +133,41 @@ for src, name in ((GIT, "GIT.EXEC"), (PUSH, "GITPUSH"), (GC, "GITGC"),
 # Credential import surface.
 assert "GHCRED" in CRED
 
+
+# M281 pack-build: literal OBJSTG STAGE, numeric type codes, single DISKW.
+assert "stagefn='OBJSTG'" in PUSH
+assert "if objtype='COMMIT' then objcode=1" in PUSH
+assert "else if objtype='TREE' then objcode=2" in PUSH
+assert "else if objtype='BLOB' then objcode=3" in PUSH
+assert "else if objtype='TAG' then objcode=4" in PUSH
+assert "stgout.sn='OBJ' objcode objsize oidcur" in PUSH
+assert "'EXECIO' sn 'DISKW' stagefn 'STAGE' objectfm '1 (STEM STGOUT. FINIS'" in PUSH
+assert "DISKW' stagefn 'STAGE' objectfm||' 1 (STEM STGOUT. FINIS'" not in PUSH
+
+# M281 pack-build: prefer native GITPMKC HEX, fallback REXX GITPMK BUILD.
+assert "'STATE GITPMKC MODULE A'" in PUSH
+assert "'GITPMKC BUILD HEX'" in PUSH
+assert "(RECFM V LRECL 255" in PUSH
+assert "'RENAME OBJOUT STAGE' objectfm pack 'PACK' objectfm" in PUSH
+
+# M281 receive-pack body: pkt framing via toasciihex, report-status,
+# Content-Length/User-Agent; pack bytes appended as raw hex (no word(,2),
+# no toasciihex of packhex).
+assert "report-status" in PUSH
+assert "call toasciihex 'Content-Length: '" in PUSH
+assert "call toasciihex 'User-Agent: git/cms-git'" in PUSH
+assert ("cmdtxt=oldoid||' '||localtip||' '||localbranch" in PUSH or
+        "cmdtxt=translate(oldoid" in PUSH)
+assert "toasciihex ' report-status" in PUSH or "toasciihex 'report-status'" in PUSH
+# pack bytes sent as raw hex from records (streamed), no toasciihex/word(,2)
+assert "toasciihex packhex" not in PUSH
+assert "word(PACKHEX.pi,2)" not in PUSH
+assert "strip(translate(PACKHEX.pi))" in PUSH
+assert "x2c(wire)" in PUSH
+
+# M281 response: chunk+pkt reassembly for report-status.
+assert "pktfeed_push:" in PUSH
+assert "call pktfeed_push cpiece" in PUSH
+assert "call pktlen substr(line,1,8)" in PUSH
+
 print("M281 PUSH AND M282 GC/REPACK HOST SOURCE GUARDS PASS")

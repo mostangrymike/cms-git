@@ -388,32 +388,41 @@ objlist.0=0
 drop objsseen.
 objsseen.0=0
 depth.0=0
-call walk_commit localtip 0
+call walk_commit localtip
 if objlist.0=0 then do
    say 'GIT PUSH: no objects to push'
    exit 8
 end
 say 'GIT PUSH: enumerated' objlist.0 'objects'
 
-/* Write staging file for GITPMK. */
-stagefn='PUSHSTG'
+/* Reuse existing pack if present (debug/fast path). */
+reusepack=0
+'STATE' pack 'PACK' objectfm
+if rc=0 then do
+   drop _RP.
+   _RP.0=0
+   'EXECIO 1 DISKR' pack 'PACK' objectfm '1 (STEM _RP. FINIS'
+   if rc=0 & _RP.0>=1 then do
+      _rp1=translate(strip(_RP.1))
+      if left(_rp1,8)='5041434B' then do
+         reusepack=1
+         say 'GIT PUSH: reusing existing pack' pack
+      end
+   end
+end
+if reusepack\=1 then do
+
+/* Write staging file for GITPMK (literal OBJSTG STAGE <fm>). */
+stagefn='OBJSTG'
 'STATE' stagefn 'STAGE' objectfm
 stagerc=rc
-if stagerc=0 then do
-   say 'GIT PUSH: staging file already exists' stagefn
-   exit 8
-end
-if stagerc\=28 then do
+if stagerc=0 then 'ERASE' stagefn 'STAGE' objectfm
+if stagerc\=0 & stagerc\=28 then do
    say 'GIT PUSH: staging STATE failed RC' stagerc
    exit 8
 end
-'FILEDEF OBJSTG DISK' stagefn 'STAGE' objectfm ' (RECFM V LRECL 80'
-if rc\=0 then do
-   say 'GIT PUSH: staging FILEDEF failed'
-   exit 8
-end
 drop stgout.
-stgout.0=0
+sn=0
 do oi=1 to objlist.0
    oidcur=objlist.oi
    objfn=substr(oidcur,1,8)
@@ -439,113 +448,145 @@ do oi=1 to objlist.0
       say 'GIT PUSH: object size mismatch' oidcur
       exit 8
    end
-   n=3
-   stgout.n='OBJ' objtype objsize oidcur
-   n=n+1
+   if objtype='COMMIT' then objcode=1
+   else if objtype='TREE' then objcode=2
+   else if objtype='BLOB' then objcode=3
+   else if objtype='TAG' then objcode=4
+   else do
+      say 'GIT PUSH: unknown object type' objtype oidcur
+      exit 8
+   end
+   sn=sn+1
+   stgout.sn='OBJ' objcode objsize oidcur
    pos=1
    do while pos<=length(objhex)
       take=min(64,length(objhex)-pos+1)
-      n=n+1
-      stgout.n=substr(objhex,pos,take)
+      sn=sn+1
+      stgout.sn=substr(objhex,pos,take)
       pos=pos+take
    end
    if objsize=0 then do
-      n=n+1
-      stgout.n=''
-   end
-   stgout.0=n
-   'EXECIO' stgout.0 'DISKW' stagefn 'STAGE' objectfm||' 1 (STEM STGOUT. FINIS'
-   if rc\=0 then do
-      say 'GIT PUSH: staging write failed'
-      exit 8
+      sn=sn+1
+      stgout.sn=''
    end
 end
-'FILEDEF OBJSTG CLEAR'
-clearrc=rc
+stgout.0=sn
+'EXECIO' sn 'DISKW' stagefn 'STAGE' objectfm '1 (STEM STGOUT. FINIS'
+if rc\=0 then do
+   say 'GIT PUSH: staging write failed'
+   exit 8
+end
 
-/* Build packfile. */
+/* Build packfile (native GITPMKC preferred). */
 say 'GIT PUSH: building packfile...'
-'FILEDEF OBJSTG DISK' stagefn 'STAGE' objectfm ' (RECFM V LRECL 80'
-if rc\=0 then do
-   say 'GIT PUSH: staging FILEDEF failed'
-   exit 8
+'STATE OBJOUT STAGE' objectfm
+if rc=0 then 'ERASE OBJOUT STAGE' objectfm
+'STATE GITPMKC MODULE A'
+nativepmk=(rc=0)
+if nativepmk then do
+   say 'GIT PUSH: using native GITPMKC builder'
+   'FILEDEF OBJSTG DISK' stagefn 'STAGE' objectfm
+   'FILEDEF OBJOUT DISK OBJOUT STAGE' objectfm ' (RECFM V LRECL 255'
+   'GITPMKC BUILD HEX'
+   pmkrc=rc
+   'FILEDEF OBJSTG CLEAR'
+   'FILEDEF OBJOUT CLEAR'
 end
-'FILEDEF OBJOUT DISK' pack 'PACK' objectfm
-if rc\=0 then do
-   say 'GIT PUSH: pack FILEDEF failed'
-   exit 8
+else do
+   say 'GIT PUSH: using REXX GITPMK builder'
+   'EXEC GITPMK BUILD' objectfm
+   pmkrc=rc
 end
-'EXEC GITPMK BUILD'
-pmkrc=rc
 if pmkrc\=0 then do
    say 'GIT PUSH: pack creation failed'
    exit 8
 end
-'STATE' pack 'PACK' objectfm
+'STATE OBJOUT STAGE' objectfm
 if rc\=0 then do
    say 'GIT PUSH: pack file not created'
    exit 8
 end
+'STATE' pack 'PACK' objectfm
+if rc=0 then 'ERASE' pack 'PACK' objectfm
+'RENAME OBJOUT STAGE' objectfm pack 'PACK' objectfm
+if rc\=0 then do
+   say 'GIT PUSH: pack rename failed'
+   exit 8
+end
+'ERASE' stagefn 'STAGE' objectfm
+
+end
 
 /* Send push to git-receive-pack. */
 say 'GIT PUSH: sending pack to' rauthority '...'
-path='/'||rrepo||'.git/git-receive-pack'
-call toasciihex 'POST '||path||' HTTP/1.1'
-wire=result||'0D0A'
-call toasciihex 'Host: '||rauthority
-wire=wire||result||'0D0A'
 call authheader
 authvalue=result
-if authvalue='ERROR' then do
+if authvalue='ERROR' | authvalue='' then do
    say 'GIT PUSH: invalid stored GitHub credential'
    exit 8
 end
-if authvalue\='' then do
-   if translate(rauthority)\='GITHUB.COM' then do
-      say 'GIT PUSH: credential limited to github.com'
-      exit 8
-   end
-   call toasciihex authvalue
-   if result='ERROR' then exit 8
-   wire=wire||result||'0D0A'
+if translate(rauthority)\='GITHUB.COM' then do
+   say 'GIT PUSH: credential limited to github.com'
+   exit 8
 end
-call toasciihex 'Content-Type: application/x-git-receive-pack-request'
-wire=wire||result||'0D0A'
-call toasciihex 'Accept: application/x-git-receive-pack-result'
-wire=wire||result||'0D0A'
-call toasciihex 'Connection: close'
-wire=wire||result||'0D0A'
 
-/* Build request body: ref update command + pack data. */
-if remotehas=1 then do
-   refupdate=localtip||' '||remoteadoid||' '||localbranch||'0A'
-end
-else do
-   zero='0000000000000000000000000000000000000000'
-   refupdate=localtip||' '||zero||' '||localbranch||'0A'
-end
-call toasciihex refupdate
-wire=wire||result||'0D0A'
-call toasciihex '0000'
-wire=wire||result||'0D0A'
-
-/* Read pack file and append to wire. */
-packhex=''
+/* Read pack file (hex text) and compute size without concatenation. */
+drop PACKHEX.
+PACKHEX.0=0
 'EXECIO * DISKR' pack 'PACK' objectfm '1 (STEM PACKHEX. FINIS'
 if rc\=0 then do
    say 'GIT PUSH: cannot read pack file'
    exit 8
 end
+packlen=0
 do pi=1 to PACKHEX.0
-   packhex=packhex||translate(word(PACKHEX.pi,2))
+   packlen=packlen+length(strip(translate(PACKHEX.pi)))
 end
-call toasciihex packhex
-wire=wire||result||'0D0A'
-call toasciihex '0000'
-wire=wire||result||'0D0A'
+if packlen=0 | packlen//2\=0 then do
+   say 'GIT PUSH: pack file is empty or malformed'
+   exit 8
+end
+say 'GIT PUSH: pack hex bytes='||(packlen%2)
+p1=translate(strip(PACKHEX.1))
+if left(p1,8)\='5041434B' then do
+   say 'GIT PUSH: bad pack header' left(p1,16)
+   exit 8
+end
 
-raw=x2c(wire)
-clen=length(raw)
+/* Build receive-pack command pkt + flush (hex of raw wire bytes). */
+if remotehas=1 then oldoid=remoteadoid
+else oldoid='0000000000000000000000000000000000000000'
+cmdtxt=translate(oldoid,'abcdef','ABCDEF')||' '||,
+   translate(localtip,'abcdef','ABCDEF')||' '||localbranch
+call toasciihex cmdtxt
+datahex=result||'00'
+call toasciihex ' report-status object-format=sha1 agent=git/cms-git'
+datahex=datahex||result
+pktn=(8+length(datahex))%2
+pktpfx=translate(right(d2x(pktn),4,'0'))
+call toasciihex pktpfx
+cmdhex=result||datahex||'30303030'
+
+/* HTTP headers. */
+clen=(length(cmdhex)+packlen)%2
+path='/'||rrepo||'.git/git-receive-pack'
+call toasciihex 'POST '||path||' HTTP/1.1'
+wire=result||'0D0A'
+call toasciihex 'Host: '||rauthority
+wire=wire||result||'0D0A'
+call toasciihex authvalue
+wire=wire||result||'0D0A'
+call toasciihex 'User-Agent: git/cms-git'
+wire=wire||result||'0D0A'
+call toasciihex 'Content-Type: application/x-git-receive-pack-request'
+wire=wire||result||'0D0A'
+call toasciihex 'Accept: application/x-git-receive-pack-result'
+wire=wire||result||'0D0A'
+call toasciihex 'Content-Length: '||clen
+wire=wire||result||'0D0A'
+call toasciihex 'Connection: close'
+wire=wire||result||'0D0A0D0A'
+wire=wire||cmdhex
 
 r=Socket('Initialize','GITPUSH2')
 parse var r src rest
@@ -581,10 +622,44 @@ if src\=0 then do
    say 'GIT PUSH: connect failed'
    exit 8
 end
-r=Socket('Send',s,raw)
-parse var r src sent
-if src\=0 | sent\=length(raw) then do
-   say 'GIT PUSH: send failed'
+say 'GIT PUSH: sending' clen 'bytes...'
+rawrec=x2c(wire)
+off=1
+do while off<=length(rawrec)
+   chunk=substr(rawrec,off)
+   r=Socket('Send',s,chunk)
+   parse var r src sent
+   if src\=0 | sent<=0 then do
+      say 'GIT PUSH: send failed (headers) src='src 'sent='sent
+      exit 8
+   end
+   off=off+sent
+end
+carry=''
+do pi=1 to PACKHEX.0
+   phrec=carry||strip(translate(PACKHEX.pi))
+   carry=''
+   if phrec='' then iterate
+   if length(phrec)//2=1 then do
+      carry=right(phrec,1)
+      phrec=left(phrec,length(phrec)-1)
+   end
+   if phrec='' then iterate
+   rawrec=x2c(phrec)
+   off=1
+   do while off<=length(rawrec)
+      chunk=substr(rawrec,off)
+      r=Socket('Send',s,chunk)
+      parse var r src sent
+      if src\=0 | sent<=0 then do
+         say 'GIT PUSH: send failed (pack) pi='pi 'src='src 'sent='sent
+         exit 8
+      end
+      off=off+sent
+   end
+end
+if carry\='' then do
+   say 'GIT PUSH: pack hex nibble alignment error'
    exit 8
 end
 
@@ -596,7 +671,17 @@ cline=''
 cneed=0
 ccrlf=''
 chunkdone=0
-respbody=''
+httpstatus=''
+hchunked=1
+hclen=-1
+bodychunked=1
+bodyleft=-1
+bodyraw=''
+bodyrawmax=512
+pstate='HDR'
+phdr=''
+pneed=0
+ppkt=''
 total=0
 drop pushresp.
 pushresp.0=0
@@ -623,29 +708,84 @@ end
 r=Socket('Close',s)
 r=Socket('Terminate')
 
-/* Parse PKT-LINE response. */
+say 'GIT PUSH: response HTTP' strip(httpstatus) 'pkts='pushresp.0
+say 'GIT PUSH: resp state='hstate 'chunk='chunkdone 'cstate='cstate
+say 'GIT PUSH: pkt pstate='pstate 'phdr='||length(phdr) 'pneed='pneed
+say 'GIT PUSH: bchk='bodychunked
+say 'GIT PUSH: phdr='||left(phdr,16)
+say 'GIT PUSH: braw='||left(bodyraw,80)
+if pushresp.0=0 & bodyraw\='' then do
+   call asciitocms bodyraw
+   say 'GIT PUSH: body='||left(strip(result),120)
+end
+
+/* Parse report-status response (plain pkt-lines or side-band-64k). */
 pushok=0
 pushfail=''
 do ri=1 to pushresp.0
-   line=pushresp.ri
-   if line='0000' then leave
-   pktlen=0
-   do ci=1 to 4
-      c=substr(line,ci*2-1,2)
-      if verify(c,'0123456789ABCDEF')\=0 then leave
-      pktlen=pktlen*16+x2d(c)
+   line=translate(pushresp.ri)
+   if left(line,8)='30303030' then leave
+   call pktlen substr(line,1,8)
+   plen=result
+   if plen='ERROR' | plen<4 then iterate
+   phex=substr(line,9,(plen-4)*2)
+   if plen<=4 | length(phex)<2 then iterate
+   /* Side-band-64k: first payload byte is channel (01=data,02=prog,03=err). */
+   if left(phex,2)='01' | left(phex,2)='02' | left(phex,2)='03' then do
+      chan=left(phex,2); phex=substr(phex,3)
+      if chan='02' then iterate
+      if chan='03' then do
+         call asciitocms phex
+         pushfail=strip(result); say 'GIT PUSH: sideband err' pushfail
+         iterate
+      end
+      /* channel 1: may contain embedded pkt-line(s) */
    end
-   if pktlen<4 then iterate
-   payload=substr(line,9,pktlen-4)
-   call asciitocms payload
-   msg=result
-   if left(msg,2)='ok ' then do
-      pushok=1
-      say 'GIT PUSH: accepted' substr(msg,4)
+   /* Handle embedded pkt-line(s) inside channel 1, or plain pkt payload. */
+   inner=phex
+   do while length(inner)>=8
+      if left(inner,8)='30303030' then leave
+      /* is this an embedded pkt-line? starts with 4 hex-ascii digit chars */
+      call pktlen left(inner,8)
+      ipn=result
+      if ipn='ERROR' | ipn<4 then leave
+      ihex=substr(inner,9,(ipn-4)*2)
+      if right(ihex,2)='0A' then ihex=left(ihex,length(ihex)-2)
+      call asciitocms ihex
+      msg=strip(result)
+      if left(msg,7)='unpack ' then do
+         say 'GIT PUSH: unpack' substr(msg,8)
+         if strip(substr(msg,8))\='ok' then pushfail=msg
+      end
+      else if left(msg,3)='ok ' then do
+         pushok=1; say 'GIT PUSH: accepted' substr(msg,4)
+      end
+      else if left(msg,3)='ng ' then do
+         pushfail=substr(msg,4); say 'GIT PUSH: rejected' pushfail
+      end
+      inner=substr(inner,ipn*2+1)
    end
-   else if left(msg,2)='ng ' then do
-      pushfail=substr(msg,4)
-      say 'GIT PUSH: rejected' pushfail
+   if length(inner)>0 & length(inner)<8 then do
+      /* plain (non-embedded) payload that wasn't an embedded pkt */
+      nop=1
+   end
+   /* also try plain decode if nothing matched (non-embedded, no sideband) */
+   if pushok=0 & pushfail='' & length(inner)>=2 &,
+      length(inner)=length(phex) then do
+      if right(phex,2)='0A' then phex=left(phex,length(phex)-2)
+      call asciitocms phex
+      msg=strip(result)
+      if left(msg,7)='unpack ' then do
+         say 'GIT PUSH: unpack' substr(msg,8)
+         if strip(substr(msg,8))\='ok' then pushfail=msg
+      end
+      else if left(msg,3)='ok ' then do
+         pushok=1; say 'GIT PUSH: accepted' substr(msg,4)
+      end
+      else if left(msg,3)='ng ' then do
+         pushfail=substr(msg,4); say 'GIT PUSH: rejected' pushfail
+      end
+      else if msg\='' then say 'GIT PUSH:' msg
    end
 end
 
@@ -653,8 +793,23 @@ if pushfail\='' then do
    say 'GIT PUSH: push failed:' pushfail
    exit 8
 end
-if pushok\=1 then do
-   say 'GIT PUSH: no acceptance response from server'
+if pushok\=1 & remotehas=0 then do
+   /* empty-repo create: some flows report via unpack only; be explicit */
+   say 'GIT PUSH: no ref acceptance in report-status'
+   do di=1 to min(pushresp.0,5)
+      dline=translate(pushresp.di)
+      if left(dline,8)='30303030' then say 'GIT PUSH: pkt' di '=FLUSH'
+      else do
+         call pktlen substr(dline,1,8)
+         if result\='ERROR' & result>4 then do
+            dhex=substr(dline,9,(result-4)*2)
+            if right(dhex,2)='0A' then dhex=left(dhex,length(dhex)-2)
+            call asciitocms dhex
+            say 'GIT PUSH: pkt' di '='||strip(result)
+         end
+         else say 'GIT PUSH: pkt' di '='||left(dline,40)
+      end
+   end
    exit 8
 end
 
@@ -663,7 +818,7 @@ trackingref='refs/remotes/'||remote||'/'||shortbranch
 drop ref2upd.
 ref2upd.0=0
 'EXECIO * DISKR GITREF2 REPO A 1 (STEM REF2UPD. FINIS'
-if rc\=0 | REF2UPD.0<2 | word(REF2UPD.1,1)\='REF2 1' then do
+if rc\=0 | REF2UPD.0<2 | REF2UPD.1\='REF2 1' then do
    say 'GIT PUSH: cannot read REF2 for tracking update'
    exit 8
 end
@@ -720,8 +875,8 @@ exit 0
 /* ======================================================================== */
 
 /* Walk a commit and all reachable objects iteratively (no recursion). */
-walk_commit: procedure expose objlist. objsseen. objectfm
-   parse arg cmt
+walk_commit: procedure expose objlist. objsseen. objectfm remoteadoid remotehas
+   parse arg cmt .
    /* Use a queue for iterative BFS over commits. */
    drop cqueue.
    cqueue.0=1
@@ -738,6 +893,13 @@ walk_commit: procedure expose objlist. objsseen. objectfm
          end
       end
       if seen then iterate
+      /* Stop at objects the remote already has. */
+      if remotehas=1 & translate(current)=translate(remoteadoid) then do
+         objsseen.0=objsseen.0+1
+         objsseenx=objsseen.0
+         objsseen.objsseenx=current
+         iterate
+      end
       objsseen.0=objsseen.0+1
       objsseenx=objsseen.0
       objsseen.objsseenx=current
@@ -791,7 +953,7 @@ walk_commit: procedure expose objlist. objsseen. objectfm
       /* Enqueue parents for processing. */
       ppos=1
       do forever
-         ppos=pos('706172656e7420',cdata,ppos)
+         ppos=pos('706172656E7420',cdata,ppos)
          if ppos=0 then leave
          call asciitocms substr(cdata,ppos+14,80)
          poid=translate(result)
@@ -1052,6 +1214,14 @@ checkhdr:
  parse var ht httpstatus 13 .
  hu=translate(ht)
  if pos('CONTENT-TYPE:',hu)=0 then return 'ERROR'
+ hchunked=(pos('TRANSFER-ENCODING: CHUNKED',hu)>0)
+ hclen=-1
+ clp=pos('CONTENT-LENGTH:',hu)
+ if clp>0 then do
+  clv=strip(substr(ht,clp+15))
+  clv=word(translate(clv,' ','0D0A'x),1)
+  if datatype(strip(clv),'W') then hclen=strip(clv)+0
+ end
  return 'OK'
 
 httpfeed_push:
@@ -1062,10 +1232,14 @@ httpfeed_push:
   hp=pos('0D0A0D0A',header)
   if hp=0 then return 'OK'
   hpart=left(header,hp+7)
-  call checkhdr_push hpart
+  call checkhdr hpart
   if result\='OK' then return 'ERROR'
   leftover=substr(header,hp+8)
   hstate='BODY'
+  bodychunked=hchunked
+  bodyleft=hclen
+  bodyraw=''
+  bodyrawmax=512
   header=''
   if leftover\='' then do
    call httpfeed_push_body leftover
@@ -1073,47 +1247,137 @@ httpfeed_push:
   end
   return 'OK'
  end
- if hstate\='BODY' then return 'ERROR'
- call httpfeed_push_body hx
- return 'OK'
-
-httpfeed_push_body:
- parse arg hx
- do while hx\=''
-  if cstate='SIZE' then do
-   cline=cline||left(hx,2)
-   hx=substr(hx,3)
-   if right(cline,4)='0D0A' then do
-    ch=left(cline,length(cline)-4)
-    cline=''
-    pktlen=0
-    do ci=1 to length(ch) by 2
-     pktlen=pktlen*16+x2d(substr(ch,ci,2))
-    end
-    if pktlen=0 then do
-     chunkdone=1
-     return 'OK'
-    end
-    cneed=pktlen-4
-    cstate='PAYLOAD'
-   end
-  end
-  else if cstate='PAYLOAD' then do
-   take=cneed
-   if take>length(hx) then take=length(hx)
-   pushresp.0=pushresp.0+1
-   pushrespx=pushresp.0
-   pushresp.pushrespx=left(hx,take*2)
-   hx=substr(hx,take*2+1)
-   cneed=cneed-take
-   if cneed=0 then cstate='SIZE'
-  end
+ if hstate\='BODY' then do
+  call httpfeed_push_body hx
+  return result
  end
  return 'OK'
 
-checkhdr_push:
- parse arg hh
- if left(hh,14)\='485454502F312E' then return 'ERROR'
+httpfeed_push_body:
+ parse arg cwork
+ cwork=translate(cwork)
+ if \bodychunked then do
+  /* Non-chunked: feed raw body to pktfeed_push; capture text preview. */
+  if bodyleft>=0 then do
+   take=length(cwork)
+   if take>bodyleft*2 then take=bodyleft*2
+   piece=left(cwork,take)
+   bodyleft=bodyleft-(take%2)
+  end
+  else piece=cwork
+  if piece\='' then do
+   if length(bodyraw)<bodyrawmax*2 then,
+      bodyraw=bodyraw||left(piece,(bodyrawmax*2)-length(bodyraw))
+   call pktfeed_push piece
+   if result\='OK' then do
+    /* not pkt-formatted; keep preview only */
+    nop=1
+   end
+  end
+  if bodyleft=0 then chunkdone=1
+  return 'OK'
+ end
+ /* Chunked transfer decoding; feeds pkt lines to pktfeed_push. */
+ do while cwork\=''
+  if cstate='SIZE' then do
+   cb=left(cwork,2)
+   cwork=substr(cwork,3)
+   cline=cline||cb
+   if length(cline)>128 then return 'ERROR'
+   if right(cline,4)='0D0A' then do
+    ch=left(cline,length(cline)-4)
+    cline=''
+    ep=pos('3B',ch)
+    if ep>0 then ch=left(ch,ep-1)
+    if ch='' | length(ch)//2\=0 | length(ch)>16 then return 'ERROR'
+    cneed=0
+    do cj=1 to length(ch) by 2
+     cv=x2d(substr(ch,cj,2))
+     if cv>=48 & cv<=57 then cn=cv-48
+     else if cv>=65 & cv<=70 then cn=cv-55
+     else if cv>=97 & cv<=102 then cn=cv-87
+     else return 'ERROR'
+     cneed=cneed*16+cn
+    end
+    if cneed>1048576 then return 'ERROR'
+    if cneed=0 then do
+     cstate='DONE'; chunkdone=1; cwork=''
+    end
+    else cstate='DATA'
+   end
+  end
+  else if cstate='DATA' then do
+   cavail=length(cwork)%2
+   ctake=cneed
+   if ctake>cavail then ctake=cavail
+   if ctake=0 then return 'OK'
+   cpiece=left(cwork,ctake*2)
+   cwork=substr(cwork,ctake*2+1)
+   call pktfeed_push cpiece
+   if result\='OK' then return 'ERROR'
+   cneed=cneed-ctake
+   if cneed=0 then do
+    cstate='CRLF'; ccrlf=''
+   end
+  end
+  else if cstate='CRLF' then do
+   ctake=4-length(ccrlf)
+   if ctake>length(cwork) then ctake=length(cwork)
+   ccrlf=ccrlf||left(cwork,ctake)
+   cwork=substr(cwork,ctake+1)
+   if length(ccrlf)=4 then do
+    if ccrlf\='0D0A' then return 'ERROR'
+    ccrlf=''; cstate='SIZE'
+   end
+  end
+  else if cstate='DONE' then cwork=''
+  else return 'ERROR'
+ end
+ return 'OK'
+
+pktfeed_push:
+ /* Reassemble complete pkt-lines (hex) into pushresp. */
+ parse arg pwork
+ pwork=translate(pwork)
+ do while pwork\=''
+  if pstate='HDR' then do
+   ptake=8-length(phdr)
+   if ptake>length(pwork) then ptake=length(pwork)
+   phdr=phdr||left(pwork,ptake)
+   pwork=substr(pwork,ptake+1)
+   if length(phdr)<8 then iterate
+   call pktlen phdr
+   pn=result
+   if pn='ERROR' then return 'ERROR'
+   if pn=0 then do
+    pushresp.0=pushresp.0+1; _px=pushresp.0
+    pushresp._px='0000'
+    phdr=''; iterate
+   end
+   pneed=(pn-4)*2
+   ppkt=phdr
+   phdr=''
+   if pneed=0 then do
+    pushresp.0=pushresp.0+1; _px=pushresp.0
+    pushresp._px=ppkt; ppkt=''
+    iterate
+   end
+   pstate='BODY'
+  end
+  else if pstate='BODY' then do
+   ptake=pneed
+   if ptake>length(pwork) then ptake=length(pwork)
+   ppkt=ppkt||left(pwork,ptake)
+   pwork=substr(pwork,ptake+1)
+   pneed=pneed-ptake
+   if pneed=0 then do
+    pushresp.0=pushresp.0+1; _px=pushresp.0
+    pushresp._px=ppkt
+    ppkt=''; pstate='HDR'
+   end
+  end
+  else return 'ERROR'
+ end
  return 'OK'
 
 toasciihex: procedure

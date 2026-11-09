@@ -435,7 +435,7 @@ walk_commit: procedure expose objlist. objsseen. objectfm
       /* Enqueue parents for processing. */
       ppos=1
       do forever
-         ppos=pos('706172656e7420',cdata,ppos)
+         ppos=pos('706172656E7420',cdata,ppos)
          if ppos=0 then leave
          call asciitocms substr(cdata,ppos+14,80)
          poid=translate(result)
