@@ -52,6 +52,28 @@ assert "call walk_commit localtip" in PUSH
 assert "call walk_tree treeoid" in PUSH
 assert "call walk_tree treeoid" in GC
 
+# Commit body parsing decodes the 80-column hex-encoded ASCII OID.
+for src, name in ((PUSH, "GITPUSH"), (GC, "GITGC")):
+    # Commit OIDs are ASCII hex text; decode via asciitocms (X2C alone
+    # yields EBCDIC code points), not bare substring or x2c.
+    assert "call asciitocms substr(cdata,treepos+10,80)" in src
+    assert "call asciitocms substr(cdata,ppos+14,80)" in src
+    assert "treeoid=translate(result)" in src
+    assert "poid=translate(result)" in src
+    assert "ppos=ppos+96" in src
+    assert "translate(x2c(substr(cdata,treepos+10,80)))" not in src
+    assert "translate(x2c(substr(cdata,ppos+14,80)))" not in src
+    assert "substr(cdata,treepos+10,40)" not in src
+    assert "substr(cdata,ppos+14,40)" not in src
+    assert "asciitocms: procedure" in src
+
+# REXX resolves stem.stem.0 as a distinct compound variable, not stem.<n>,
+# so object queues must index through an explicit counter variable.
+FACT = (ROOT / "src" / "GITFACT.EXEC").read_text()
+for src, name in ((PUSH, "GITPUSH"), (GC, "GITGC"), (FACT, "GITFACT")):
+    bad = re.findall(r"(?m)^[ \t]*([A-Za-z_]\w*)\.\1\.0=", src)
+    assert not bad, (name, bad)
+
 # GITGC pack naming and prune/repack semantics.
 assert "PACK'||right(packnum,4,'0')" in GC
 assert "if cmd='GC' & prune=1 then do" in GC
@@ -59,9 +81,34 @@ assert "isreach=0" in GC
 assert "'ERASE' objfn 'GITOBJ' objectfm" in GC
 assert "if cmd='REPACK' & repack_delete=1 then do" in GC
 assert "'STATE' packfn 'PACK' objectfm" in GC
+
+# Bounded validation: LIMIT=n truncates the reachable closure before packing.
+assert "if left(opt,6)='LIMIT='" in GC
+assert "objlist.0=packlimit" in GC
+assert "LIMIT active; packing" in GC
+
+# Pack staging contract: text type codes, OBJSTG handoff, hex OBJOUT
+# promoted to PACKnnnn, and staging cleanup.
+assert "stagefn='OBJSTG'" in GC
+assert "if objtype='COMMIT' then objcode=1" in GC
+assert "else if objtype='TREE' then objcode=2" in GC
+assert "else if objtype='BLOB' then objcode=3" in GC
+assert "else if objtype='TAG' then objcode=4" in GC
+assert "stgout.sn='OBJ' objcode objsize oidcur" in GC
+assert "'EXEC GITPMK BUILD' objectfm" in GC
+assert "'RENAME OBJOUT STAGE' objectfm packfn 'PACK' objectfm" in GC
+assert "'ERASE' stagefn 'STAGE' objectfm" in GC
 for line in GC.splitlines():
     if "ERASE" in line and "GITREF" in line:
         raise SystemExit("GITGC must not erase refs: " + line)
+
+# REF2 header validation must compare a single word to a single word.
+assert "word(REF2.1,1)\\='REF2'" in PUSH
+assert "word(REF2.1,1)\\='REF2'" in GC
+assert "word(REF2.1,2)\\='1'" in PUSH
+assert "word(REF2.1,2)\\='1'" in GC
+assert "word(REF2.1,1)\\='REF2 1'" not in PUSH
+assert "word(REF2.1,1)\\='REF2 1'" not in GC
 
 # 80-column checks.
 for src, name in ((GIT, "GIT.EXEC"), (PUSH, "GITPUSH"), (GC, "GITGC"),

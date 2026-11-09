@@ -383,7 +383,8 @@ verify_closure:
     if seen.childoid\=1 then do
      seen.childoid=1
      q.0=q.0+1
-     q.q.0=childoid
+     qx=q.0
+     q.qx=childoid
     end
    end
   end

@@ -1,19 +1,26 @@
 /* M280: create a Git packfile from CMS loose objects (pure REXX).
- * Reads dd:OBJSTG, writes dd:OBJOUT. Pure REXX: SHA1, Adler-32,
- * DEFLATE stored blocks, zlib wrapper, Git pack format. */
+ * Reads OBJSTG STAGE fm, writes OBJOUT STAGE fm (default fm A).
+ * Pure REXX: SHA1, Adler-32, DEFLATE stored blocks, zlib wrapper,
+ * Git pack format.  The pack file is stored as uppercase hex text. */
 address cms
 numeric digits 20
-parse arg cmd extra
+parse arg cmd fm extra
 if cmd\='BUILD' | extra\='' then do
-   say 'Usage: GITPMK BUILD'
-   say '   reads dd:OBJSTG, writes dd:OBJOUT'
+   say 'Usage: GITPMK BUILD [filemode]'
+   say '   reads OBJSTG STAGE fm, writes OBJOUT STAGE fm'
    exit 4
 end
 
 /* ---- Main program ---- */
-objectfm = 'A'
-drop objs.
-objs.0 = 0
+if fm='' then fm='A'
+fm=translate(strip(fm))
+if length(fm)\=1 | verify(fm,'ABCDEFGHIJKLMNOPQRSTUVWXYZ')\=0 then do
+   say 'GITPMK: invalid filemode' fm
+   exit 4
+end
+objectfm = fm
+drop p_type. p_size. p_oid. p_data.
+p_count = 0
 'EXECIO * DISKR OBJSTG STAGE' objectfm '1 (STEM OBJREC. FINIS'
 if rc\=0 then do
    say 'GITPMK: cannot read OBJSTG'
@@ -51,14 +58,14 @@ do while ri <= OBJREC.0
       exit 8
    end
    oi = oi + 1
-   objs.oi.otype = otype
-   objs.oi.osize = osize
-   objs.oi.oid = oid_str
-   objs.oi.data = obin
+   p_type.oi = otype
+   p_size.oi = osize
+   p_oid.oi = oid_str
+   p_data.oi = obin
 end
-objs.0 = oi
+p_count = oi
 
-if objs.0 = 0 then do
+if p_count = 0 then do
    say 'GITPMK: no objects to pack'
    exit 8
 end
@@ -67,17 +74,18 @@ end
 pack = ''
 pack = pack || x2c('5041434B')     /* "PACK" */
 pack = pack || x2c(right(num2hex(2),8,'0'))     /* version 2 */
-pack = pack || x2c(right(num2hex(objs.0),8,'0')) /* count */
+pack = pack || x2c(right(num2hex(p_count),8,'0')) /* count */
 
-do i = 1 to objs.0
-   deflated = deflate_stored(objs.i.data)
-   zlibbed = zlib_wrap(deflated, objs.i.data)
-   hdr = pack_header(objs.i.otype, objs.i.osize)
+do i = 1 to p_count
+   deflated = deflate_stored(p_data.i)
+   zlibbed = zlib_wrap(deflated, p_data.i)
+   hdr = pack_header(p_type.i, p_size.i)
    pack = pack || hdr || zlibbed
 end
 
 /* SHA1 trailer */
 plen = length(pack)
+call sha_init
 do pos = 1 to plen - 63 by 64
    call sha_block(substr(pack,pos,64))
 end
@@ -103,13 +111,23 @@ do i = 1 to 40 by 2
 end
 pack = pack || digest_bin
 
-'EXECIO' length(pack) 'DISKW OBJOUT STAGE' objectfm '1 (STEM PACKOUT. FINIS'
+/* Store the pack as uppercase hex text (one 128-column record per line),
+   matching the CMS pack-file convention consumed by GITPCHK. */
+hxpack = c2x(pack)
+drop PACKOUT.
+pn = 0
+do p = 1 to length(hxpack) by 128
+   pn = pn + 1
+   PACKOUT.pn = substr(hxpack,p,128)
+end
+PACKOUT.0 = pn
+'EXECIO' pn 'DISKW OBJOUT STAGE' objectfm '1 (STEM PACKOUT. FINIS'
 if rc\=0 then do
    say 'GITPMK: cannot write OBJOUT'
    exit 8
 end
 
-say 'PACK CREATED OBJECTS' objs.0
+say 'PACK CREATED OBJECTS' p_count
 say 'M280 PACK BUILD PASS'
 exit 0
 
@@ -227,7 +245,11 @@ rol32: procedure
    return (leftpart + rightpart) // 4294967296
 
 /* ----- SHA-1 (FIPS 180-1) ----- */
-h0 = h1 = h2 = h3 = h4 = 0
+h0 = 0
+h1 = 0
+h2 = 0
+h3 = 0
+h4 = 0
 sha_init:
    h0 = 1732584193; h1 = 4023233417; h2 = 2562383102
    h3 = 271733878; h4 = 3285377520

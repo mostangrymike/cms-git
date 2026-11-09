@@ -188,7 +188,23 @@ with tempfile.TemporaryDirectory(prefix="m280-") as td:
     assert "ad = adler32_num(plain)" in rex
     assert "ad = adler32_num(deflate)" not in rex
     # zlib_wrap receives the plain object data.
-    assert "zlib_wrap(deflated, objs.i.data)" in rex
+    assert "zlib_wrap(deflated, p_data.i)" in rex
+    # Named per-object stems avoid REXX's dynamic compound-tail pitfalls.
+    assert "p_type.oi = otype" in rex
+    assert "p_size.oi = osize" in rex
+    assert "p_oid.oi = oid_str" in rex
+    assert "p_data.oi = obin" in rex
+    assert "p_count = oi" in rex
+    assert "objs.oi.otype" not in rex
+    # Filemode is accepted as an argument (default A).
+    assert "parse arg cmd fm extra" in rex
+    assert "if fm='' then fm='A'" in rex
+    # The pack is written as uppercase hex text, one 128-column record.
+    assert "hxpack = c2x(pack)" in rex
+    assert "substr(hxpack,p,128)" in rex
+    # SHA-1 state must be initialized before hashing the pack.
+    assert "call sha_init" in rex
+    assert "h0 = h1 = h2 = h3 = h4 = 0" not in rex
     # Stored-block final bit is set.
     assert "out = out || '01'x" in rex
     assert "out = out || '80'x" not in rex

@@ -3,6 +3,9 @@
  * Usage: GIT GC [--prune=now]
  *        GIT REPACK [-d] [-a]
  *
+ * Either command accepts LIMIT=n to pack only the first n reachable objects
+ * (bounded validation runs; the full closure is packed without it).
+ *
  * GC: Enumerate all objects reachable from refs, pack them into a single
  *     packfile, then delete unreachable loose objects.
  * REPACK: Pack all loose objects into a single packfile.  With -d, delete
@@ -22,16 +25,26 @@ aggressive=0
 prune=0
 repack_delete=0
 repack_all=0
+packlimit=0
 
 do while extra\=''
    parse var extra opt extra
    opt=translate(strip(opt))
+   if left(opt,6)='LIMIT=' then do
+      lv=substr(opt,7)
+      if datatype(lv,'W')\=1 | lv<1 | lv>100000 then do
+         say 'GIT GC: invalid LIMIT value' lv
+         exit 4
+      end
+      packlimit=lv
+      iterate
+   end
    if cmd='GC' then do
       if opt='--PRUNE=NOW' then prune=1
       else if opt='--AGGRESSIVE' then aggressive=1
       else do
          say 'GIT GC: unknown option' opt
-         say 'Usage: GIT GC [--prune=now] [--aggressive]'
+         say 'Usage: GIT GC [--prune=now] [--aggressive] [LIMIT=n]'
          exit 4
       end
    end
@@ -40,15 +53,15 @@ do while extra\=''
       else if opt='-A' then repack_all=1
       else do
          say 'GIT REPACK: unknown option' opt
-         say 'Usage: GIT REPACK [-d] [-a]'
+         say 'Usage: GIT REPACK [-d] [-a] [LIMIT=n]'
          exit 4
       end
    end
 end
 
 if cmd\='GC' & cmd\='REPACK' then do
-   say 'Usage: GIT GC [--prune=now] [--aggressive]'
-   say '       GIT REPACK [-d] [-a]'
+   say 'Usage: GIT GC [--prune=now] [--aggressive] [LIMIT=n]'
+   say '       GIT REPACK [-d] [-a] [LIMIT=n]'
    exit 4
 end
 
@@ -88,7 +101,8 @@ end
 drop ref2.
 ref2.0=0
 'EXECIO * DISKR GITREF2 REPO A 1 (STEM REF2. FINIS'
-if rc\=0 | REF2.0<2 | word(REF2.1,1)\='REF2 1' then do
+if rc\=0 | REF2.0<2 | word(REF2.1,1)\='REF2' |,
+   word(REF2.1,2)\='1' then do
    say 'GIT GC: cannot read REF2 repository state'
    exit 8
 end
@@ -141,6 +155,11 @@ end
 
 say 'GIT GC: enumerated' objlist.0 'reachable object(s)'
 
+if packlimit>0 & objlist.0>packlimit then do
+   say 'GIT GC: LIMIT active; packing' packlimit 'of' objlist.0 'object(s)'
+   objlist.0=packlimit
+end
+
 if objlist.0=0 then do
    say 'GIT GC: no reachable objects; nothing to pack'
    exit 0
@@ -162,8 +181,9 @@ end
 packfn='PACK'||right(packnum,4,'0')
 say 'GIT GC: writing pack' packfn
 
-/* Write staging file for GITPMK. */
-stagefn='PACKSTG'
+/* Write staging file for GITPMK.  GITPMK reads the literal CMS file
+   OBJSTG STAGE <fm> and writes OBJOUT STAGE <fm>. */
+stagefn='OBJSTG'
 'STATE' stagefn 'STAGE' objectfm
 stagerc=rc
 if stagerc=0 then do
@@ -174,13 +194,8 @@ if stagerc\=28 then do
    say 'GIT GC: staging STATE failed RC' stagerc
    exit 8
 end
-'FILEDEF OBJSTG DISK' stagefn 'STAGE' objectfm ' (RECFM V LRECL 80'
-if rc\=0 then do
-   say 'GIT GC: staging FILEDEF failed'
-   exit 8
-end
 drop stgout.
-stgout.0=0
+sn=0
 packed=0
 do oi=1 to objlist.0
    oidcur=objlist.oi
@@ -208,49 +223,58 @@ do oi=1 to objlist.0
       say 'GIT GC: object size mismatch' oidcur
       exit 8
    end
-   n=3
-   stgout.n='OBJ' objtype objsize oidcur
-   n=n+1
+   if objtype='COMMIT' then objcode=1
+   else if objtype='TREE' then objcode=2
+   else if objtype='BLOB' then objcode=3
+   else if objtype='TAG' then objcode=4
+   else do
+      say 'GIT GC: unknown object type' objtype oidcur
+      exit 8
+   end
+   sn=sn+1
+   stgout.sn='OBJ' objcode objsize oidcur
    pos=1
    do while pos<=length(objhex)
       take=min(64,length(objhex)-pos+1)
-      n=n+1
-      stgout.n=substr(objhex,pos,take)
+      sn=sn+1
+      stgout.sn=substr(objhex,pos,take)
       pos=pos+take
    end
    if objsize=0 then do
-      n=n+1
-      stgout.n=''
-   end
-   stgout.0=n
-   'EXECIO' stgout.0 'DISKW' stagefn 'STAGE' objectfm||' 1 (STEM STGOUT. FINIS'
-   if rc\=0 then do
-      say 'GIT GC: staging write failed'
-      exit 8
+      sn=sn+1
+      stgout.sn=''
    end
    packed=packed+1
 end
-'FILEDEF OBJSTG CLEAR'
-clearrc=rc
+stgout.0=sn
+'EXECIO' sn 'DISKW' stagefn 'STAGE' objectfm '1 (STEM STGOUT. FINIS'
+if rc\=0 then do
+   say 'GIT GC: staging write failed'
+   exit 8
+end
 
 /* Build packfile. */
 say 'GIT GC: building pack' packfn' with' packed 'object(s)...'
-'FILEDEF OBJSTG DISK' stagefn 'STAGE' objectfm ' (RECFM V LRECL 80'
-if rc\=0 then do
-   say 'GIT GC: staging FILEDEF failed'
-   exit 8
-end
-'FILEDEF OBJOUT DISK' packfn 'PACK' objectfm
-if rc\=0 then do
-   say 'GIT GC: pack FILEDEF failed'
-   exit 8
-end
-'EXEC GITPMK BUILD'
+'STATE OBJOUT STAGE' objectfm
+if rc=0 then 'ERASE OBJOUT STAGE' objectfm
+'EXEC GITPMK BUILD' objectfm
 pmkrc=rc
 if pmkrc\=0 then do
    say 'GIT GC: pack creation failed'
    exit 8
 end
+'STATE OBJOUT STAGE' objectfm
+if rc\=0 then do
+   say 'GIT GC: pack output not created'
+   exit 8
+end
+/* GITPMK writes OBJOUT STAGE <fm>; promote it to the final pack name. */
+'RENAME OBJOUT STAGE' objectfm packfn 'PACK' objectfm
+if rc\=0 then do
+   say 'GIT GC: pack rename failed'
+   exit 8
+end
+'ERASE' stagefn 'STAGE' objectfm
 'STATE' packfn 'PACK' objectfm
 if rc\=0 then do
    say 'GIT GC: pack file not created'
@@ -344,9 +368,11 @@ walk_commit: procedure expose objlist. objsseen. objectfm
       end
       if seen then iterate
       objsseen.0=objsseen.0+1
-      objsseen.objsseen.0=current
+      objsseenx=objsseen.0
+      objsseen.objsseenx=current
       objlist.0=objlist.0+1
-      objlist.objlist.0=current
+      objlistx=objlist.0
+      objlist.objlistx=current
 
       /* Read commit object. */
       objfn=substr(current,1,8)
@@ -377,7 +403,11 @@ walk_commit: procedure expose objlist. objsseen. objectfm
          say 'GIT GC: commit has no tree' current
          exit 8
       end
-      treeoid=substr(cdata,treepos+10,40)
+      /* The commit body is hex-encoded ASCII: a 40-character OID is
+         80 hex columns.  X2C alone yields EBCDIC code points, so
+         translate through the ASCII table (see asciitocms). */
+      call asciitocms substr(cdata,treepos+10,80)
+      treeoid=translate(result)
       if length(treeoid)\=40 |,
          verify(treeoid,'0123456789ABCDEF')\=0 then do
          say 'GIT GC: invalid tree OID in commit' current
@@ -392,13 +422,15 @@ walk_commit: procedure expose objlist. objsseen. objectfm
       do forever
          ppos=pos('706172656e7420',cdata,ppos)
          if ppos=0 then leave
-         poid=substr(cdata,ppos+14,40)
+         call asciitocms substr(cdata,ppos+14,80)
+         poid=translate(result)
          if length(poid)=40 &,
             verify(poid,'0123456789ABCDEF')=0 then do
             cqueue.0=cqueue.0+1
-            cqueue.cqueue.0=poid
+            cqueuex=cqueue.0
+            cqueue.cqueuex=poid
          end
-         ppos=ppos+54
+         ppos=ppos+96
       end
    end
    return
@@ -422,9 +454,11 @@ walk_tree: procedure expose objlist. objsseen. objectfm
       end
       if seen then iterate
       objsseen.0=objsseen.0+1
-      objsseen.objsseen.0=current
+      objsseenx=objsseen.0
+      objsseen.objsseenx=current
       objlist.0=objlist.0+1
-      objlist.objlist.0=current
+      objlistx=objlist.0
+      objlist.objlistx=current
 
       /* Read tree object. */
       objfn=substr(current,1,8)
@@ -472,7 +506,8 @@ walk_tree: procedure expose objlist. objsseen. objectfm
          /* Mode 40000 (hex 3430303030) is a subtree. */
          if modehex='3430303030' then do
             tqueue.0=tqueue.0+1
-            tqueue.tqueue.0=childoid
+            tqueuex=tqueue.0
+            tqueue.tqueuex=childoid
          end
          else do
             /* Blob (or other leaf) - add to objlist directly. */
@@ -485,11 +520,45 @@ walk_tree: procedure expose objlist. objsseen. objectfm
             end
             if isdup\=1 then do
                objsseen.0=objsseen.0+1
-               objsseen.objsseen.0=childoid
+               objsseenx=objsseen.0
+               objsseen.objsseenx=childoid
                objlist.0=objlist.0+1
-               objlist.objlist.0=childoid
+               objlistx=objlist.0
+               objlist.objlistx=childoid
             end
          end
       end
    end
    return
+
+asciitocms: procedure
+ /* Convert an even-length ASCII hex string to CMS characters.  X2C alone
+    yields EBCDIC code points, so translate through the ASCII table. */
+ parse arg ah
+ if ah='' then return ''
+ if length(ah)//2\=0 then return 'ERROR'
+ ah=translate(ah)
+ do ai=1 to length(ah)
+  if pos(substr(ah,ai,1),'0123456789ABCDEF')=0 then return 'ERROR'
+ end
+ ascii=x2c(ah)
+ e2a='000102031A091A7F1A1A1A0B0C0D0E0F'
+ e2a=e2a||'101112131A1A081A18191A1A1C1D1E1F'
+ e2a=e2a||'1A1A1C1A1A0A171B1A1A1A1A1A050607'
+ e2a=e2a||'1A1A161A1A1E1A041A1A1A1A14151A1A'
+ e2a=e2a||'20A6E180EB909FE2AB8B9B2E3C282B7C'
+ e2a=e2a||'26A9AA9CDBA599E3A89E21242A293B5E'
+ e2a=e2a||'2D2FDFDC9ADDDE989DACBA2C255F3E3F'
+ e2a=e2a||'D78894B0B1B2FCD6FB603A2340273D22'
+ e2a=e2a||'F861626364656667686996A4F3AFAEC5'
+ e2a=e2a||'8C6A6B6C6D6E6F7071729787CE93F1FE'
+ e2a=e2a||'C87E737475767778797AEFC0DA5BF2F9'
+ e2a=e2a||'B5B6FDB7B8B9E6BBBCBD8DD9BF5DD8C4'
+ e2a=e2a||'7B414243444546474849CBCABEE8ECED'
+ e2a=e2a||'7D4A4B4C4D4E4F505152A1ADF5F4A38F'
+ e2a=e2a||'5CE7535455565758595AA0858EE9E4D1'
+ e2a=e2a||'30313233343536373839B3F7F0FAA7FF'
+ if length(e2a)\=512 then return 'ERROR'
+ tab=x2c(e2a)
+ bytes=xrange('00'x,'FF'x)
+ return translate(ascii,bytes,tab)

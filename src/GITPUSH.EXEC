@@ -276,7 +276,8 @@ end
 drop ref2.
 ref2.0=0
 'EXECIO * DISKR GITREF2 REPO A 1 (STEM REF2. FINIS'
-if rc\=0 | REF2.0<2 | word(REF2.1,1)\='REF2 1' then do
+if rc\=0 | REF2.0<2 | word(REF2.1,1)\='REF2' |,
+   word(REF2.1,2)\='1' then do
    say 'GIT PUSH: cannot read REF2 repository state'
    exit 8
 end
@@ -720,9 +721,11 @@ walk_commit: procedure expose objlist. objsseen. objectfm
       end
       if seen then iterate
       objsseen.0=objsseen.0+1
-      objsseen.objsseen.0=current
+      objsseenx=objsseen.0
+      objsseen.objsseenx=current
       objlist.0=objlist.0+1
-      objlist.objlist.0=current
+      objlistx=objlist.0
+      objlist.objlistx=current
 
       /* Read commit object. */
       objfn=substr(current,1,8)
@@ -753,7 +756,11 @@ walk_commit: procedure expose objlist. objsseen. objectfm
          say 'GIT PUSH: commit has no tree' current
          exit 8
       end
-      treeoid=substr(cdata,treepos+10,40)
+      /* The commit body is hex-encoded ASCII: a 40-character OID is
+         80 hex columns.  X2C alone yields EBCDIC code points, so
+         translate through the ASCII table (see asciitocms). */
+      call asciitocms substr(cdata,treepos+10,80)
+      treeoid=translate(result)
       if length(treeoid)\=40 |,
          verify(treeoid,'0123456789ABCDEF')\=0 then do
          say 'GIT PUSH: invalid tree OID in commit' current
@@ -768,13 +775,15 @@ walk_commit: procedure expose objlist. objsseen. objectfm
       do forever
          ppos=pos('706172656e7420',cdata,ppos)
          if ppos=0 then leave
-         poid=substr(cdata,ppos+14,40)
+         call asciitocms substr(cdata,ppos+14,80)
+         poid=translate(result)
          if length(poid)=40 &,
             verify(poid,'0123456789ABCDEF')=0 then do
             cqueue.0=cqueue.0+1
-            cqueue.cqueue.0=poid
+            cqueuex=cqueue.0
+            cqueue.cqueuex=poid
          end
-         ppos=ppos+54
+         ppos=ppos+96
       end
    end
    return
@@ -798,9 +807,11 @@ walk_tree: procedure expose objlist. objsseen. objectfm
       end
       if seen then iterate
       objsseen.0=objsseen.0+1
-      objsseen.objsseen.0=current
+      objsseenx=objsseen.0
+      objsseen.objsseenx=current
       objlist.0=objlist.0+1
-      objlist.objlist.0=current
+      objlistx=objlist.0
+      objlist.objlistx=current
 
       /* Read tree object. */
       objfn=substr(current,1,8)
@@ -845,7 +856,8 @@ walk_tree: procedure expose objlist. objsseen. objectfm
          /* Mode 40000 (hex 3430303030) is a subtree. */
          if modehex='3430303030' then do
             tqueue.0=tqueue.0+1
-            tqueue.tqueue.0=childoid
+            tqueuex=tqueue.0
+            tqueue.tqueuex=childoid
          end
          else do
             isdup=0
@@ -857,9 +869,11 @@ walk_tree: procedure expose objlist. objsseen. objectfm
             end
             if isdup\=1 then do
                objsseen.0=objsseen.0+1
-               objsseen.objsseen.0=childoid
+               objsseenx=objsseen.0
+               objsseen.objsseenx=childoid
                objlist.0=objlist.0+1
-               objlist.objlist.0=childoid
+               objlistx=objlist.0
+               objlist.objlistx=childoid
             end
          end
       end
@@ -914,7 +928,8 @@ httpfeed_body:
    take=cneed
    if take>length(hx) then take=length(hx)
    refadv.0=refadv.0+1
-   refadv.refadv.0=left(hx,take*2)
+   refadvx=refadv.0
+   refadv.refadvx=left(hx,take*2)
    hx=substr(hx,take*2+1)
    cneed=cneed-take
    if cneed=0 then cstate='SIZE'
@@ -981,7 +996,8 @@ httpfeed_push_body:
    take=cneed
    if take>length(hx) then take=length(hx)
    pushresp.0=pushresp.0+1
-   pushresp.pushresp.0=left(hx,take*2)
+   pushrespx=pushresp.0
+   pushresp.pushrespx=left(hx,take*2)
    hx=substr(hx,take*2+1)
    cneed=cneed-take
    if cneed=0 then cstate='SIZE'
