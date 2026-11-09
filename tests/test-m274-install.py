@@ -21,20 +21,20 @@ def gitoid(typ, body):
     return hashlib.sha1(name + b" " + str(len(body)).encode() + b"\0" + body).hexdigest().upper()
 
 
-def body_lines(body):
+def body_lines(body, chunk=2000):
     if not body:
         return [""]
     out = []
-    for i in range(0, len(body), 2000):
-        out.append(body[i:i + 2000].hex().upper())
+    for i in range(0, len(body), chunk):
+        out.append(body[i:i + chunk].hex().upper())
     return out
 
 
-def make_stage(outdir, objs):
+def make_stage(outdir, objs, chunk=2000):
     stage_rows = []
     for num, typ, body in objs:
         stage_rows.append("OBJ %d %d %d %s" % (num, typ, len(body), gitoid(typ, body)))
-        stage_rows.extend(body_lines(body))
+        stage_rows.extend(body_lines(body, chunk))
     (outdir / "dd:STGIN").write_text("\n".join(stage_rows) + "\n")
 
     idx_rows = sorted((gitoid(typ, body), num, typ, len(body)) for num, typ, body in objs)
@@ -161,6 +161,25 @@ with tempfile.TemporaryDirectory(prefix="m274-") as td:
         [str(work / "gitload"), "BATCH", "G", "5"], cwd=work4,
         capture_output=True, text=True, env=env4)
     assert r5.returncode != 0, (r5.stdout, r5.stderr)
+
+    # Historical 64-column (32-byte) stage records must also install.
+    work5 = Path(tempfile.mkdtemp(prefix="m274e-"))
+    out5 = work5 / "out"
+    out5.mkdir()
+    make_stage(work5, objs, chunk=32)
+    idx_rows = sorted((gitoid(typ, body), num, typ, len(body))
+                      for num, typ, body in objs)
+    idx = ["PIDX1 %d %d" % (len(objs), len(objs))]
+    for oid, num, typ, size in idx_rows:
+        idx.append("OID %s %d %d %d 0" % (oid, num, typ, size))
+    idx.append("PEND1 %d %d" % (len(objs), len(objs)))
+    (work5 / "dd:IDXIN").write_text("\n".join(idx) + "\n")
+    env5 = dict(os.environ, GITPLOAD_HOST_DIR=str(out5))
+    r7 = subprocess.run(
+        [str(work / "gitload"), "BATCH", "G", "5"], cwd=work5,
+        capture_output=True, text=True, env=env5)
+    assert r7.returncode == 0, (r7.stdout, r7.stderr)
+    assert "PACKOBJ BATCH PASS INSTALLED 4 ALREADY 0 TAGS 1 PROCESSED 5 UNIQUE 5" in r7.stdout
 
     # Usage.
     r6 = subprocess.run([str(work / "gitload")], cwd=work,

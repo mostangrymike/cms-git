@@ -221,15 +221,20 @@ static int readbody_into(FILE *f,unsigned long n,unsigned char *p) {
  if(n==0) {
   if(!linein(f,line,sizeof line)||line[0]) return 0;
  }
- for(k=0;k<n;k+=take) {
-  take=n-k;if(take>2000) take=2000;
-  if(!linein(f,line,sizeof line)||strlen(line)!=take*2) return 0;
+ /* Accept either 32-byte (historical 64-column) or 2000-byte
+    (RECFM V 4096) chunk records.  The body length and hex validity
+    still pin the exact byte count. */
+ for(k=0;k<n;) {
+  if(!linein(f,line,sizeof line)) return 0;
+  take=(unsigned long)strlen(line)/2;
+  if(take==0||strlen(line)%2||take>n-k) return 0;
   for(m=0;m<take;m++) {
    hi=nib((unsigned char)line[m*2]);
    lo=nib((unsigned char)line[m*2+1]);
    if(hi<0||lo<0) return 0;
    p[k+m]=(unsigned char)((hi<<4)|lo);
   }
+  k+=take;
  }
  return 1;
 }
@@ -337,10 +342,12 @@ static int skip_stage_body(FILE *f,unsigned long n) {
  unsigned long k,take;
  if(n==0)
   return linein(f,line,sizeof line)&&line[0]==0;
- for(k=0;k<n;k+=take) {
-  take=n-k;
-  if(take>2000) take=2000;
-  if(!linein(f,line,sizeof line)||strlen(line)!=take*2) return 0;
+ /* Accept either historical 32-byte or RECFM V 4096 chunk records. */
+ for(k=0;k<n;) {
+  if(!linein(f,line,sizeof line)) return 0;
+  take=(unsigned long)strlen(line)/2;
+  if(take==0||strlen(line)%2||take>n-k) return 0;
+  k+=take;
  }
  return 1;
 }
