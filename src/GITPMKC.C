@@ -18,10 +18,10 @@
 #include <string.h>
 
 #define OBJMAX 100000UL
-#define MAXOBJS 10000UL
+#define MAXOBJS 2048UL
 #define CHUNK 65535UL
 #define W32 0xffffffffUL
-#define PACKMAX (16UL*1024UL*1024UL)
+#define PACKMAX (4UL*1024UL*1024UL)
 
 static unsigned long sh[5];
 
@@ -266,9 +266,15 @@ static int read_objrecs(FILE *f,struct objrec *objs,unsigned long *count) {
 /* ---- Main ---- */
 
 int main(int argc,char **argv) {
- if(argc!=2||strcmp(argv[1],"BUILD")!=0) {
-  fprintf(stderr,"Usage: GITPMK BUILD  (reads dd:OBJSTG, writes dd:OBJOUT)\n");
+ int hexout=0;
+ packlen=0; /* reset: CMS MODULE statics persist across invocations */
+ if(argc<2||argc>3||strcmp(argv[1],"BUILD")!=0) {
+  fprintf(stderr,"Usage: GITPMK BUILD [HEX]\n");
   return 4;
+ }
+ if(argc==3) {
+  if(strcmp(argv[2],"HEX")==0) hexout=1;
+  else { fprintf(stderr,"Usage: GITPMK BUILD [HEX]\n"); return 4; }
  }
  FILE *fin=fopen("dd:OBJSTG","r");
  if(!fin) { perror("OBJSTG"); return 8; }
@@ -282,13 +288,17 @@ int main(int argc,char **argv) {
   return 8;
  }
 
- /* Pack header. */
+ /* Pack header.  Signature bytes are numeric ASCII, not a C string
+    literal, because CMS C compiles literals as EBCDIC. */
  unsigned char head[12];
- memcpy(head,"PACK",4);
+ head[0]=0x50;head[1]=0x41;head[2]=0x43;head[3]=0x4B;
  head[4]=0;head[5]=0;head[6]=0;head[7]=2;
  head[8]=0;head[9]=0;head[10]=(unsigned char)((nobj>>8)&0xFF);
  head[11]=(unsigned char)(nobj&0xFF);
- if(!append_bytes(head,12)) { fprintf(stderr,"GITPMK: pack too large\n");return 8; }
+ if(!append_bytes(head,12)) {
+  fprintf(stderr,"GITPMK: pack too large\n");
+  return 8;
+ }
 
  /* Compression buffers sized for the largest object. */
  unsigned long maxsize=0;
@@ -323,8 +333,14 @@ int main(int argc,char **argv) {
    return 8;
   }
 
-  if(!append_bytes(hdr,hlen)) { fprintf(stderr,"GITPMK: pack too large\n");return 8; }
-  if(!append_bytes(zlib,zlen)) { fprintf(stderr,"GITPMK: pack too large\n");return 8; }
+  if(!append_bytes(hdr,hlen)) {
+   fprintf(stderr,"GITPMK: pack too large\n");
+   return 8;
+  }
+  if(!append_bytes(zlib,zlen)) {
+   fprintf(stderr,"GITPMK: pack too large\n");
+   return 8;
+  }
  }
 
  /* SHA1 trailer. */
@@ -333,11 +349,32 @@ int main(int argc,char **argv) {
  unsigned long shaoff=0;
  while(packlen-shaoff>=64) { block(packbuf+shaoff); shaoff+=64; }
  sha_final(digest,packbuf+shaoff,packlen-shaoff,packlen);
- if(!append_bytes(digest,20)) { fprintf(stderr,"GITPMK: pack too large\n");return 8; }
+ if(!append_bytes(digest,20)) {
+  fprintf(stderr,"GITPMK: pack too large\n");
+  return 8;
+ }
 
  FILE *fout=fopen("dd:OBJOUT","w");
  if(!fout) { perror("OBJOUT"); return 8; }
- if(fwrite(packbuf,1,packlen,fout)!=packlen) {
+ if(hexout) {
+  /* CMS stores packs as uppercase hex text, 128 columns per record.
+     Write the newline as a record separator (not counted in LRECL). */
+  static const char hx[]="0123456789ABCDEF";
+  char hline[129];
+  unsigned long hp=0;
+  while(hp<packlen) {
+   unsigned long hk=0;
+   while(hk<128&&hp<packlen) {
+    unsigned char b=packbuf[hp++];
+    hline[hk++]=hx[(b>>4)&0x0F];
+    hline[hk++]=hx[b&0x0F];
+   }
+   if(fwrite(hline,1,hk,fout)!=hk||fputc('\n',fout)==EOF) {
+    perror("OBJOUT");fclose(fout);return 8;
+   }
+  }
+ }
+ else if(fwrite(packbuf,1,packlen,fout)!=packlen) {
   perror("OBJOUT");fclose(fout);return 8;
  }
  fclose(fout);

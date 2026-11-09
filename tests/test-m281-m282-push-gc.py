@@ -98,6 +98,12 @@ assert "stgout.sn='OBJ' objcode objsize oidcur" in GC
 assert "'EXEC GITPMK BUILD' objectfm" in GC
 assert "'RENAME OBJOUT STAGE' objectfm packfn 'PACK' objectfm" in GC
 assert "'ERASE' stagefn 'STAGE' objectfm" in GC
+
+# Prefer the native GITPMKC module when present, falling back to REXX.
+assert "'STATE GITPMKC MODULE A'" in GC
+assert "nativepmk=(rc=0)" in GC
+assert "'GITPMKC BUILD HEX'" in GC
+assert "(RECFM V LRECL 255" in GC
 for line in GC.splitlines():
     if "ERASE" in line and "GITREF" in line:
         raise SystemExit("GITGC must not erase refs: " + line)

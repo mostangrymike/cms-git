@@ -145,6 +145,24 @@ with tempfile.TemporaryDirectory(prefix="m280-") as td:
                 capture_output=True).stdout
             assert content == body
 
+    # HEX mode: CMS stores packs as uppercase hex text.  The decoded bytes
+    # must be identical to the binary output, including the ASCII "PACK"
+    # signature (CMS C compiles string literals as EBCDIC).
+    hexdir = work / "hexcase"
+    hexdir.mkdir()
+    (hexdir / "dd:OBJSTG").write_text("\n".join(rows) + "\n")
+    r = subprocess.run(
+        [str(work / "gitpmk"), "BUILD", "HEX"], cwd=hexdir,
+        capture_output=True, text=True)
+    assert r.returncode == 0, (r.stdout, r.stderr)
+    text = (hexdir / "dd:OBJOUT").read_text()
+    for line in text.splitlines():
+        assert 0 < len(line) <= 128 and len(line) % 2 == 0, line
+        assert line == line.upper()
+    decoded = bytes.fromhex("".join(text.split()))
+    assert decoded == pack
+    assert decoded[:4] == b"PACK"
+
     # Negative cases.
     def run_builder(cwd, stage_text):
         s = cwd / "dd:OBJSTG"
@@ -182,6 +200,7 @@ with tempfile.TemporaryDirectory(prefix="m280-") as td:
 
     # CMS REXX pack builder static checks.
     rex = REXX.read_text()
+    csrc = SOURCE.read_text()
     assert max(len(line) for line in rex.splitlines()) <= 80
     assert "rexx -c" not in rex
     # Adler-32 is computed over the plain input, not the deflate bytes.
@@ -205,6 +224,16 @@ with tempfile.TemporaryDirectory(prefix="m280-") as td:
     # SHA-1 state must be initialized before hashing the pack.
     assert "call sha_init" in rex
     assert "h0 = h1 = h2 = h3 = h4 = 0" not in rex
+    # The ASCII "PACK" signature is written numerically; CMS C compiles
+    # string literals as EBCDIC, which would corrupt the magic.
+    assert "head[0]=0x50;head[1]=0x41;head[2]=0x43;head[3]=0x4B;" in csrc
+    assert 'memcpy(head,"PACK",4)' not in csrc
+    # Optional HEX output for CMS text pack files.
+    assert "int hexout=0;" in csrc
+    assert 'strcmp(argv[2],"HEX")==0' in csrc
+    assert "hline[hk++]=hx[(b>>4)&0x0F];" in csrc
+    # Source is accepted by GCCE on CMS (80-column card reader).
+    assert max(len(line) for line in csrc.splitlines()) <= 80
     # Stored-block final bit is set.
     assert "out = out || '01'x" in rex
     assert "out = out || '80'x" not in rex

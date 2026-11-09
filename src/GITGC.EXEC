@@ -253,12 +253,27 @@ if rc\=0 then do
    exit 8
 end
 
-/* Build packfile. */
+/* Build packfile.  Prefer the native GITPMKC module when it is available;
+   it is far faster than the pure-REXX GITPMK on large closures. */
 say 'GIT GC: building pack' packfn' with' packed 'object(s)...'
 'STATE OBJOUT STAGE' objectfm
 if rc=0 then 'ERASE OBJOUT STAGE' objectfm
-'EXEC GITPMK BUILD' objectfm
-pmkrc=rc
+'STATE GITPMKC MODULE A'
+nativepmk=(rc=0)
+if nativepmk then do
+   say 'GIT GC: using native GITPMKC builder'
+   'FILEDEF OBJSTG DISK' stagefn 'STAGE' objectfm
+   'FILEDEF OBJOUT DISK OBJOUT STAGE' objectfm ' (RECFM V LRECL 255'
+   'GITPMKC BUILD HEX'
+   pmkrc=rc
+   'FILEDEF OBJSTG CLEAR'
+   'FILEDEF OBJOUT CLEAR'
+end
+else do
+   say 'GIT GC: using REXX GITPMK builder'
+   'EXEC GITPMK BUILD' objectfm
+   pmkrc=rc
+end
 if pmkrc\=0 then do
    say 'GIT GC: pack creation failed'
    exit 8
