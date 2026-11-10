@@ -1,14 +1,20 @@
-# IBM Sandbox
+# cms-git
+
+Native Git for z/VM CMS. This repository continues the former
+`mostangrymike/ibm-sandbox` project; the dated status records below are
+retained as history.
 
 ## Consolidation status (2026-10-14, verified archive merge)
 
-GitHub `main` is canonical. The repository has **181 tracked files** after
-lossless consolidation from 425, a reduction of 244 tracked paths (57.4%).
-This measures file count, **not** lines of code or executable complexity.
-The latest fully verified host CI commit is
-`9fa27106b476562382a5ea3f105b4d7d1c289e21`, workflow run
-[39147362503](https://github.com/mostangrymike/ibm-sandbox/actions/runs/39147362503).
-This is a complete host-CI success, not new CMS target validation.
+GitHub `main` is canonical. At that consolidation the repository held
+**181 tracked files**, down from 425 — a reduction of 244 tracked paths
+(57.4%). This measures file count, **not** lines of code or executable
+complexity.
+The consolidation was verified by host CI run
+[39147362503](https://github.com/mostangrymike/ibm-sandbox/actions/runs/39147362503)
+on commit `9fa27106b476562382a5ea3f105b4d7d1c289e21`.
+That is a complete host-CI success, not new CMS target validation. For current
+gate status, see this repository's Actions tab.
 
 The consolidated Python test runner is `tests/test-m203-bounded-batch.py`;
 the shell safety/native integration runner is `tests/check-canonical-source.sh`.
@@ -2516,8 +2522,9 @@ The first full host CI run with the audit passed:
 The complete contents of the former `docs/M164_PRACTICAL_PORCELAIN.md`,
 `docs/M179-M185_HISTORY.md`, and `docs/M167-M170_HISTORY.md` are retained
 in `docs/M179-M185_HISTORY.md`, in milestone order M164–M170. The original
-standalone document blobs remain recoverable from Git history. This reduces
-the repository to **203 tracked files** (222 fewer than its 425-file baseline).
+standalone document blobs remain recoverable from Git history. This reduced
+the repository to **203 tracked files** at that time (222 fewer than its
+425-file baseline).
 The merged document is included in the host workflow path filter.
 
 ### Consolidated native architecture records (2026-10-14)

@@ -4,6 +4,9 @@ The minimum remote workflow is `clone`, `pull`, and `push` against GitHub over
 HTTPS from z/VM CMS. It builds on the existing CMS TCP client and TLS bridge;
 it does not assume native CMS TLS is available.
 
+Status (2026-11-10): `clone`, `pull` and `push` are implemented and validated
+on the CMS target, within the bounded envelope described below.
+
 ## User-visible contract
 
 - `GIT CLONE <https-url>` creates a repository in an empty CMS file area,
@@ -51,9 +54,9 @@ it does not assume native CMS TLS is available.
    tracking ref, listed `origin/main`, rejected a repeated create as stale,
    then deleted only that fixture ref with its expected OID. Readback
    confirmed the original local `main` ref was unchanged and no remote test
-   ref remained. The unborn-branch initialization path is implemented but
-   still needs an isolated CMS test. The tracking ref is not yet wired into
-   network fetch, pull, or clone.
+   ref remained. The unborn-branch initialization path is exercised by the
+   M274 clone (2026-11-10). Pull, clone and push now advance
+   `refs/remotes/<remote>/<branch>` through `GITUPD` compare-and-swap checks.
 3. **M270 REF2 resolution fix implemented and CMS-validated:** `GITVREF`
    preserves the complete ref name while validating each record. CMS now
    lists `* main` and `GITVREF SHOW refs/heads/main` resolves the expected
@@ -78,11 +81,16 @@ it does not assume native CMS TLS is available.
    clean clone of `mostangrymike/cms-git-push-test` (`testmin`, one file)
    completed in about two seconds with a clean `GITWT STATUS`; see the dated
    entry below.
-6. Implement outbound reachable-object collection and pack writing, then
-   GitHub `receive-pack` negotiation, authenticated push, and server status
-   handling.
+6. **M281 push implemented and CMS-validated (2026-11-10):** outbound
+   reachable-object collection and pack writing (`GITPMK`), GitHub
+   `receive-pack` negotiation, authenticated push, and server `report-status`
+   handling. A fast-forward push to `mostangrymike/cms-git-push-test` returned
+   HTTP 200 and the verified remote ref. Force updates, ref deletion, tag
+   pushes and multi-ref pushes are unsupported; a rejected update is reported
+   without changing local refs.
 7. Validate each CMS command on the real z/VM target. Host CI alone cannot
-   establish CMS runtime behavior.
+   establish CMS runtime behavior. `clone`, `pull` and `push` now have target
+   validation; the refusal and recovery paths listed below remain host-only.
 
 ## Existing building blocks and gaps
 
@@ -95,9 +103,10 @@ worktree and ref operations.
 The data path now has a guarded route from a verified stage to ordinary loose
 objects on the repository's selected object disk. Fast-forward pull has a
 CMS-validated explicit-argument implementation and a configured no-argument
-form; clone is implemented and awaiting its CMS target run. Nested trees, path
+form; clone is CMS-validated (2026-11-10). Nested trees, path
 additions/removals, binary workfiles, and divergent pulls are outside the
-initial pull slice. Push is proven separately by M281.
+initial pull slice; those refusals are host-guarded but have not been exercised
+on the target. Push is proven separately by M281.
 
 ## M262-M267 command surface
 
@@ -140,8 +149,9 @@ initial pull slice. Push is proven separately by M281.
   check out workfiles. The stage and index remain available for retry/recovery.
 
 These milestones establish remote configuration, credential storage, verified
-pack download/import, and activation into the local object store. They still do
-not make `push`, `pull`, or `clone` available.
+pack download/import, and activation into the local object store. They did not
+by themselves make `push`, `pull`, or `clone` available; those were added and
+validated in M273, M274 and M281 (items 5, 5b and 6 above).
 
 ## Initial CMS validation gate — 2026-10-19 (before G attachment)
 
