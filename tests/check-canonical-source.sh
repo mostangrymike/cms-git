@@ -3561,8 +3561,12 @@ for source, token in ((upd,"EXEC GITWT CHECK-SWITCH"),
                       (wt,"staged changes block branch switch")):
     if token not in source:
         raise SystemExit(f'M219 source missing safe-switch check: {token}')
-head=upd[upd.index("if ref='HEAD' then do"):upd.index(
-    "zeros='0000000000000000000000000000000000000000'")]
+# Bound the HEAD branch from its own marker to the next zero-object-id
+# assignment.  PULL-HEAD also defines zeros earlier in the file, so the
+# search must start at the HEAD branch marker.
+zeromark="zeros='0000000000000000000000000000000000000000'"
+headstart=upd.index("if ref='HEAD' then do")
+head=upd[headstart:upd.index(zeromark,headstart)]
 assert head.index('call checkswitch oldhead,newhead') < head.index('headref=newhead')
 start=wt.index("if command='CHECK-SWITCH' then do")
 end=wt.index("if command='ADD' then do",start)
@@ -3601,7 +3605,7 @@ fixture=(
     " if mode='staged' then,\n"
     "  mapstage.1='EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE'\n"
     " return 'OK'\n"
-    "bindnative:\n return 'OK'\n"
+    "bindnative:\n return 0\n"
     "checkworkfile:\n"
     " if mode='missingfile' then return 'ERROR'\n"
     " return 'OK'\n"
