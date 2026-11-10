@@ -22,3 +22,9 @@
 ## Pull requests
 - Keep PRs focused and describe the user-visible behavior change, risk, and validation.
 - Link related issues/milestones. Note any target-side deployment steps or compatibility constraints.
+
+## License
+
+By submitting a contribution you agree that it is licensed under the same
+terms as this project: the GNU General Public License, version 3 or (at your
+option) any later version (`GPL-3.0-or-later`). See [LICENSE](LICENSE).
