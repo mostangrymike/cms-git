@@ -421,9 +421,14 @@ branch ref and mapped workfiles. The selected remote branch must match the
 current branch, and the clean worktree map must cover an unchanged flat set of
 regular CMS-compatible text paths. Dirty or incomplete maps, path additions or
 removals, nested paths, binary blobs and non-fast-forward updates are rejected.
-Pack, stage and index files remain available for recovery. The initial pull
-path has not passed CMS validation; no-argument upstream pull, clone and push
-remain in progress. See `docs/GITHUB_SYNC_PLAN.md`.
+Pack, stage and index files remain available for recovery. The shallow pull
+path is CMS-validated (measured tip-to-tip timings in
+`docs/M273-SHALLOW-PULL.md`). No-argument pull reads the first configured
+remote plus an optional `GITBRIDG CONFIG A` endpoint. `GIT CLONE` is also
+CMS-validated: it resolves the remote's advertised default branch, creates the
+branch ref, and checks out the flat worktree in one command, bounded by the
+same flat-worktree and fast-forward rules. Push is separately proven by M281.
+See `docs/GITHUB_SYNC_PLAN.md`.
 
 ---
 

@@ -2515,8 +2515,11 @@ readrefs:
  end
  do i=2 to rr.0
   if word(rr.i,1)='HEAD' then do
-   if words(rr.i)\=2 | headref\='' then return 'ERROR'
-   headref=word(rr.i,2)
+   if words(rr.i)\=2 then return 'ERROR'
+   /* Older writers could leave an identical duplicate HEAD record.
+      Accept that unambiguous state; reject conflicting HEAD targets. */
+   if headref='' then headref=word(rr.i,2)
+   else if headref\=word(rr.i,2) then return 'ERROR'
   end
   else if word(rr.i,1)='REF' then do
    if words(rr.i)\=3 then return 'ERROR'

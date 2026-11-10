@@ -85,7 +85,7 @@ if command='CHECKOUT' then do
  oid=result
  if oid='ERROR' then exit 8
  call bindnative
- if result\='OK' then exit 8
+ if result\=0 then exit 8
  call pathoidfor oid,pathhex
  pathoid=result
  fn=checkoutfn
@@ -151,10 +151,17 @@ if command='CHECKOUT-TREE' then do
  call resolve spec
  treecommit=result
  if treecommit='ERROR' then exit 8
- call bindnative
- if result\='OK' then do
-  say 'GITWT: cannot bind native object reader'
-  exit 8
+ /* Loose GITOBJ files carry their own reader; the native M15* fixtures are
+    only a fallback for objects that are not on disk as loose files. */
+ call readloose treecommit
+ if result\='OK' & readtype\='COMMIT' then loosecommit=1
+ else loosecommit=0
+ if loosecommit=0 then do
+  call bindnative
+  if result\=0 then do
+   say 'GITWT: cannot bind native object reader'
+   exit 8
+  end
  end
  call rootfor treecommit
  treeroot=result
@@ -358,7 +365,7 @@ if command='RESTORE-WORKTREE' then do
   sourcecommit=result
   if sourcecommit='ERROR' then exit 8
   call bindnative
-  if result\='OK' then do
+  if result\=0 then do
    say 'GITWT: cannot bind native source reader'
    exit 8
   end
@@ -465,7 +472,7 @@ if command='RESTORE-WORKTREE' then do
      headcommit=result
      if headcommit='ERROR' then exit 8
      call bindnative
-     if result\='OK' then exit 8
+     if result\=0 then exit 8
     end
     call pathoidfor headcommit,mappath.pi
     if result='ERROR' | pathoid\=mapstage.pi then do
@@ -812,14 +819,21 @@ if command='CHECK-PULL' | command='APPLY-PULL' then do
    currentoid=refoid.ri
   end
  end
- if foundref\=1 then exit 8
- if command='CHECK-PULL' & currentoid\=pullold then do
-  say 'GITWT: local branch tip changed before pull preflight'
-  exit 8
- end
- if command='APPLY-PULL' & currentoid\=pullnew then do
-  say 'GITWT: local branch tip changed before pull apply'
-  exit 8
+ /* The first pull into an empty repository has no branch record yet.
+    It is a create only when preflight names the zero old-commit. */
+ zeros='0000000000000000000000000000000000000000'
+ createmode=0
+ if foundref=0 & pullold=zeros & command='CHECK-PULL' then createmode=1
+ if createmode=0 then do
+  if foundref\=1 then exit 8
+  if command='CHECK-PULL' & currentoid\=pullold then do
+   say 'GITWT: local branch tip changed before pull preflight'
+   exit 8
+  end
+  if command='APPLY-PULL' & currentoid\=pullnew then do
+   say 'GITWT: local branch tip changed before pull apply'
+   exit 8
+  end
  end
  call preflightpull
  if result\='OK' then exit 8
@@ -933,7 +947,7 @@ if command='CHECK-SWITCH-UPDATE' then do
   exit 0
  end
  call bindnative
- if result\='OK' then exit 8
+ if result\=0 then exit 8
  do mi=1 to mapcount
   if mapstage.mi\=mapbase.mi then do
    say 'GITWT: staged changes block branch switch' mappath.mi
@@ -1005,7 +1019,7 @@ if command='APPLY-SWITCH' then do
   exit 0
  end
  call bindnative
- if result\='OK' then exit 8
+ if result\=0 then exit 8
  drop restorepi. restorebody. restorefinal. restoretarget.
  drop restoreexists. restoreoldcount. restoreoldlf.
  drop restorelinecount. restoreoldline. restoreline.
@@ -1159,7 +1173,7 @@ end
   exit 0
  end
  call bindnative
- if result\='OK' then exit 8
+ if result\=0 then exit 8
  do mi=1 to mapcount
   if mapstage.mi\=mapbase.mi then do
    say 'GITWT: staged changes block branch switch' mappath.mi
@@ -1874,7 +1888,7 @@ if command='COMMIT' then do
  parent=result
  if parent='ERROR' then exit 8
  call bindnative
- if result\='OK' then exit 8
+ if result\=0 then exit 8
  call rootfor parent
  root=result
  if root='ERROR' then exit 8
@@ -2909,7 +2923,8 @@ readrefs:
  headref=''
  refcount=0
  'EXECIO * DISKR GITREF2 REPO A 1 (STEM RR. FINIS'
- if rc\=0 | rr.0<3 | rr.1\='REF2 1' then return 'ERROR'
+ /* Two lines is an unborn repository: header plus symbolic HEAD. */
+ if rc\=0 | rr.0<2 | rr.1\='REF2 1' then return 'ERROR'
  do ri=2 to rr.0
   if word(rr.ri,1)='HEAD' then do
    if words(rr.ri)\=2 | headref\='' then return 'ERROR'
@@ -3010,17 +3025,29 @@ resolve:
 bindnative:
  success=1
  'FILEDEF SEL0 DISK M15SL0 PTR A'
- if rc\=0 then success=0
+ if rc\=0 then do
+  say 'GITWT: FILEDEF SEL0 failed RC' rc
+  success=0
+ end
  'FILEDEF SEL1 DISK M15SL1 PTR A'
- if rc\=0 then success=0
+ if rc\=0 then do
+  say 'GITWT: FILEDEF SEL1 failed RC' rc
+  success=0
+ end
  do bi=1 to 4
   typ=word('STAGE INDEX SEEK GEN',bi)
   dd=word('C0STG C0IDX C0SEEK C0GEN',bi)
   'FILEDEF' dd 'DISK GITFIX' typ 'A'
-  if rc\=0 then success=0
+  if rc\=0 then do
+   say 'GITWT: FILEDEF' dd 'GITFIX' typ 'failed RC' rc
+   success=0
+  end
   dd=word('C1STG C1IDX C1SEEK C1GEN',bi)
   'FILEDEF' dd 'DISK M15NEW' typ 'A'
-  if rc\=0 then success=0
+  if rc\=0 then do
+   say 'GITWT: FILEDEF' dd 'M15NEW' typ 'failed RC' rc
+   success=0
+  end
  end
  if success then return 0
  /* cleanup on failure */

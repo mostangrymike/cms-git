@@ -162,6 +162,8 @@ jobs:
         run: python3 tests/test-m274-install.py
       - name: Test M281 and M282 push/GC source guards
         run: python3 tests/test-m281-m282-push-gc.py
+      - name: Test M273 and M274 clone/pull source guards
+        run: python3 tests/test-m273-clone-pull.py
       - name: Check M210 REF2 tag listing and wildcard fixtures
         run: sh tests/check-canonical-source.sh M210
       - name: Check M213 REF2 ref-name validator parity

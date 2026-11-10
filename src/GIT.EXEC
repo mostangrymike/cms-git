@@ -97,18 +97,25 @@ if command = 'LEVEL' then do
    exit 0
 end
 if command = 'INIT' then do
-   parse upper var rest objectfm extra
+   parse var rest objectfm initbranch extra
+   objectfm=translate(objectfm)
    if extra \= '' | (objectfm \= '' &,
       verify(objectfm,'ABCDEFGHIJKLMNOPQRSTUVWXYZ') \= 0) then do
-      say 'Usage: GIT INIT [object-filemode]'
+      say 'Usage: GIT INIT [object-filemode [branch]]'
       exit 4
    end
    if objectfm = '' then objectfm = 'A'
+   if initbranch='' then initbranch='main'
+   call validbranch initbranch
+   if result\='OK' then do
+      say 'GIT: invalid initial branch name'
+      exit 4
+   end
    'STATE GITMETA REPO A'
    if rc = 0 then do
-      call initrefs
+      call initrefs initbranch
       if result='OK' then do
-         say 'Initialized unborn branch refs/heads/main'
+         say 'Initialized unborn branch refs/heads/'||initbranch
          exit 0
       end
       if result='EXISTS' then do
@@ -151,11 +158,11 @@ if command = 'INIT' then do
    meta.1 = 'CMS-GIT-REPOSITORY 1'
    meta.2 = 'OBJECT-FORMAT SHA1'
    meta.3 = 'TEXT-RECORD-SEPARATOR LF'
-   meta.4 = 'HEAD refs/heads/main'
+   meta.4 = 'HEAD refs/heads/'||initbranch
    meta.5 = 'OBJECT-DISK' objectfm
    'EXECIO' meta.0 'DISKW GITMETA REPO A 1 (STEM META. FINIS'
    if rc \= 0 then exit rc
-   call initrefs
+   call initrefs initbranch
    if result\='OK' then do
       'ERASE GITMETA REPO A'
       say 'GIT: could not initialize branch refs'
@@ -899,8 +906,13 @@ if command='PULL' then do
          exit 8
       end
       pullremote=word(remout.1,1)
-      pullbridge='192.168.200.1'
-      pullport='8443'
+      call readbridge
+      if result\='OK' then do
+         say 'GIT PULL: invalid GITBRIDG CONFIG record'
+         exit 8
+      end
+      pullbridge=bridgehost
+      pullport=bridgeport
       pullpack='PULLPACK'
       pullindex='PULLIDX'
       pullbranch='HEAD'
@@ -938,10 +950,12 @@ if command='PULL' then do
       say 'GIT PULL: pack and index names must be distinct CMS filenames'
       exit 4
    end
-   if objectfm='A' then do
-      say 'GIT PULL: repository must use its dedicated non-A object disk'
-      exit 8
-   end
+   if objectfm='' then exit 8
+   /* The pack, stage, index and newly installed loose objects coexist
+      during activation, so the free-space check waits until the fetched
+      size is known.  A dedicated project minidisk accessed as A is a
+      valid object disk; the earlier blanket A rejection prevented the
+      documented one-minidisk-per-project clone model. */
    /* A failed pull deliberately retains its pack, stage and index for
       recovery.  A retry with the same fixed names would otherwise stop at
       "already exists", so clear stale pull artifacts up front and say so. */
@@ -996,6 +1010,8 @@ if command='PULL' then do
       exit 8
    end
    do si=1 to statusout.0
+      /* CMS diagnostics captured by PIPE are not worktree state. */
+      if left(statusout.si,3)='DMS' then iterate
       if left(statusout.si,2)\='##' then do
          say 'GIT PULL: local worktree has changes; no fetch started'
          exit 8
@@ -1062,6 +1078,21 @@ if command='PULL' then do
       say 'GIT PULL: server returned an empty pack for a new tip'
       exit 8
    end
+   /* Peak usage is roughly pack + stage + index + loose objects.  Reject
+      before import when the selected disk cannot hold about five times
+      the fetched pack, plus a fixed metadata allowance. */
+   pullbytes=word(fetchline,9)
+   call freespace objectfm
+   if result='ERROR' then do
+      say 'GIT PULL: cannot inspect object disk' objectfm
+      exit 8
+   end
+   needblocks=(pullbytes % 4096) * 5 + 1024
+   if result < needblocks then do
+      say 'GIT PULL: object disk' objectfm 'has' result 'free blocks;'||,
+          needblocks 'required for this pull'
+      exit 8
+   end
    'EXEC GIT FETCH-IMPORT' pullpack objectfm
    if rc\=0 then do
       say 'GIT PULL: import failed; pack retained for recovery'
@@ -1076,33 +1107,33 @@ if command='PULL' then do
    end
    call localbranchtip currentbranch
    pullold=result
-   if pullold='' then do
-      drop headcheck.
-      headcheck.0=0
-      'PIPE CMS EXEC GITVREF RESOLVE HEAD | STEM HEADCHECK.'
-      if rc\=0 | headcheck.0\=1 | words(headcheck.1)\=4 |,
-         word(headcheck.1,1)\='VERIFIED' |,
-         word(headcheck.1,2)\='REF' | word(headcheck.1,3)\='HEAD' then exit 8
-      pullold=translate(word(headcheck.1,4))
-   end
-   if length(pullold)\=40 | verify(pullold,'0123456789ABCDEF')\=0 then exit 8
+   zeros='0000000000000000000000000000000000000000'
+   /* An unborn branch has no local tip: the first pull creates it.  The
+      ref updater only takes this path when HEAD still names this branch and
+      no branch record exists, so a missing tip cannot overwrite another
+      branch. */
+   if pullold='' then pullold=zeros
+   if pullold\=zeros &,
+      (length(pullold)\=40 | verify(pullold,'0123456789ABCDEF')\=0) then exit 8
    if pullnew=pullold then do
       say 'Already up to date' pullold
       exit 0
    end
-   drop ancestorout.
-   ancestorout.0=0
-   ancestorcmd='EXEC GITVREF IS-ANCESTOR'||' '||pullold||' '||pullnew
-   'PIPE CMS' ancestorcmd '| STEM ANCESTOROUT.'
-   /* CMS PIPE STEM wraps at column 80, including inside an OID. */
-   ancestorline=''
-   do ai=1 to ancestorout.0
-      ancestorline=ancestorline||strip(ancestorout.ai)
-   end
-   if rc\=0 |,
-      ancestorline\='ANCESTOR YES' pullold pullnew then do
-      say 'GIT PULL: remote tip is not a fast-forward; local refs unchanged'
-      exit 8
+   if pullold\=zeros then do
+      drop ancestorout.
+      ancestorout.0=0
+      ancestorcmd='EXEC GITVREF IS-ANCESTOR'||' '||pullold||' '||pullnew
+      'PIPE CMS' ancestorcmd '| STEM ANCESTOROUT.'
+      /* CMS PIPE STEM wraps at column 80, including inside an OID. */
+      ancestorline=''
+      do ai=1 to ancestorout.0
+         ancestorline=ancestorline||strip(ancestorout.ai)
+      end
+      if rc\=0 |,
+         ancestorline\='ANCESTOR YES' pullold pullnew then do
+         say 'GIT PULL: remote tip is not a fast-forward; local refs unchanged'
+         exit 8
+      end
    end
    pullcheckcmd='EXEC GITWT CHECK-PULL'||' '||currentbranch||' '||,
        pullold||' '||pullnew
@@ -1153,23 +1184,94 @@ if command='PUSH' then do
 end
 /* M274: clone a GitHub repository into an empty CMS file area. */
 if command='CLONE' then do
-   parse var rest cloneurl clonefm cloneextra
+   parse var rest cloneurl clonefm clonearg1 clonearg2 cloneextra
    if cloneurl='' | cloneextra\='' then do
-      say 'Usage: GIT CLONE <https-url> [object-filemode]'
+      say 'Usage: GIT CLONE <https-url> [object-filemode] [bridge] [port]'
       exit 4
    end
    if clonefm='' then clonefm='A'
-   call validbranch 'main'
+   clonefm=translate(clonefm)
+   if verify(clonefm,'ABCDEFGHIJKLMNOPQRSTUVWXYZ')\=0 then do
+      say 'GIT CLONE: invalid object filemode'
+      exit 4
+   end
+   call readbridge
+   if result\='OK' then do
+      say 'GIT CLONE: invalid GITBRIDG CONFIG record'
+      exit 8
+   end
+   clonebridge=bridgehost
+   cloneport=bridgeport
+   if clonearg1\='' then clonebridge=clonearg1
+   if clonearg2\='' then cloneport=clonearg2
+   clonebridge=strip(clonebridge)
+   cloneport=strip(cloneport)
+   bridgechars='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+   bridgechars=bridgechars||'0123456789.-'
+   if clonebridge='' | length(clonebridge)>255 |,
+      verify(clonebridge,bridgechars)\=0 then do
+      say 'GIT CLONE: invalid bridge host'
+      exit 4
+   end
+   if datatype(cloneport,'W')\=1 | cloneport<1 | cloneport>65535 then do
+      say 'GIT CLONE: invalid bridge port'
+      exit 4
+   end
    'STATE GITMETA REPO A'
    if rc=0 then do
-      say 'GIT CLONE: repository already initialized'
+      say 'GIT CLONE: repository already initialized; use GIT PULL to resume'
       exit 8
    end
    if rc\=28 then do
       say 'GIT CLONE: cannot inspect repository metadata RC' rc
       exit 8
    end
-   'EXEC GIT INIT' clonefm
+   /* GITREMOT needs repository metadata, so parse and discover before
+      INIT.  Use the advertised HEAD symref so the initial branch matches
+      the repository default instead of assuming "main". */
+   call parsecloneurl cloneurl
+   if result='ERROR' then do
+      say 'GIT CLONE: expected a GitHub HTTPS repository URL'
+      exit 4
+   end
+   clonepath=result
+   drop disco.
+   disco.0=0
+   discocmd='EXEC GITFETCH DISCOVER' clonebridge cloneport 'github.com',
+       clonepath 'HEAD'
+   'PIPE CMS' discocmd '| STEM DISCO.'
+   clonebranch=''
+   cloneoid=''
+   cloneoidcount=0
+   clonepass=0
+   do ci=1 to disco.0
+      if word(disco.ci,1)='FETCH' & word(disco.ci,2)='OID' &,
+         words(disco.ci)=3 then do
+         candidate=translate(word(disco.ci,3))
+         if length(candidate)=40 &,
+            verify(candidate,'0123456789ABCDEF')=0 then do
+            cloneoidcount=cloneoidcount+1
+            cloneoid=candidate
+         end
+      end
+      if word(disco.ci,1)='FETCH' & word(disco.ci,2)='DEFAULT' &,
+         word(disco.ci,3)='BRANCH' & words(disco.ci)=4 then do
+         branchref=word(disco.ci,4)
+         if left(branchref,11)='refs/heads/' then,
+            clonebranch=substr(branchref,12)
+      end
+      if disco.ci='M169 FETCH DISCOVERY PASS' then clonepass=clonepass+1
+   end
+   if cloneoidcount\=1 | clonepass\=1 then do
+      say 'GIT CLONE: default-branch discovery framing failed'
+      exit 8
+   end
+   call validbranch clonebranch
+   if result\='OK' then do
+      say 'GIT CLONE: remote did not advertise a usable default branch'
+      exit 8
+   end
+   'EXEC GIT INIT' clonefm clonebranch
    if rc\=0 then do
       say 'GIT CLONE: repository initialization failed'
       exit rc
@@ -1178,11 +1280,13 @@ if command='CLONE' then do
    if rc\=0 then do
       say 'GIT CLONE: remote configuration failed'
       'ERASE GITMETA REPO A'
+      'ERASE GITREF2 REPO A'
       exit rc
    end
-   'EXEC GIT PULL origin 192.168.200.1 8443 PULLPACK PULLIDX HEAD'
+   'EXEC GIT PULL origin' clonebridge cloneport 'PULLPACK PULLIDX HEAD'
    if rc\=0 then do
       say 'GIT CLONE: initial pull failed; repository partially initialized'
+      say 'GIT CLONE: after correcting the failure, run: GIT PULL'
       exit rc
    end
    say 'GIT CLONE COMPLETE' cloneurl
@@ -2036,19 +2140,84 @@ validremotename: procedure
       left(remote,1)='.' | right(remote,1)='.' then return 'ERROR'
    return 'OK'
 
+/* Validate a bounded GitHub HTTPS repository URL and return owner/repo. */
+parsecloneurl:
+   parse arg cu
+   upperurl=translate(cu)
+   if left(upperurl,19)\='HTTPS://GITHUB.COM/' then return 'ERROR'
+   p=substr(cu,20)
+   if p='' | pos('?',p)>0 | pos('#',p)>0 | pos('@',p)>0 |,
+      pos(':',p)>0 | pos('%',p)>0 | pos('\\',p)>0 then return 'ERROR'
+   if right(translate(p),4)='.GIT' then p=left(p,length(p)-4)
+   slash=pos('/',p)
+   if slash<2 | slash=length(p) then return 'ERROR'
+   if pos('/',substr(p,slash+1))>0 then return 'ERROR'
+   owner=substr(p,1,slash-1)
+   repo=substr(p,slash+1)
+   if length(owner)>39 | length(repo)>39 then return 'ERROR'
+   allowed='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-'
+   if verify(translate(owner),allowed)\=0 |,
+      verify(translate(repo),allowed)\=0 then return 'ERROR'
+   if pos('..',owner)>0 | pos('..',repo)>0 then return 'ERROR'
+   if left(owner,1)='.' | left(repo,1)='.' |,
+      right(owner,1)='.' | right(repo,1)='.' then return 'ERROR'
+   return p
+
+/* Default plain-HTTP to TLS bridge endpoint.  GITBRIDG CONFIG A may hold
+   one record: BRIDGE <host> <port>.  The defaults match the documented
+   VMnet gateway; override the file when the bridge listens elsewhere. */
+readbridge:
+   bridgehost='192.168.200.1'
+   bridgeport='8443'
+   'STATE GITBRIDG CONFIG A'
+   if rc=28 then return 'OK'
+   if rc\=0 then return 'ERROR'
+   drop bridgeline.
+   'EXECIO * DISKR GITBRIDG CONFIG A 1 (STEM BRIDGELINE. FINIS'
+   if rc\=0 | bridgeline.0\=1 then return 'ERROR'
+   parse var bridgeline.1 btag bhost bport bextra
+   if translate(btag)\='BRIDGE' | bhost='' | bport='' |,
+      bextra\='' then return 'ERROR'
+   if datatype(bport,'W')\=1 | bport<1 | bport>65535 then return 'ERROR'
+   bchars='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+   bchars=bchars||'0123456789.-'
+   if length(bhost)>255 | verify(bhost,bchars)\=0 then return 'ERROR'
+   bridgehost=bhost
+   bridgeport=bport
+   return 'OK'
+
+/* Return the free 4K block count of one accessed R/W 4096-byte disk. */
+freespace:
+   fs.0=0
+   'PIPE CMS QUERY DISK' objectfm '| STEM FS.'
+   if rc\=0 then return 'ERROR'
+   fscount=0
+   fsfree=''
+   do fsi=1 to fs.0
+      if word(fs.fsi,3)=objectfm & word(fs.fsi,4)='R/W' &,
+         word(fs.fsi,7)='4096' & words(fs.fsi)>=11 then do
+         fscount=fscount+1
+         fsfree=word(fs.fsi,10)
+      end
+   end
+   if fscount\=1 | datatype(fsfree,'W')\=1 then return 'ERROR'
+   return fsfree
+
 initrefs:
+   parse arg ibranch
+   if ibranch='' then ibranch='main'
    'STATE GITREF2 REPO A'
    if rc=0 then return 'EXISTS'
    if rc\=28 then return 'ERROR'
    initial.0=2
    initial.1='REF2 1'
-   initial.2='HEAD refs/heads/main'
+   initial.2='HEAD refs/heads/'||ibranch
    'EXECIO 2 DISKW GITREF2 REPO A 1 (STEM INITIAL. FINIS'
    if rc\=0 then return 'ERROR'
    drop initial.
    'EXECIO * DISKR GITREF2 REPO A 1 (STEM INITIAL. FINIS'
    if rc\=0 | initial.0\=2 | initial.1\='REF2 1' |,
-      initial.2\='HEAD refs/heads/main' then return 'ERROR'
+      initial.2\=('HEAD refs/heads/'||ibranch) then return 'ERROR'
    return 'OK'
 
 validtag: procedure

@@ -331,31 +331,40 @@ if ref='PULL-HEAD' then do
    localold=refoid.i
   end
  end
- if slot=0 | localold\=oldoid then do
-  say 'GITUPD: stale local branch tip' branchref
-  exit 8
+ /* Zero old-commit with no branch record is the unborn-repository create
+    path used by the first clone/first pull. */
+ zeros='0000000000000000000000000000000000000000'
+ createmode=0
+ if slot=0 & oldoid=zeros then createmode=1
+ if createmode=0 then do
+  if slot=0 | localold\=oldoid then do
+   say 'GITUPD: stale local branch tip' branchref
+   exit 8
+  end
+  call requirecommit oldoid
+  if result\='OK' then exit 8
  end
- call requirecommit oldoid
- if result\='OK' then exit 8
  call requirecommit newoid
  if result\='OK' then exit 8
  if oldoid=newoid then do
   say 'Already up to date' oldoid
   exit 0
  end
- drop ancestry.
- ancestry.0=0
- ancestrycmd='EXEC GITVREF IS-ANCESTOR'||' '||oldoid||' '||newoid
- 'PIPE CMS' ancestrycmd '| STEM ANCESTRY.'
- /* CMS PIPE STEM wraps at column 80, including inside an OID. */
- ancestryline=''
- do ai=1 to ancestry.0
-  ancestryline=ancestryline||strip(ancestry.ai)
- end
- if rc\=0 |,
-    ancestryline\='ANCESTOR YES' oldoid newoid then do
-  say 'GITUPD: update is not a verified fast-forward'
-  exit 8
+ if createmode=0 then do
+  drop ancestry.
+  ancestry.0=0
+  ancestrycmd='EXEC GITVREF IS-ANCESTOR'||' '||oldoid||' '||newoid
+  'PIPE CMS' ancestrycmd '| STEM ANCESTRY.'
+  /* CMS PIPE STEM wraps at column 80, including inside an OID. */
+  ancestryline=''
+  do ai=1 to ancestry.0
+   ancestryline=ancestryline||strip(ancestry.ai)
+  end
+  if rc\=0 |,
+     ancestryline\='ANCESTOR YES' oldoid newoid then do
+   say 'GITUPD: update is not a verified fast-forward'
+   exit 8
+  end
  end
  drop pullcheck.
  pullcheck.0=0
@@ -378,16 +387,30 @@ if ref='PULL-HEAD' then do
    localold=refoid.i
   end
  end
- if slot=0 | localold\=oldoid then do
+ if createmode=0 & (slot=0 | localold\=oldoid) then do
   say 'GITUPD: local branch changed during pull preflight'
   exit 8
+ end
+ /* A concurrent writer could have created the branch after preflight. */
+ if createmode=1 then do
+  do i=1 to refcount
+   if refname.i=branchref then do
+    say 'GITUPD: branch appeared during create preflight'
+    exit 8
+   end
+  end
  end
  drop bak.
  bak.0=rr.0
  do bi=1 to rr.0
   bak.bi=rr.bi
  end
- refoid.slot=newoid
+ if createmode=1 then do
+  refcount=refcount+1
+  refname.refcount=branchref
+  refoid.refcount=newoid
+ end
+ else refoid.slot=newoid
  call writerefs
  if result\='OK' then do
   call restore
@@ -413,6 +436,17 @@ if ref='PULL-HEAD' then do
   say 'GITUPD: worktree update failed; restoring branch ref'
   call restore
   exit 8
+ end
+ if createmode=1 then do
+  /* The first checkout into an empty file area builds the worktree map. */
+  address command 'EXEC GITWT CHECKOUT-TREE' branch
+  if rc\=0 then do
+   say 'GITUPD: initial worktree checkout failed; restoring REF2'
+   call restore
+   exit 8
+  end
+  say 'CREATED' branch newoid
+  exit 0
  end
  say 'FAST-FORWARD' branch oldoid newoid
  exit 0

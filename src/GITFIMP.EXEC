@@ -4,13 +4,33 @@ parse upper arg store datafm extra
 if store='' | datafm='' | extra\='' | length(store)>8 |,
    verify(store,'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@$#')\=0 |,
    verify(left(store,1),'ABCDEFGHIJKLMNOPQRSTUVWXYZ@$#')\=0 |,
-   length(datafm)\=1 | verify(datafm,'BCDEFGHIJKLMNOPQRSTUVWXYZ')\=0 then do
+   length(datafm)\=1 | verify(datafm,'ABCDEFGHIJKLMNOPQRSTUVWXYZ')\=0 then do
  say 'Usage: GIT FETCH-IMPORT pack-file data-filemode'
  exit 4
 end
 stage=store
 
-/* Require the dedicated non-A data disk used by the M173 import gate. */
+'STATE' store 'PACK A'
+if rc\=0 then do
+ say 'FETCH-IMPORT: retained PACK missing' store 'PACK A'
+ exit 8
+end
+'STATE' store 'META A'
+if rc\=0 then do
+ say 'FETCH-IMPORT: retained META missing' store 'META A'
+ exit 8
+end
+
+/* Size the stage, index and installed objects from the retained pack.
+   A dedicated project minidisk accessed as A is a valid data disk. */
+needblocks=180000
+drop pmeta.
+'EXECIO 1 DISKR' store 'META A 1 (STEM PMETA. FINIS'
+if rc=0 & pmeta.0=1 then do
+ parse var pmeta.1 ptag poid pbytes prest
+ if datatype(pbytes,'W')=1 & pbytes>0 then,
+  needblocks=(pbytes % 4096) * 5 + 1024
+end
 drop d.
 d.0=0
 'PIPE CMS QUERY DISK' datafm '| STEM D.'
@@ -30,19 +50,9 @@ if matched\=1 | datatype(avail,'W')\=1 then do
  say 'FETCH-IMPORT: need an accessed R/W 4K data disk' datafm
  exit 8
 end
-if avail<180000 then do
- say 'FETCH-IMPORT: data disk space below 180000 blocks'
- exit 8
-end
-
-'STATE' store 'PACK A'
-if rc\=0 then do
- say 'FETCH-IMPORT: retained PACK missing' store 'PACK A'
- exit 8
-end
-'STATE' store 'META A'
-if rc\=0 then do
- say 'FETCH-IMPORT: retained META missing' store 'META A'
+if avail<needblocks then do
+ say 'FETCH-IMPORT: data disk' datafm 'has' avail 'free blocks;'||,
+     needblocks 'required'
  exit 8
 end
 'STATE' stage 'STAGE' datafm

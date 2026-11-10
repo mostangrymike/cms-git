@@ -3,7 +3,7 @@ address cms
 parse upper arg stage index datafm extra
 if stage='' | index='' | datafm='' |,
    \validfn(stage) | \validfn(index) | stage=index |,
-   length(datafm)\=1 | verify(datafm,'BCDEFGHIJKLMNOPQRSTUVWXYZ')\=0 then do
+   length(datafm)\=1 | verify(datafm,'ABCDEFGHIJKLMNOPQRSTUVWXYZ')\=0 then do
  say 'Usage: GIT FETCH-ACTIVATE stage-file index-file data-filemode [INCREMENTAL]'
  exit 4
 end
@@ -16,7 +16,8 @@ if extra\='' then do
  end
 end
 
-/* Existing repositories must select this same dedicated object disk. */
+/* Existing repositories must select this same object disk; A is valid
+   for a dedicated project minidisk. */
 objectfm='A'
 'STATE GITMETA REPO A'
 if rc\=0 then do
@@ -42,7 +43,7 @@ if objects\=1 | objectfm\=datafm then do
  exit 8
 end
 
-/* Require the same isolated, accessed R/W 4K disk used by import. */
+/* Require the same accessed R/W 4K disk used by import. */
 drop disk.
 disk.0=0
 'PIPE CMS QUERY DISK' datafm '| STEM DISK.'
@@ -91,7 +92,7 @@ if rc=0 then do
 end
 if rc\=28 then exit 8
 do i=1 to 4
- module=word('GITPIDX GITPTRE GITPLOAD GITPCAT',i)
+ module=word('GITPIDX GITPTRE M274L5 GITPCAT',i)
  'STATE' module 'MODULE A'
  if rc\=0 then do
   say 'FETCH-ACTIVATE: required CMS module missing' module

@@ -151,6 +151,12 @@ if hstate\='BODY' | chunkdone\=1 | pktdone\=1 then do
  call bad
 end
 if service\=1 | targetcount\=1 | capseen\=1 then do
+ if targetcount\=1 then do
+  say 'GITFETCH: wanted reference' target
+  do di=1 to min(refs,16)
+   say 'GITFETCH: advertised' advname.di
+  end
+ end
  fail='FINAL-ADVERTISEMENT'
  call bad
 end

@@ -64,10 +64,20 @@ it does not assume native CMS TLS is available.
    overwrites/collisions and unsupported tree modes, preflights every text blob,
    then writes the full set and extends the worktree map. A two-file fixture
    checkout and independent workfile hashes passed on CMS; no ref update ran.
-5. **M273 fast-forward pull implemented in source; CMS validation pending.**
-   The first supported pull is explicit-argument and limited to an unchanged
-   flat set of CMS-compatible regular text paths. Empty-repository clone is
-   still pending.
+5. **M273 fast-forward pull implemented and CMS-validated.** The first
+   supported pull is explicit-argument and limited to an unchanged flat set of
+   CMS-compatible regular text paths. Measured tip-to-tip runs (including
+   `PULL COMPLETE` and `Already up to date`) are recorded in
+   `docs/M273-SHALLOW-PULL.md`. No-argument pull reads the first configured
+   remote plus an optional `GITBRIDG CONFIG A` endpoint.
+5b. **M274 clone CMS-validated (2026-11-10).** `GIT CLONE` validates the URL,
+   discovers the advertised default branch, initializes a branch-aware unborn
+   repository, runs the pull path, creates the branch ref, and checks out the
+   flat worktree in one command. It accepts a dedicated project minidisk
+   accessed as `A` and checks free space after the fetch, before import. A
+   clean clone of `mostangrymike/cms-git-push-test` (`testmin`, one file)
+   completed in about two seconds with a clean `GITWT STATUS`; see the dated
+   entry below.
 6. Implement outbound reachable-object collection and pack writing, then
    GitHub `receive-pack` negotiation, authenticated push, and server status
    handling.
@@ -83,11 +93,11 @@ bounded pack into a staging format, while `GITWT` and `GITVREF` provide local
 worktree and ref operations.
 
 The data path now has a guarded route from a verified stage to ordinary loose
-objects on the repository's selected object disk. Fast-forward pull has an
-initial explicit-argument implementation, but no-argument configured-upstream
-pull, clone, and push are not complete. Nested trees, path additions/removals,
-binary workfiles, and divergent pulls are outside the initial pull slice. The
-new pull path still needs real CMS validation.
+objects on the repository's selected object disk. Fast-forward pull has a
+CMS-validated explicit-argument implementation and a configured no-argument
+form; clone is implemented and awaiting its CMS target run. Nested trees, path
+additions/removals, binary workfiles, and divergent pulls are outside the
+initial pull slice. Push is proven separately by M281.
 
 ## M262-M267 command surface
 
@@ -449,8 +459,9 @@ rollback snapshots. The selected remote branch must match the current branch.
 The worktree map must cover the same flat set of regular mode-100644,
 CMS-compatible text files in both commits. Dirty or incomplete maps, path
 additions/removals, nested paths, binary blobs and non-fast-forward updates are
-rejected. Pack, stage and index files are retained for recovery. No-argument
-upstream pull, empty-repository clone and push remain unimplemented.
+rejected. Pack, stage and index files are retained for recovery. This
+historical entry predates the 2026-11-07 CMS pull runs; no-argument pull now
+reads the configured remote, and clone is implemented on top of this path.
 
 The four changed REXX EXECs (`GIT`, `GITUPD`, `GITVREF`, and `GITWT`) passed
 the local Regina syntax parser. The command-runner boundary in `cms-tooling`
@@ -487,3 +498,47 @@ reader EXECs on CMS A; their names were omitted by the local MCP client
 formatter, so preserve any new ZMxxxxxx EXECs pending inventory. M273 runtime
 and end-to-end pull remain unvalidated until the bulk source-capture failure
 is diagnosed and the existing EXECs are backed up.
+
+**Superseded 2026-11-07:** the shallow pull path subsequently ran on CMS with
+measured `PULL COMPLETE` results; see `docs/M273-SHALLOW-PULL.md`.
+
+### M273/M274 pull and clone target pass — 2026-11-10
+
+The updated `GIT`, `GITUPD`, `GITWT`, `GITFETCH`, `GITVREF`, `GITFIMP` and
+`GITFACT` sources were uploaded to CMS A through the FTP staging path and each
+one was hash-verified with `GIT HASH-WORKFILE ... 1` before replacing the
+previous EXEC. The prior `GITFIMP`/`GITFACT` copies were kept as `GIF273BK`
+and `GFA273BK`; the earlier metadata set was moved to type `M273BAK`.
+
+A fresh `GIT CLONE https://github.com/mostangrymike/cms-git-push-test.git A
+192.168.200.1 8444` completed in one command:
+
+- discovery resolved `HEAD` to `refs/heads/testmin` (`90095C2B`);
+- the depth-1 pack (6 objects after the later advance, 435 bytes) imported,
+  verified, and activated on the `A` project minidisk;
+- the first pull created `refs/heads/testmin`, wrote
+  `refs/remotes/origin/testmin`, and materialized `F TEXT A`;
+- `GIT BRANCH` reported `* testmin`, `GIT BRANCH -r` reported
+  `origin/testmin`, and `GITWT STATUS` reported one clean tracked path;
+- `TYPE F TEXT A` and `GIT HASH-WORKFILE F TEXT A 1` matched the Git blob.
+
+`testmin` was then advanced from the Mac to `8AEEFDF1` (one changed file) and
+`GIT PULL` on CMS fetched an incremental 3-object pack, reported
+`FAST-FORWARD`, wrote `PULLED WORKTREE FILES 1`, and left `F TEXT A` clean at
+the new blob. A second no-argument `GIT PULL` reported
+`Already up to date 8AEEFDF1...`.
+
+Three target-only defects surfaced and were fixed in source:
+
+1. `GITFACT` checked for a module named `GITPLOAD`, but the installer module
+   it actually invokes is `M274L5`. The dependency list now names `M274L5`.
+2. `GITWT`'s REF2 reader required at least three records, so it rejected the
+   two-line unborn database (`REF2 1` plus `HEAD`). It now accepts two.
+3. Every `call bindnative` site compared the routine's numeric `0`/`8` return
+   against `'OK'`, so a successful binding always took the failure path and
+   checkout could never run. The sites now test `result\=0`.
+
+The test clone was then erased and the `M273BAK` metadata restored. `GIT
+BRANCH`, `EXEC GITVREF HEAD` and `GIT BRANCH -r` again report `* main`,
+`refs/heads/main`, `origin/main` and `PUSHTEST/main`, with no clone artifacts
+on `A`.
