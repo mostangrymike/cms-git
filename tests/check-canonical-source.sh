@@ -2685,7 +2685,7 @@ Path(sys.argv[6]).write_text(
  basefixture+
  "readrefs:\n headref='refs/heads/main'\n return 'OK'\n"
  "resolve:\n return 'HEADOID'\n"
- "bindnative:\n return 'OK'\n"
+ "bindnative:\n return 0\n"
  "pathoidfor:\n parse arg pcommit,ppath\n"
  "pathoid='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
  "body='6E65770A'\n return pathoid\n")
