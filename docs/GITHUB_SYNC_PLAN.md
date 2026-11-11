@@ -138,6 +138,16 @@ on the CMS target, within the bounded envelope described below.
    repository maps only one workfile. A full activation of the one-file
    `testmin` closure also passed. `GIT BRANCH`, `GITWT STATUS` and `GIT LOG`
    remained correct afterwards.
+6f. **GCCCMS compiler disk restored at login (2026-11-11):** `MAINT 029D`
+   (`GCCLIB`) is the GCCCMS compiler disk. `PROFILE EXEC A` now mounts it as
+   `F` after `EXEC RESTORE`, guarded by `STATE GCCE EXEC F`; the previous
+   profile is saved as `PROFBAK1 EXEC A`. A fresh login reports
+   `GCCLIB 29D F R/W` with `GCCE EXEC`, `CMSCLNK EXEC`, `STD380 PARM`,
+   `PDPCLIB MACLIB` and `PDPCLIB TXTLIB`. `CMSCLNK ZTCH PLAIN` built and ran a
+   hello program. The transferred `M274PF2 ASSEMBLE` is variable 72, so the
+   `gitpfs` helper must first be copied to fixed 80
+   (`COPYFILE ... (RECFM F LRECL 80`); the `M274L5` + `M274PF2` link then
+   completed RC 0 and the disposable module printed its usage line.
 7. Validate each CMS command on the real z/VM target. Host CI alone cannot
    establish CMS runtime behavior. `clone`, `pull` and `push` now have target
    validation; the refusal and recovery paths listed below remain host-only.
