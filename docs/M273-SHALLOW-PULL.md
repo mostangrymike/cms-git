@@ -36,13 +36,28 @@ CMS text-file access costs roughly 80 microseconds per record and a random
 
 `M274L5` is a CMS C program that needs the native `gitpfs` helper from
 `M274PF2.ASSEMBLE` (or `M274PFS.ASSEMBLE` for the shared-library
-variant).  Assemble in this order on a writable GCC F disk:
+variant).  The CMS assembler accepts only fixed 80-character input, while
+an FTP ASCII transfer stores the source as variable 72; copy it to a
+fixed-80 work file before assembling:
 
-    ASSEMBLE M274PF2 (or M274PFS)
+    GLOBAL MACLIB OSMACRO DMSGPI PDPCLIB
+    COPYFILE M274PF2 ASSEMBLE A M274PF2F ASSEMBLE A (RECFM F LRECL 80
+    ASSEMBLE M274PF2F
+    EXEC GCCE M274L5 C A (NOASM PARAM STD380
+    ASSEMBLE M274L5
     GLOBAL TXTLIB PDPCLIB
-    GCC M274L5 C (NOAUTO NOMAP)
-    LOAD M274L5 (NOAUTO NOMAP)
+    LOAD M274L5 M274PF2F (NOAUTO NOMAP
     GENMOD M274L5
+
+`CMSCLNK` cannot build this program: its `PLAIN` mode links only the C
+module, and its `NAPI` mode adds `GITCAPI`/`GITINFA` instead of the
+`gitpfs` helper.  A successful `LOAD` prints no undefined names.
+
+The sequence was verified on GCCLIB `29D` (`F`) on 2026-11-11 with
+disposable names (`ZT274`/`ZT2PF2`, plus a plain `ZTCH` hello build):
+the fixed-80 copy, both assemblies, the C compile, `LOAD` and `GENMOD`
+returned RC 0, and the module printed its usage line.  The disposable
+files were then erased; the working `M274L5 MODULE A` was left untouched.
 
 The host stand-in is built with `gcc -DGITPLOAD_HOST` and reads/writes
 `dd:IDXIN` and `dd:STGIN` directly, so the same BATCH logic can be
@@ -52,9 +67,14 @@ exercised outside CMS.
 
 An incremental pack contains only the new objects; the unchanged closure is
 already in the verified loose store.  `GITFACT ... INCREMENTAL` therefore
-skips the full stage-closure walk and checks that the new root tree exists
-in the loose store.  A full cross-store closure verification for incremental
-packs is still an open follow-up.
+skips the stage-closure walk, because the pack cannot contain that closure.
+
+After install, every activation (incremental or full) runs the same
+installed-closure verification: starting at the new root tree, `GITFACT`
+walks the loose store and requires each reachable object to exist with a
+matching OID, type, size, and total `DATA` length.  This proves the
+installed closure is structurally complete; it does not re-hash every blob
+body.
 
 ## Pull sequence
 
