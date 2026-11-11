@@ -447,6 +447,14 @@ program=(
  " parse arg qspec\n drop rs.\n"
  " if mode='missing' then do\n  rs.0=0\n  return 'ERROR'\n end\n"
  " rs.0=1\n"
+ " if mode='twoline' | mode='conflict' then do\n"
+ "  rs.0=2\n"
+ "  rs.1='VERIFIED REF ' qspec ' AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "  if mode='twoline' then,\n"
+ "   rs.2='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "  else rs.2='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
+ "  return 'OK'\n"
+ " end\n"
  " if mode='badframe' then rs.1='BROKEN REF ' qspec\n"
  " else if mode='wrongref' then rs.1='VERIFIED REF other AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
  " else if mode='badoid' then rs.1='VERIFIED REF ' qspec ' SHORT'\n"
@@ -481,11 +489,14 @@ check "$oid" good HEAD
 check "$oid" good main
 check "$oid" good refs/tags/v1
 check "$oid" good "$oid"
+check "$oid" twoline HEAD
+check "$oid" twoline main
 for mode in missing badframe wrongref badoid; do
  check ERROR "$mode" HEAD
 done
+check ERROR conflict HEAD
 check ERROR good 'bad|name'
-echo 'M226 SOURCE-DERIVED TAG START-POINT FIXTURES PASS 9'
+echo 'M226 SOURCE-DERIVED TAG START-POINT FIXTURES PASS 12'
 )
 exit $?
 fi
@@ -1268,7 +1279,7 @@ import sys
 
 source=Path(sys.argv[1]).read_text()
 start=source.index("if command='ADD' then do")
-end=source.index("if command='ACCEPT' then do",start)
+end=source.index("if command='RESET' then do",start)
 block=source[start:end]
 block=block[block.index(' addall=0'):]
 state="'STATE' mapfn.pi mapft.pi mapfm.pi"
@@ -1296,7 +1307,7 @@ fstart=source.index('\nfindpath:\n')+1
 fend=source.index('\nfindfile:\n',fstart)
 findpath=source[fstart:fend]
 astart=source.index('\naddselected:\n')+1
-aend=source.index("\nif command='RESET' then do",astart)
+aend=source.index("\npreflightpull:\n",astart)
 addhelpers=source[astart:aend]
 fixture=(
  "parse arg rest\ncommand='ADD'\nmapcount=5\n"
@@ -1309,7 +1320,7 @@ fixture=(
  "mappath.1='616C706861'\nmappath.2='62657461'\n"
  "mappath.3='67616D6D61'\nmappath.4='64656C7461'\n"
  "mappath.5='2D64617368'\n"+
- block+findpath+
+ block+addhelpers+findpath+
  "toasciihex:\n parse arg text\n return c2x(text)\n")
 Path(sys.argv[2]).write_text(fixture)
 print('M239 MULTI-ADD SOURCE GUARDS PASS 8')
@@ -1378,7 +1389,7 @@ import sys
 
 source=Path(sys.argv[1]).read_text()
 start=source.index("if command='ADD' then do")
-end=source.index("if command='ACCEPT' then do",start)
+end=source.index("if command='RESET' then do",start)
 block=source[start:end]
 block=block[block.index(' addall=0'):]
 required=("translate(word(rest,1))='-U'",
@@ -1406,7 +1417,7 @@ fstart=source.index('\nfindpath:\n')+1
 fend=source.index('\nfindfile:\n',fstart)
 findpath=source[fstart:fend]
 astart=source.index('\naddselected:\n')+1
-aend=source.index("\nif command='RESET' then do",astart)
+aend=source.index("\npreflightpull:\n",astart)
 addhelpers=source[astart:aend]
 fixture=(
  "parse arg rest\ncommand='ADD'\nmapcount=2\n"
@@ -2455,7 +2466,7 @@ state="if mapfn.pi='MISSING' then rc=28\nelse rc=0"
 work=("if pi=1 then result='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
       "else result='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'")
 helpers_start=source.index('\naddselected:\n')+1
-helpers_end=source.index("\nif command='RESET' then do",helpers_start)
+helpers_end=source.index("\npreflightpull:\n",helpers_start)
 helpers=source[helpers_start:helpers_end]
 find_start=source.index('\nfindpath:\n')+1
 find_end=source.index('\nfindfile:\n',find_start)
@@ -2537,7 +2548,7 @@ if not (block.index('statusselected.pi=1')<block.index('do i=1 to mapcount')<
         block.index("'STATE' mapfn.i mapft.i mapfm.i")):
  raise SystemExit('M258 STATUS must resolve selection before inspecting CMS files')
 helpers_start=source.index('\naddselected:\n')+1
-helpers_end=source.index("\nif command='RESET' then do",helpers_start)
+helpers_end=source.index("\npreflightpull:\n",helpers_start)
 matchhelpers=source[helpers_start:helpers_end]
 find_start=source.index('\nfindpath:\n')+1
 find_end=source.index('\nfindfile:\n',find_start)
@@ -2639,7 +2650,7 @@ if not (block.index('call addselected')<block.index('call bodyrecords')<
         block.index('call writework')<block.index('call savemap')):
  raise SystemExit('M259 must resolve and validate all staged blobs before writing')
 helperstart=source.index('\naddselected:\n')+1
-helperend=source.index("\nif command='RESET' then do",helperstart)
+helperend=source.index('\npreflightpull:\n',helperstart)
 helpers=source[helperstart:helperend]
 findstart=source.index('\nfindpath:\n')+1
 findend=source.index('\nfindfile:\n',findstart)
@@ -4214,7 +4225,7 @@ if [ "$#" -gt 1 ]; then
   exit 2
 fi
 case "${1:-}" in
-  ""|NATIVE|MAP|CONFIG|BACKUP|VREF|M155|M157|READONLY|CMSCLNK) ;;
+  ""|NATIVE|MAP|CONFIG|BACKUP|VREF|M155|M157|READONLY|CMSCLNK|DISPATCH) ;;
   *) echo "FAIL: unknown guard selector: $1" >&2; exit 2 ;;
 esac
 # Original three independent Hercules/DASD safety modes (run with bash).
@@ -5255,6 +5266,37 @@ echo 'CMSCLNK source and F-disk installation checks passed'
 )
 exit $?
 fi
+# Guard EXEC command dispatch against subroutine labels interleaved between
+# top-level branches.  REXX runs the file top to bottom, so a label block
+# placed before a later `if command=` branch makes that branch unreachable:
+# the interpreter falls into the helper body instead.
+if [ "${1:-}" = "DISPATCH" ]; then
+python3 - "$(dirname "$0")/../src" <<'PY'
+import pathlib
+import re
+import sys
+
+failed = []
+for path in sorted(pathlib.Path(sys.argv[1]).glob('*.EXEC')):
+    lines = path.read_text(errors='replace').splitlines()
+    branches = [i for i, line in enumerate(lines)
+                if re.match(r'^if command\s*=', line)]
+    if not branches:
+        continue
+    labels = [i for i, line in enumerate(lines)
+              if re.match(r'^[A-Za-z][A-Za-z0-9_]*:\s*$', line)]
+    first, last = branches[0], branches[-1]
+    between = [i for i in labels if first < i < last]
+    for index in between:
+        failed.append(f"{path.name}:{index + 1}: {lines[index]}")
+if failed:
+    print("subroutine label between top-level command branches:", *failed, sep="\n  ")
+    raise SystemExit(1)
+print("EXEC DISPATCH ORDER PASS", len(list(pathlib.Path(sys.argv[1]).glob('*.EXEC'))))
+PY
+exit $?
+fi
+
 # Guard against host-only tests missing the CMS EBCDIC hash bug.
 set -eu
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)

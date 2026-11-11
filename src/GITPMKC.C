@@ -316,11 +316,6 @@ int main(int argc,char **argv) {
  if(!read_objrecs(fin,objs,&nobj)) { fclose(fin); return 8; }
  fclose(fin);
 
- if(nobj==0) {
-  fprintf(stderr,"GITPMK: no objects to pack\n");
-  return 8;
- }
-
  outf=fopen("dd:OBJOUT","w");
  if(!outf) { perror("OBJOUT"); return 8; }
 

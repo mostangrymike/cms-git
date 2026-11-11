@@ -1492,138 +1492,6 @@ if command='ADD' then do
  exit 0
 end
 
-addselected:
- parse arg selectedpi,selectedpath
- duplicate=0
- do aj=1 to addcount
-  if addpi.aj=selectedpi then duplicate=1
- end
- if duplicate=1 then return
- if addcount>=16 then do
-  say 'GITWT: pathspec expands to more than 16 paths'
-  exit 4
- end
- addcount=addcount+1
- addpi.addcount=selectedpi
- addpath.addcount=selectedpath
- return
-
-matchpath:
- parse arg matchpattern,matchcandidate
- matchp=1
- matchc=1
- matchstar=0
- matchretry=0
- do while matchc<=length(matchcandidate)
-  if matchp<=length(matchpattern) then do
-   matchbyte=substr(matchpattern,matchp,2)
-   if matchbyte='3F' | matchbyte=substr(matchcandidate,matchc,2) then do
-    matchp=matchp+2
-    matchc=matchc+2
-   end
-   else if matchbyte='2A' then do
-    matchstar=matchp
-    matchretry=matchc
-    matchp=matchp+2
-   end
-   else if matchstar>0 then do
-    matchp=matchstar+2
-    matchretry=matchretry+2
-    matchc=matchretry
-   end
-   else return 0
-  end
-  else if matchstar>0 then do
-   matchp=matchstar+2
-   matchretry=matchretry+2
-   matchc=matchretry
-  end
-  else return 0
- end
- do while matchp<=length(matchpattern) &,
-      substr(matchpattern,matchp,2)='2A'
-  matchp=matchp+2
- end
- if matchp>length(matchpattern) then return 1
- return 0
-
-readrestoreblob:
- parse upper arg restoreoid
- if length(restoreoid)\=40 |,
-    verify(restoreoid,'0123456789ABCDEF')\=0 then return 'ERROR'
- verifycmd='GIT VERIFY-OBJECT'||' '||restoreoid
- drop restoreverify.
- restoreverify.0=0
- 'PIPE CMS' verifycmd '| STEM RESTOREVERIFY.'
- if rc\=0 | restoreverify.0\=1 |,
-    strip(restoreverify.1)\=restoreoid 'OK' then return 'ERROR'
- restorefn=substr(restoreoid,1,8)
- drop restoreobj.
- 'EXECIO * DISKR' restorefn 'GITOBJ' objectfm ,
-  '1 (STEM RESTOREOBJ. FINIS'
- if rc\=0 | restoreobj.0<3 then return 'ERROR'
- if word(restoreobj.1,1)\='OID' | words(restoreobj.1)\=2 |,
-    word(restoreobj.1,2)\=restoreoid |,
-    word(restoreobj.2,1)\='TYPE' | words(restoreobj.2)\=2 |,
-    word(restoreobj.2,2)\='BLOB' then,
-  return 'ERROR'
- restorehex=''
- if restoreobj.0=3 & word(restoreobj.3,1)='DATA' then do
-  if words(restoreobj.3)>2 then return 'ERROR'
-  if words(restoreobj.3)=2 then restorehex=word(restoreobj.3,2)
-  if restorehex\='' & (length(restorehex)//2\=0 |,
-     length(restorehex)>128 |,
-     verify(restorehex,'0123456789ABCDEF')\=0) then return 'ERROR'
-  restoresize=length(restorehex)%2
- end
- else do
-  if word(restoreobj.3,1)\='SIZE' | words(restoreobj.3)\=2 then,
-   return 'ERROR'
-  restoresize=word(restoreobj.3,2)
-  if datatype(restoresize,'W')\=1 | restoresize<0 |,
-     restoresize>65536 then return 'ERROR'
-  do restoreoi=4 to restoreobj.0
-   if word(restoreobj.restoreoi,1)\='DATA' |,
-      words(restoreobj.restoreoi)\=2 then return 'ERROR'
-   restorechunk=word(restoreobj.restoreoi,2)
-   if restorechunk='' | length(restorechunk)>128 |,
-      length(restorechunk)//2\=0 |,
-      verify(restorechunk,'0123456789ABCDEF')\=0 then return 'ERROR'
-   restorehex=restorehex||restorechunk
-  end
- end
- if length(restorehex)//2\=0 | length(restorehex)%2\=restoresize |,
-    verify(restorehex,'0123456789ABCDEF')\=0 then return 'ERROR'
- return restorehex
-
-rollbackrestore:
- restorefailed=0
- do restoreback=1 to restorecount
-  restorebackpi=restorepi.restoreback
-  if restoreexists.restoreback=1 then do
-   drop rec.
-   rec.0=restoreoldcount.restoreback
-   do restorebackline=1 to rec.0
-    rec.restorebackline=restoreoldline.restoreback.restorebackline
-   end
-   call writework mapfn.restorebackpi,mapft.restorebackpi,
-       mapfm.restorebackpi
-   if result\='OK' then restorefailed=1
-  end
-  else do
-   'STATE' mapfn.restorebackpi mapft.restorebackpi,
-       mapfm.restorebackpi
-   if rc=0 then do
-    'ERASE' mapfn.restorebackpi mapft.restorebackpi,
-        mapfm.restorebackpi
-    if rc\=0 then restorefailed=1
-   end
-   else if rc\=28 then restorefailed=1
-  end
- end
- if restorefailed=1 then return 'ERROR'
- return 'OK'
-
 if command='RESET' then do
  resetstart=1
  resetrequested=words(rest)
@@ -2095,10 +1963,16 @@ if command='COMMIT' then do
  if rc\=0 then exit 8
  drop co.
  co.0=0
+ /* COMMIT-TREE takes one word per option value; encode blanks as
+    underscores on this internal command line (it decodes them back). */
+ msgarg=translate(message,'_',' ')
  cmd='GIT COMMIT-TREE' newroot '-P' parent,
-     '-T' stamp '-Z' zone '-M' message
+     '-T' stamp '-Z' zone '-M' msgarg
  'PIPE CMS' cmd '| STEM co.'
- if rc\=0 then exit 8
+ if rc\=0 then do
+  say 'GITWT: COMMIT-TREE failed RC' rc
+  exit 8
+ end
  found=0
  commit=''
  do coi=1 to co.0
@@ -2122,6 +1996,138 @@ end
 
 say 'GITWT: unknown command' command
 exit 4
+
+addselected:
+ parse arg selectedpi,selectedpath
+ duplicate=0
+ do aj=1 to addcount
+  if addpi.aj=selectedpi then duplicate=1
+ end
+ if duplicate=1 then return
+ if addcount>=16 then do
+  say 'GITWT: pathspec expands to more than 16 paths'
+  exit 4
+ end
+ addcount=addcount+1
+ addpi.addcount=selectedpi
+ addpath.addcount=selectedpath
+ return
+
+matchpath:
+ parse arg matchpattern,matchcandidate
+ matchp=1
+ matchc=1
+ matchstar=0
+ matchretry=0
+ do while matchc<=length(matchcandidate)
+  if matchp<=length(matchpattern) then do
+   matchbyte=substr(matchpattern,matchp,2)
+   if matchbyte='3F' | matchbyte=substr(matchcandidate,matchc,2) then do
+    matchp=matchp+2
+    matchc=matchc+2
+   end
+   else if matchbyte='2A' then do
+    matchstar=matchp
+    matchretry=matchc
+    matchp=matchp+2
+   end
+   else if matchstar>0 then do
+    matchp=matchstar+2
+    matchretry=matchretry+2
+    matchc=matchretry
+   end
+   else return 0
+  end
+  else if matchstar>0 then do
+   matchp=matchstar+2
+   matchretry=matchretry+2
+   matchc=matchretry
+  end
+  else return 0
+ end
+ do while matchp<=length(matchpattern) &,
+      substr(matchpattern,matchp,2)='2A'
+  matchp=matchp+2
+ end
+ if matchp>length(matchpattern) then return 1
+ return 0
+
+readrestoreblob:
+ parse upper arg restoreoid
+ if length(restoreoid)\=40 |,
+    verify(restoreoid,'0123456789ABCDEF')\=0 then return 'ERROR'
+ verifycmd='GIT VERIFY-OBJECT'||' '||restoreoid
+ drop restoreverify.
+ restoreverify.0=0
+ 'PIPE CMS' verifycmd '| STEM RESTOREVERIFY.'
+ if rc\=0 | restoreverify.0\=1 |,
+    strip(restoreverify.1)\=restoreoid 'OK' then return 'ERROR'
+ restorefn=substr(restoreoid,1,8)
+ drop restoreobj.
+ 'EXECIO * DISKR' restorefn 'GITOBJ' objectfm ,
+  '1 (STEM RESTOREOBJ. FINIS'
+ if rc\=0 | restoreobj.0<3 then return 'ERROR'
+ if word(restoreobj.1,1)\='OID' | words(restoreobj.1)\=2 |,
+    word(restoreobj.1,2)\=restoreoid |,
+    word(restoreobj.2,1)\='TYPE' | words(restoreobj.2)\=2 |,
+    word(restoreobj.2,2)\='BLOB' then,
+  return 'ERROR'
+ restorehex=''
+ if restoreobj.0=3 & word(restoreobj.3,1)='DATA' then do
+  if words(restoreobj.3)>2 then return 'ERROR'
+  if words(restoreobj.3)=2 then restorehex=word(restoreobj.3,2)
+  if restorehex\='' & (length(restorehex)//2\=0 |,
+     length(restorehex)>128 |,
+     verify(restorehex,'0123456789ABCDEF')\=0) then return 'ERROR'
+  restoresize=length(restorehex)%2
+ end
+ else do
+  if word(restoreobj.3,1)\='SIZE' | words(restoreobj.3)\=2 then,
+   return 'ERROR'
+  restoresize=word(restoreobj.3,2)
+  if datatype(restoresize,'W')\=1 | restoresize<0 |,
+     restoresize>65536 then return 'ERROR'
+  do restoreoi=4 to restoreobj.0
+   if word(restoreobj.restoreoi,1)\='DATA' |,
+      words(restoreobj.restoreoi)\=2 then return 'ERROR'
+   restorechunk=word(restoreobj.restoreoi,2)
+   if restorechunk='' | length(restorechunk)>128 |,
+      length(restorechunk)//2\=0 |,
+      verify(restorechunk,'0123456789ABCDEF')\=0 then return 'ERROR'
+   restorehex=restorehex||restorechunk
+  end
+ end
+ if length(restorehex)//2\=0 | length(restorehex)%2\=restoresize |,
+    verify(restorehex,'0123456789ABCDEF')\=0 then return 'ERROR'
+ return restorehex
+
+rollbackrestore:
+ restorefailed=0
+ do restoreback=1 to restorecount
+  restorebackpi=restorepi.restoreback
+  if restoreexists.restoreback=1 then do
+   drop rec.
+   rec.0=restoreoldcount.restoreback
+   do restorebackline=1 to rec.0
+    rec.restorebackline=restoreoldline.restoreback.restorebackline
+   end
+   call writework mapfn.restorebackpi,mapft.restorebackpi,
+       mapfm.restorebackpi
+   if result\='OK' then restorefailed=1
+  end
+  else do
+   'STATE' mapfn.restorebackpi mapft.restorebackpi,
+       mapfm.restorebackpi
+   if rc=0 then do
+    'ERASE' mapfn.restorebackpi mapft.restorebackpi,
+        mapfm.restorebackpi
+    if rc\=0 then restorefailed=1
+   end
+   else if rc\=28 then restorefailed=1
+  end
+ end
+ if restorefailed=1 then return 'ERROR'
+ return 'OK'
 
 preflightpull:
  call loadmap

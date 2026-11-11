@@ -8,7 +8,38 @@ if oid='' | extra\='' | length(oid)\=40 |,
 end
 
 objfn=substr(oid,1,8)
-'STATE' objfn 'GITOBJ A'
+
+/* Loose objects live on the repository object disk, which need not be A. */
+objectfm='A'
+'STATE GITMETA REPO A'
+if rc=0 then do
+ drop impmeta.
+ 'EXECIO * DISKR GITMETA REPO A 1 (STEM IMPMETA. FINIS'
+ if rc\=0 | impmeta.0<1 | impmeta.1\='CMS-GIT-REPOSITORY 1' then do
+  say 'GITIMP: invalid repository metadata'
+  exit 8
+ end
+ do mi=1 to impmeta.0
+  if word(impmeta.mi,1)='OBJECT-DISK' then do
+   if words(impmeta.mi)\=2 then do
+    say 'GITIMP: invalid OBJECT-DISK setting'
+    exit 8
+   end
+   objectfm=translate(word(impmeta.mi,2))
+  end
+ end
+ if length(objectfm)\=1 |,
+    verify(objectfm,'ABCDEFGHIJKLMNOPQRSTUVWXYZ')\=0 then do
+  say 'GITIMP: invalid OBJECT-DISK setting'
+  exit 8
+ end
+end
+else if rc\=28 then do
+ say 'GITIMP: cannot inspect repository metadata RC' rc
+ exit 8
+end
+
+'STATE' objfn 'GITOBJ' objectfm
 src=rc
 if src=0 then do
  address command 'EXEC GIT VERIFY-OBJECT' oid
@@ -124,7 +155,8 @@ do while p<=length(body)
  p=p+take
 end
 loose.0=n
-'EXECIO' loose.0 'DISKW' objfn 'GITOBJ A 1 (STEM LOOSE. FINIS'
+'EXECIO' loose.0 'DISKW' objfn 'GITOBJ' objectfm ,
+ '1 (STEM LOOSE. FINIS'
 if rc\=0 then do
  say 'GITIMP: cannot create loose object'
  exit 8
@@ -133,7 +165,7 @@ end
 address command 'EXEC GIT VERIFY-OBJECT' oid
 vrc=rc
 if vrc\=0 then do
- 'ERASE' objfn 'GITOBJ A'
+ 'ERASE' objfn 'GITOBJ' objectfm
  say 'GITIMP: loose object verification failed'
  exit 8
 end

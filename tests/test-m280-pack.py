@@ -8,6 +8,7 @@ corrections that keep it portable and correct.
 """
 from pathlib import Path
 import hashlib
+import struct
 import subprocess
 import sys
 import tempfile
@@ -189,14 +190,18 @@ with tempfile.TemporaryDirectory(prefix="m280-") as td:
     r = run_builder(work, trunc)
     assert r.returncode == 8, (r.stdout, r.stderr)
 
-    # Empty staging.
+    # Empty staging: a valid zero-object pack (Git sends this for a pure
+    # ref update whose objects the remote already has).
     empty_dir = work / "emptycase"
     empty_dir.mkdir()
     (empty_dir / "dd:OBJSTG").write_text("")
     r = subprocess.run([str(work / "gitpmk"), "BUILD"], cwd=empty_dir,
                        capture_output=True, text=True)
-    assert r.returncode == 8, (r.stdout, r.stderr)
-    assert "no objects to pack" in r.stderr
+    assert r.returncode == 0, (r.stdout, r.stderr)
+    assert "PACK CREATED OBJECTS 0" in r.stdout
+    head = b"PACK" + struct.pack(">II", 2, 0)
+    expected = head + hashlib.sha1(head).digest()
+    assert (empty_dir / "dd:OBJOUT").read_bytes() == expected
 
     # CMS REXX pack builder static checks.
     rex = REXX.read_text()

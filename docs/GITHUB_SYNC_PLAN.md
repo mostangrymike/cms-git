@@ -4,7 +4,7 @@ The minimum remote workflow is `clone`, `pull`, and `push` against GitHub over
 HTTPS from z/VM CMS. It builds on the existing CMS TCP client and TLS bridge;
 it does not assume native CMS TLS is available.
 
-Status (2026-11-10): `clone`, `pull` and `push` are implemented and validated
+Status (2026-11-11): `clone`, `pull` and `push` are implemented and validated
 on the CMS target, within the bounded envelope described below.
 
 ## User-visible contract
@@ -88,6 +88,22 @@ on the CMS target, within the bounded envelope described below.
    HTTP 200 and the verified remote ref. Force updates, ref deletion, tag
    pushes and multi-ref pushes are unsupported; a rejected update is reported
    without changing local refs.
+6b. **M281 push hardening CMS-validated (2026-11-11):** a ref-only update whose
+   target commit is already advertised still sends a canonical zero-object
+   pack, because GitHub rejects a command pkt with no pack. The receive-pack
+   command pkt payload ends with LF so GitHub emits `report-status`, and
+   response bodies split across TCP segments are parsed. Pack data is
+   coalesced into ~32 KB raw buffers before `Socket('Send')`; per-record sends
+   previously cost ~18 ms each and timed out mid-upload. The tracking-ref
+   rewrite preserves the existing `HEAD` case and every existing REF OID and
+   appends the new canonical `refs/remotes/<remote>/<branch>` record. Every
+   advertised remote tip is pruned from the local closure walk, and a
+   fast-forward that cannot be proven (for example in a shallow repository)
+   is refused rather than guessed. Live CMS pushes of `main`, `probe3`,
+   `probe4` and `probe5` to `mostangrymike/cms-git-push-test` returned
+   `unpack ok`, `accepted refs/heads/<branch>` and `PUSH COMPLETE`; repeated
+   pushes report `Already up to date`; a non-fast-forward update was refused
+   with the remote left unchanged.
 7. Validate each CMS command on the real z/VM target. Host CI alone cannot
    establish CMS runtime behavior. `clone`, `pull` and `push` now have target
    validation; the refusal and recovery paths listed below remain host-only.

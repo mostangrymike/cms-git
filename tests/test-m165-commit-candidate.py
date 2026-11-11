@@ -28,4 +28,19 @@ for number, line in enumerate(text.splitlines(), 1):
     if len(line) > 80:
         raise SystemExit(f"M165 source line {number} exceeds 80 columns")
 
+# GITWT builds the internal COMMIT-TREE command line itself.  Its argument
+# parser takes one word per option value, so a message with blanks must be
+# underscore-encoded before dispatch (COMMIT-TREE decodes it again).
+wt = (root / "src" / "GITWT.EXEC").read_text()
+for required in (
+    "msgarg=translate(message,'_',' ')",
+    "'-T' stamp '-Z' zone '-M' msgarg",
+    "GITWT: COMMIT-TREE failed RC",
+):
+    if required not in wt:
+        raise SystemExit("M165 commit message encoding guard missing: "
+                         + required)
+if "'-T' stamp '-Z' zone '-M' message" in wt:
+    raise SystemExit("GITWT still forwards a spaced message unencoded")
+
 print("M165 COMMIT CANDIDATE HANDOFF SOURCE GUARD PASS")

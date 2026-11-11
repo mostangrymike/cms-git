@@ -17,7 +17,7 @@
 address cms
 numeric digits 20
 parse arg remote bridge port pack index rest
-remote=translate(remote)
+remote=strip(remote)
 bridge=translate(bridge)
 port=translate(port)
 pack=translate(pack)
@@ -97,6 +97,7 @@ if rstate=0 then do
       if words(REMOTEREC.ri)=3 & word(REMOTEREC.ri,1)='REMOTE' then do
          if translate(word(REMOTEREC.ri,2))=translate(remote) then do
             foundremote=1
+            remote=word(REMOTEREC.ri,2)
             rauthority='github.com'
             rrepo=word(REMOTEREC.ri,3)
          end
@@ -283,6 +284,22 @@ do ri=1 to refadv.0
 end
 say 'GIT PUSH: remote refs='||refcount
 
+/* Every advertised tip implies the remote already holds that tip's
+   full object closure.  Excluding those roots prevents the pack from
+   re-walking history the remote already has (and from requiring
+   local copies of objects only reachable through a remote tip). */
+drop remotehave.
+remotehave.0=0
+do rhi=1 to refcount
+   rhold=translate(advid.rhi)
+   if length(rhold)=40 &,
+      verify(rhold,'0123456789ABCDEF')=0 then do
+      remotehave.0=remotehave.0+1
+      remotehavex=remotehave.0
+      remotehave.remotehavex=rhold
+   end
+end
+
 if refcount=0 then do
    say 'GIT PUSH: no remote refs advertised'
    /* debug: show first raw pkt */
@@ -368,7 +385,11 @@ if remotehas=1 then do
    'PIPE CMS EXEC GITVREF IS-ANCESTOR'||' '||remoteadoid||' '||,
       localtip||' | STEM ANCOUT.'
    if rc\=0 then do
-      say 'GIT PUSH: ancestry check failed'
+      /* A shallow local history may not reach the remote tip.  Never
+         guess: refuse the update rather than risk a non-fast-forward. */
+      say 'GIT PUSH: cannot prove fast-forward; remote tip is not in',
+          'local history'
+      say 'GIT PUSH: refusing non-fast-forward update'
       exit 8
    end
    ancestryline=''
@@ -389,12 +410,15 @@ drop objsseen.
 objsseen.0=0
 depth.0=0
 call walk_commit localtip
+zeroobj=0
 if objlist.0=0 then do
-   say 'GIT PUSH: no objects to push'
-   exit 8
+   /* The remote already advertises the target tip (for example when the
+      same commit is pushed under a second branch name).  A ref update
+      still needs a valid pack, but that pack contains zero objects. */
+   say 'GIT PUSH: no new objects; building empty pack'
+   zeroobj=1
 end
 say 'GIT PUSH: enumerated' objlist.0 'objects'
-
 /* Reuse existing pack if present (debug/fast path). */
 reusepack=0
 'STATE' pack 'PACK' objectfm
@@ -410,6 +434,25 @@ if rc=0 then do
       end
    end
 end
+if zeroobj=1 then do
+   /* A ref update whose target is already on the remote still needs a
+      valid pack.  This is the canonical zero-object pack: PACK v2 with
+      zero entries plus the SHA-1 trailer over those 12 header bytes. */
+   emptypackhex='5041434B0000000200000000',
+      ||'029D08823BD8A8EAB510AD6AC75C823CFD3ED31E'
+   drop _ep.
+   _ep.1=emptypackhex
+   _ep.0=1
+   'STATE' pack 'PACK' objectfm
+   if rc=0 then 'ERASE' pack 'PACK' objectfm
+   'EXECIO 1 DISKW' pack 'PACK' objectfm '1 (STEM _EP. FINIS'
+   if rc\=0 then do
+      say 'GIT PUSH: cannot write empty pack'
+      exit 8
+   end
+   reusepack=1
+end
+
 if reusepack\=1 then do
 
 /* Write staging file for GITPMK (literal OBJSTG STAGE <fm>). */
@@ -514,7 +557,6 @@ if rc\=0 then do
    exit 8
 end
 'ERASE' stagefn 'STAGE' objectfm
-
 end
 
 /* Send push to git-receive-pack. */
@@ -561,7 +603,9 @@ cmdtxt=translate(oldoid,'abcdef','ABCDEF')||' '||,
 call toasciihex cmdtxt
 datahex=result||'00'
 call toasciihex ' report-status object-format=sha1 agent=git/cms-git'
-datahex=datahex||result
+/* pkt-line command payloads end with LF; without it GitHub accepts the
+   update but does not emit a report-status response. */
+datahex=datahex||result||'0A'
 pktn=(8+length(datahex))%2
 pktpfx=translate(right(d2x(pktn),4,'0'))
 call toasciihex pktpfx
@@ -635,7 +679,11 @@ do while off<=length(rawrec)
    end
    off=off+sent
 end
+/* Coalesce pack records into large raw buffers.  One Socket('Send') per
+   255-column hex record costs roughly 18 ms on CMS, so a multi-megabyte
+   pack takes minutes and the peer times out mid-upload. */
 carry=''
+bufhex=''
 do pi=1 to PACKHEX.0
    phrec=carry||strip(translate(PACKHEX.pi))
    carry=''
@@ -645,22 +693,20 @@ do pi=1 to PACKHEX.0
       phrec=left(phrec,length(phrec)-1)
    end
    if phrec='' then iterate
-   rawrec=x2c(phrec)
-   off=1
-   do while off<=length(rawrec)
-      chunk=substr(rawrec,off)
-      r=Socket('Send',s,chunk)
-      parse var r src sent
-      if src\=0 | sent<=0 then do
-         say 'GIT PUSH: send failed (pack) pi='pi 'src='src 'sent='sent
-         exit 8
-      end
-      off=off+sent
+   bufhex=bufhex||phrec
+   if length(bufhex)>=65536 then do
+      call sendpackbuf bufhex,pi
+      if result\='OK' then exit 8
+      bufhex=''
    end
 end
 if carry\='' then do
    say 'GIT PUSH: pack hex nibble alignment error'
    exit 8
+end
+if bufhex\='' then do
+   call sendpackbuf bufhex,pi
+   if result\='OK' then exit 8
 end
 
 /* Receive response. */
@@ -824,15 +870,18 @@ if rc\=0 | REF2UPD.0<2 | REF2UPD.1\='REF2 1' then do
 end
 drop newrefs.
 newrefs.1='REF2 1'
-newrefs.2='HEAD '||localbranch
-newrefcount=2
+newrefcount=1
 headwritten=0
 found_tracking=0
 do ri=2 to REF2UPD.0
    if word(REF2UPD.ri,1)='HEAD' then do
-      newrefcount=newrefcount+1
-      newrefs.newrefcount='HEAD '||localbranch
-      headwritten=1
+      /* Collapse duplicate HEAD records; never move HEAD to the
+         branch being pushed. */
+      if headwritten=0 then do
+         newrefcount=newrefcount+1
+         newrefs.newrefcount='HEAD '||word(REF2UPD.ri,2)
+         headwritten=1
+      end
    end
    else if word(REF2UPD.ri,1)='REF' then do
       refname3=word(REF2UPD.ri,2)
@@ -842,19 +891,15 @@ do ri=2 to REF2UPD.0
          newrefs.newrefcount='REF ' trackingref ' ' localtip
          found_tracking=1
       end
-      else if refname3=localbranch then do
+      else do
          newrefcount=newrefcount+1
          newrefs.newrefcount='REF ' refname3 ' ' refval3
       end
-      else do
-         newrefcount=newrefcount+1
-         newrefs.newrefcount=REF2UPD.ri
-      end
    end
 end
-if headwritten\=1 then do
-   newrefcount=newrefcount+1
-   newrefs.newrefcount='HEAD '||localbranch
+if headwritten=0 then do
+   say 'GIT PUSH: REF2 has no HEAD record'
+   exit 8
 end
 if \found_tracking then do
    newrefcount=newrefcount+1
@@ -875,7 +920,8 @@ exit 0
 /* ======================================================================== */
 
 /* Walk a commit and all reachable objects iteratively (no recursion). */
-walk_commit: procedure expose objlist. objsseen. objectfm remoteadoid remotehas
+walk_commit: procedure expose objlist. objsseen. objectfm ,
+   remoteadoid remotehas remotehave.
    parse arg cmt .
    /* Use a queue for iterative BFS over commits. */
    drop cqueue.
@@ -892,7 +938,20 @@ walk_commit: procedure expose objlist. objsseen. objectfm remoteadoid remotehas
             leave
          end
       end
-      if seen then iterate
+      /* Stop at any advertised remote tip: its closure is present
+         on the remote even when this repository is shallow. */
+      do rhi=1 to remotehave.0
+         if translate(current)=remotehave.rhi then do
+            seen=1
+            leave
+         end
+      end
+      if seen then do
+         objsseen.0=objsseen.0+1
+         objsseenx=objsseen.0
+         objsseen.objsseenx=current
+         iterate
+      end
       /* Stop at objects the remote already has. */
       if remotehas=1 & translate(current)=translate(remoteadoid) then do
          objsseen.0=objsseen.0+1
@@ -1247,7 +1306,7 @@ httpfeed_push:
   end
   return 'OK'
  end
- if hstate\='BODY' then do
+ if hstate='BODY' then do
   call httpfeed_push_body hx
   return result
  end
@@ -1256,6 +1315,8 @@ httpfeed_push:
 httpfeed_push_body:
  parse arg cwork
  cwork=translate(cwork)
+ if length(bodyraw)<bodyrawmax*2 then,
+    bodyraw=bodyraw||left(cwork,(bodyrawmax*2)-length(bodyraw))
  if \bodychunked then do
   /* Non-chunked: feed raw body to pktfeed_push; capture text preview. */
   if bodyleft>=0 then do
@@ -1379,6 +1440,25 @@ pktfeed_push:
   else return 'ERROR'
  end
  return 'OK'
+
+sendpackbuf: procedure expose s
+   /* Send one decoded pack buffer, retrying partial writes. */
+   address cms
+   parse arg bhx pline
+   br=x2c(bhx)
+   boff=1
+   do while boff<=length(br)
+      bchunk=substr(br,boff)
+      r=Socket('Send',s,bchunk)
+      parse var r bsrc bsent
+      if bsrc\=0 | bsent<=0 then do
+         say 'GIT PUSH: send failed (pack) pi='pline 'src='bsrc,
+             'sent='bsent
+         return 'ERROR'
+      end
+      boff=boff+bsent
+   end
+   return 'OK'
 
 toasciihex: procedure
  parse arg text

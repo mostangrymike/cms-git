@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 GIT = (ROOT / "src" / "GIT.EXEC").read_text()
 PUSH = (ROOT / "src" / "GITPUSH.EXEC").read_text()
 GC = (ROOT / "src" / "GITGC.EXEC").read_text()
+IMP = (ROOT / "src" / "GITIMP.EXEC").read_text()
 REMOT = (ROOT / "src" / "GITREMOT.EXEC").read_text()
 CRED = (ROOT / "src" / "GITCRED.EXEC").read_text()
 
@@ -27,6 +28,71 @@ assert "'EXEC GITPUSH' rest" in GIT
 assert "EXEC GITPMK BUILD" in PUSH
 assert "git-receive-pack" in PUSH
 assert "info/refs?service=git-receive-pack" in PUSH
+
+# Advertised remote tips are excluded from the local closure walk so a
+# shallow repository never needs objects only reachable through them.
+assert "remotehave.0=0" in PUSH
+assert "remotehave.remotehavex=rhold" in PUSH
+assert "if translate(current)=remotehave.rhi then do" in PUSH
+assert PUSH.index("remotehave.0=0") < PUSH.index("call walk_commit localtip")
+
+# Large packs are coalesced before Socket('Send'); a per-record send costs
+# minutes on CMS and lets the peer time out mid-upload.
+assert "bufhex=bufhex||phrec" in PUSH
+assert "length(bufhex)>=65536" in PUSH
+assert "call sendpackbuf" in PUSH
+assert "sendpackbuf: procedure expose s" in PUSH
+assert "boff=boff+bsent" in PUSH
+assert "rawrec=x2c(phrec)" not in PUSH
+
+# A ref-only update (target already on the remote under another ref) must
+# not be rejected just because the local closure walk found nothing new.
+assert "zeroobj=1" in PUSH
+assert "no new objects; building empty pack" in PUSH
+assert "no objects to push" not in PUSH
+assert "if zeroobj=1 then do" in PUSH
+# A ref-only update sends the canonical zero-object pack, computed here
+# independently so a stale or mistyped trailer cannot pass.
+import hashlib
+hdr = b"PACK" + (2).to_bytes(4, "big") + (0).to_bytes(4, "big")
+expected = (hdr + hashlib.sha1(hdr).digest()).hex().upper()
+packed = "".join(
+    line.strip().strip("'").strip(",")
+    for line in PUSH.splitlines()
+    if "5041434B0000000200000000" in line or "029D0882" in line)
+assert "5041434B0000000200000000" in PUSH
+assert expected[24:] in packed.replace("||", ""), (expected, packed)
+
+# Tracking updates preserve the configured remote spelling and the current
+# HEAD; duplicate HEAD records are collapsed instead of appended.
+assert "remote=strip(remote)" in PUSH
+assert "remote=word(REMOTEREC.ri,2)" in PUSH
+assert "newrefs.2='HEAD '||localbranch" not in PUSH
+assert "if headwritten=0 then do" in PUSH
+assert "REF2 has no HEAD record" in PUSH
+assert "newrefs.newrefcount='HEAD '||word(REF2UPD.ri,2)" in PUSH
+assert "newrefs.newrefcount='HEAD '||translate" not in PUSH
+assert "newrefs.newrefcount='REF ' refname3 ' ' refval3" in PUSH
+assert "refval3=translate(word(REF2UPD.ri,3))" in PUSH
+assert PUSH.index("refval3=translate") < PUSH.index(
+    "newrefs.newrefcount='REF ' refname3")
+
+# Response bodies often arrive in a later TCP segment than the headers;
+# the push HTTP feeder must route BODY state to the body parser.
+start = PUSH.index("httpfeed_push:")
+end = PUSH.index("httpfeed_push_body:", start)
+feeder = PUSH[start:end]
+assert "if hstate='BODY' then do" in feeder
+assert "call httpfeed_push_body hx" in feeder
+assert "if hstate\\='BODY' then do" not in feeder
+# report-status must be requested with a properly LF-terminated pkt-line.
+assert "datahex=datahex||result||'0A'" in PUSH
+
+# A fast-forward proof failure (including a shallow local history that
+# cannot reach the remote tip) must refuse, not push optimistically.
+assert "cannot prove fast-forward; remote tip is not in" in PUSH
+assert "refusing non-fast-forward update" in PUSH
+assert "ancestry check failed" not in PUSH
 
 # Credential requirement and no credential echoing.
 assert "valid GitHub credential required for push" in PUSH
@@ -88,6 +154,14 @@ assert "isreach=0" in GC
 assert "'ERASE' objfn 'GITOBJ' objectfm" in GC
 assert "if cmd='REPACK' & repack_delete=1 then do" in GC
 assert "'STATE' packfn 'PACK' objectfm" in GC
+
+# GITIMP must resolve the configured object disk instead of assuming A.
+assert "'STATE GITMETA REPO A'" in IMP
+assert "objectfm=translate(word(impmeta.mi,2))" in IMP
+assert "'STATE' objfn 'GITOBJ' objectfm" in IMP
+assert "'DISKW' objfn 'GITOBJ' objectfm" in IMP
+assert "'ERASE' objfn 'GITOBJ' objectfm" in IMP
+assert "'GITOBJ A'" not in IMP
 
 # Bounded validation: LIMIT=n truncates the reachable closure before packing.
 assert "if left(opt,6)='LIMIT='" in GC
