@@ -1228,7 +1228,13 @@ for token in ("translate(word(vb.1,2))\\=ll_id",
               "if vb_hex\\=vb_size*2 then return 'ERROR'"):
     if token not in blob:
         raise SystemExit(f'M260 loose blob guard missing {token!r}')
-print('M260 LOG LOOSE FALLBACK SOURCE GUARDS PASS 9')
+if "drop ll_bseen. ll_tseen." not in src:
+    raise SystemExit('M260 snapshot caches are not reset per LOG run')
+for token in ("if ll_tseen.ll_vroot='OK' then return 'OK'",
+              "if ll_bseen.ll_id='OK' then return 'OK'"):
+    if token not in src:
+        raise SystemExit(f'M260 snapshot cache missing {token!r}')
+print('M260 LOG LOOSE FALLBACK SOURCE GUARDS PASS 12')
 
 parse = section('parsecommit:\n', '/* Emit the COMMIT metadata')
 emit = section('emitllcommit:\n', '/* Verify one tree and its complete')

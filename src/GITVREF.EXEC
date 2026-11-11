@@ -5457,6 +5457,7 @@ trylooselog:
  end
  if ll_count<1 then return 'ERROR'
  ll_vfm=ll_fm
+ drop ll_bseen. ll_tseen.
  do ll_vi=1 to ll_count
   ll_vroot=ll_tree.ll_vi
   call verifylltree
@@ -5606,8 +5607,11 @@ emitllcommit:
  say 'COMMIT DATA END'
  return 'OK'
 
-/* Verify one tree and its complete bounded local tree/blob closure. */
+/* Verify one tree and its complete bounded local tree/blob closure.
+   Results are cached for the life of one LOG run so unchanged paths are
+   not reread for every commit snapshot. */
 verifylltree:
+ if ll_tseen.ll_vroot='OK' then return 'OK'
  drop vt_stack.
  vt_top=1
  vt_stack.1=ll_vroot
@@ -5641,9 +5645,11 @@ verifylltree:
    else return 'ERROR'
   end
  end
+ ll_tseen.ll_vroot='OK'
  return 'OK'
 
 verifyllblob:
+ if ll_bseen.ll_id='OK' then return 'OK'
  if length(ll_id)\=40 |,
     verify(ll_id,'0123456789ABCDEF')\=0 then return 'ERROR'
  ll_fn=substr(ll_id,1,8)
@@ -5671,6 +5677,7 @@ verifyllblob:
   vb_hex=vb_hex+length(vb_chunk)
  end
  if vb_hex\=vb_size*2 then return 'ERROR'
+ ll_bseen.ll_id='OK'
  return 'OK'
 
 /* Parse one raw tree object into mode/oid records. */

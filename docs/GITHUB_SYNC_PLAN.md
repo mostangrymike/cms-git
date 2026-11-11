@@ -113,9 +113,11 @@ on the CMS target, within the bounded envelope described below.
    then emits `LOG LOOSE SNAPSHOTS VERIFIED`, `LOG DATA BEGIN`, node/COMMIT
    records, `LOG NODES` and `LOG DATA END`. It deliberately does not recompute
    blob SHA-1: activation already hashed each blob, and one 900 KB REXX SHA-1
-   verification took 176 s on the target. Live CMS `GIT LOG -n 1` and `-n 3`
-   on `main` matched the host commit trees, parents and message byte counts;
-   `GIT BRANCH` and `GITWT STATUS` were unchanged.
+   verification took 176 s on the target. Verified blobs and trees are cached
+   across snapshots within one run, so unchanged paths are read once. Live CMS
+   `GIT LOG -n 1` completed in 24 s and `-n 3` in 26 s on `main`, matching the
+   host commit trees, parents and message byte counts; `GIT BRANCH` and
+   `GITWT STATUS` were unchanged.
 7. Validate each CMS command on the real z/VM target. Host CI alone cannot
    establish CMS runtime behavior. `clone`, `pull` and `push` now have target
    validation; the refusal and recovery paths listed below remain host-only.
