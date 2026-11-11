@@ -1180,6 +1180,178 @@ echo 'M236 SOURCE-DERIVED GIT SHOW FIXTURES PASS 6'
 exit $?
 fi
 
+# Keep GIT LOG usable on repos whose objects live in the loose store rather
+# than the protected native GEN2 fixtures.  These checks pin the fallback's
+# route and exercise its commit/tree parsers with synthetic raw objects.
+if [ "${1:-}" = "M260" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M235
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GITVREF.EXEC" "$tmp/looselog.rexx" \
+        "$tmp/expected.txt" <<'PY'
+from pathlib import Path
+import sys
+
+src = Path(sys.argv[1]).read_text()
+
+
+def section(start, end):
+    a = src.index(start)
+    b = src.index(end, a)
+    return src[a:b]
+
+
+route = ("call trylooselog\n if result='OK' then exit 0\n"
+         " if result='ERROR' then exit 8")
+if route not in src:
+    raise SystemExit('M260 LOG fallback is not routed')
+if src.index(route) > src.index('call bindnative'):
+    raise SystemExit('M260 binds native fixtures before the loose store')
+if "if rc=28 then return 'NATIVE'" not in src:
+    raise SystemExit('M260 missing commit does not fall back')
+if "if length(rlo_hex)\\=rlo_size*2 then return 'ERROR'" not in src:
+    raise SystemExit('M260 loose object size check is not exact')
+if "drop ll_oid. ll_tree. ll_hex. ll_size." not in src:
+    raise SystemExit('M260 fallback does not reset its output store')
+marker = "say 'LOG LOOSE SNAPSHOTS VERIFIED'"
+closure = "call verifylltree"
+if src.index(marker) < src.index(closure):
+    raise SystemExit('M260 emits verification before closure checks')
+blob = section('verifyllblob:\n', '/* Parse one raw tree object')
+if "GIT VERIFY-OBJECT" in blob:
+    raise SystemExit('M260 re-hashes large blobs in REXX')
+for token in ("translate(word(vb.1,2))\\=ll_id",
+              "translate(word(vb.2,2))\\='BLOB'",
+              "if vb_hex\\=vb_size*2 then return 'ERROR'"):
+    if token not in blob:
+        raise SystemExit(f'M260 loose blob guard missing {token!r}')
+print('M260 LOG LOOSE FALLBACK SOURCE GUARDS PASS 9')
+
+parse = section('parsecommit:\n', '/* Emit the COMMIT metadata')
+emit = section('emitllcommit:\n', '/* Verify one tree and its complete')
+tree = section('parsetree:\n', 'asciitocms: procedure')
+# Regina on this host is ASCII, so X2C already yields the wanted text.
+stub = ("asciitocms: procedure\n parse arg ah\n"
+        " if ah='' then return ''\n"
+        " if length(ah)//2\\=0 then return 'ERROR'\n"
+        " return x2c(ah)\n")
+
+tree_oid = "11" * 20
+p1 = "22" * 20
+p2 = "33" * 20
+message = b"subject line\n\nbody line\n"
+header = (b"tree " + tree_oid.encode() + b"\n"
+          + b"parent " + p1.encode() + b"\n"
+          + b"parent " + p2.encode() + b"\n"
+          + b"author A U Thor <a@example.com> 1700000000 +0000\n"
+          + b"committer C O Mitter <c@example.com> 1700000001 +0000\n")
+raw = header + b"\n" + message
+root_message = b"root commit\n"
+root_raw = b"tree " + tree_oid.encode() + b"\n\n" + root_message
+
+# A parent OID one byte short must be rejected, as must a header with no
+# blank separator line.
+bad_parent = (b"tree " + tree_oid.encode() + b"\n"
+              + b"parent " + p1.encode() + b"\n"
+              + b"parent " + p2[:-2].encode())
+bad_parent_raw = bad_parent + b"\n" + message
+nosep_raw = header
+
+entries = (
+    (b"100644", b"file.txt", "AA" * 20),
+    (b"40000", b"dir", "BB" * 20),
+    (b"100755", b"run.sh", "CC" * 20),
+    (b"120000", b"link", "DD" * 20),
+    (b"160000", b"submod", "EE" * 20),
+)
+tree_raw = b"".join(mode + b" " + name + b"\0" + bytes.fromhex(oid)
+                    for mode, name, oid in entries)
+bad_tree_raw = b"100644 file.txt\0" + bytes.fromhex("AA" * 19)
+
+driver = []
+for label, payload in (
+        ('PARSE', raw),
+        ('ROOT', root_raw),
+        ('BADPARENT', bad_parent_raw),
+        ('NOSEP', nosep_raw)):
+    driver.append("rlo_hex='%s'" % payload.hex().upper())
+    driver.append("rlo_size=%d" % len(payload))
+    driver.append("call parsecommit")
+    driver.append("say '%s-RC' result" % label)
+    driver.append("say strip('%s-TREE' rlo_tree)" % label)
+    driver.append("say strip('%s-PARENT' rlo_parent)" % label)
+    driver.append("say '%s-MESSAGE' rlo_msgbytes" % label)
+    if label in ('PARSE', 'ROOT'):
+        driver.append("call emitllcommit rlo_hex,rlo_size")
+        driver.append("say '%s-EMIT' result" % label)
+driver.append("call parsetree '%s'" % tree_raw.hex().upper())
+driver.append("say 'TREE-RC' result")
+driver.append("say 'TREE-COUNT' vt_count")
+driver.append("do ti=1 to vt_count")
+driver.append("  say 'ENTRY' ti vt_mode.ti vt_oid.ti")
+driver.append("end")
+driver.append("call parsetree '%s'" % bad_tree_raw.hex().upper())
+driver.append("say 'TREE-BAD' result")
+
+Path(sys.argv[2]).write_text("\n".join(
+    driver + ["exit 0", "", parse, emit, tree, stub]) + "\n")
+
+expected = [
+    'PARSE-RC OK',
+    'PARSE-TREE %s' % tree_oid,
+    'PARSE-PARENT %s' % p1,
+    'PARSE-MESSAGE %d' % len(message),
+    'COMMIT DATA BEGIN',
+    'COMMIT TREE %s' % tree_oid,
+    'COMMIT PARENT %s' % p1,
+    'COMMIT PARENT %s' % p2,
+    'COMMIT PARENTS 2',
+    'COMMIT MESSAGE BYTES %d' % len(message),
+    'COMMIT DATA END',
+    'PARSE-EMIT OK',
+    'ROOT-RC OK',
+    'ROOT-TREE %s' % tree_oid,
+    'ROOT-PARENT',
+    'ROOT-MESSAGE %d' % len(root_message),
+    'COMMIT DATA BEGIN',
+    'COMMIT TREE %s' % tree_oid,
+    'COMMIT PARENTS 0',
+    'COMMIT MESSAGE BYTES %d' % len(root_message),
+    'COMMIT DATA END',
+    'ROOT-EMIT OK',
+    'BADPARENT-RC ERROR',
+    'BADPARENT-TREE',
+    'BADPARENT-PARENT',
+    'BADPARENT-MESSAGE 0',
+    'NOSEP-RC ERROR',
+    'NOSEP-TREE',
+    'NOSEP-PARENT',
+    'NOSEP-MESSAGE 0',
+    'TREE-RC OK',
+    'TREE-COUNT %d' % len(entries),
+]
+for index, (mode, _name, oid) in enumerate(entries, 1):
+    expected.append('ENTRY %d %s %s' % (index, mode.decode(), oid))
+expected.append('TREE-BAD ERROR')
+Path(sys.argv[3]).write_text("\n".join(expected) + "\n")
+PY
+if ! rexx "$tmp/looselog.rexx" >"$tmp/actual.txt"; then
+ echo 'M260 loose LOG fixture did not complete' >&2
+ cat "$tmp/actual.txt" >&2
+ exit 1
+fi
+if ! diff -u "$tmp/expected.txt" "$tmp/actual.txt"; then
+ echo 'M260 loose LOG parser fixture mismatch' >&2
+ exit 1
+fi
+echo 'M260 SOURCE-DERIVED LOOSE LOG FIXTURES PASS'
+)
+exit $?
+fi
+
 # Resolve an existing tag before compare-and-swap force update.
 if [ "${1:-}" = "M238" ]; then
 (

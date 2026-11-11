@@ -104,6 +104,18 @@ on the CMS target, within the bounded envelope described below.
    `unpack ok`, `accepted refs/heads/<branch>` and `PUSH COMPLETE`; repeated
    pushes report `Already up to date`; a non-fast-forward update was refused
    with the remote left unchanged.
+6c. **Loose-store `GIT LOG` implemented and CMS-validated (2026-11-11):**
+   `GIT LOG [-n count] [revision]` previously required the protected native
+   GEN2 fixtures. `GITVREF` now prefers a bounded first-parent walk of the
+   activated loose store and falls back to the native reader when the starting
+   commit is absent there. The loose path re-hashes every commit and tree,
+   verifies each referenced blob's recorded OID, type, size and DATA length,
+   then emits `LOG LOOSE SNAPSHOTS VERIFIED`, `LOG DATA BEGIN`, node/COMMIT
+   records, `LOG NODES` and `LOG DATA END`. It deliberately does not recompute
+   blob SHA-1: activation already hashed each blob, and one 900 KB REXX SHA-1
+   verification took 176 s on the target. Live CMS `GIT LOG -n 1` and `-n 3`
+   on `main` matched the host commit trees, parents and message byte counts;
+   `GIT BRANCH` and `GITWT STATUS` were unchanged.
 7. Validate each CMS command on the real z/VM target. Host CI alone cannot
    establish CMS runtime behavior. `clone`, `pull` and `push` now have target
    validation; the refusal and recovery paths listed below remain host-only.

@@ -514,6 +514,13 @@ if command='RESOLVE' then do
   say oid
   exit 0
 end
+if command='LOG' then do
+ /* Prefer the activated loose store when it holds the starting commit;
+    native GEN2 fixtures remain the fallback for the protected test data. */
+ call trylooselog
+ if result='OK' then exit 0
+ if result='ERROR' then exit 8
+end
 call bindnative
 if result\='OK' then exit 8
 if command='LOG' then do
@@ -5396,6 +5403,311 @@ bindnative:
   dd=word('C1STG C1IDX C1SEEK C1GEN',i)
   'FILEDEF' dd 'DISK M15NEW' typ 'A'
   if rc\=0 then return 'ERROR'
+ end
+ return 'OK'
+
+/* Loose-store GIT LOG fallback.  Returns OK after verifying a bounded
+   first-parent log, ERROR on malformed or missing objects, or NATIVE
+   when the starting commit is not in the activated loose store.
+   Commits and trees are re-hashed.  Blob contents were hashed when the
+   installer activated them; re-hashing them in REXX is far too slow, so
+   this path verifies each blob's recorded OID, type, size and DATA
+   length instead of recomputing its SHA-1. */
+trylooselog:
+ ll_fm='A'
+ 'STATE GITMETA REPO A'
+ if rc\=0 then return 'NATIVE'
+ drop ll_meta.
+ 'EXECIO * DISKR GITMETA REPO A 1 (STEM LL_META. FINIS'
+ if rc\=0 | ll_meta.0<1 |,
+    ll_meta.1\='CMS-GIT-REPOSITORY 1' then return 'ERROR'
+ do ll_mi=1 to ll_meta.0
+  if word(ll_meta.ll_mi,1)='OBJECT-DISK' then do
+   if words(ll_meta.ll_mi)\=2 then return 'ERROR'
+   ll_fm=translate(word(ll_meta.ll_mi,2))
+  end
+ end
+ if length(ll_fm)\=1 |,
+    verify(ll_fm,'ABCDEFGHIJKLMNOPQRSTUVWXYZ')\=0 then return 'ERROR'
+ ll_probe=substr(oid,1,8)
+ 'STATE' ll_probe 'GITOBJ' ll_fm
+ if rc=28 then return 'NATIVE'
+ if rc\=0 then return 'ERROR'
+ drop ll_oid. ll_tree. ll_hex. ll_size.
+ ll_count=0
+ ll_cur=oid
+ do ll_hop=0 to depth
+  ll_id=ll_cur
+  ll_ofm=ll_fm
+  call readllobj
+  if result='MISSING' then do
+   say 'LOG COMMIT NOT FOUND'
+   return 'ERROR'
+  end
+  if result\='OK' then return 'ERROR'
+  if rlo_type\='COMMIT' then return 'ERROR'
+  ll_count=ll_count+1
+  ll_oid.ll_count=ll_id
+  ll_tree.ll_count=rlo_tree
+  ll_hex.ll_count=rlo_hex
+  ll_size.ll_count=rlo_size
+  if ll_hop=depth then leave
+  if rlo_parent='' then leave
+  ll_cur=rlo_parent
+ end
+ if ll_count<1 then return 'ERROR'
+ ll_vfm=ll_fm
+ do ll_vi=1 to ll_count
+  ll_vroot=ll_tree.ll_vi
+  call verifylltree
+  if result\='OK' then return 'ERROR'
+ end
+ say 'LOG LOOSE SNAPSHOTS VERIFIED'
+ say 'LOG DATA BEGIN'
+ do ll_ni=1 to ll_count
+  say 'LOG NODE' ll_ni-1 'OID' ll_oid.ll_ni
+  call emitllcommit ll_hex.ll_ni,ll_size.ll_ni
+  if result\='OK' then return 'ERROR'
+ end
+ say 'LOG NODES' ll_count
+ say 'LOG DATA END'
+ return 'OK'
+
+/* Read and verify one loose object; parse commit tree/parent links. */
+readllobj:
+ rlo_type=''
+ rlo_hex=''
+ rlo_size=0
+ rlo_tree=''
+ rlo_parent=''
+ rlo_msgbytes=0
+ if length(ll_id)\=40 |,
+    verify(ll_id,'0123456789ABCDEF')\=0 then return 'ERROR'
+ ll_fn=substr(ll_id,1,8)
+ 'STATE' ll_fn 'GITOBJ' ll_ofm
+ if rc=28 then return 'MISSING'
+ if rc\=0 then return 'ERROR'
+ ll_vcmd='GIT VERIFY-OBJECT' ll_id
+ drop ll_vout.
+ ll_vout.0=0
+ 'PIPE CMS' ll_vcmd '| STEM LL_VOUT.'
+ if rc\=0 | ll_vout.0\=1 |,
+    strip(ll_vout.1)\=ll_id 'OK' then return 'ERROR'
+ drop rlo_obj.
+ 'EXECIO * DISKR' ll_fn 'GITOBJ' ll_ofm '1 (STEM RLO_OBJ. FINIS'
+ if rc\=0 | rlo_obj.0<3 then return 'ERROR'
+ if words(rlo_obj.1)\=2 | word(rlo_obj.1,1)\='OID' |,
+    translate(word(rlo_obj.1,2))\=ll_id |,
+    words(rlo_obj.2)\=2 | word(rlo_obj.2,1)\='TYPE' |,
+    words(rlo_obj.3)\=2 | word(rlo_obj.3,1)\='SIZE' then,
+  return 'ERROR'
+ rlo_type=translate(word(rlo_obj.2,2))
+ if rlo_type\='BLOB' & rlo_type\='TREE' &,
+    rlo_type\='COMMIT' then return 'ERROR'
+ rlo_size=word(rlo_obj.3,2)
+ if datatype(rlo_size,'W')\=1 | rlo_size<0 |,
+    rlo_size>16777216 then return 'ERROR'
+ rlo_hex=''
+ do rlo_i=4 to rlo_obj.0
+  if words(rlo_obj.rlo_i)\=2 |,
+     word(rlo_obj.rlo_i,1)\='DATA' then return 'ERROR'
+  rlo_chunk=translate(word(rlo_obj.rlo_i,2))
+  if rlo_chunk='' | length(rlo_chunk)>128 |,
+     length(rlo_chunk)//2\=0 |,
+     verify(rlo_chunk,'0123456789ABCDEF')\=0 then return 'ERROR'
+  rlo_hex=rlo_hex||rlo_chunk
+ end
+ if length(rlo_hex)\=rlo_size*2 then return 'ERROR'
+ if rlo_type='COMMIT' then do
+  call parsecommit
+  if result\='OK' then return 'ERROR'
+ end
+ return 'OK'
+
+/* Extract tree, first parent and message length from a commit header. */
+parsecommit:
+ rlo_tree=''
+ rlo_parent=''
+ rlo_msgbytes=0
+ if rlo_size<1 then return 'ERROR'
+ pc_sep=pos('0A0A',rlo_hex)
+ if pc_sep=0 then return 'ERROR'
+ pc_hdr=left(rlo_hex,pc_sep-1)
+ if length(pc_hdr)<90 | length(pc_hdr)//2\=0 |,
+    left(pc_hdr,10)\='7472656520' then return 'ERROR'
+ call asciitocms substr(pc_hdr,11,80)
+ pc_tree=translate(result)
+ if length(pc_tree)\=40 |,
+    verify(pc_tree,'0123456789ABCDEF')\=0 then return 'ERROR'
+ pc_rest=substr(pc_hdr,93)
+ if pc_rest\='' & substr(pc_hdr,91,2)\='0A' then return 'ERROR'
+ pc_first=''
+ do while left(pc_rest,14)='706172656E7420'
+  if length(pc_rest)<94 then return 'ERROR'
+  call asciitocms substr(pc_rest,15,80)
+  pc_oid=translate(result)
+  if length(pc_oid)\=40 |,
+     verify(pc_oid,'0123456789ABCDEF')\=0 then return 'ERROR'
+  if pc_first='' then pc_first=pc_oid
+  if length(pc_rest)=94 then pc_rest=''
+  else do
+   if length(pc_rest)<96 |,
+      substr(pc_rest,95,2)\='0A' then return 'ERROR'
+   pc_rest=substr(pc_rest,97)
+  end
+ end
+ pc_msg=rlo_size-((pc_sep-1)%2)-2
+ if pc_msg<0 then return 'ERROR'
+ rlo_tree=pc_tree
+ rlo_parent=pc_first
+ rlo_msgbytes=pc_msg
+ return 'OK'
+
+/* Emit the COMMIT metadata records the native LOGFULL path produces. */
+emitllcommit:
+ parse arg ec_hex,ec_size
+ ec_sep=pos('0A0A',ec_hex)
+ if ec_sep=0 then return 'ERROR'
+ ec_hdr=left(ec_hex,ec_sep-1)
+ if length(ec_hdr)<90 | length(ec_hdr)//2\=0 |,
+    left(ec_hdr,10)\='7472656520' then return 'ERROR'
+ call asciitocms substr(ec_hdr,11,80)
+ ec_tree=translate(result)
+ if length(ec_tree)\=40 |,
+    verify(ec_tree,'0123456789ABCDEF')\=0 then return 'ERROR'
+ ec_rest=substr(ec_hdr,93)
+ if ec_rest\='' & substr(ec_hdr,91,2)\='0A' then return 'ERROR'
+ drop ec_oid.
+ ec_count=0
+ do while left(ec_rest,14)='706172656E7420'
+  if length(ec_rest)<94 then return 'ERROR'
+  call asciitocms substr(ec_rest,15,80)
+  ec_oid=translate(result)
+  if length(ec_oid)\=40 |,
+     verify(ec_oid,'0123456789ABCDEF')\=0 then return 'ERROR'
+  ec_count=ec_count+1
+  ec_oid.ec_count=ec_oid
+  if length(ec_rest)=94 then ec_rest=''
+  else do
+   if length(ec_rest)<96 |,
+      substr(ec_rest,95,2)\='0A' then return 'ERROR'
+   ec_rest=substr(ec_rest,97)
+  end
+ end
+ ec_msg=ec_size-((ec_sep-1)%2)-2
+ if ec_msg<0 then return 'ERROR'
+ say 'COMMIT DATA BEGIN'
+ say 'COMMIT TREE' ec_tree
+ do ec_i=1 to ec_count
+  say 'COMMIT PARENT' ec_oid.ec_i
+ end
+ say 'COMMIT PARENTS' ec_count
+ say 'COMMIT MESSAGE BYTES' ec_msg
+ say 'COMMIT DATA END'
+ return 'OK'
+
+/* Verify one tree and its complete bounded local tree/blob closure. */
+verifylltree:
+ drop vt_stack.
+ vt_top=1
+ vt_stack.1=ll_vroot
+ vt_trees=0
+ do while vt_top>0
+  vt_cur=vt_stack.vt_top
+  vt_top=vt_top-1
+  vt_trees=vt_trees+1
+  if vt_trees>1024 then return 'ERROR'
+  ll_id=vt_cur
+  ll_ofm=ll_vfm
+  call readllobj
+  if result\='OK' then return 'ERROR'
+  if rlo_type\='TREE' then return 'ERROR'
+  call parsetree rlo_hex
+  if result\='OK' then return 'ERROR'
+  do vt_i=1 to vt_count
+   if vt_mode.vt_i='40000' then do
+    vt_top=vt_top+1
+    if vt_top>1024 then return 'ERROR'
+    vt_stack.vt_top=vt_oid.vt_i
+   end
+   else if vt_mode.vt_i='100644' |,
+           vt_mode.vt_i='100755' |,
+           vt_mode.vt_i='120000' then do
+    ll_id=vt_oid.vt_i
+    call verifyllblob
+    if result\='OK' then return 'ERROR'
+   end
+   else if vt_mode.vt_i='160000' then nop
+   else return 'ERROR'
+  end
+ end
+ return 'OK'
+
+verifyllblob:
+ if length(ll_id)\=40 |,
+    verify(ll_id,'0123456789ABCDEF')\=0 then return 'ERROR'
+ ll_fn=substr(ll_id,1,8)
+ 'STATE' ll_fn 'GITOBJ' ll_ofm
+ if rc\=0 then return 'ERROR'
+ drop vb.
+ 'EXECIO * DISKR' ll_fn 'GITOBJ' ll_ofm '1 (STEM VB. FINIS'
+ if rc\=0 | vb.0<3 then return 'ERROR'
+ if words(vb.1)\=2 | word(vb.1,1)\='OID' |,
+    translate(word(vb.1,2))\=ll_id then return 'ERROR'
+ if words(vb.2)\=2 | word(vb.2,1)\='TYPE' |,
+    translate(word(vb.2,2))\='BLOB' then return 'ERROR'
+ if words(vb.3)\=2 | word(vb.3,1)\='SIZE' then return 'ERROR'
+ vb_size=word(vb.3,2)
+ if datatype(vb_size,'W')\=1 | vb_size<0 |,
+    vb_size>16777216 then return 'ERROR'
+ vb_hex=0
+ do vb_i=4 to vb.0
+  if words(vb.vb_i)\=2 |,
+     word(vb.vb_i,1)\='DATA' then return 'ERROR'
+  vb_chunk=translate(word(vb.vb_i,2))
+  if vb_chunk='' | length(vb_chunk)>128 |,
+     length(vb_chunk)//2\=0 |,
+     verify(vb_chunk,'0123456789ABCDEF')\=0 then return 'ERROR'
+  vb_hex=vb_hex+length(vb_chunk)
+ end
+ if vb_hex\=vb_size*2 then return 'ERROR'
+ return 'OK'
+
+/* Parse one raw tree object into mode/oid records. */
+parsetree:
+ parse arg pt_hex
+ drop vt_mode. vt_oid. vt_name.
+ vt_count=0
+ vt_at=1
+ do while vt_at<=length(pt_hex)
+  vt_mhex=''
+  do while vt_at<=length(pt_hex) &,
+           substr(pt_hex,vt_at,2)\='20'
+   vt_mhex=vt_mhex||substr(pt_hex,vt_at,2)
+   vt_at=vt_at+2
+  end
+  if vt_mhex='' | vt_at>length(pt_hex) then return 'ERROR'
+  call asciitocms vt_mhex
+  pt_mode=result
+  if pt_mode='ERROR' then return 'ERROR'
+  vt_at=vt_at+2
+  vt_nhex=''
+  do while vt_at<=length(pt_hex) &,
+           substr(pt_hex,vt_at,2)\='00'
+   vt_nhex=vt_nhex||substr(pt_hex,vt_at,2)
+   vt_at=vt_at+2
+  end
+  if vt_nhex='' | vt_at>length(pt_hex) then return 'ERROR'
+  vt_at=vt_at+2
+  if vt_at+39>length(pt_hex) then return 'ERROR'
+  pt_oid=substr(pt_hex,vt_at,40)
+  if verify(pt_oid,'0123456789ABCDEF')\=0 then return 'ERROR'
+  vt_at=vt_at+40
+  vt_count=vt_count+1
+  if vt_count>256 then return 'ERROR'
+  vt_mode.vt_count=pt_mode
+  vt_oid.vt_count=pt_oid
+  vt_name.vt_count=vt_nhex
  end
  return 'OK'
 
