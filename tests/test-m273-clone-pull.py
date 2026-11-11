@@ -135,4 +135,25 @@ assert "if foundref=0 & pullold=zeros & command='CHECK-PULL' then createmode=1" 
 assert "if pullold='' then pullold=zeros" in GIT
 assert "if pullold\\=zeros then do" in GIT
 
+# --- GITFACT: post-install closure verification -----------------------
+# The loose store must be complete for full and incremental activations.
+assert FACT.count("call verify_closure treeoid objectfm") == 1
+assert "call verify_closure treeoid objectfm\nif result\\='OK' then exit 8" in FACT
+assert "if incremental then do" not in FACT
+# Verify the recorded metadata, not just tree structure.
+assert "if word(tobj.ti,2)\\=current then oidmatch=0" in FACT
+assert "if oidcount\\=1 | oidmatch=0 then do" in FACT
+assert "if otype\\='COMMIT' & otype\\='TREE' & otype\\='BLOB'" in FACT
+assert "if sizecount\\=1 | datatype(osize,'W')\\=1 | osize<0 then do" in FACT
+assert "if length(thex)\\=osize*2 then do" in FACT
+# The uppercase TYPE must be compared with uppercase TREE.
+assert "if otype\\='TREE' then iterate" in FACT
+assert "otype\\='tree'" not in FACT
+assert "length(thex)%2" not in FACT
+# Every non-gitlink child is part of the closure.
+assert "if modehex\\='3136303030' then do" in FACT
+assert "modehex='3430303030'" not in FACT
+assert "if length(modehex)=0 |" in FACT
+assert "installed closure incomplete" in FACT
+
 print("M273/M274 clone/pull guards PASS")

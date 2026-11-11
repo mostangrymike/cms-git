@@ -301,19 +301,18 @@ if lpass\=1 | batchprocessed\=unique | batchunique\=unique |,
  say 'FETCH-ACTIVATE: batch install summary mismatch'
  exit 8
 end
-if incremental then do
- /* Incremental (HAVE) packs carry only new objects; the unchanged closure
-    must already exist in the verified loose store.  Walk the root tree
-    and confirm every referenced object is present as a loose object. */
- call verify_closure treeoid objectfm
- if result\='OK' then exit 8
-end
+/* Whether the pack carried the full closure or only new objects, the
+   installed loose store must hold every object reachable from the
+   requested root tree. */
+call verify_closure treeoid objectfm
+if result\='OK' then exit 8
 say 'FETCH OBJECTS ACTIVE' installed 'INSTALLED' already 'ALREADY VERIFIED',
     skipped 'TAGS SKIPPED INDEX' index 'DISK' datafm 'COMMIT' wanted
 exit 0
 
 /* Verify every object reachable from rootoid exists in the loose store.
-   Walks tree entries recursively; blobs and gitlinks are leaves. */
+   Walks tree entries recursively, checks every leaf and rejects objects
+   whose recorded OID, type, size or DATA length is inconsistent. */
 verify_closure:
  parse arg rootoid objectfm
  drop q. seen.
@@ -341,21 +340,49 @@ verify_closure:
    say 'FETCH-ACTIVATE: cannot read loose object' current
    return 'ERROR'
   end
-  otype=''; osize=0; thex=''
+  otype=''; osize=''; thex=''
+  oidcount=0; oidmatch=1; sizecount=0
   do ti=1 to tobj.0
-   if word(tobj.ti,1)='TYPE' then otype=translate(word(tobj.ti,2))
-   else if word(tobj.ti,1)='SIZE' then osize=word(tobj.ti,2)
-   else if word(tobj.ti,1)='DATA' then thex=thex||translate(word(tobj.ti,2))
+   if word(tobj.ti,1)='OID' then do
+    oidcount=oidcount+1
+    if word(tobj.ti,2)\=current then oidmatch=0
+   end
+   else if word(tobj.ti,1)='TYPE' then otype=translate(word(tobj.ti,2))
+   else if word(tobj.ti,1)='SIZE' then do
+    sizecount=sizecount+1
+    osize=word(tobj.ti,2)
+   end
+   else if word(tobj.ti,1)='DATA' then do
+    dhex=translate(word(tobj.ti,2))
+    if length(dhex)//2\=0 |,
+       verify(dhex,'0123456789ABCDEF')\=0 then do
+     say 'FETCH-ACTIVATE: invalid DATA record in' current
+     return 'ERROR'
+    end
+    thex=thex||dhex
+   end
+   else do
+    say 'FETCH-ACTIVATE: unexpected loose object record in' current
+    return 'ERROR'
+   end
   end
-  if otype\='tree' then iterate
-  if datatype(osize,'W')\=1 | osize<1 then do
-   say 'FETCH-ACTIVATE: invalid tree object' current
+  if oidcount\=1 | oidmatch=0 then do
+   say 'FETCH-ACTIVATE: stored OID mismatch in' current
    return 'ERROR'
   end
-  if length(thex)%2\=osize*2 then do
-   say 'FETCH-ACTIVATE: tree hex size mismatch' current
+  if otype\='COMMIT' & otype\='TREE' & otype\='BLOB' then do
+   say 'FETCH-ACTIVATE: invalid object type in' current
    return 'ERROR'
   end
+  if sizecount\=1 | datatype(osize,'W')\=1 | osize<0 then do
+   say 'FETCH-ACTIVATE: invalid object size in' current
+   return 'ERROR'
+  end
+  if length(thex)\=osize*2 then do
+   say 'FETCH-ACTIVATE: object size mismatch in' current
+   return 'ERROR'
+  end
+  if otype\='TREE' then iterate
   /* Parse Git tree entries from hex:
      <mode-ascii> <space(20)> <name-ascii> <null(00)> <20-byte-oid> */
   tpos=1
@@ -364,14 +391,25 @@ verify_closure:
    do while tpos<=length(thex)-2 & substr(thex,tpos,2)\='20'
     tpos=tpos+2
    end
-   if tpos>length(thex)-2 then leave
+   if tpos>length(thex)-2 then do
+    say 'FETCH-ACTIVATE: truncated tree entry in' current
+    return 'ERROR'
+   end
    modehex=substr(thex,mstart,tpos-mstart)
    tpos=tpos+2
    do while tpos<=length(thex)-2 & substr(thex,tpos,2)\='00'
     tpos=tpos+2
    end
-   if tpos>length(thex)-2 then leave
+   if tpos>length(thex)-2 then do
+    say 'FETCH-ACTIVATE: unterminated tree entry name in' current
+    return 'ERROR'
+   end
    tpos=tpos+2
+   if length(modehex)=0 |,
+      verify(modehex,'0123456789ABCDEF')\=0 then do
+    say 'FETCH-ACTIVATE: invalid tree entry mode in' current
+    return 'ERROR'
+   end
    childoid=substr(thex,tpos,40)
    tpos=tpos+40
    if length(childoid)\=40 |,
@@ -379,8 +417,10 @@ verify_closure:
     say 'FETCH-ACTIVATE: invalid tree entry OID in' current
     return 'ERROR'
    end
-   /* "40000" = 3430303030 hex => tree (recurse); blobs/gitlinks are leaves */
-   if modehex='3430303030' then do
+   /* "160000" = 3136303030 hex is a gitlink: it names a commit in
+      another repository, so it is not part of this closure.  Every
+      other entry (tree or blob) is a loose object we must hold. */
+   if modehex\='3136303030' then do
     if seen.childoid\=1 then do
      seen.childoid=1
      q.0=q.0+1
@@ -391,7 +431,7 @@ verify_closure:
   end
  end
  if missing>0 then do
-  say 'FETCH-ACTIVATE: incremental closure incomplete' missing 'missing objects'
+  say 'FETCH-ACTIVATE: installed closure incomplete' missing 'missing objects'
   return 'ERROR'
  end
  return 'OK'

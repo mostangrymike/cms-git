@@ -124,6 +124,20 @@ on the CMS target, within the bounded envelope described below.
    and `GITRDEL`'s REF_DELTA base reader use the same setting, defaulting to
    `A` only when repository metadata is absent. Live CMS RESOLVE and LOG were
    revalidated with `OBJECT-DISK G`.
+6e. **Activation verifies the installed closure (2026-11-11):** `GITFACT`
+   now runs its loose-store closure walk after every activation, not only for
+   `INCREMENTAL` packs. For each reachable object it checks the stored OID
+   against the requested name, requires `COMMIT`/`TREE`/`BLOB`, requires one
+   numeric `SIZE`, validates every `DATA` chunk, and compares the joined hex
+   length with the recorded size. Tree recursion uses the uppercase object
+   type, and every child except a `160000` gitlink is enqueued, so leaf blobs
+   are checked too. Live CMS activation of the 1300-object `pushtest/main`
+   closure installed three new objects and reported `FETCH OBJECTS ACTIVE`;
+   the pull then stopped at the pre-existing worktree-map preflight
+   (`pull path additions or removals are not supported yet`) because that test
+   repository maps only one workfile. A full activation of the one-file
+   `testmin` closure also passed. `GIT BRANCH`, `GITWT STATUS` and `GIT LOG`
+   remained correct afterwards.
 7. Validate each CMS command on the real z/VM target. Host CI alone cannot
    establish CMS runtime behavior. `clone`, `pull` and `push` now have target
    validation; the refusal and recovery paths listed below remain host-only.
