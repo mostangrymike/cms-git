@@ -2,6 +2,27 @@
 parse arg command rest
 command = translate(command)
 
+/* Loose objects may live on a disk other than A. */
+objectfm = 'A'
+'STATE GITMETA REPO A'
+if rc = 0 then do
+   drop odmeta.
+   'EXECIO * DISKR GITMETA REPO A 1 (STEM ODMETA. FINIS'
+   if rc = 0 & odmeta.0 >= 1 &,
+      odmeta.1 = 'CMS-GIT-REPOSITORY 1' then do
+      odseen = 0
+      do odi = 1 to odmeta.0
+         if word(odmeta.odi,1) = 'OBJECT-DISK' then do
+            if words(odmeta.odi) \= 2 then exit 8
+            odseen = odseen + 1
+            objectfm = translate(word(odmeta.odi,2))
+         end
+      end
+      if odseen > 1 | length(objectfm) \= 1 |,
+         verify(objectfm,'ABCDEFGHIJKLMNOPQRSTUVWXYZ') \= 0 then exit 8
+   end
+end
+
 if command = 'RESOLVE' then do
    parse var rest oid delta extra
    oid = translate(oid)
@@ -22,11 +43,11 @@ end
 say 'GITRDEL: unknown command' command
 exit 4
 
-readbase: procedure expose datahex
+readbase: procedure expose datahex objectfm
    parse upper arg oid
    objfn = substr(oid,1,8)
    drop obj.
-   'EXECIO * DISKR' objfn 'GITOBJ A 1 (STEM OBJ. FINIS'
+   'EXECIO * DISKR' objfn 'GITOBJ' objectfm '1 (STEM OBJ. FINIS'
    if rc \= 0 then do
       say 'GITRDEL: base object not found' oid
       return 'ERROR'

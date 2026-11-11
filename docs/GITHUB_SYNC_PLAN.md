@@ -118,6 +118,12 @@ on the CMS target, within the bounded envelope described below.
    `GIT LOG -n 1` completed in 24 s and `-n 3` in 26 s on `main`, matching the
    host commit trees, parents and message byte counts; `GIT BRANCH` and
    `GITWT STATUS` were unchanged.
+6d. **Loose-object readers honor `OBJECT-DISK` (2026-11-11):** `GITVREF`
+   RESOLVE and the loose `GIT LOG` walk read the single configured object disk
+   instead of probing `G` then `A`. The legacy M5 `GITREF` branch-target check
+   and `GITRDEL`'s REF_DELTA base reader use the same setting, defaulting to
+   `A` only when repository metadata is absent. Live CMS RESOLVE and LOG were
+   revalidated with `OBJECT-DISK G`.
 7. Validate each CMS command on the real z/VM target. Host CI alone cannot
    establish CMS runtime behavior. `clone`, `pull` and `push` now have target
    validation; the refusal and recovery paths listed below remain host-only.

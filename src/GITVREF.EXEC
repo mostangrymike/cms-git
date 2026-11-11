@@ -500,10 +500,19 @@ if command='RESOLVE' then do
   /* RESOLVE works from REF2 plus the loose store; the native store
      (GITFIX/M15NEW) is not required and is absent in shallow repos. */
   objectfn=substr(oid,1,8)
-  objectfm='G'
-  'STATE' objectfn 'GITOBJ' objectfm
-  if rc\=0 then do
-   objectfm='A'
+  call objectdisk
+  if result='ERROR' then exit 8
+  if result='NATIVE' then do
+   /* Legacy repositories without GITMETA used G, then A. */
+   objectfm='G'
+   'STATE' objectfn 'GITOBJ' objectfm
+   if rc\=0 then do
+    objectfm='A'
+    'STATE' objectfn 'GITOBJ' objectfm
+   end
+  end
+  else do
+   objectfm=result
    'STATE' objectfn 'GITOBJ' objectfm
   end
   if rc\=0 then do
@@ -5406,6 +5415,30 @@ bindnative:
  end
  return 'OK'
 
+/* Resolve the repository's object disk from GITMETA.  Returns NATIVE when
+   no GITMETA exists (legacy layout), ERROR when it is malformed, otherwise
+   the single validated filemode. */
+objectdisk:
+ 'STATE GITMETA REPO A'
+ if rc=28 then return 'NATIVE'
+ if rc\=0 then return 'ERROR'
+ drop od_meta.
+ 'EXECIO * DISKR GITMETA REPO A 1 (STEM OD_META. FINIS'
+ if rc\=0 | od_meta.0<1 |,
+    od_meta.1\='CMS-GIT-REPOSITORY 1' then return 'ERROR'
+ od_fm='A'
+ od_seen=0
+ do od_i=1 to od_meta.0
+  if word(od_meta.od_i,1)='OBJECT-DISK' then do
+   if words(od_meta.od_i)\=2 then return 'ERROR'
+   od_seen=od_seen+1
+   od_fm=translate(word(od_meta.od_i,2))
+  end
+ end
+ if od_seen>1 | length(od_fm)\=1 |,
+    verify(od_fm,'ABCDEFGHIJKLMNOPQRSTUVWXYZ')\=0 then return 'ERROR'
+ return od_fm
+
 /* Loose-store GIT LOG fallback.  Returns OK after verifying a bounded
    first-parent log, ERROR on malformed or missing objects, or NATIVE
    when the starting commit is not in the activated loose store.
@@ -5414,21 +5447,10 @@ bindnative:
    this path verifies each blob's recorded OID, type, size and DATA
    length instead of recomputing its SHA-1. */
 trylooselog:
- ll_fm='A'
- 'STATE GITMETA REPO A'
- if rc\=0 then return 'NATIVE'
- drop ll_meta.
- 'EXECIO * DISKR GITMETA REPO A 1 (STEM LL_META. FINIS'
- if rc\=0 | ll_meta.0<1 |,
-    ll_meta.1\='CMS-GIT-REPOSITORY 1' then return 'ERROR'
- do ll_mi=1 to ll_meta.0
-  if word(ll_meta.ll_mi,1)='OBJECT-DISK' then do
-   if words(ll_meta.ll_mi)\=2 then return 'ERROR'
-   ll_fm=translate(word(ll_meta.ll_mi,2))
-  end
- end
- if length(ll_fm)\=1 |,
-    verify(ll_fm,'ABCDEFGHIJKLMNOPQRSTUVWXYZ')\=0 then return 'ERROR'
+ call objectdisk
+ if result='ERROR' then return 'ERROR'
+ if result='NATIVE' then return 'NATIVE'
+ ll_fm=result
  ll_probe=substr(oid,1,8)
  'STATE' ll_probe 'GITOBJ' ll_fm
  if rc=28 then return 'NATIVE'

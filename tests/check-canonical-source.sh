@@ -1234,7 +1234,13 @@ for token in ("if ll_tseen.ll_vroot='OK' then return 'OK'",
               "if ll_bseen.ll_id='OK' then return 'OK'"):
     if token not in src:
         raise SystemExit(f'M260 snapshot cache missing {token!r}')
-print('M260 LOG LOOSE FALLBACK SOURCE GUARDS PASS 12')
+if src.count('call objectdisk') < 2:
+    raise SystemExit('M260 RESOLVE/LOG do not read the object disk')
+if "od_seen>1 | length(od_fm)\\=1" not in src:
+    raise SystemExit('M260 object-disk reader does not validate uniqueness')
+if ("   objectfm=result\n   'STATE' objectfn 'GITOBJ' objectfm") not in src:
+    raise SystemExit('M260 RESOLVE ignores the configured object disk')
+print('M260 LOG LOOSE FALLBACK SOURCE GUARDS PASS 15')
 
 parse = section('parsecommit:\n', '/* Emit the COMMIT metadata')
 emit = section('emitllcommit:\n', '/* Verify one tree and its complete')
@@ -1353,6 +1359,21 @@ if ! diff -u "$tmp/expected.txt" "$tmp/actual.txt"; then
  echo 'M260 loose LOG parser fixture mismatch' >&2
  exit 1
 fi
+for path in "$root/src/GITVREF.EXEC" "$root/src/GITREF.EXEC" \
+            "$root/src/GITRDEL.EXEC"; do
+ if grep -Fq 'GITOBJ A' "$path"; then
+  echo "M260 hardcoded object disk in $(basename "$path")" >&2
+  exit 1
+ fi
+ grep -Fq "objectfm='A'" "$path" || grep -Fq "objectfm = 'A'" "$path" || {
+  echo "M260 missing legacy object disk default in $(basename "$path")" >&2
+  exit 1
+ }
+ grep -Fq "'GITOBJ' objectfm" "$path" || {
+  echo "M260 object disk is not applied in $(basename "$path")" >&2
+  exit 1
+ }
+done
 echo 'M260 SOURCE-DERIVED LOOSE LOG FIXTURES PASS'
 )
 exit $?
