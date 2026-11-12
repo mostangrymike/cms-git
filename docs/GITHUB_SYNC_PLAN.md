@@ -105,8 +105,12 @@ additions, updates and removals.
    is refused rather than guessed. Live CMS pushes of `main`, `probe3`,
    `probe4` and `probe5` to `mostangrymike/cms-git-push-test` returned
    `unpack ok`, `accepted refs/heads/<branch>` and `PUSH COMPLETE`; repeated
-   pushes report `Already up to date`; a non-fast-forward update was refused
-   with the remote left unchanged.
+   pushes report `Already up to date`; a divergent remote tip was refused
+   with the remote left unchanged. In the shallow target repository the
+   ancestry walk stops at the shallow boundary before it can conclude
+   `ANCESTOR NO`, so the push reports
+   `cannot prove fast-forward; remote tip is not in local history` and
+   `refusing non-fast-forward update` (RC 8) instead of guessing.
 6c. **Loose-store `GIT LOG` implemented and CMS-validated (2026-11-11):**
    `GIT LOG [-n count] [revision]` previously required the protected native
    GEN2 fixtures. `GITVREF` now prefers a bounded first-parent walk of the
