@@ -402,6 +402,10 @@ if command='RESTORE-WORKTREE' then do
   restorepi.restorearg=addpi.restorearg
   pi=restorepi.restorearg
   restoreoldlf.restorearg=maplf.pi
+  /* Rollback uses the mapped name unless a caller supplies an explicit one. */
+  restorefn.restorearg=''
+  restoreft.restorearg=''
+  restorefm.restorearg=''
   'STATE' mapfn.pi mapft.pi mapfm.pi
   if rc=0 then do
    restoreexists.restorearg=1
@@ -2189,15 +2193,17 @@ rollbackrestore:
  restorefailed=0
  do restoreback=1 to restorecount
   restorebackpi=restorepi.restoreback
-  if restorefn.restoreback\='' then do
-   rfn=restorefn.restoreback
-   rft=restoreft.restoreback
-   rfm=restorefm.restoreback
-  end
-  else do
+  /* An unset compound variable evaluates to its own name, so callers that
+     have no explicit restore name must initialize restorefn.n=''. */
+  if restorefn.restoreback='' then do
    rfn=mapfn.restorebackpi
    rft=mapft.restorebackpi
    rfm=mapfm.restorebackpi
+  end
+  else do
+   rfn=restorefn.restoreback
+   rft=restoreft.restoreback
+   rfm=restorefm.restoreback
   end
   if restoreexists.restoreback=1 then do
    drop rec.

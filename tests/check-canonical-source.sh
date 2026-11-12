@@ -2477,7 +2477,7 @@ source=Path(sys.argv[1]).read_text()
 start=source.index(" if translate(word(rest,1))='--NEW' then do\n")
 end=source.index(' addall=0\n',start)
 block=source[start:end]
-for token in ('if newcount>16 then do', 'if mapcount+newcount>50 then do',
+for token in ('if newcount>16 then do', 'if mapcount+newcount>workfilemax then do',
               'if newhex.ni=newhex.nj then do',
               'if newfn.ni=newfn.nj & newft.ni=newft.nj &',
               'call workoid newfn.ni,newft.ni,newfm.ni,1,1',
@@ -2505,6 +2505,9 @@ toasciihex:
 helpers+=source[source.index('splitpath:\n'):source.index('readtree:\n')]
 prefix="""parse arg mockmode rest
 command='ADD'
+workpathhexmax=1024
+workdepthmax=32
+workfilemax=50
 """
 mocks="""
 exit 99

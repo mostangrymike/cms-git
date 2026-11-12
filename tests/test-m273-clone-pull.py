@@ -201,6 +201,10 @@ assert "call workoid addfn.ak,addft.ak,'A',pulladdfin.ni,0" in WT
 assert "if result\\=newoid.ni then do" in WT
 assert "call eraseadditions" in WT
 assert "drop restorefn. restoreft. restorefm." in WT
+# Rollback falls back to the mapped name when no explicit name is supplied.
+assert "if restorefn.restoreback='' then do" in WT
+assert "if restorefn.restoreback\\='' then do" not in WT
+assert "restorefn.restorearg=''" in WT
 # An unset REXX compound variable would otherwise be written as its own name.
 assert "drop updnew. updlf.\n do pi=1 to mapcount" in WT
 assert "\n  updnew.pi=''\n  updlf.pi=''" in WT
