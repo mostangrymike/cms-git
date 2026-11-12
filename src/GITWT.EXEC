@@ -3,6 +3,17 @@ address cms
 parse arg command rest
 command=translate(command)
 objectfm='A'
+/* The worktree map is the path source of truth: PATH is stored as hex and
+   the CMS file ID is a derived handle, so nested and long Git paths are
+   representable.  512 bytes keeps one PATH record within a V-format record;
+   32 components covers practical trees without unbounded REXX arrays. */
+workpathhexmax=1024
+workdepthmax=32
+workfilemax=50
+/* The mapped worktree is capped at 50 files, but pull preflight must be able
+   to scan a much larger commit tree to find the few paths that are added,
+   updated or removed.  Beyond this bound the pull fails closed. */
+treescanmax=4096
 'STATE GITMETA REPO A'
 if rc=0 then do
  drop cfg.
@@ -50,8 +61,8 @@ if command='CHECKOUT' then do
  if result\='OK' then exit 4
  call toasciihex path
  pathhex=result
- if pathhex='ERROR' | length(pathhex)>60 then do
-  say 'GITWT: M164 path must be 1-30 ASCII bytes'
+ if pathhex='ERROR' | length(pathhex)>workpathhexmax then do
+  say 'GITWT: path must be 1-512 ASCII bytes'
   exit 4
  end
  call loadmap
@@ -107,7 +118,7 @@ if command='CHECKOUT' then do
   exit 8
  end
  if pi=0 then do
-  if mapcount>=50 then do
+  if mapcount>=workfilemax then do
    'ERASE' fn ft fm
    say 'GITWT: worktree map limit reached'
    exit 8
@@ -169,76 +180,47 @@ if command='CHECKOUT-TREE' then do
   say 'GITWT: cannot read checkout root tree'
   exit 8
  end
- call readtree treeroot,''
- if result\='OK' & result\='MISSING' then do
-  say 'GITWT: cannot validate checkout root tree'
+ /* Walk the whole tree.  PATH is the identity; the CMS file ID is only a
+    derived handle, so nested and long paths no longer block checkout. */
+ call collecttree treeroot
+ if result\='OK' then do
+  say 'GITWT: cannot collect checkout tree'
   exit 8
  end
- treefiles=ecount
+ treefiles=ccount
  if treefiles=0 then do
   say 'CHECKED OUT EMPTY TREE' treecommit
   exit 0
  end
- if treefiles>50 | mapcount+treefiles>50 then do
-  say 'GITWT: checkout exceeds 50 mapped workfiles'
+ if treefiles>workfilemax | mapcount+treefiles>workfilemax then do
+  say 'GITWT: checkout exceeds' workfilemax 'mapped workfiles'
   exit 8
  end
  drop tfn. tft. tpath. toid. tlf. treccount. trecord.
+ drop pendingfn. pendingft.
+ pendingcount=0
+ synnext=1
  do ti=1 to treefiles
-  if emode.ti\='100644' then do
-   say 'GITWT: tree checkout supports flat regular files only'
+  call findpath cpath.ti
+  if result>0 then do
+   call asciitocms cpath.ti
+   say 'GITWT: path is already mapped' result
    exit 8
   end
-  call asciitocms ename.ti
+  call allocatename cpath.ti
+  if result\='OK' then do
+   call asciitocms cpath.ti
+   say 'GITWT: cannot allocate a CMS file ID for' result
+   exit 8
+  end
+  tfn.ti=allocfn
+  tft.ti=allocft
+  pendingcount=pendingcount+1
+  pendingfn.pendingcount=tfn.ti
+  pendingft.pendingcount=tft.ti
+  call asciitocms cpath.ti
   tpath.ti=result
-  if tpath.ti='ERROR' | pos('/',tpath.ti)>0 then do
-   say 'GITWT: invalid or nested checkout path'
-   exit 8
-  end
-  dotpos=pos('.',tpath.ti)
-  if dotpos=0 then do
-   tfn.ti=translate(tpath.ti)
-   tft.ti='TEXT'
-  end
-  else do
-   if dotpos=1 | dotpos=length(tpath.ti) |,
-      pos('.',substr(tpath.ti,dotpos+1))>0 then do
-    say 'GITWT: path needs one simple CMS filename extension'
-    exit 8
-   end
-   tfn.ti=translate(left(tpath.ti,dotpos-1))
-   tft.ti=translate(substr(tpath.ti,dotpos+1))
-  end
-  call validid tfn.ti
-  if result\='OK' then do
-   say 'GITWT: path cannot map to a CMS filename' tpath.ti
-   exit 8
-  end
-  call validid tft.ti
-  if result\='OK' then do
-   say 'GITWT: path cannot map to a CMS filetype' tpath.ti
-   exit 8
-  end
-  call findpath ename.ti
-  if result>0 then do
-   say 'GITWT: path is already mapped' tpath.ti
-   exit 8
-  end
-  call findfile tfn.ti,tft.ti,'A'
-  if result>0 then do
-   say 'GITWT: CMS target is already mapped' tfn.ti tft.ti
-   exit 8
-  end
-  'STATE' tfn.ti tft.ti 'A'
-  if rc=0 then do
-   say 'GITWT: CMS target already exists' tfn.ti tft.ti
-   exit 8
-  end
-  if rc\=28 then do
-   say 'GITWT: cannot inspect CMS target RC' rc
-   exit 8
-  end
-  toid.ti=eoid.ti
+  toid.ti=coid.ti
   call readloose toid.ti
   if result\='OK' | readtype\='BLOB' then do
    say 'GITWT: checkout requires an available blob' toid.ti
@@ -253,12 +235,6 @@ if command='CHECKOUT-TREE' then do
   treccount.ti=rec.0
   do tj=1 to rec.0
    trecord.ti.tj=rec.tj
-  end
-  do tj=1 to ti-1
-   if tfn.tj=tfn.ti & tft.tj=tft.ti then do
-    say 'GITWT: Git paths collide as CMS file IDs'
-    exit 8
-   end
   end
  end
  drop before.
@@ -303,7 +279,7 @@ if command='CHECKOUT-TREE' then do
   maplf.pi=tlf.ti
   mapbase.pi=toid.ti
   mapstage.pi=toid.ti
-  mappath.pi=ename.ti
+  mappath.pi=cpath.ti
  end
  call savemap
  if result\='OK' then do
@@ -378,7 +354,7 @@ if command='RESTORE-WORKTREE' then do
   path=word(rest,restorearg)
   call toasciihex path
   pathhex=result
-  if pathhex='ERROR' | length(pathhex)>60 then do
+  if pathhex='ERROR' | length(pathhex)>workpathhexmax then do
    say 'GITWT: invalid path' path
    exit 4
   end
@@ -641,7 +617,7 @@ if command='STATUS' then do
    path=word(rest,si)
    call toasciihex path
    pathhex=result
-   if pathhex='ERROR' | length(pathhex)>60 then do
+   if pathhex='ERROR' | length(pathhex)>workpathhexmax then do
     say 'GITWT: invalid path' path
     exit 4
    end
@@ -838,11 +814,12 @@ if command='CHECK-PULL' | command='APPLY-PULL' then do
  call preflightpull
  if result\='OK' then exit 8
  if command='CHECK-PULL' then do
-  say 'PULL PREFLIGHT SAFE MAPPED' mapcount
+  say 'PULL PREFLIGHT SAFE ADDED' pulladdcount 'REMOVED' pullremcount,
+      'CHANGED' pullupdcount 'MAPPED' pullkeepcount
   exit 0
  end
  if mapcount=0 then do
-  say 'PULLED WORKTREE FILES 0'
+  say 'PULLED WORKTREE FILES 0 ADDED 0 REMOVED 0'
   exit 0
  end
  drop before.
@@ -853,9 +830,13 @@ if command='CHECK-PULL' | command='APPLY-PULL' then do
  restorecount=mapcount
  drop restorepi. restoreexists. restoreoldcount.
  drop restoreoldline. restoreline.
+ drop restorefn. restoreft. restorefm.
  do pi=1 to mapcount
   restorepi.pi=pi
   restoreexists.pi=1
+  restorefn.pi=mapfn.pi
+  restoreft.pi=mapft.pi
+  restorefm.pi=mapfm.pi
   drop pullold.
   'EXECIO * DISKR' mapfn.pi mapft.pi mapfm.pi,
       '1 (STEM PULLOLD. FINIS'
@@ -868,9 +849,29 @@ if command='CHECK-PULL' | command='APPLY-PULL' then do
    restoreoldline.pi.li=pullold.li
   end
  end
+ /* Reserve every new CMS file ID before the first mutation, so a name
+    collision cannot leave half a pull applied. */
+ drop addfn. addft. addwritten.
+ addwritten=0
+ pendingcount=0
+ synnext=1
+ do ak=1 to pulladdcount
+  ni=addix.ak
+  call allocatename newpath.ni
+  if result\='OK' then do
+   call asciitocms newpath.ni
+   say 'GITWT: cannot allocate a CMS file ID for' result
+   exit 8
+  end
+  addfn.ak=allocfn
+  addft.ak=allocft
+  pendingcount=pendingcount+1
+  pendingfn.pendingcount=addfn.ak
+  pendingft.pendingcount=addft.ak
+ end
  changedfiles=0
- do pi=1 to mapcount
-  if pullnewoid.pi=pulloldoid.pi then iterate
+ do uk=1 to pullupdcount
+  pi=updpi.uk
   drop rec.
   rec.0=pullnewcount.pi
   do li=1 to rec.0
@@ -878,37 +879,120 @@ if command='CHECK-PULL' | command='APPLY-PULL' then do
   end
   call writework mapfn.pi,mapft.pi,mapfm.pi
   if result\='OK' then do
+   call eraseadditions
    call rollbackrestore
    say 'GITWT: pull write failed; workfile rollback RC' result
    exit 8
   end
   call workoid mapfn.pi,mapft.pi,mapfm.pi,pullnewlf.pi,0
-  if result\=pullnewoid.pi then do
-   rollbackrc='OK'
+  if result\=updo.uk then do
+   call eraseadditions
    call rollbackrestore
-   rollbackrc=result
-   if rollbackrc\='OK' then,
-    say 'GITWT: pull hash failed; workfile rollback failed'
-   else say 'GITWT: pull hash failed; workfiles restored'
+   say 'GITWT: pull hash failed; workfiles restored'
    exit 8
   end
   changedfiles=changedfiles+1
  end
+ do ak=1 to pulladdcount
+  ni=addix.ak
+  drop rec.
+  rec.0=pulladdrecs.ni
+  do li=1 to rec.0
+   rec.li=pulladdrec.ni.li
+  end
+  call writework addfn.ak,addft.ak,'A'
+  if result\='OK' then do
+   call eraseadditions
+   call rollbackrestore
+   say 'GITWT: pull add failed; workfiles restored'
+   exit 8
+  end
+  addwritten=ak
+  call workoid addfn.ak,addft.ak,'A',pulladdfin.ni,0
+  if result\=newoid.ni then do
+   call eraseadditions
+   call rollbackrestore
+   say 'GITWT: pull add hash failed; workfiles restored'
+   exit 8
+  end
+ end
+ do rk=1 to pullremcount
+  pi=rempi.rk
+  'ERASE' mapfn.pi mapft.pi mapfm.pi
+  if rc\=0 then do
+   call eraseadditions
+   call rollbackrestore
+   say 'GITWT: pull remove failed; workfiles restored'
+   exit 8
+  end
+ end
+ /* Build the replacement map: kept and changed entries first, then adds. */
+ drop updnew. updlf.
  do pi=1 to mapcount
-  mapbase.pi=pullnewoid.pi
-  mapstage.pi=pullnewoid.pi
-  maplf.pi=pullnewlf.pi
+  updnew.pi=''
+  updlf.pi=''
+ end
+ do uk=1 to pullupdcount
+  pi=updpi.uk
+  updnew.pi=updo.uk
+  updlf.pi=pullnewlf.pi
+ end
+ drop nmfn. nmft. nmfm. nmlf. nmbase. nmstage. nmpath.
+ nmcount=0
+ do pi=1 to mapcount
+  if removepi.pi=1 then iterate
+  nmcount=nmcount+1
+  nmfn.nmcount=mapfn.pi
+  nmft.nmcount=mapft.pi
+  nmfm.nmcount=mapfm.pi
+  nmbase.nmcount=mapbase.pi
+  nmstage.nmcount=mapstage.pi
+  nmpath.nmcount=mappath.pi
+  if updnew.pi\='' then do
+   nmbase.nmcount=updnew.pi
+   nmstage.nmcount=updnew.pi
+   nmlf.nmcount=updlf.pi
+  end
+  else do
+   nmlf.nmcount=maplf.pi
+   if mapstage.pi\=mapbase.pi then nmstage.nmcount=mapstage.pi
+  end
+ end
+ do ak=1 to pulladdcount
+  ni=addix.ak
+  nmcount=nmcount+1
+  nmfn.nmcount=addfn.ak
+  nmft.nmcount=addft.ak
+  nmfm.nmcount='A'
+  nmlf.nmcount=pulladdfin.ni
+  nmbase.nmcount=newoid.ni
+  nmstage.nmcount=newoid.ni
+  nmpath.nmcount=newpath.ni
+ end
+ drop mapfn. mapft. mapfm. maplf. mapbase. mapstage. mappath.
+ mapcount=nmcount
+ do pi=1 to mapcount
+  mapfn.pi=nmfn.pi
+  mapft.pi=nmft.pi
+  mapfm.pi=nmfm.pi
+  maplf.pi=nmlf.pi
+  mapbase.pi=nmbase.pi
+  mapstage.pi=nmstage.pi
+  mappath.pi=nmpath.pi
  end
  call savemap
  if result\='OK' then do
+  call eraseadditions
   call restoremap
   maprc=result
+  if maprc='OK' then call loadmap
   call rollbackrestore
   filerollback=result
   say 'GITWT: pull map save failed; rollback map' maprc 'workfiles' filerollback
   exit 8
  end
- say 'PULLED WORKTREE FILES' changedfiles
+ say 'PULLED WORKTREE FILES' changedfiles 'ADDED' pulladdcount,
+     'REMOVED' pullremcount
  exit 0
 end
 
@@ -1252,29 +1336,29 @@ if command='ADD' then do
    if result\='OK' then exit 4
    call toasciihex newpath.newcount
    newhex.newcount=result
-   if newhex.newcount='ERROR' | length(newhex.newcount)>60 then do
-    say 'GITWT: new path must be 1-30 ASCII bytes with relative components'
+   if newhex.newcount='ERROR' | length(newhex.newcount)>workpathhexmax then do
+    say 'GITWT: new path must be 1-512 ASCII bytes with relative components'
     exit 4
    end
    call splitpath newhex.newcount
    if result\='OK' then do
-    say 'GITWT: new path must be 1-30 ASCII bytes with relative components'
+    say 'GITWT: new path must be 1-512 ASCII bytes with relative components'
     exit 4
    end
    do npi=1 to pcnt
     if pcomp.npi='2E' | pcomp.npi='2E2E' then do
-     say 'GITWT: new path must be 1-30 ASCII bytes with relative components'
+     say 'GITWT: new path must be 1-512 ASCII bytes with relative components'
      exit 4
     end
    end
-   if pcnt>16 then do
-    say 'GITWT: new path must be 1-30 ASCII bytes with relative components'
+   if pcnt>workdepthmax then do
+    say 'GITWT: new path must be 1-512 ASCII bytes with relative components'
     exit 4
    end
   end
   call loadmap
   if result\='OK' then exit 8
-  if mapcount+newcount>50 then do
+  if mapcount+newcount>workfilemax then do
    say 'GITWT: worktree map limit reached'
    exit 8
   end
@@ -1410,7 +1494,7 @@ if command='ADD' then do
    path=word(rest,ai)
    call toasciihex path
    pathhex=result
-   if pathhex='ERROR' | length(pathhex)>60 then do
+   if pathhex='ERROR' | length(pathhex)>workpathhexmax then do
     say 'GITWT: invalid path' path
     exit 4
    end
@@ -1515,7 +1599,7 @@ if command='RESET' then do
   path=word(rest,ai)
   call toasciihex path
   pathhex=result
-  if pathhex='ERROR' | length(pathhex)>60 then do
+  if pathhex='ERROR' | length(pathhex)>workpathhexmax then do
    say 'GITWT: invalid path' path
    exit 4
   end
@@ -2105,22 +2189,29 @@ rollbackrestore:
  restorefailed=0
  do restoreback=1 to restorecount
   restorebackpi=restorepi.restoreback
+  if restorefn.restoreback\='' then do
+   rfn=restorefn.restoreback
+   rft=restoreft.restoreback
+   rfm=restorefm.restoreback
+  end
+  else do
+   rfn=mapfn.restorebackpi
+   rft=mapft.restorebackpi
+   rfm=mapfm.restorebackpi
+  end
   if restoreexists.restoreback=1 then do
    drop rec.
    rec.0=restoreoldcount.restoreback
    do restorebackline=1 to rec.0
     rec.restorebackline=restoreoldline.restoreback.restorebackline
    end
-   call writework mapfn.restorebackpi,mapft.restorebackpi,
-       mapfm.restorebackpi
+   call writework rfn,rft,rfm
    if result\='OK' then restorefailed=1
   end
   else do
-   'STATE' mapfn.restorebackpi mapft.restorebackpi,
-       mapfm.restorebackpi
+   'STATE' rfn rft rfm
    if rc=0 then do
-    'ERASE' mapfn.restorebackpi mapft.restorebackpi,
-        mapfm.restorebackpi
+    'ERASE' rfn rft rfm
     if rc\=0 then restorefailed=1
    end
    else if rc\=28 then restorefailed=1
@@ -2136,6 +2227,11 @@ preflightpull:
   return 'ERROR'
  end
  zeros='0000000000000000000000000000000000000000'
+ pulladdcount=0
+ pullremcount=0
+ pullupdcount=0
+ drop updpi. updo. addix. rempi. removepi.
+ drop oldpath. oldoid. newpath. newoid.
  if mapcount=0 then do
   /* Nothing is checked out, so a pull cannot overwrite or lose a workfile.
      The refs-only pull is safe even when the commit tree is large. */
@@ -2145,41 +2241,28 @@ preflightpull:
  call rootfor pullold
  oldroot=result
  if oldroot='ERROR' then return 'ERROR'
- call readtree oldroot,''
- if result\='OK' & result\='MISSING' then return 'ERROR'
- if ecount\=mapcount then do
-  say 'GITWT: pull path additions or removals are not supported yet'
+ call collecttree oldroot
+ if result\='OK' then do
+  say 'GITWT: cannot collect the old commit tree'
   return 'ERROR'
  end
- drop pulloldoid. pullseen.
- do ei=1 to ecount
-  if emode.ei\='100644' then do
-   say 'GITWT: pull supports flat regular text files only'
-   return 'ERROR'
-  end
-  call asciitocms ename.ei
-  path=result
-  if path='ERROR' | pos('/',path)>0 then do
-   say 'GITWT: pull supports flat paths only'
-   return 'ERROR'
-  end
-  call findpath ename.ei
-  pi=result
-  if pi<1 | pullseen.pi=1 then do
-   say 'GITWT: current worktree map differs from the old commit'
-   return 'ERROR'
-  end
-  pullseen.pi=1
-  pulloldoid.pi=eoid.ei
+ oldcount=ccount
+ do oi=1 to oldcount
+  oldpath.oi=cpath.oi
+  oldoid.oi=coid.oi
  end
+ /* Every mapped path must still be the old commit's blob, and every mapped
+    workfile must be clean.  A path added or removed by the update is not a
+    dirty worktree and no longer blocks the pull. */
  do pi=1 to mapcount
-  if pullseen.pi\=1 | mapbase.pi=zeros |,
-     mapstage.pi\=mapbase.pi then do
-   say 'GITWT: dirty or incomplete worktree blocks pull' mappath.pi
+  call pathindex 'OLD',oldcount,mappath.pi
+  oi=result
+  if oi=0 | oldoid.oi\=mapbase.pi then do
+   say 'GITWT: worktree base differs from old commit' mappath.pi
    return 'ERROR'
   end
-  if pulloldoid.pi\=mapbase.pi then do
-   say 'GITWT: worktree base differs from old commit' mappath.pi
+  if mapbase.pi=zeros | mapstage.pi\=mapbase.pi then do
+   say 'GITWT: dirty or incomplete worktree blocks pull' mappath.pi
    return 'ERROR'
   end
   'STATE' mapfn.pi mapft.pi mapfm.pi
@@ -2196,50 +2279,77 @@ preflightpull:
  call rootfor pullnew
  pullroot=result
  if pullroot='ERROR' then return 'ERROR'
- call readtree pullroot,''
- if result\='OK' & result\='MISSING' then return 'ERROR'
- if ecount\=mapcount then do
-  say 'GITWT: pull path additions or removals are not supported yet'
+ call collecttree pullroot
+ if result\='OK' then do
+  say 'GITWT: cannot collect the new commit tree'
   return 'ERROR'
  end
- drop pullseen.
- do ei=1 to ecount
-  if emode.ei\='100644' then do
-   say 'GITWT: pull supports flat regular text files only'
-   return 'ERROR'
-  end
-  call asciitocms ename.ei
-  path=result
-  if path='ERROR' | pos('/',path)>0 then do
-   say 'GITWT: pull supports flat paths only'
-   return 'ERROR'
-  end
-  call findpath ename.ei
-  pi=result
-  if pi<1 | pullseen.pi=1 then do
-   say 'GITWT: pull path set differs from the current worktree'
-   return 'ERROR'
-  end
-  pullseen.pi=1
-  pullnewoid.pi=eoid.ei
+ newcount=ccount
+ do ni=1 to newcount
+  newpath.ni=cpath.ni
+  newoid.ni=coid.ni
  end
+ /* Classify the three-way difference: keep, update, add, remove. */
  do pi=1 to mapcount
-  if pullseen.pi\=1 then return 'ERROR'
-  call readloose pullnewoid.pi
-  if result\='OK' | readtype\='BLOB' then do
-   say 'GITWT: pulled blob is missing or invalid' pullnewoid.pi
-   return 'ERROR'
+  call pathindex 'NEW',newcount,mappath.pi
+  if result=0 then do
+   pullremcount=pullremcount+1
+   rempi.pullremcount=pi
+   removepi.pi=1
   end
-  call bodyrecords readhex
-  if result\='OK' then do
-   say 'GITWT: pulled blob is not CMS-compatible text' mappath.pi
-   return 'ERROR'
+  else do
+   ni=result
+   if newoid.ni\=mapbase.pi then do
+    pullupdcount=pullupdcount+1
+    updpi.pullupdcount=pi
+    updo.pullupdcount=newoid.ni
+    call readloose newoid.ni
+    if result\='OK' | readtype\='BLOB' then do
+     say 'GITWT: pulled blob is missing or invalid' newoid.ni
+     return 'ERROR'
+    end
+    call bodyrecords readhex
+    if result\='OK' then do
+     say 'GITWT: pulled blob is not CMS-compatible text' mappath.pi
+     return 'ERROR'
+    end
+    pullnewlf.pi=final
+    pullnewcount.pi=rec.0
+    do li=1 to rec.0
+     pullnewrec.pi.li=rec.li
+    end
+   end
   end
-  pullnewlf.pi=final
-  pullnewcount.pi=rec.0
-  do li=1 to rec.0
-   pullnewrec.pi.li=rec.li
+ end
+ do ni=1 to newcount
+  /* Add only paths the update introduced.  A path that is present in both
+     commits but was never checked out is a partial worktree, not an add. */
+  call pathindex 'OLD',oldcount,newpath.ni
+  if result=0 then do
+   pulladdcount=pulladdcount+1
+   addix.pulladdcount=ni
+   call readloose newoid.ni
+   if result\='OK' | readtype\='BLOB' then do
+    say 'GITWT: added blob is missing or invalid' newoid.ni
+    return 'ERROR'
+   end
+   call bodyrecords readhex
+   if result\='OK' then do
+    call asciitocms newpath.ni
+    say 'GITWT: added blob is not CMS-compatible text' result
+    return 'ERROR'
+   end
+   pulladdfin.ni=final
+   pulladdrecs.ni=rec.0
+   do li=1 to rec.0
+    pulladdrec.ni.li=rec.li
+   end
   end
+ end
+ pullkeepcount=mapcount-pullremcount-pullupdcount
+ if pullkeepcount+pullupdcount+pulladdcount>workfilemax then do
+  say 'GITWT: pull exceeds' workfilemax 'mapped workfiles'
+  return 'ERROR'
  end
  return 'OK'
 
@@ -2616,8 +2726,131 @@ splitpath:
  if part='' then return 'ERROR'
  pcnt=pcnt+1
  pcomp.pcnt=part
- if pcnt<1 | pcnt>16 then return 'ERROR'
+ if pcnt<1 | pcnt>workdepthmax then return 'ERROR'
  return 'OK'
+
+/* Depth-first collection of every blob in a commit tree.  The result is a
+   flat list of full paths (hex), so checkout and pull share one view. */
+collecttree:
+ parse arg croot
+ drop cpath. coid. stackoid. stackprefix.
+ ccount=0
+ stackcount=1
+ stackoid.1=croot
+ stackprefix.1=''
+ do while stackcount>0
+  nodeoid=stackoid.stackcount
+  prefix=stackprefix.stackcount
+  stackcount=stackcount-1
+  call readtree nodeoid,''
+  if result\='OK' then do
+   say 'GITWT: cannot read tree' nodeoid 'at prefix' prefix
+   return 'ERROR'
+  end
+  do cei=1 to ecount
+   mode=emode.cei
+   if mode='40000' then do
+    if stackcount>=200 then return 'ERROR'
+    stackcount=stackcount+1
+    stackoid.stackcount=eoid.cei
+    stackprefix.stackcount=prefix||ename.cei||'2F'
+   end
+   else if mode='100644' | mode='100755' then do
+    ccount=ccount+1
+    cpath.ccount=prefix||ename.cei
+    coid.ccount=eoid.cei
+    if length(cpath.ccount)>workpathhexmax then return 'ERROR'
+    call splitpath cpath.ccount
+    if result\='OK' then return 'ERROR'
+    do cpi=1 to pcnt
+     if pcomp.cpi='2E' | pcomp.cpi='2E2E' then return 'ERROR'
+    end
+    if ccount>treescanmax then do
+     say 'GITWT: commit tree exceeds the scan limit'
+     return 'ERROR'
+    end
+   end
+   else do
+    call asciitocms ename.cei
+    say 'GITWT: tree entry mode' mode 'is not supported' prefix||ename.cei
+    return 'ERROR'
+   end
+  end
+ end
+ return 'OK'
+
+/* The natural 8.8 name is the base component only, kept for readability.
+   Anything else gets a stable synthetic name, because PATH is the identity. */
+naturalname:
+ parse arg nah
+ natfn=''
+ natft=''
+ call splitpath nah
+ if result\='OK' then return 'ERROR'
+ call asciitocms pcomp.pcnt
+ base=result
+ if base='ERROR' | base='' then return 'OK'
+ base=translate(base)
+ if length(base)>16 then return 'OK'
+ dotpos=pos('.',base)
+ if dotpos=0 then do
+  fn=base
+  ft='TEXT'
+ end
+ else do
+  if dotpos=1 | dotpos=length(base) then return 'OK'
+  if pos('.',substr(base,dotpos+1))>0 then return 'OK'
+  fn=left(base,dotpos-1)
+  ft=substr(base,dotpos+1)
+ end
+ call validid fn
+ if result\='OK' then return 'OK'
+ call validid ft
+ if result\='OK' then return 'OK'
+ natfn=fn
+ natft=ft
+ return 'OK'
+
+/* Free, unmapped, and not already reserved by this checkout batch. */
+fileavailable:
+ parse arg afn,aft
+ call findfile afn,aft,'A'
+ if result>0 then return 'USED'
+ do fai=1 to pendingcount
+  if pendingfn.fai=afn & pendingft.fai=aft then return 'USED'
+ end
+ 'STATE' afn aft 'A'
+ if rc=28 then return 'OK'
+ if rc=0 then return 'USED'
+ return 'ERROR'
+
+allocatename:
+ parse arg aah
+ allocfn=''
+ allocft=''
+ call naturalname aah
+ if result='ERROR' then return 'ERROR'
+ if natfn\='' then do
+  call fileavailable natfn,natft
+  if result='OK' then do
+   allocfn=natfn
+   allocft=natft
+   return 'OK'
+  end
+  if result='ERROR' then return 'ERROR'
+ end
+ do while synnext<=999999
+  candidate='WT'||right(synnext,6,'0')
+  synnext=synnext+1
+  call fileavailable candidate,'GITF'
+  if result='OK' then do
+   allocfn=candidate
+   allocft='GITF'
+   return 'OK'
+  end
+  if result='ERROR' then return 'ERROR'
+ end
+ return 'ERROR'
 
 readtree:
  parse arg toid,target
@@ -2632,8 +2865,11 @@ readtree:
  'STATE' fn 'GITOBJ' objectfm
  localrc=rc
  if localrc=0 then do
-  address command 'EXEC GIT VERIFY-OBJECT' toid
-  if rc\=0 then return 'ERROR'
+  drop verifyout.
+  verifycmd='GIT VERIFY-OBJECT '||toid
+  'PIPE CMS' verifycmd '| STEM VERIFYOUT.'
+  if rc\=0 | verifyout.0\=1 |,
+     strip(verifyout.1)\=toid 'OK' then return 'ERROR'
   drop loose.
   'EXECIO * DISKR' fn 'GITOBJ' objectfm ,
    '1 (STEM LOOSE. FINIS'
@@ -2740,6 +2976,9 @@ readtree:
    foundindex=ei
   end
  end
+ /* An empty target means "read every entry"; only named lookups can be
+    MISSING.  The recursive collector relies on this. */
+ if target='' then return 'OK'
  if matches>1 then return 'ERROR'
  if matches=0 then return 'MISSING'
  return 'OK'
@@ -2825,7 +3064,7 @@ loadmap:
  if rc\=0 | wm.0<2 then return 'ERROR'
  if word(wm.1,1)\='WORK1' | words(wm.1)\=2 then return 'ERROR'
  mapcount=word(wm.1,2)
- if datatype(mapcount,'W')\=1 | mapcount<0 | mapcount>50 then,
+ if datatype(mapcount,'W')\=1 | mapcount<0 | mapcount>workfilemax then,
   return 'ERROR'
  if wm.0\=2+mapcount*5 then return 'ERROR'
  at=2
@@ -2863,7 +3102,7 @@ loadmap:
   if word(line,1)\='PATH' | word(line,2)\=mi |,
      words(line)\=3 then return 'ERROR'
   mappath.mi=translate(word(line,3))
-  if mappath.mi='' | length(mappath.mi)>60 |,
+  if mappath.mi='' | length(mappath.mi)>workpathhexmax |,
      length(mappath.mi)//2\=0 then return 'ERROR'
   if verify(mappath.mi,'0123456789ABCDEF')\=0 then return 'ERROR'
   at=at+1
@@ -2886,6 +3125,21 @@ restoremap:
  return 'OK'
 
 savemap:
+ /* Refuse to persist a malformed map.  An unset REXX compound variable
+    evaluates to its own name, so this validation is what keeps a partial
+    rebuild from silently writing UPDNEW.n or UPDLF.n as data. */
+ do si=1 to mapcount
+  if length(mapbase.si)\=40 |,
+     verify(mapbase.si,'0123456789ABCDEF')\=0 |,
+     length(mapstage.si)\=40 |,
+     verify(mapstage.si,'0123456789ABCDEF')\=0 |,
+     (maplf.si\=0 & maplf.si\=1) |,
+     mappath.si='' | length(mappath.si)//2\=0 |,
+     verify(mappath.si,'0123456789ABCDEF')\=0 then do
+   say 'GITWT: invalid worktree map entry' si
+   return 'ERROR'
+  end
+ end
  drop sw.
  sw.1='WORK1' mapcount
  at=2
@@ -2903,12 +3157,62 @@ savemap:
  end
  sw.at='WORKEND' mapcount
  sw.0=at
+ /* Recreate the file so a longer PATH record raises the V-format LRECL.
+    The current map is snapshotted first so a failed rewrite can put it back;
+    temp-and-rename remains a separate slice. */
+ drop smbak.
+ smbak.0=0
+ smold=0
+ 'STATE GITWORK REPO A'
+ if rc=0 then do
+  smold=1
+  'EXECIO * DISKR GITWORK REPO A 1 (STEM SMBAK. FINIS'
+  if rc\=0 then do
+   say 'GITWT: cannot snapshot worktree map'
+   return 'ERROR'
+  end
+  'ERASE GITWORK REPO A'
+  if rc\=0 then do
+   say 'GITWT: cannot replace worktree map'
+   return 'ERROR'
+  end
+ end
+ else if rc\=28 then return 'ERROR'
  'EXECIO' sw.0 'DISKW GITWORK REPO A 1 (STEM SW. FINIS'
  if rc\=0 then do
+  'STATE GITWORK REPO A'
+  if rc=0 then 'ERASE GITWORK REPO A'
+  if smold then do
+   'EXECIO' smbak.0 'DISKW GITWORK REPO A 1 (STEM SMBAK. FINIS'
+   if rc\=0 then say 'GITWT: worktree map restore also failed'
+  end
   say 'GITWT: cannot write worktree map'
   return 'ERROR'
  end
  return 'OK'
+
+eraseadditions:
+ do eai=1 to addwritten
+  'STATE' addfn.eai addft.eai 'A'
+  if rc=0 then do
+   'ERASE' addfn.eai addft.eai 'A'
+   if rc\=0 then return 'ERROR'
+  end
+  else if rc\=28 then return 'ERROR'
+ end
+ return 'OK'
+
+pathindex:
+ parse arg which,count,want
+ do xi=1 to count
+  if which='OLD' then do
+   if oldpath.xi=want then return xi
+  end
+  else do
+   if newpath.xi=want then return xi
+  end
+ end
+ return 0
 
 findpath:
  parse arg wanted

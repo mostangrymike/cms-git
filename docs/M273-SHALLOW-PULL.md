@@ -88,11 +88,17 @@ body.
 5. Verify the fetched tip is a descendant of the local tip.  A repository
    whose branch is unborn skips this step and uses the zero object-id as the
    old tip, so the first pull is a create.
-6. Worktree preflight (refs-only when the worktree map is empty).
+6. Worktree three-way preflight over the old and new commit trees: every
+   mapped path must be clean and still match its base blob; mapped paths
+   missing from the new tree are removals, changed mapped paths are updates,
+   and paths introduced since the old tip are adds.  A partial worktree map
+   is valid and never acquires pre-existing unmapped paths.
 7. Update `refs/remotes/<remote>/<branch>` and fast-forward (or create) the
    local branch.
-8. On create, run `GITWT CHECKOUT-TREE <branch>` so the first pull
-   materializes the flat worktree and worktree map.
+8. Apply the preflight result: reserve every new CMS file ID, rewrite
+   updates, erase removals, write adds, re-hash each written file, and save
+   the rebuilt map.  On create, run `GITWT CHECKOUT-TREE <branch>` so the
+   first pull materializes the worktree and worktree map.
 
 An empty pack (server already has everything) is accepted; the pull reports
 `Already up to date <oid>`.
@@ -138,14 +144,57 @@ the zero old object-id only when `HEAD` still names the branch and no branch
 record exists, `GITWT CHECK-PULL` allows that same unborn case, and
 `GITWT CHECKOUT-TREE` writes the files and worktree map.
 
-Clone therefore inherits the pull envelope: one flat set of regular
-CMS-compatible text paths, no nested directories, binaries, or path
-additions/removals.  A fresh project minidisk accessed as `A` is a valid
+Clone therefore inherits the pull envelope: regular CMS-compatible text
+paths, including nested, long and multi-dot paths.  The worktree map stores
+each Git path as uppercase ASCII hex in a `PATH` record, so the path is the
+identity and the CMS file ID is a derived handle.  A natural 8.8 name is used
+when the basename fits; otherwise checkout and pull allocate a stable
+synthetic `WT###### GITF` name.  The mapped worktree is capped at 50 files,
+while pull preflight may scan a commit tree of up to 4096 paths before
+failing closed.  Binary blobs and unsupported tree modes are refused.
+A fresh project minidisk accessed as `A` is a valid
 object disk; the pack, stage, index and installed loose objects share it.
 The pull refuses before import when the selected disk cannot hold about five
 times the fetched pack plus a small metadata allowance.  If the initial pull
 fails, the metadata and remote record are retained so a corrected retry can
 run `GIT PULL` with no arguments.
+
+## Worktree map and arbitrary paths
+
+`GITWORK REPO A` is the source of truth.  Each `ENTRY` names a CMS file ID
+and each `PATH` record holds the full Git path as uppercase ASCII hex.
+`BASE` and `STAGE` hold blob OIDs and the trailing `ENTRY` field is the
+final-LF flag.  Checkout and pull share one recursive tree collector, so a
+nested path such as `docs/guide/setup.md` or a long multi-dot basename is an
+ordinary mapped workfile.
+
+A natural CMS name is used when the path's basename is one dot-separated
+name with at most 8+8 characters and no other dots.  Everything else gets a
+stable `WT###### GITF` name; the hex `PATH` record keeps the real Git path.
+This is why a multi-dot name and a deep nested path can coexist with a
+natural `ADDED.TXT` mapping without flattening the repository.
+
+Pull compares the mapped paths against the old and new commit trees:
+
+- kept: blob OID unchanged, workfile untouched;
+- update: mapped still, new blob OID, rewrite and re-hash;
+- remove: mapped path absent from the new tree, erase workfile and map entry;
+- add: path present only in the new tree, write a new workfile.
+
+Unmapped paths that already existed are never added, so a partial worktree
+stays partial.  Every new CMS name is reserved before the first mutation,
+every written file is re-hashed against the new blob OID, and any failure
+restores the workfiles, the map and the branch ref.
+
+Live CMS validation on 2026-11-11 used the `nested-fixture` history in
+`mostangrymike/cms-git-push-test`.  A 201-file tip gained 7 nested/multi-dot
+paths (5 natural names and 2 synthetic).  A second tip updated a natural and
+a synthetic mapping, removed `x.y`, and added `newdir/added.txt`.  A third
+tip removed `data.json`, updated `nested/deep/dir/file.txt`, and added
+`newdir/second.txt`.  The pulls reported `PULLED WORKTREE FILES 2 ADDED 1
+REMOVED 1` and `PULLED WORKTREE FILES 1 ADDED 1 REMOVED 1`; the map rebuilt
+to 9 then 8 entries and `GIT STATUS` ended
+`TRACKED 8 CHANGED 0 STAGED 0`.
 
 ## Multi-project layout
 

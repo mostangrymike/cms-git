@@ -156,4 +156,67 @@ assert "modehex='3430303030'" not in FACT
 assert "if length(modehex)=0 |" in FACT
 assert "installed closure incomplete" in FACT
 
+# --- Arbitrary-path worktree: PATH is the identity, file ID is derived -----
+# The map holds the full hex path, so nested, long and multi-dot names no
+# longer need a flat one-dot CMS envelope.
+assert "workpathhexmax=1024" in WT
+assert "workdepthmax=32" in WT
+assert "workfilemax=50" in WT
+assert "treescanmax=4096" in WT
+# The commit tree scan is wider than the 50-file mapped-worktree cap.
+assert "if ccount>treescanmax then do" in WT
+assert "treefiles>workfilemax" in WT
+assert "length(pathhex)>60" not in WT
+assert WT.count("length(pathhex)>workpathhexmax") >= 5
+assert "mapcount<0 | mapcount>workfilemax" in WT
+# Recursive checkout and pull share one full-tree collector.
+assert "call collecttree treeroot" in WT
+assert "call collecttree oldroot" in WT
+assert "call collecttree pullroot" in WT
+# The recursive collector reads all entries, so an empty target is not MISSING.
+assert "call readtree nodeoid,''" in WT
+assert "if target='' then return 'OK'" in WT
+# Adds are only paths new since the old commit, so partial maps stay partial.
+assert "call pathindex 'OLD',oldcount,newpath.ni" in WT
+assert "if mode='40000' then do" in WT
+assert "else if mode='100644' | mode='100755' then do" in WT
+# A natural 8.8 name is preferred; otherwise a stable WT###### GITF name.
+assert "call allocatename cpath.ti" in WT
+assert "call naturalname aah\n if result='ERROR' then return 'ERROR'" in WT
+assert "call naturalname aah\n if result\\='ERROR'" not in WT
+assert "candidate='WT'||right(synnext,6,'0')" in WT
+assert "allocft='GITF'" in WT
+assert "pendingfn.fai=afn & pendingft.fai=aft" in WT
+# The map is rebuilt with the original hex PATH, not a decoded name.
+assert "mappath.pi=cpath.ti" in WT
+assert "mappath.pi=ename.ti" not in WT
+# Pull is a three-way keep/update/add/remove with a text preflight.
+assert "'PULL PREFLIGHT SAFE ADDED' pulladdcount 'REMOVED' pullremcount" in WT
+assert "'CHANGED' pullupdcount 'MAPPED' pullkeepcount" in WT
+assert "pullkeepcount=mapcount-pullremcount-pullupdcount" in WT
+assert "say 'GITWT: pull path additions or removals are not supported yet'" not in WT
+# Apply reserves every new name before mutating, verifies OIDs, then rolls back.
+assert "addwritten=0\n pendingcount=0\n synnext=1" in WT
+assert "call workoid addfn.ak,addft.ak,'A',pulladdfin.ni,0" in WT
+assert "if result\\=newoid.ni then do" in WT
+assert "call eraseadditions" in WT
+assert "drop restorefn. restoreft. restorefm." in WT
+# An unset REXX compound variable would otherwise be written as its own name.
+assert "drop updnew. updlf.\n do pi=1 to mapcount" in WT
+assert "\n  updnew.pi=''\n  updlf.pi=''" in WT
+# Removal flags are set by preflight and must survive the map rebuild.
+assert "drop updnew. updlf. removepi." not in WT
+assert "drop updpi. updo. addix. rempi. removepi." in WT
+assert "if removepi.pi=1 then iterate" in WT
+assert "if length(mapbase.si)\\=40" in WT
+assert "GITWT: invalid worktree map entry" in WT
+# Map writes recreate the file so a longer PATH raises the LRECL, and a
+# failed rewrite puts the prior map back.
+assert "EXECIO * DISKR GITWORK REPO A 1 (STEM SMBAK. FINIS" in WT
+assert "EXECIO' smbak.0 'DISKW GITWORK REPO A" in WT
+# Every line stays within the CMS 80-column source convention.
+for number, line in enumerate(WT.splitlines(), 1):
+    if len(line) > 80:
+        raise AssertionError(f"GITWT.EXEC line {number} exceeds 80 columns")
+
 print("M273/M274 clone/pull guards PASS")

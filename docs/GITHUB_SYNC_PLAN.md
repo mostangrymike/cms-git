@@ -5,7 +5,9 @@ HTTPS from z/VM CMS. It builds on the existing CMS TCP client and TLS bridge;
 it does not assume native CMS TLS is available.
 
 Status (2026-11-11): `clone`, `pull` and `push` are implemented and validated
-on the CMS target, within the bounded envelope described below.
+on the CMS target, within the bounded envelope described below. The worktree
+map now represents arbitrary Git paths, and fast-forward pull applies mapped
+additions, updates and removals.
 
 ## User-visible contract
 
@@ -28,9 +30,10 @@ on the CMS target, within the bounded envelope described below.
   CMS sends its HTTP request to that gateway, which forwards it to GitHub over
   verified TLS.
 - The initial supported checkout is one branch and CMS-compatible mapped text
-  files. Binary or otherwise unrepresentable workfiles, unsupported path
-  changes, divergent pulls, and unsupported GitHub server responses fail
-  before publishing a partial result.
+  files. Binary or otherwise unrepresentable workfiles, unsupported tree
+  modes, and divergent pulls fail before publishing a partial result. Mapped
+  paths may be nested, long or multi-dot; the worktree map stores the full Git
+  path, and path additions and removals are part of the fast-forward pull.
 
 ## Implementation order
 
@@ -148,6 +151,20 @@ on the CMS target, within the bounded envelope described below.
    `gitpfs` helper must first be copied to fixed 80
    (`COPYFILE ... (RECFM F LRECL 80`); the `M274L5` + `M274PF2` link then
    completed RC 0 and the disposable module printed its usage line.
+6g. **Arbitrary-path worktree and three-way pull CMS-validated (2026-11-11):**
+   `GITWORK REPO A` stores each full Git path as uppercase ASCII hex in a
+   `PATH` record, so nested, long and multi-dot paths no longer need a flat
+   one-dot envelope. Checkout and pull share one recursive tree collector.
+   Checkout uses a natural 8.8 name when the basename fits and otherwise
+   allocates a stable `WT###### GITF` name. Pull preflights kept, changed,
+   added and removed mapped paths against the old and new trees, adds only
+   paths introduced since the old tip so a partial map stays partial,
+   reserves every new name before mutating, re-hashes each written file, and
+   restores the map, workfiles and branch ref on failure. The mapped worktree
+   remains capped at 50 files; preflight scans up to 4096 tree paths and fails
+   closed beyond that. Live CMS pulls on `cms-git-push-test` covered nested,
+   long and multi-dot paths, update, removal and addition in one operation,
+   and ended with `GIT STATUS` reporting `TRACKED 8 CHANGED 0 STAGED 0`.
 7. Validate each CMS command on the real z/VM target. Host CI alone cannot
    establish CMS runtime behavior. `clone`, `pull` and `push` now have target
    validation; the refusal and recovery paths listed below remain host-only.
@@ -163,10 +180,11 @@ worktree and ref operations.
 The data path now has a guarded route from a verified stage to ordinary loose
 objects on the repository's selected object disk. Fast-forward pull has a
 CMS-validated explicit-argument implementation and a configured no-argument
-form; clone is CMS-validated (2026-11-10). Nested trees, path
-additions/removals, binary workfiles, and divergent pulls are outside the
-initial pull slice; those refusals are host-guarded but have not been exercised
-on the target. Push is proven separately by M281.
+form; clone is CMS-validated (2026-11-10). Nested trees and mapped path
+additions/removals are supported through the hex `PATH` worktree map (6g);
+binary or otherwise unrepresentable workfiles, unsupported tree modes and
+divergent pulls remain outside the slice and fail closed. Push is proven
+separately by M281.
 
 ## M262-M267 command surface
 
