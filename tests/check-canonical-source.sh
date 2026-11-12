@@ -1510,6 +1510,7 @@ aend=source.index("\npreflightpull:\n",astart)
 addhelpers=source[astart:aend]
 fixture=(
  "parse arg rest\ncommand='ADD'\nmapcount=5\n"
+ "workpathhexmax=1024\nworkdepthmax=32\n"
  "if command='ADD' then do\n"
  "mapfn.1='ALPHA'\nmapfn.2='BETA'\n"
  "mapfn.3='STATEFAIL'\nmapfn.4='HASHFAIL'\nmapfn.5='DASH'\n"
@@ -1552,7 +1553,11 @@ check 0 "$(printf 'SIMULATED SAVE\nADDED -dash %s\nSTAGE DIFFERS FROM BASE' "$be
 check 0 "$(printf 'SIMULATED SAVE\nADDED alpha %s\nSTAGE DIFFERS FROM BASE' "$alpha")" alpha alpha
 check 4 'GITWT: path is not checked out unknown' unknown
 check 4 'GITWT: path is not checked out bad|path' 'bad|path'
-check 4 'GITWT: invalid path abcdefghijklmnopqrstuvwxyzabcde1' abcdefghijklmnopqrstuvwxyzabcde1
+# A 33-byte path is valid now that PATH holds the full Git path as hex.
+check 4 'GITWT: path is not checked out abcdefghijklmnopqrstuvwxyzabcde1' abcdefghijklmnopqrstuvwxyzabcde1
+# Only a path beyond the 512-byte envelope is rejected as invalid.
+longpath=$(printf '%0513d' 0 | tr 0 a)
+check 4 "GITWT: invalid path $longpath" "$longpath"
 check 8 'GITWT: cannot inspect mapped CMS file gamma' gamma
 check 8 '' delta
 many='a a a a a a a a a a a a a a a a a'
@@ -2012,7 +2017,7 @@ out=Path(sys.argv[2])
 start=source.index(" if translate(word(rest,1))='--NEW' then do")
 end=source.index(' addall=0',start)
 block=source[start:end]
-for token in ("'GITWT: new path must be 1-30 ASCII bytes with relative components'",
+for token in ("'GITWT: new path must be 1-512 ASCII bytes with relative components'",
               'call splitpath newhex.newcount',
               "call findpath newhex.ni",
               "call findfile newfn.ni,newft.ni,newfm.ni",
@@ -2042,6 +2047,9 @@ block=block.replace("'ERASE GITWORK REPO A'", "say 'SIMULATED ERASE'\n rc=0")
 prefix="""parse arg rest
 command='ADD'
 mockmode='@MODE@'
+workpathhexmax=1024
+workdepthmax=32
+workfilemax=50
 """
 mocks="""
 exit 99
@@ -2096,6 +2104,7 @@ check() {
  fi
 }
 oid=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+longpath=$(printf '%0513d' 0 | tr 0 a)
 check ok 0 "SIMULATED STATE NEWFILE DATA A
 SIMULATED SAVE 1 NEWFILE A 1 0000000000000000000000000000000000000000 $oid 616C706861
 ADDED alpha $oid
@@ -2120,12 +2129,16 @@ check ok 0 "SIMULATED STATE NEWFILE DATA A
 SIMULATED SAVE 1 NEWFILE A 1 0000000000000000000000000000000000000000 $oid 6469722F616C706861
 ADDED dir/alpha $oid
 STAGE DIFFERS FROM BASE" --new dir/alpha NEWFILE DATA
-check ok 4 'GITWT: new path must be 1-30 ASCII bytes with relative components' --new abcdefghijklmnopqrstuvwxyzabcde1 NEWFILE DATA
-check ok 4 'GITWT: new path must be 1-30 ASCII bytes with relative components' --new ../alpha NEWFILE DATA
+check ok 4 'GITWT: new path must be 1-512 ASCII bytes with relative components' --new ../alpha NEWFILE DATA
+check ok 4 'GITWT: new path must be 1-512 ASCII bytes with relative components' --new "$longpath" NEWFILE DATA
+check ok 0 "SIMULATED STATE NEWFILE DATA A
+SIMULATED SAVE 1 NEWFILE A 1 0000000000000000000000000000000000000000 $oid 6162636465666768696A6B6C6D6E6F707172737475767778797A616263646531
+ADDED abcdefghijklmnopqrstuvwxyzabcde1 $oid
+STAGE DIFFERS FROM BASE" --new abcdefghijklmnopqrstuvwxyzabcde1 NEWFILE DATA
 check ok 4 'Usage: GIT ADD --new path fn ft [fm] [--new path fn ft [fm] ...]' --new
 check ok 4 '' --new alpha BAD-ID DATA
 check ok 4 '' --new alpha NEWFILE '%'
-echo 'M252/M254 SOURCE-DERIVED NEW-FILE ADD FIXTURES PASS 15'
+echo 'M252/M254 SOURCE-DERIVED NEW-FILE ADD FIXTURES PASS 16'
 )
 exit $?
 fi
