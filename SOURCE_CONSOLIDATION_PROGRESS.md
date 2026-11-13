@@ -191,18 +191,19 @@ proofs in view.
 ## Current handoff
 
 - Latest published consolidation commit is `3612aa2`, including M289/M290 and
-  the ACLEAN archive-inventory test correction.
+  the ACLEAN archive-inventory test correction; progress-only follow-up is
+  `0ca7133`.
 - `SOURCE_CONSOLIDATION_PROGRESS.md` is the current recovery note.
 - Tracked source count: 177 → **96**. Historical/test/benchmark source is
   recoverable through `scripts/restore-cms-exec.py MISSING`; scratch copies
   have exact SHA-256 records in `archive/LOCAL_SCRATCH.json`.
-- Full host gate baseline remains **142/146 pass** with four known
-  macOS/Linux environment-only failures. Focused M289/M290 guards and CMS G1
-  fixtures pass; GitHub Actions is rerunning after the ACLEAN correction.
+- GitHub Actions run 2235 passed for `3612aa2`. The full local macOS gate
+  remains **142/146 pass** with four known environment-only failures.
+  Focused M289/M290 guards and CMS G1 fixtures also pass.
 - GitHub runs 2233/2234 failed at the ACLEAN archive-inventory assertion: its
   expected legacy-helper set still listed five entries. Updated the fixture
   for all ten archived helpers in `3612aa2`; the focused ACLEAN test passes
-  locally, and run 2235 is still in progress.
+  locally and run 2235 passed.
 - CMS drive placement is being completed separately from source consolidation:
   operator clarified all CMS-Git files must live on G. The 18 smaller A1
   project files were copied to absent G1 names (module duplicates under
