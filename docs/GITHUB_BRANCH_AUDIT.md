@@ -806,3 +806,38 @@ Counts are `git cherry main <branch>`: unique patches / total.
 - Deleting a branch removes only the ref. For every pruned
   branch the change content is already on `main` as a merge
   or squash commit.
+
+## Review and retirement of the retained branches (2026-11-13)
+
+The 17 branches retained in the first pass were individually reviewed against
+the current `main` source, tests, and milestone records. **No production source
+change needed to be copied:** the useful behavior is already in the canonical
+tree, or the branch contains an explicitly experimental/debug-only variant.
+The branch tips were first preserved as annotated remote tags under
+`archive/retired-branches/`; only after verifying each tag resolves to the
+exact audited tip SHA were the remote branch refs removed.
+
+| Retired branch | Review / disposition | Preserved tip SHA | Archive tag |
+| --- | --- | --- | --- |
+| `m97-path-state-history` | Present/absent path-state history is in current `GITREC`/`GITVREF`; later state and history commands extend it. | `a8f1d29b8d64d41c415a928d6be5e68359d91e94` | `archive/retired-branches/m97-path-state-history` |
+| `m103a-state-transitions` | Mixed-state node/version mapping and transition summaries are in current `GITVREF`. | `0532b37535d155630a40edc3cb69a53b584c0391` | `archive/retired-branches/m103a-state-transitions` |
+| `m104-state-depth16` | Depth-16 state traversal/parser support is in current `GITREC`/`GITVREF`. | `e591b164eb9909d50629206d18988e423a0aec7a` | `archive/retired-branches/m104-state-depth16` |
+| `m106-state-transitions` | Transition matrix and fail-closed cross-checks are in current `GITVREF` and canonical source guards. | `5728aaaeeedf35981386402ab43a8f86e09c8ff8` | `archive/retired-branches/m106-state-transitions` |
+| `m114-first-parent-state` | The branch's first-parent path-state worker was not merged as a separate worker; current first-parent APIs reuse the broader authenticated state engine and cover the user-facing history operations. | `f216236d3991bdee7f6f81bbf2b294dffa6e69b6` | `archive/retired-branches/m114-first-parent-state` |
+| `m118-subject-prefix` | Authenticated subject metadata is in current `GITREC`/`GITVREF`; retained as a historical implementation snapshot. | `67bea82b57fb46efb1fba28217f86adb6c7a84be` | `archive/retired-branches/m118-subject-prefix` |
+| `m118-subject-prefix-v2` | Replay of M118 subject-prefix work; the canonical implementation and later subject/body commands are already on `main`. | `0f8b70f82ddb900ef37272c4e2486c16880e1c58` | `archive/retired-branches/m118-subject-prefix-v2` |
+| `m121-subject` | Subject-change metadata is in the current first-parent and all-parent history surfaces. | `499d325e92d5e09bfe462b9a5e754054750ecb39` | `archive/retired-branches/m121-subject` |
+| `m144-first-nearest` | `HISTORYFIRSTDIFFS` and `HISTORYFIRSTNEAREST` routes, implementation, and target evidence are in current `main`. | `749fce40ae8e83b1d74d7d3db758937e93e4589b` | `archive/retired-branches/m144-first-nearest` |
+| `m155-capture-diagnostics` | Failure-only diagnostic printing for the temporary compact M155 checker; not needed by production code and retained as a debugging snapshot. | `d89693016df1b6c53031c935dd6a105565f9d637` | `archive/retired-branches/m155-capture-diagnostics` |
+| `m157-preserve-path-case` | Case-preserving public routes and C6 command capture are in current sources; the branch's intermediate C5 capture was superseded by `PIPE VAR cmd | COMMAND`. | `ee992229dec8df0676520eba82e735a8fee785ab` | `archive/retired-branches/m157-preserve-path-case` |
+| `m157-state-capture-command` | Intermediate state-capture fix; current `GITVREF` contains the later C6 `PIPE VAR cmd | COMMAND` form and current target history records the subsequent fix. | `621ceae55d03ff68c8a51a0b9c976804c00e88a6` | `archive/retired-branches/m157-state-capture-command` |
+| `m165-clean` | Staged commit implementation and guards are in current `GITWT`, `GIT`, and consolidated tests. | `930c1e88728b80fd27777c05858ec797164d90e3` | `archive/retired-branches/m165-clean` |
+| `m165-staged-commit` | Runtime staged-commit behavior is in current `main`; branch-only publisher workflow/helper fragments are historical implementation artifacts, not required runtime dependencies. | `c46f11eb716a562055fc49bfb61eeee6706cfbe5` | `archive/retired-branches/m165-staged-commit` |
+| `m169-ref-probe` | One-off M169/M170 network probes; findings are recorded in milestone history, but branch-specific probe workflow is not production CI. | `25ef297f5b62b1e7ad4c8672d9dad7c543c08d3b` | `archive/retired-branches/m169-ref-probe` |
+| `m169-wire-probe` | One-off raw GitHub wire-tail diagnostic; findings are historical, not a production workflow. | `904a4816ae1c0f9b4592414e6ee0005b8f0d843c` | `archive/retired-branches/m169-wire-probe` |
+| `m207-stratified-128-20261013` | Alternate `GITP27M`/`GITC27` prototype names were explicitly not to be added. Current M206 edits the existing `GITP26M`/`GITC26` path, tests 128 bands, and keeps the protected target modules unchanged. Prototype preserved only by tag. | `31583c05d2fc49459c8054e1774e55f33bbd03bc` | `archive/retired-branches/m207-stratified-128-20261013` |
+
+All 17 annotated tags were pushed and their peeled commit IDs were checked
+against this table before deletion. The remote now has only `main` as a branch;
+the 17 archival tags retain the exact retired branch tips and full reachable
+history. Local `codex/*` branches were not changed.
