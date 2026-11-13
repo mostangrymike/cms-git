@@ -5846,4 +5846,78 @@ for name in ("GITNSTG.EXEC", "GITNOUT.EXEC"):
         raise SystemExit("M288 sole-caller helper remains tracked " + name)
 print("M288 INLINE NATIVE STAGING/PUBLISH GUARDS PASS")
 PY
+python3 - "$root/src/GITPZBUF.EXEC" "$root/archive/HISTORICAL_EXEC.json" "$root" <<'PY'
+import json
+import struct
+import subprocess
+import sys
+import zlib
+from pathlib import Path
+
+worker = Path(sys.argv[1]).read_text()
+archive = json.loads(Path(sys.argv[2]).read_text())
+root = Path(sys.argv[3])
+for token in (
+    "base = defpos",
+    "'EXECIO 1 DISKR GITPMETA PACK A 1 (STEM PM. FINIS'",
+    "'EXEC GITOBUF INIT'",
+    "call bits 1",
+    "if btype = 2 then call dynamic",
+    "'EXEC GITOBUF FINAL'",
+    "queue used",
+    "queue outlen",
+    "trailer = defpos + defused",
+    "GITPZBUF: Adler-32 mismatch",
+):
+    if token not in worker:
+        raise SystemExit("M289 inline streaming zlib guard missing " + token)
+if "EXEC GITPSTRM" in worker:
+    raise SystemExit("M289 retains external GITPSTRM call")
+if any(len(line) > 80 for line in worker.splitlines()):
+    raise SystemExit("M289 CMS source record exceeds 80 columns")
+
+legacy = archive["bundles"]["LEGACY_HELPERS.json"]["files"]
+old = legacy.get("GITPSTRM.EXEC")
+restored = root / "src/GITPSTRM.EXEC"
+if not old or not restored.is_file() or restored.read_text() != old:
+    raise SystemExit("M289 legacy streaming helper archive/restore mismatch")
+tracked = subprocess.run(
+    ["git", "ls-files", "--error-unmatch", "src/GITPSTRM.EXEC"],
+    cwd=root, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+if tracked.returncode == 0:
+    raise SystemExit("M289 sole-caller streaming helper remains tracked")
+
+old_main = old[old.index("base = start\n"):old.index("\nstored:\n")]
+old_main = old_main.replace("base = start\n", "base = defpos\n", 1)
+old_main = old_main[:old_main.rfind("exit 0")].rstrip() + "\n"
+inline_start = worker.index("base = defpos\n")
+inline_end = worker.index("queue outlen\n", inline_start) + len("queue outlen\n")
+if worker[inline_start:inline_end] != old_main:
+    raise SystemExit("M289 streaming main body changed during inline merge")
+old_helpers = old[old.index("\nstored:\n") + 1:]
+inline_helpers = worker[worker.index("\nstored:\n") + 1:]
+if inline_helpers != old_helpers:
+    raise SystemExit("M289 streaming helper procedures differ from archived core")
+
+fixed = bytes.fromhex("789C4B4C4A0600024D0127")
+if zlib.decompress(fixed) != b"abc":
+    raise SystemExit("M289 fixed-Huffman fixture mismatch")
+dynamic_raw = bytes.fromhex(
+    "1589C11100300C825671358CB5FB6FD0F40507F460E740BD16746164CC76F8EC0C"
+    "EACEC8CD03")
+dynamic_body = bytes.fromhex(
+    "616665616262646561616662656162646120676161632062616261616262616161"
+    "6261616663636120666162646420626664")
+dynamic = (b"\x78\x9c" + dynamic_raw +
+           struct.pack(">I", zlib.adler32(dynamic_body)))
+if zlib.decompress(dynamic) != dynamic_body:
+    raise SystemExit("M289 dynamic-Huffman fixture mismatch")
+mixed_raw = bytes.fromhex("000300FCFF6162634B4C4A0600")
+mixed_body = b"abcabc"
+mixed = (b"\x78\x9c" + mixed_raw +
+         struct.pack(">I", zlib.adler32(mixed_body)))
+if zlib.decompress(mixed) != mixed_body:
+    raise SystemExit("M289 stored/fixed fixture mismatch")
+print("M289 INLINE STREAMING DEFLATE AND LEGACY ARCHIVE GUARDS PASS")
+PY
 echo 'Canonical ASCII header and CMS C source guards passed'
