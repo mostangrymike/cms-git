@@ -190,9 +190,9 @@ proofs in view.
 
 ## Current handoff
 
-- Latest published consolidation commit is `3612aa2`, including M289/M290 and
-  the ACLEAN archive-inventory test correction; progress-only follow-up is
-  `0ca7133`.
+- Consolidation changes are published: M289 `279e91f`, M290 `02f4f80`, and
+  ACLEAN archive-test correction `3612aa2`; GitHub CI run 2235 passed. The
+  latest progress/handoff commit is `138825a`.
 - `SOURCE_CONSOLIDATION_PROGRESS.md` is the current recovery note.
 - Tracked source count: 177 → **96**. Historical/test/benchmark source is
   recoverable through `scripts/restore-cms-exec.py MISSING`; scratch copies
@@ -247,6 +247,10 @@ proofs in view.
   helper. Remaining EXECs are shared callers, public GIT command handlers, or
   broader algorithm/module boundaries; review those by caller/ABI before any
   further merge.
+- C consolidation review confirmed `GITREC.C` includes `GITCIDX.C` and
+  `GITSEL.C` with renamed `main` symbols, while each is also built as a
+  standalone CMS module and referenced independently by target gates. Keep
+  these files separate until the CMS build/upload interface is redesigned.
 - Current one-caller core DEFLATE helpers have been inlined only after adding
   and passing G1-only fixtures. Continue with the caller/ABI map; do not merge
   deeper modules based on token counts alone.
