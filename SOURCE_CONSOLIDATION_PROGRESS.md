@@ -117,10 +117,10 @@ proofs in view.
 - `LOCAL_SCRATCH.json`: two unique ignored backup sources plus GIT42TEST; three
   identical ignored GITWT backup files were reduced to one archived copy. Four
   scratch files were removed from `src/` after hash and secret-pattern checks.
-- Current `HISTORICAL_EXEC.json`: **179** source entries in 11 verified
-  bundles (140 EXEC, 17 C, 22 ASSEMBLE). `restore-cms-exec.py MISSING` is the
+- Current `HISTORICAL_EXEC.json`: **180** source entries in 11 verified
+  bundles (141 EXEC, 17 C, 22 ASSEMBLE). `restore-cms-exec.py MISSING` is the
   non-overwriting preparation step before host guards or source upload.
-- Current tracked source paths: **96**, down from 177 (70 EXEC, 23 C, 0
+- Current tracked source paths: **95**, down from 177 (69 EXEC, 23 C, 0
   ASSEMBLE, one REPO, two shell scripts). After `restore-cms-exec.py MISSING`,
   the physical `src/` directory also contains on-demand archived sources and
   fixtures; do not treat those restored/untracked files as active tracked code.
@@ -170,6 +170,13 @@ proofs in view.
   four cases; temporary EXECs and PACK files were erased and verified absent.
   No A-disk file was written. Evidence:
   `cms-m290-general-inflater-target.json`.
+- Inlined legacy HEAD/checkout support from GITHEAD into GIT's fallback path.
+  Exact GITHEAD source remains archived for M5 regression tests. M291 guards
+  compare the helper procedures with the archive and prohibit the old EXEC
+  call. A temporary G1-only repository fixture passed HEAD, checkout, and
+  missing-branch-preserves-HEAD cases; all temporary EXEC/data files were
+  erased and verified absent. No A-disk file was written. Evidence:
+  `cms-m291-githead-target.json`.
 - GitHub CI for M289 exposed a stale ACLEAN test assertion that enumerated
   only five legacy helpers. Updated the preserved ACLEAN host fixture to expect
   the ten archived helpers; `python3 tests/test-m203-bounded-batch.py ACLEAN`
@@ -184,7 +191,7 @@ proofs in view.
   object were absent before/after. Target evidence:
   `/private/var/folders/y0/hyjtc91x5071jc0gntk0pzcw0000gn/T/opencode/cms-m284-m285-target-run3.json`.
   Do not call either full resolver path CMS-proven.
-- Overall, 81 tracked source paths have been removed. Runtime modules remain
+- Overall, 82 tracked source paths have been removed. Runtime modules remain
   separate where CMS EXEC/module names and distinct C `main` entry points are
   public build/runtime boundaries.
 
@@ -194,7 +201,7 @@ proofs in view.
   ACLEAN archive-test correction `3612aa2`; GitHub CI run 2235 passed. The
   latest progress/handoff commit is `f640694`.
 - `SOURCE_CONSOLIDATION_PROGRESS.md` is the current recovery note.
-- Tracked source count: 177 → **96**. Historical/test/benchmark source is
+- Tracked source count: 177 → **95**. Historical/test/benchmark source is
   recoverable through `scripts/restore-cms-exec.py MISSING`; scratch copies
   have exact SHA-256 records in `archive/LOCAL_SCRATCH.json`.
 - GitHub Actions run 2235 passed for `3612aa2`. The full local macOS gate
@@ -234,9 +241,9 @@ proofs in view.
   separately reviewed. `PROFILE` and `RESTORE` were never changed.
 - Active runtime source edits are `src/GITZDOFS.EXEC`, `src/GITZDREF.EXEC`,
   `src/GITPNWLK.EXEC`, `src/GITPZNAT.EXEC`, `src/GITPZBUF.EXEC`, and
-  `src/GITPINFL.EXEC`; only the
+  `src/GITPINFL.EXEC`, and `src/GIT.EXEC`; only the
   early-refusal paths of GITZDOFS/GITZDREF were target-tested. M287/M288 are
-  CMS parse/refusal tested; M289/M290 have G-only CMS fixture passes.
+  CMS parse/refusal tested; M289-M291 have G-only CMS fixture passes.
 - C consolidation review confirmed `GITREC.C` includes `GITCIDX.C` and
   `GITSEL.C` with renamed `main` symbols, while each is also built as a
   standalone CMS module and referenced independently by target gates. Keep

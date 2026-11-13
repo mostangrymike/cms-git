@@ -5997,4 +5997,65 @@ else:
     raise SystemExit("M290 corrupted Adler fixture unexpectedly passed")
 print("M290 INLINE GENERAL DEFLATE AND LEGACY ARCHIVE GUARDS PASS")
 PY
+python3 - "$root/src/GIT.EXEC" "$root/archive/HISTORICAL_EXEC.json" "$root" <<'PY'
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+worker = Path(sys.argv[1]).read_text()
+archive = json.loads(Path(sys.argv[2]).read_text())
+root = Path(sys.argv[3])
+for token in (
+    "if command = 'HEAD' then do",
+    "if command = 'CHECKOUT' then do",
+    "call head_readhead",
+    "call head_resolve",
+    "call head_validbranch legacy_name",
+    "call head_readrefs",
+    "call head_writehead newref",
+    "head_validbranch: procedure",
+    "head_readrefs: procedure expose rr.",
+    "head_readhead: procedure expose headref",
+    "head_resolve: procedure expose headref headoid rr.",
+    "head_writehead: procedure",
+):
+    if token not in worker:
+        raise SystemExit("M291 inline legacy HEAD guard missing " + token)
+if "EXEC GITHEAD" in worker:
+    raise SystemExit("M291 retains external GITHEAD call")
+if any(len(line) > 80 for line in worker.splitlines()):
+    raise SystemExit("M291 CMS source record exceeds 80 columns")
+
+legacy = archive["bundles"]["LEGACY_HELPERS.json"]["files"]
+old = legacy.get("GITHEAD.EXEC")
+restored = root / "src/GITHEAD.EXEC"
+if not old or not restored.is_file() or restored.read_text() != old:
+    raise SystemExit("M291 legacy HEAD helper archive/restore mismatch")
+tracked = subprocess.run(
+    ["git", "ls-files", "--error-unmatch", "src/GITHEAD.EXEC"],
+    cwd=root, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+if tracked.returncode == 0:
+    raise SystemExit("M291 sole-caller HEAD helper remains tracked")
+
+names = (
+    ("validbranch", "head_validbranch"),
+    ("readrefs", "head_readrefs"),
+    ("readhead", "head_readhead"),
+    ("resolvehead", "head_resolve"),
+    ("writehead", "head_writehead"),
+)
+old_labels = [old.index(name + ":") for name, _ in names]
+new_labels = [worker.index(new + ":") for _, new in names]
+for i, (old_name, new_name) in enumerate(names):
+    old_end = old_labels[i + 1] if i + 1 < len(names) else len(old)
+    new_end = new_labels[i + 1] if i + 1 < len(names) else len(worker)
+    old_body = old[old_labels[i]:old_end]
+    new_body = worker[new_labels[i]:new_end]
+    for before, after in names:
+        new_body = new_body.replace(after, before)
+    if new_body != old_body:
+        raise SystemExit("M291 inlined helper differs from archive: " + old_name)
+print("M291 INLINE LEGACY HEAD/CHECKOUT AND ARCHIVE GUARDS PASS")
+PY
 echo 'Canonical ASCII header and CMS C source guards passed'

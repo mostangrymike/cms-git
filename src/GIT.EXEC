@@ -1650,9 +1650,48 @@ if command = 'COMMIT-CURRENT' then do
    exit 0
 end
 
-if command = 'CHECKOUT' | command = 'HEAD' then do
-   'EXEC GITHEAD' command rest
-   exit rc
+if command = 'HEAD' then do
+   if words(rest) \= 0 then exit 4
+   call head_readhead
+   if result \= 'OK' then exit 8
+   say headref
+   call head_resolve
+   if result \= 'OK' then exit 8
+   say headoid
+   exit 0
+end
+if command = 'CHECKOUT' then do
+   parse var rest legacy_name legacy_extra
+   if legacy_name = '' | legacy_extra \= '' then do
+      say 'Usage: GITHEAD CHECKOUT branch'
+      exit 4
+   end
+   call head_validbranch legacy_name
+   if result \= 'OK' then exit 4
+   call head_readrefs
+   if result \= 'OK' then exit 8
+   found = 0
+   target = ''
+   do i = 1 to rr.0
+      if word(rr.i,2) = legacy_name then do
+         found = found + 1
+         target = word(rr.i,3)
+      end
+   end
+   if found = 0 then do
+      say 'GITHEAD: branch not found' legacy_name
+      exit 8
+   end
+   if found > 1 then do
+      say 'GITHEAD: duplicate branch records' legacy_name
+      exit 8
+   end
+   newref = 'refs/heads/' || legacy_name
+   call head_writehead newref
+   if result \= 'OK' then exit 8
+   say newref
+   say target
+   exit 0
 end
 
 if command = 'VERIFY-OBJECT' | command = 'CAT-OBJECT' then do
@@ -2380,6 +2419,108 @@ localbranchtip:
          word(lbt.lbti,2)=lbtref then,
          lbtip=translate(word(lbt.lbti,3))
    end
-   if length(lbtip)\=40 |,
-      verify(lbtip,'0123456789ABCDEF')\=0 then lbtip=''
-   return lbtip
+    if length(lbtip)\=40 |,
+       verify(lbtip,'0123456789ABCDEF')\=0 then lbtip=''
+    return lbtip
+
+head_validbranch: procedure
+   parse arg name
+   if name = '' | name = '.' | name = '..' | pos('/',name) > 0 |,
+      pos(' ',name) > 0 | pos('..',name) > 0 | pos('~',name) > 0 |,
+      pos('^',name) > 0 | pos(':',name) > 0 | pos('?',name) > 0 |,
+      pos('*',name) > 0 | pos('[',name) > 0 | right(name,1) = '.' then do
+      say 'GITHEAD: invalid branch name' name
+      return 'ERROR'
+   end
+   return 'OK'
+
+head_readrefs: procedure expose rr.
+   'STATE GITREFS REPO G'
+   if rc \= 0 then do
+      say 'GITHEAD: refs database not found'
+      return 'ERROR'
+   end
+   drop rr.
+   'EXECIO * DISKR GITREFS REPO G 1 (STEM RR. FINIS'
+   if rc \= 0 then return 'ERROR'
+   do i = 1 to rr.0
+      if words(rr.i) \= 3 then do
+         say 'GITHEAD: corrupt refs record' i
+         return 'ERROR'
+      end
+      tag = word(rr.i,1)
+      rname = word(rr.i,2)
+      oid = word(rr.i,3)
+      if tag \= 'BRANCH' | rname = '' |,
+         length(oid) \= 40 | verify(oid,'0123456789ABCDEF') \= 0 then do
+         say 'GITHEAD: corrupt refs record' i
+         return 'ERROR'
+      end
+   end
+   return 'OK'
+
+head_readhead: procedure expose headref
+   drop hm.
+   'EXECIO * DISKR GITMETA REPO G 1 (STEM HM. FINIS'
+   if rc \= 0 then do
+      say 'GITHEAD: repository metadata not found'
+      return 'ERROR'
+   end
+   headref = ''
+   found = 0
+   do i = 1 to hm.0
+      if word(hm.i,1) = 'HEAD' then do
+         found = found + 1
+         headref = word(hm.i,2)
+      end
+   end
+   if found \= 1 | left(headref,11) \= 'refs/heads/' then do
+      say 'GITHEAD: invalid symbolic HEAD'
+      return 'ERROR'
+   end
+   return 'OK'
+
+head_resolve: procedure expose headref headoid rr.
+   call head_readrefs
+   if result \= 'OK' then return 'ERROR'
+   name = substr(headref,12)
+   found = 0
+   headoid = ''
+   do i = 1 to rr.0
+      if word(rr.i,2) = name then do
+         found = found + 1
+         headoid = word(rr.i,3)
+      end
+   end
+   if found \= 1 then do
+      say 'GITHEAD: symbolic HEAD does not resolve' headref
+      return 'ERROR'
+   end
+   return 'OK'
+
+head_writehead: procedure
+   parse arg newref
+   drop hm.
+   'EXECIO * DISKR GITMETA REPO G 1 (STEM HM. FINIS'
+   if rc \= 0 then do
+      say 'GITHEAD: repository metadata not found'
+      return 'ERROR'
+   end
+   found = 0
+   do i = 1 to hm.0
+      if word(hm.i,1) = 'HEAD' then do
+         found = found + 1
+         slot = i
+      end
+   end
+   if found \= 1 then do
+      say 'GITHEAD: invalid symbolic HEAD metadata'
+      return 'ERROR'
+   end
+   hm.slot = 'HEAD' newref
+   'EXECIO' hm.0 'DISKW GITMETA REPO G 1 (STEM HM. FINIS'
+   if rc \= 0 then do
+      say 'GITHEAD: cannot write repository metadata'
+      return 'ERROR'
+   end
+   return 'OK'
