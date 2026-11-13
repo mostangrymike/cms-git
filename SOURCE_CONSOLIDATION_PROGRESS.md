@@ -170,13 +170,11 @@ proofs in view.
   four cases; temporary EXECs and PACK files were erased and verified absent.
   No A-disk file was written. Evidence:
   `cms-m290-general-inflater-target.json`.
-- Inlined the sole production caller's general DEFLATE engine from GITPDEF
-  into GITPINFL. The exact engine remains archived for restored M9E tests.
-  M290 guards compare the copied core with its archive and model fixed,
-  dynamic, stored/fixed, and bad-Adler cases. The G1-only CMS stack passed the
-  same four cases; all temporary EXECs and PACK files were erased and verified
-  absent. No A-disk file was written. Evidence:
-  `cms-m290-general-inflater-target.json`.
+- GitHub CI for M289 exposed a stale ACLEAN test assertion that enumerated
+  only five legacy helpers. Updated the preserved ACLEAN host fixture to expect
+  the ten archived helpers; `python3 tests/test-m203-bounded-batch.py ACLEAN`
+  now passes. The M290 push was already running against the stale assertion;
+  a follow-up push includes the correction.
 - Direct Telnet CMS tests of the exact EXEC sources on A1 returned RC4 for
   invalid verbs and RC8 for malformed zlib input (expected early refusal).
   The full resolver paths were not exercised: GITINFL/GITDAPP and legacy
