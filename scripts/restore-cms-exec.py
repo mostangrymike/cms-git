@@ -144,10 +144,15 @@ def scan_live_sources():
         if p.startswith(b"src/") and p.endswith(
             (b".EXEC", b".C", b".ASSEMBLE", b".REPO", b".sh"))
     }
-    collection = json.loads((ARCHIVES / "HISTORICAL_EXEC.json").read_text(
-        encoding="utf-8"))
-    runtime = collection["bundles"]["RUNTIME_MODULES.json"]["files"]
-    runtime["GIT9CTX.EXEC"] = load()["GIT9CTX.EXEC"]
+    archive_path = ARCHIVES / "HISTORICAL_EXEC.json"
+    if archive_path.is_file():
+        collection = json.loads(archive_path.read_text(encoding="utf-8"))
+        runtime = dict(collection["bundles"]["RUNTIME_MODULES.json"]["files"])
+        runtime["GIT9CTX.EXEC"] = load()["GIT9CTX.EXEC"]
+    else:
+        # LIVEPLANFIX runs against a deliberately minimal synthetic checkout.
+        # Its tracked sources are the complete inventory for that fixture.
+        runtime = {}
     for filename, text in runtime.items():
         relative = "src/" + filename
         live = ROOT / relative

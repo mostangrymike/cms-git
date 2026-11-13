@@ -16046,5 +16046,11 @@ dependency audits include those archived runtime sources.
 passed. A read-only CMS smoke check of the existing G-disk `GIT EXEC`,
 `GITMETA REPO`, and `GIT STAMP` passed. No CMS file was uploaded or erased for
 M295; earlier G1-only M291-M294 behavior fixtures remain the target tests.
-No A-disk file was used. GitHub Actions run 2241 passed for M294; M295 CI is
-pending.
+No A-disk file was used. GitHub Actions run 2241 passed for M294. M295 run
+2242 stopped at `LIVEPLANFIX`: its isolated synthetic checkout has no
+production archive, but the runtime-source inventory scan attempted to load
+one. The scanner now adds deferred runtime sources only when the archive
+exists; archive-free synthetic fixtures inventory their tracked files alone.
+`LIVEPLANFIX`, canonical guards, archive audit, `LIVEDEPS`, and preserved-source
+`CHECK` pass locally after the correction. The correction still needs commit
+and a fresh Actions run; no CMS target behavior changed.

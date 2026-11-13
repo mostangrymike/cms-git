@@ -240,8 +240,13 @@ proofs in view.
   remains **142/146 pass** with four known environment-only failures.
   M289-M294 source guards and G1-only CMS fixtures pass. M295 archive and
   dependency checks plus the preserved-source `CHECK` suite pass locally.
-- GitHub Actions run 2241 passed for M294 (`e12c654`); the M295 packaging run
-  is pending.
+- GitHub Actions run 2241 passed for M294 (`e12c654`). Run 2242 failed at
+  `LIVEPLANFIX`: its synthetic checkout lacks the production archive, while
+  `scan_live_sources()` unconditionally loaded that archive to add deferred
+  runtime sources. Made archive enrichment conditional for archive-free
+  synthetic checkouts; the fixture now passes locally. `MISSING` parity,
+  `AUDIT`, `LIVEDEPS`, full canonical guards, and preserved-source `CHECK` also
+  pass locally. The focused CI fix is not yet committed or re-run.
 - CI runs 2236/2237 initially stopped at M167 and 2238 at M168 because two
   preserved tests still expected the former combined HEAD/CHECKOUT dispatch.
   Both boundaries were updated; run 2239 passed, including M164-M171.
