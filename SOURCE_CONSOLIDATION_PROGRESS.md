@@ -213,8 +213,7 @@ proofs in view.
 ## Current handoff
 
 - M289 `279e91f`, M290 `02f4f80`, ACLEAN correction `3612aa2`, M291
-  `b57e257`, and M292 `be4e5c6` are published. M293 is locally validated and
-  ready to publish.
+  `b57e257`, M292 `be4e5c6`, and M293 `93be2f7` are published.
 - `SOURCE_CONSOLIDATION_PROGRESS.md` is the current recovery note.
 - Tracked source count: 177 → **93**. Historical/test/benchmark source is
   recoverable through `scripts/restore-cms-exec.py MISSING`; scratch copies
@@ -223,6 +222,7 @@ proofs in view.
   remains **142/146 pass** with four known environment-only failures.
   M289-M293 source guards and G1-only CMS fixtures pass. M293 focused host
   checks, archive audit, and the preserved-source `CHECK` suite also pass.
+- GitHub Actions run 2240 is validating M293 commit `93be2f7`.
 - CI runs 2236/2237 initially stopped at M167 and 2238 at M168 because two
   preserved tests still expected the former combined HEAD/CHECKOUT dispatch.
   Both boundaries were updated; run 2239 passed, including M164-M171.
