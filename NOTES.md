@@ -16026,3 +16026,25 @@ confirmed a repeated import is idempotent. The three test EXECs and two
 G1 metadata/object files were erased and verified absent. No A-disk file was
 used. Evidence: `cms-m294-gitimp-target.json` in the OpenCode temp evidence
 directory.
+
+## 2026-11-13 — M295 compact tracked source set
+
+Plan: reduce the tracked CMS source tree to 30 paths while retaining exact
+restore-and-upload copies of every deferred EXEC and preserving all CMS
+command/module names.
+
+Progress: 62 EXEC paths were moved out of the tracked `src/` tree. Sixty-one
+exact source bodies are in `RUNTIME_MODULES.json`; GIT9CTX uses its existing
+archive copy. The remaining tracked set is GIT.EXEC, three protected M6
+protocol helpers, all 23 C sources, GITREF2.REPO, and the two transfer scripts.
+No C build ABI or CMS runtime source content changed. `restore-cms-exec.py
+MISSING` restores deferred EXECs before host tests and CMS upload, and the
+dependency audits include those archived runtime sources.
+
+`MISSING` restored all 244 archived sources with exact parity; the consolidated
+`CHECK` suite, canonical-source guards, `LIVEDEPS`, `LIVEPLAN`, and `AUDIT`
+passed. A read-only CMS smoke check of the existing G-disk `GIT EXEC`,
+`GITMETA REPO`, and `GIT STAMP` passed. No CMS file was uploaded or erased for
+M295; earlier G1-only M291-M294 behavior fixtures remain the target tests.
+No A-disk file was used. GitHub Actions run 2241 passed for M294; M295 CI is
+pending.

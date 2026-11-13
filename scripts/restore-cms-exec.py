@@ -33,6 +33,7 @@ def load():
         "NATIVE_PROBES_C.json": 8,
         "ASSEMBLE_DECKS.json": 22,
         "LEGACY_HELPERS.json": 14,
+        "RUNTIME_MODULES.json": 61,
     }
     actual = {p.name for p in ARCHIVES.glob("*.json")}
     if actual != {"HISTORICAL_EXEC.json", "LOCAL_SCRATCH.json"}:
@@ -61,10 +62,21 @@ def load():
     return files
 
 
+def runtime_sources():
+    """Return the deferred runtime EXECs plus the separately archived GIT9CTX."""
+    collection = json.loads((ARCHIVES / "HISTORICAL_EXEC.json").read_text(
+        encoding="utf-8"))
+    sources = dict(collection["bundles"]["RUNTIME_MODULES.json"]["files"])
+    sources["GIT9CTX.EXEC"] = load()["GIT9CTX.EXEC"]
+    return sources
+
+
 def audit():
     """Read-only tracked-source audit; called after CI regeneration."""
     files = load()
-    if len(files) != 183:
+    collection = json.loads((ARCHIVES / "HISTORICAL_EXEC.json").read_text(
+        encoding="utf-8"))
+    if len(files) != 244:
         raise RuntimeError("Archive count mismatch")
     tracked = subprocess.check_output(["git", "ls-files", "-z"], cwd=ROOT)
     paths = {p.decode() for p in tracked.split(b"\0") if p}
@@ -72,12 +84,15 @@ def audit():
         live = ROOT / "src" / name
         if live.exists() and live.read_text(encoding="utf-8") != source:
             raise RuntimeError("Archive source drift: " + name)
-    required = ("GITACK.EXEC", "GITADV.EXEC", "GITZLIB.EXEC",
-                "GIT9CTX.EXEC")
+    required = ("GITACK.EXEC", "GITADV.EXEC", "GITZLIB.EXEC")
     for name in required:
         if "src/" + name not in paths or not (ROOT / "src" / name).is_file():
             raise RuntimeError("Missing tracked production helper: " + name)
-    if "GIT9CTX" not in (ROOT / "src/GITP9PWK.EXEC").read_text():
+    g9ctx = files.get("GIT9CTX.EXEC")
+    if not g9ctx or not (ROOT / "src/GIT9CTX.EXEC").is_file() or \
+            (ROOT / "src/GIT9CTX.EXEC").read_text(encoding="utf-8") != g9ctx:
+        raise RuntimeError("Missing exact restored GIT9CTX helper")
+    if "GIT9CTX" not in files.get("GITP9PWK.EXEC", ""):
         raise RuntimeError("PACK walker lost GIT9CTX dependency")
     spec = importlib.util.spec_from_file_location(
         "ph_restore", ROOT / "scripts/restore-ph-wrappers.py")
@@ -106,6 +121,14 @@ def audit():
             for match in pattern.finditer(line.upper()):
                 references.setdefault(match.group(1), []).append(
                     "%s:%d" % (relative, lineno))
+    runtime = collection["bundles"]["RUNTIME_MODULES.json"]["files"]
+    runtime["GIT9CTX.EXEC"] = files["GIT9CTX.EXEC"]
+    for filename, source in sorted(runtime.items()):
+        relative = "src/" + filename
+        for lineno, line in enumerate(source.splitlines(), 1):
+            for match in pattern.finditer(line.upper()):
+                references.setdefault(match.group(1), []).append(
+                    "%s:%d" % (relative, lineno))
     for name, locations in sorted(references.items()):
         print(name, "REFERENCES", len(locations), ", ".join(locations[:8]))
     print("ARCHIVED CMS SOURCE DEPENDENCY AUDIT PASS", len(files),
@@ -115,9 +138,23 @@ def audit():
 def scan_live_sources():
     """Shared conservative lexical CMS source-reference scan."""
     tracked = subprocess.check_output(["git", "ls-files", "-z"], cwd=ROOT)
-    sources = sorted(p.decode() for p in tracked.split(b"\0")
-                     if p.startswith(b"src/") and p.endswith(
-                         (b".EXEC", b".C", b".ASSEMBLE", b".REPO", b".sh")))
+    source_text = {
+        p.decode(): (ROOT / p.decode()).read_text(errors="replace")
+        for p in tracked.split(b"\0")
+        if p.startswith(b"src/") and p.endswith(
+            (b".EXEC", b".C", b".ASSEMBLE", b".REPO", b".sh"))
+    }
+    collection = json.loads((ARCHIVES / "HISTORICAL_EXEC.json").read_text(
+        encoding="utf-8"))
+    runtime = collection["bundles"]["RUNTIME_MODULES.json"]["files"]
+    runtime["GIT9CTX.EXEC"] = load()["GIT9CTX.EXEC"]
+    for filename, text in runtime.items():
+        relative = "src/" + filename
+        live = ROOT / relative
+        if live.exists() and live.read_text(encoding="utf-8") != text:
+            raise RuntimeError("Runtime archive source drift: " + filename)
+        source_text.setdefault(relative, text)
+    sources = sorted(source_text)
     stems = {Path(name).stem.upper(): name for name in sources}
     if len(stems) != len(sources):
         raise RuntimeError("Ambiguous CMS source stem; cannot audit safely")
@@ -126,12 +163,12 @@ def scan_live_sources():
                              stems, key=len, reverse=True)) + r")(?![A-Z0-9])")
     callers = {stem: set() for stem in stems}
     for path in sources:
-        for line in (ROOT / path).read_text(errors="replace").splitlines():
+        for line in source_text[path].splitlines():
             for match in pattern.finditer(line.upper()):
                 stem = match.group(1)
                 if stems[stem] != path:
                     callers[stem].add(path)
-    return sources, stems, callers
+    return sources, stems, callers, source_text
 
 
 def live_dependencies():
@@ -141,13 +178,13 @@ def live_dependencies():
     XEDIT/CMS EXEC searches, generated wrappers and external operators can
     escape static analysis. Zero observed callers is NOT proof of dead code.
     """
-    sources, stems, callers = scan_live_sources()
+    sources, stems, callers, source_text = scan_live_sources()
     # Hard protect known runtime helpers and the verified indexed/tree path.
     protected = ("GITACK", "GITADV", "GITZLIB", "GIT9CTX",
                  "GITP9PWK", "GITCWALK", "GITCIDX", "GITREC",
                  "GITSEL", "GITPH8M", "GITPSKM", "GITRP6M")
     for stem in protected:
-        if stem not in stems or not (ROOT / stems[stem]).is_file():
+        if stem not in stems or stems[stem] not in source_text:
             raise RuntimeError("Protected source absent: " + stem)
     if "src/GITP9PWK.EXEC" not in callers["GIT9CTX"]:
         raise RuntimeError("Required GIT9CTX caller missing")
@@ -162,7 +199,7 @@ def live_dependencies():
 
 def consolidation_inventory():
     """Reproducible source inventory; zero callers never permits deletion."""
-    sources, stems, stem_callers = scan_live_sources()
+    sources, stems, stem_callers, source_text = scan_live_sources()
     callers = {path: stem_callers[Path(path).stem.upper()] for path in sources}
     print("CMS SOURCE CONSOLIDATION INVENTORY", len(sources))
     print("NOTE TOKEN CALLERS INCLUDE COMMENTS AND STRING LITERALS")
@@ -176,7 +213,7 @@ def consolidation_inventory():
         stem = relative.stem.upper()
         family = ("MILESTONE" if re.fullmatch(r"M[0-9]+[A-Z0-9]*", stem)
                   else "GIT" if stem.startswith("GIT") else "OTHER")
-        data = (ROOT / path).read_bytes()
+        data = source_text[path].encode("utf-8")
         size = len(data)
         digest = hashlib.sha256(data).hexdigest()
         content_groups.setdefault((digest, size), []).append(path)

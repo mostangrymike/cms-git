@@ -2524,12 +2524,18 @@ individually in `src/`. Restore one from the Mac repository root with
 `python3 scripts/restore-cms-exec.py GIT10UP.EXEC`, then upload the
 restored file through the existing CMS transfer script if required.
 
-**Do not archive or delete `GIT9CTX.EXEC` from the working sources:**
-`GITP9PWK.EXEC` still references that helper. The archive also retains a
-backup copy of `GIT9CTX.EXEC`, but its active tracked source stays live.
-GitHub Actions recreates the six absent helper sources and verifies all
-seven archived entries exactly before running host regressions. These
-repository operations do not modify CMS A or G disks.
+`GIT9CTX.EXEC` is a required runtime dependency of the archived `GITP9PWK`
+source. Both exact sources are restored by
+`python3 scripts/restore-cms-exec.py MISSING`; run it before host tests or CMS
+source upload. `LIVEDEPS` scans the deferred runtime bundle as well as tracked
+sources. The source-packaging change does not alter CMS modules or minidisk
+contents.
+
+The remaining tracked CMS source set is capped at 30 paths; 61 standalone
+runtime EXEC sources are preserved byte-for-byte in the verified
+`RUNTIME_MODULES.json` bundle. `GIT9CTX.EXEC` remains in its existing
+`M9-M12_TRANSPORT.json` archive. All are restored on demand; CMS EXEC/module
+names and callers remain unchanged.
 
 
 ## Preserved M6 protocol helper sources
@@ -2546,7 +2552,7 @@ overwrite existing files.
 
 ### Dependency-safe source cleanup
 
-Before retiring any of the 159 tracked `src/` paths, run
+Before retiring any tracked `src/` path, run
 `python3 scripts/restore-cms-exec.py LIVEDEPS` (read-only).
 The CI workflow runs it alongside the independent archive `AUDIT`.
 It scans same-repository source-token references, detects ambiguous CMS

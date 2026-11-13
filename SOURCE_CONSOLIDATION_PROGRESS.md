@@ -117,10 +117,10 @@ proofs in view.
 - `LOCAL_SCRATCH.json`: two unique ignored backup sources plus GIT42TEST; three
   identical ignored GITWT backup files were reduced to one archived copy. Four
   scratch files were removed from `src/` after hash and secret-pattern checks.
-- Current `HISTORICAL_EXEC.json`: **183** source entries in 11 verified
-  bundles (144 EXEC, 17 C, 22 ASSEMBLE). `restore-cms-exec.py MISSING` is the
+- Current `HISTORICAL_EXEC.json`: **244** source entries in 12 verified
+  bundles (205 EXEC, 17 C, 22 ASSEMBLE). `restore-cms-exec.py MISSING` is the
   non-overwriting preparation step before host guards or source upload.
-- Current tracked source paths: **92**, down from 177 (66 EXEC, 23 C, 0
+- Current tracked source paths: **30**, down from 177 (4 EXEC, 23 C, 0
   ASSEMBLE, one REPO, two shell scripts). After `restore-cms-exec.py MISSING`,
   the physical `src/` directory also contains on-demand archived sources and
   fixtures; do not treat those restored/untracked files as active tracked code.
@@ -200,9 +200,19 @@ proofs in view.
   verified the loose object, and confirmed repeat-import idempotence. All test
   EXECs and repository/object files were erased and verified absent. No A-disk
   file was written. Evidence: `cms-m294-gitimp-target.json`.
+- M295 deferred 62 remaining tracked EXEC paths into on-demand restoration.
+  Sixty-one exact sources are in `RUNTIME_MODULES.json`; GIT9CTX reuses its
+  existing archived copy. GIT.EXEC, three guarded M6 protocol helpers, all
+  23 C sources, GITREF2.REPO, and two transfer scripts remain tracked: 30 paths.
+  CMS command/module names and source bodies are unchanged. `MISSING` restores
+  runtime sources before tests or upload, and dependency audits include the
+  deferred source texts. This packaging batch does not change CMS target files.
+  Read-only CMS `STATE GIT EXEC G`, `STATE GITMETA REPO G`, and `GIT STAMP`
+  succeeded; no target source was uploaded or erased. Evidence:
+  `cms-m295-package-smoke.json`.
 - GitHub CI for M289 exposed a stale ACLEAN test assertion that enumerated
   only five legacy helpers. The preserved ACLEAN host fixture now enumerates
-  all thirteen archived helpers; `python3 tests/test-m203-bounded-batch.py ACLEAN`
+  all fourteen archived helpers; `python3 tests/test-m203-bounded-batch.py ACLEAN`
   passes.
 - Direct Telnet CMS tests of the exact EXEC sources on A1 returned RC4 for
   invalid verbs and RC8 for malformed zlib input (expected early refusal).
@@ -213,25 +223,25 @@ proofs in view.
   object were absent before/after. Target evidence:
   `/private/var/folders/y0/hyjtc91x5071jc0gntk0pzcw0000gn/T/opencode/cms-m284-m285-target-run3.json`.
   Do not call either full resolver path CMS-proven.
-- Overall, 85 tracked source paths have been removed. Runtime modules remain
-  separate where CMS EXEC/module names and distinct C `main` entry points are
-  public build/runtime boundaries.
+- Overall, 147 tracked source paths have been removed. Runtime module names
+  and C `main` entrypoints remain unchanged; deferred EXEC sources are
+  byte-exact and restorable.
 
 ## Current handoff
 
 - M289 `279e91f`, M290 `02f4f80`, ACLEAN correction `3612aa2`, M291
-  `b57e257`, M292 `be4e5c6`, and M293 `93be2f7` are published. M294 and its
-  validation are included in this handoff.
+  `b57e257`, M292 `be4e5c6`, M293 `93be2f7`, and M294 `e12c654` are published.
+  M295 packages the remaining REXX sources in this handoff.
 - `SOURCE_CONSOLIDATION_PROGRESS.md` is the current recovery note.
-- Tracked source count: 177 → **92**. Historical/test/benchmark source is
-  recoverable through `scripts/restore-cms-exec.py MISSING`; scratch copies
-  have exact SHA-256 records in `archive/LOCAL_SCRATCH.json`.
+- Tracked source count: 177 → **30**. Deferred EXEC sources are restored with
+  `scripts/restore-cms-exec.py MISSING`; scratch copies have exact SHA-256
+  records in `archive/LOCAL_SCRATCH.json`.
 - GitHub Actions run 2239 passed for `d2985bf`. The full local macOS gate
   remains **142/146 pass** with four known environment-only failures.
-  M289-M294 source guards and G1-only CMS fixtures pass. M294 focused host
-  checks, archive audit, and the preserved-source `CHECK` suite also pass.
-- GitHub Actions run 2240 passed for M293 commit `93be2f7`.
-- CI for the M294 importer consolidation is pending.
+  M289-M294 source guards and G1-only CMS fixtures pass. M295 archive and
+  dependency checks plus the preserved-source `CHECK` suite pass locally.
+- GitHub Actions run 2241 passed for M294 (`e12c654`); the M295 packaging run
+  is pending.
 - CI runs 2236/2237 initially stopped at M167 and 2238 at M168 because two
   preserved tests still expected the former combined HEAD/CHECKOUT dispatch.
   Both boundaries were updated; run 2239 passed, including M164-M171.
@@ -266,11 +276,10 @@ proofs in view.
   `M273P021.GBIN`, and their trimmed V128 transfer files). Do not retry A1
   PACK erasure until the A-disk read/track-deletion error is resolved or
   separately reviewed. `PROFILE` and `RESTORE` were never changed.
-- Active runtime source edits are `src/GITZDOFS.EXEC`, `src/GITZDREF.EXEC`,
-  `src/GITPNWLK.EXEC`, `src/GITPZNAT.EXEC`, `src/GITPZBUF.EXEC`,
-  `src/GITPINFL.EXEC`, and `src/GIT.EXEC`; only the early-refusal paths of
-  GITZDOFS/GITZDREF were target-tested. M287/M288 are
-  CMS parse/refusal tested; M289-M294 have G-only CMS fixture passes.
+- The tracked runtime source set now retains `src/GIT.EXEC`, three protected
+  M6 protocol helpers, 23 C sources, and `GITREF2.REPO`. Deferred EXEC modules
+  are restored from the archive before tests or CMS source upload. M287/M288
+  remain parse/refusal tested; M289-M294 have G-only fixture passes.
 - C consolidation review confirmed `GITREC.C` includes `GITCIDX.C` and
   `GITSEL.C` with renamed `main` symbols, while each is also built as a
   standalone CMS module and referenced independently by target gates. Keep
@@ -278,10 +287,9 @@ proofs in view.
 - Final `LIVEPLAN` inventory after M290: 96 tracked paths (88 GIT, 2 milestone,
   6 other), no exact duplicate source groups, and 32 files with zero lexical
   callers. Zero-call files remain preserved; this is not deletion approval.
-- The safe sole-caller helper pass is complete. Remaining source paths are
-  shared callers, public command/module entrypoints, or native ABI boundaries.
-  Further reduction needs an explicit dispatcher/build-ABI redesign and
-  separate CMS validation; no one-file target is claimed.
+- Remaining tracked C/runtime files retain CMS module and native ABI
+  boundaries. Deferred EXEC modules keep their original CMS names through the
+  lossless restore step; no target module or minidisk was changed by M295.
 
 ## Decisions and validation
 
