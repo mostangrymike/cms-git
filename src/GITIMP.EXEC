@@ -10,11 +10,11 @@ end
 objfn=substr(oid,1,8)
 
 /* Loose objects live on the repository object disk, which need not be A. */
-objectfm='A'
-'STATE GITMETA REPO A'
+objectfm='G'
+'STATE GITMETA REPO G'
 if rc=0 then do
  drop impmeta.
- 'EXECIO * DISKR GITMETA REPO A 1 (STEM IMPMETA. FINIS'
+ 'EXECIO * DISKR GITMETA REPO G 1 (STEM IMPMETA. FINIS'
  if rc\=0 | impmeta.0<1 | impmeta.1\='CMS-GIT-REPOSITORY 1' then do
   say 'GITIMP: invalid repository metadata'
   exit 8
@@ -31,6 +31,10 @@ if rc=0 then do
  if length(objectfm)\=1 |,
     verify(objectfm,'ABCDEFGHIJKLMNOPQRSTUVWXYZ')\=0 then do
   say 'GITIMP: invalid OBJECT-DISK setting'
+  exit 8
+ end
+ if objectfm\='G' then do
+  say 'GITIMP: repository OBJECT-DISK must be G'
   exit 8
  end
 end
@@ -173,17 +177,17 @@ say 'IMPORTED' type size oid
 exit 0
 
 bindnative:
- 'FILEDEF SEL0 DISK M15SL0 PTR A'
+ 'FILEDEF SEL0 DISK M15SL0 PTR G'
  if rc\=0 then return 'ERROR'
- 'FILEDEF SEL1 DISK M15SL1 PTR A'
+ 'FILEDEF SEL1 DISK M15SL1 PTR G'
  if rc\=0 then return 'ERROR'
  do j=1 to 4
   t=word('STAGE INDEX SEEK GEN',j)
   d=word('C0STG C0IDX C0SEEK C0GEN',j)
-  'FILEDEF' d 'DISK GITFIX' t 'A'
+  'FILEDEF' d 'DISK GITFIX' t 'G'
   if rc\=0 then return 'ERROR'
   d=word('C1STG C1IDX C1SEEK C1GEN',j)
-  'FILEDEF' d 'DISK M15NEW' t 'A'
+  'FILEDEF' d 'DISK M15NEW' t 'G'
   if rc\=0 then return 'ERROR'
  end
  return 'OK'

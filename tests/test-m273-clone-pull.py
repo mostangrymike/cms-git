@@ -6,8 +6,8 @@ usability and safety properties that the clone/pull path relies on:
 
 * clone resolves the remote default branch instead of assuming "main";
 * clone and no-argument pull honour a configurable bridge endpoint;
-* a dedicated project minidisk accessed as A is a valid object disk,
-  with a post-fetch free-space check instead of a blanket rejection;
+* repository state and fetch artifacts use G, with a post-fetch free-space
+  check before importing a pack;
 * failed clone setup removes the remote record so a retry is clean.
 """
 from pathlib import Path
@@ -27,9 +27,10 @@ assert "if initbranch='' then initbranch='main'" in GIT
 assert "meta.4 = 'HEAD refs/heads/'||initbranch" in GIT
 assert "call initrefs initbranch" in GIT
 assert "initrefs:\n   parse arg ibranch" in GIT
-assert "if ibranch='' then ibranch='main'\n   'STATE GITREF2 REPO A'" in GIT
+assert "if ibranch='' then ibranch='main'\n   'STATE GITREF2 REPO G'" in GIT
 assert "initial.2\\=('HEAD refs/heads/'||ibranch)" in GIT
 assert "initial.2='HEAD refs/heads/'||ibranch" in GIT
+assert "if objectfm \\= 'G' then do" in GIT
 # The old hardcoded main-only initialisation must be gone.
 assert "meta.4 = 'HEAD refs/heads/main'" not in GIT
 assert "initial.2='HEAD refs/heads/main'" not in GIT
@@ -46,6 +47,8 @@ assert "parsecloneurl:" in GIT
 assert "call parsecloneurl cloneurl" in clone
 assert "EXEC GIT INIT' clonefm clonebranch" in clone
 assert "EXEC GIT PULL origin' clonebridge cloneport" in clone
+assert "if clonefm='' then clonefm='G'" in GIT
+assert "if clonefm\\='G' then do" in GIT
 # No hardcoded bridge endpoint or main branch in the clone command.
 assert "192.168.200.1 8443" not in clone
 assert "GIT PULL origin 192.168.200.1" not in GIT
@@ -56,7 +59,7 @@ assert "call validbranch 'main'" not in clone
 assert "EXEC GIT REMOTE ADD origin" in clone
 assert clone.find("EXEC GITFETCH DISCOVER") < clone.find("'EXEC GIT INIT'")
 assert clone.find("'EXEC GIT REMOTE ADD origin'") > clone.find("'EXEC GIT INIT'")
-assert "'ERASE GITMETA REPO A'\n      'ERASE GITREF2 REPO A'" in clone
+assert "'ERASE GITMETA REPO G'\n      'ERASE GITREF2 REPO G'" in clone
 assert "GIT CLONE: repository already initialized; use GIT PULL to resume" in clone
 assert "GIT CLONE: default-branch discovery framing failed" in clone
 
@@ -64,9 +67,9 @@ assert "GIT CLONE: default-branch discovery framing failed" in clone
 assert "readbridge:" in GIT
 # Missing metadata still uses plain STATE: CMS PIPE CMS STATE did not
 # propagate RC 28 on the validated target, so absence must use STATE's rc.
-assert "'STATE GITMETA REPO A'" in GIT
-assert "'PIPE CMS STATE GITMETA REPO A'" not in GIT
-assert "STATE GITBRIDG CONFIG A" in GIT
+assert "'STATE GITMETA REPO G'" in GIT
+assert "'PIPE CMS STATE GITMETA REPO G'" not in GIT
+assert "STATE GITBRIDG CONFIG G" in GIT
 assert "bridgehost='192.168.200.1'" in GIT
 assert "bridgeport='8443'" in GIT
 assert "parse var bridgeline.1 btag bhost bport bextra" in GIT
@@ -75,16 +78,18 @@ noarg = GIT.split("/* No-arg pull:", 1)[1].split("else do", 1)[0]
 assert "call readbridge" in noarg
 assert "pullbridge=bridgehost" in noarg
 assert "pullport=bridgeport" in noarg
+assert "pullpack='PULLNX01'" in noarg
+assert "pullindex='PULLIX01'" in noarg
 assert "pullbridge='192.168.200.1'" not in noarg
 
-# --- Pull object disk: A is allowed, with a post-fetch space check ------
+# --- Pull object disk: G is required; space is checked after fetch ------
 assert "repository must use its dedicated non-A object disk" not in GIT
 assert "freespace:" in GIT
 assert "call freespace objectfm" in GIT
 assert "needblocks=(pullbytes % 4096) * 5 + 1024" in GIT
 assert "required for this pull" in GIT
 
-# Import and activation accept a dedicated project disk accessed as A.
+# Import and activation use the selected G project disk.
 FIMP = (ROOT / "src" / "GITFIMP.EXEC").read_text()
 FACT = (ROOT / "src" / "GITFACT.EXEC").read_text()
 for src, name in ((FIMP, "GITFIMP"), (FACT, "GITFACT")):
@@ -95,7 +100,7 @@ assert "module=word('GITPIDX GITPTRE M274L5 GITPCAT',i)" in FACT
 assert "GITPLOAD'" not in FACT.split("do i=1 to 4")[1].split("end",1)[0]
 assert "needblocks=(pbytes % 4096) * 5 + 1024" in FIMP
 assert "has' avail 'free blocks;'" in FIMP
-assert "non-A" not in FIMP
+assert "datafm\\='G'" in FIMP
 
 # The free-space check must run before import so a full disk cannot
 # produce a partial stage.
@@ -216,8 +221,8 @@ assert "if length(mapbase.si)\\=40" in WT
 assert "GITWT: invalid worktree map entry" in WT
 # Map writes recreate the file so a longer PATH raises the LRECL, and a
 # failed rewrite puts the prior map back.
-assert "EXECIO * DISKR GITWORK REPO A 1 (STEM SMBAK. FINIS" in WT
-assert "EXECIO' smbak.0 'DISKW GITWORK REPO A" in WT
+assert "EXECIO * DISKR GITWORK REPO G 1 (STEM SMBAK. FINIS" in WT
+assert "EXECIO' smbak.0 'DISKW GITWORK REPO G" in WT
 # Every line stays within the CMS 80-column source convention.
 for number, line in enumerate(WT.splitlines(), 1):
     if len(line) > 80:

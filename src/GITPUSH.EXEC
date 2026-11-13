@@ -50,13 +50,13 @@ if result\='OK' then do
 end
 
 /* Object disk from GITMETA. */
-objectfm='A'
-'STATE GITMETA REPO A'
+objectfm='G'
+'STATE GITMETA REPO G'
 mstate=rc
 if mstate=0 then do
    drop config.
    config.0=0
-   'EXECIO * DISKR GITMETA REPO A 1 (STEM CONFIG. FINIS'
+   'EXECIO * DISKR GITMETA REPO G 1 (STEM CONFIG. FINIS'
    if rc=0 & config.0>=4 & config.1='CMS-GIT-REPOSITORY 1' then do
       objectrecords=0
       do ci=1 to config.0
@@ -74,6 +74,10 @@ if mstate=0 then do
          say 'GIT PUSH: invalid OBJECT-DISK setting'
          exit 8
       end
+      if objectfm\='G' then do
+         say 'GIT PUSH: repository OBJECT-DISK must be G'
+         exit 8
+      end
    end
 end
 else if mstate\=28 then do
@@ -84,10 +88,10 @@ end
 /* Resolve remote configuration. */
 drop remoterec.
 remoterec.0=0
-'STATE GITREMOT REPO A'
+'STATE GITREMOT REPO G'
 rstate=rc
 if rstate=0 then do
-   'EXECIO * DISKR GITREMOT REPO A 1 (STEM REMOTEREC. FINIS'
+   'EXECIO * DISKR GITREMOT REPO G 1 (STEM REMOTEREC. FINIS'
    if rc\=0 | REMOTEREC.0<1 | word(REMOTEREC.1,1)\='GITREMOT' then do
       say 'GIT PUSH: invalid remote database'
       exit 8
@@ -310,7 +314,7 @@ end
 /* Get local branch tip from REF2. */
 drop ref2.
 ref2.0=0
-'EXECIO * DISKR GITREF2 REPO A 1 (STEM REF2. FINIS'
+'EXECIO * DISKR GITREF2 REPO G 1 (STEM REF2. FINIS'
 if rc\=0 | REF2.0<2 | word(REF2.1,1)\='REF2' |,
    word(REF2.1,2)\='1' then do
    say 'GIT PUSH: cannot read REF2 repository state'
@@ -524,7 +528,7 @@ end
 say 'GIT PUSH: building packfile...'
 'STATE OBJOUT STAGE' objectfm
 if rc=0 then 'ERASE OBJOUT STAGE' objectfm
-'STATE GITPMKC MODULE A'
+'STATE GITPMKC MODULE G'
 nativepmk=(rc=0)
 if nativepmk then do
    say 'GIT PUSH: using native GITPMKC builder'
@@ -863,7 +867,7 @@ end
 trackingref='refs/remotes/'||remote||'/'||shortbranch
 drop ref2upd.
 ref2upd.0=0
-'EXECIO * DISKR GITREF2 REPO A 1 (STEM REF2UPD. FINIS'
+'EXECIO * DISKR GITREF2 REPO G 1 (STEM REF2UPD. FINIS'
 if rc\=0 | REF2UPD.0<2 | REF2UPD.1\='REF2 1' then do
    say 'GIT PUSH: cannot read REF2 for tracking update'
    exit 8
@@ -906,7 +910,7 @@ if \found_tracking then do
    newrefs.newrefcount='REF ' trackingref ' ' localtip
 end
 newrefs.0=newrefcount
-'EXECIO' newrefcount 'DISKW GITREF2 REPO A 1 (STEM NEWREFS. FINIS'
+'EXECIO' newrefcount 'DISKW GITREF2 REPO G 1 (STEM NEWREFS. FINIS'
 if rc\=0 then do
    say 'GIT PUSH: failed to update REF2 tracking ref'
    exit 8
@@ -1515,16 +1519,16 @@ asciitocms: procedure
  return cms
 
 authheader: procedure
- /* Read GHCRED REPO A and return "Authorization: Basic ..." (plain
+ /* Read GHCRED REPO G and return "Authorization: Basic ..." (plain
     text).  Returns '' if absent, 'ERROR' if malformed. */
  address cms
  tokenalphabet='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
  tokenalphabet=tokenalphabet||'0123456789_-'
- 'STATE GHCRED REPO A'
+ 'STATE GHCRED REPO G'
  if rc=28 then return ''
  if rc\=0 then return 'ERROR'
  drop cred.
- 'EXECIO * DISKR GHCRED REPO A 1 (STEM CRED. FINIS'
+ 'EXECIO * DISKR GHCRED REPO G 1 (STEM CRED. FINIS'
  if rc\=0 | cred.0<4 then return 'ERROR'
  if cred.1='GHCRED 1' then do
   authmode='APIKEY'

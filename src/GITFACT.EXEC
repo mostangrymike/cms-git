@@ -4,7 +4,8 @@ parse upper arg stage index datafm extra
 if stage='' | index='' | datafm='' |,
    \validfn(stage) | \validfn(index) | stage=index |,
    length(datafm)\=1 | verify(datafm,'ABCDEFGHIJKLMNOPQRSTUVWXYZ')\=0 then do
- say 'Usage: GIT FETCH-ACTIVATE stage-file index-file data-filemode [INCREMENTAL]'
+ say 'Usage: GIT FETCH-ACTIVATE stage-file index-file',
+     'data-filemode [INCREMENTAL]'
  exit 4
 end
 incremental=0
@@ -16,16 +17,15 @@ if extra\='' then do
  end
 end
 
-/* Existing repositories must select this same object disk; A is valid
-   for a dedicated project minidisk. */
-objectfm='A'
-'STATE GITMETA REPO A'
+/* Existing repositories and their activation artifacts use filemode G. */
+objectfm='G'
+'STATE GITMETA REPO G'
 if rc\=0 then do
  say 'FETCH-ACTIVATE: initialize the repository first with GIT INIT' datafm
  exit 8
 end
 drop cfg.
-'EXECIO * DISKR GITMETA REPO A 1 (STEM CFG. FINIS'
+'EXECIO * DISKR GITMETA REPO G 1 (STEM CFG. FINIS'
 if rc\=0 | cfg.0<4 | cfg.1\='CMS-GIT-REPOSITORY 1' then do
  say 'FETCH-ACTIVATE: invalid repository metadata'
  exit 8
@@ -40,6 +40,10 @@ do i=1 to cfg.0
 end
 if objects\=1 | objectfm\=datafm then do
  say 'FETCH-ACTIVATE: repository object disk must match' datafm
+ exit 8
+end
+if objectfm\='G' then do
+ say 'FETCH-ACTIVATE: this installation stores project data on filemode G'
  exit 8
 end
 
@@ -68,13 +72,13 @@ if rc\=0 then do
  say 'FETCH-ACTIVATE: verified STAGE not found' stage 'STAGE' datafm
  exit 8
 end
-'STATE' stage 'META A'
+'STATE' stage 'META G'
 if rc\=0 then do
- say 'FETCH-ACTIVATE: pack metadata not found' stage 'META A'
+ say 'FETCH-ACTIVATE: pack metadata not found' stage 'META G'
  exit 8
 end
 drop meta.
-'EXECIO 1 DISKR' stage 'META A 1 (STEM META. FINIS'
+'EXECIO 1 DISKR' stage 'META G 1 (STEM META. FINIS'
 if rc\=0 | meta.0\=1 then exit 8
 parse var meta.1 mtag wanted packbytes packver objectcount metextra
 wanted=translate(wanted)
@@ -93,7 +97,7 @@ end
 if rc\=28 then exit 8
 do i=1 to 4
  module=word('GITPIDX GITPTRE M274L5 GITPCAT',i)
- 'STATE' module 'MODULE A'
+ 'STATE' module 'MODULE G'
  if rc\=0 then do
   say 'FETCH-ACTIVATE: required CMS module missing' module
   exit 8

@@ -11,7 +11,7 @@ call absent 'GITTREE','REPO','A'
 if result\=0 then exit 8
 
 drop rb.
-'EXECIO * DISKR GITREF2 REPO A 1 (STEM RB. FINIS'
+'EXECIO * DISKR GITREF2 REPO G 1 (STEM RB. FINIS'
 if rc\=0 | rb.0<3 | rb.1\='REF2 1' then do
  say 'M168 REF2 SNAPSHOT FAIL'
  exit 8
@@ -56,13 +56,13 @@ end
 last=setup.0
 setup.last='REF' testref oldoid
 dirty=1
-'ERASE GITREF2 REPO A'
+'ERASE GITREF2 REPO G'
 if rc\=0 then do
  call cleanup
  say 'M168 TEMP HEAD ERASE FAIL'
  exit 8
 end
-'EXECIO' setup.0 'DISKW GITREF2 REPO A 1 (STEM SETUP. FINIS'
+'EXECIO' setup.0 'DISKW GITREF2 REPO G 1 (STEM SETUP. FINIS'
 if rc\=0 then do
  call cleanup
  say 'M168 TEMP HEAD WRITE FAIL'
@@ -114,7 +114,7 @@ end
 say 'M168 COMMIT CURRENT RC0'
 
 drop post.
-'EXECIO * DISKR GITREF2 REPO A 1 (STEM POST. FINIS'
+'EXECIO * DISKR GITREF2 REPO G 1 (STEM POST. FINIS'
 if rc\=0 | post.0\=setup.0 then do
  call cleanup
  say 'M168 POST REF2 READ FAIL'
@@ -203,17 +203,17 @@ absent:
  return 8
 
 restore:
- 'STATE GITREF2 REPO A'
+ 'STATE GITREF2 REPO G'
  src=rc
  if src=0 then do
-  'ERASE GITREF2 REPO A'
+  'ERASE GITREF2 REPO G'
   if rc\=0 then return 8
  end
  else if src\=28 then return 8
- 'EXECIO' rb.0 'DISKW GITREF2 REPO A 1 (STEM RB. FINIS'
+ 'EXECIO' rb.0 'DISKW GITREF2 REPO G 1 (STEM RB. FINIS'
  if rc\=0 then return 8
  drop rf.
- 'EXECIO * DISKR GITREF2 REPO A 1 (STEM RF. FINIS'
+ 'EXECIO * DISKR GITREF2 REPO G 1 (STEM RF. FINIS'
  if rc\=0 | rf.0\=rb.0 then return 8
  do ri=1 to rb.0
   if rf.ri\=rb.ri then return 8
@@ -233,15 +233,15 @@ cleanup:
   if rc\=0 then crc=8
  end
  else if rc\=28 then crc=8
- 'STATE GITWORK REPO A'
+ 'STATE GITWORK REPO G'
  if rc=0 then do
-  'ERASE GITWORK REPO A'
+  'ERASE GITWORK REPO G'
   if rc\=0 then crc=8
  end
  else if rc\=28 then crc=8
- 'STATE GITTREE REPO A'
+ 'STATE GITTREE REPO G'
  if rc=0 then do
-  'ERASE GITTREE REPO A'
+  'ERASE GITTREE REPO G'
   if rc\=0 then crc=8
  end
  else if rc\=28 then crc=8

@@ -471,11 +471,11 @@ authheader: procedure
  address cms
  tokenalphabet='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
  tokenalphabet=tokenalphabet||'0123456789_-'
- 'STATE GHCRED REPO A'
+ 'STATE GHCRED REPO G'
  if rc=28 then return ''
  if rc\=0 then return 'ERROR'
  drop cred.
- 'EXECIO * DISKR GHCRED REPO A 1 (STEM CRED. FINIS'
+ 'EXECIO * DISKR GHCRED REPO G 1 (STEM CRED. FINIS'
  if rc\=0 | cred.0<4 then return 'ERROR'
  if cred.1='GHCRED 1' then do
   authmode='APIKEY'

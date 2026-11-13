@@ -9,6 +9,13 @@ on the CMS target, within the bounded envelope described below. The worktree
 map now represents arbitrary Git paths, and fast-forward pull applies mapped
 additions, updates and removals.
 
+**Validation boundary:** the recorded target runs exercised the then-deployed
+A-based repository layout. The current source worktree moves repository state,
+credentials, remotes and loose objects to filemode G; that migration has not
+been deployed or validated on CMS. Host tests do not extend the target proof to
+the G layout. The 2026-11-11 arbitrary-path test covers fast-forward path/map
+reconciliation, not a non-fast-forward Git history merge.
+
 ## User-visible contract
 
 - `GIT CLONE <https-url>` creates a repository in an empty CMS file area,
@@ -71,12 +78,15 @@ additions, updates and removals.
    then writes the full set and extends the worktree map. A two-file fixture
    checkout and independent workfile hashes passed on CMS; no ref update ran.
 5. **M273 fast-forward pull implemented and CMS-validated.** The first
-   supported pull is explicit-argument and limited to an unchanged flat set of
-   CMS-compatible regular text paths. Measured tip-to-tip runs (including
-   `PULL COMPLETE` and `Already up to date`) are recorded in
-   `docs/M273-SHALLOW-PULL.md`. No-argument pull reads the first configured
-   remote plus an optional `GITBRIDG CONFIG A` endpoint.
-5b. **M274 clone CMS-validated (2026-11-10).** `GIT CLONE` validates the URL,
+   target-tested version was explicit-argument and limited to an unchanged
+   flat set of CMS-compatible regular text paths. That flat-path limitation
+   was superseded by the 2026-11-11 M273/M274 worktree-map validation in item
+   6g below. Measured tip-to-tip runs (including `PULL COMPLETE` and `Already
+   up to date`) are recorded in `docs/M273-SHALLOW-PULL.md`. The currently
+   edited source reads the optional bridge endpoint from `GITBRIDG CONFIG G`;
+   the earlier CMS validation used the A-based layout.
+5b. **M274 clone CMS-validated (2026-11-10, prior A-based layout).**
+   `GIT CLONE` validates the URL,
    discovers the advertised default branch, initializes a branch-aware unborn
    repository, runs the pull path, creates the branch ref, and checks out the
    flat worktree in one command. It accepts a dedicated project minidisk

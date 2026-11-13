@@ -2,7 +2,8 @@
 address cms
 parse arg remote bridge port storefn branch extra
 if remote='' | bridge='' | port='' | storefn='' then do
- say 'Usage: GIT FETCH-PACK remote bridge port new-file [branch|HEAD] [DEPTH 1|HAVE oid]'
+ say 'Usage: GIT FETCH-PACK remote bridge port new-file',
+     '[branch|HEAD] [DEPTH 1|HAVE oid]'
  exit 4
 end
 /* Shallow by default: a full-history pack is too large for a CMS minidisk
@@ -148,13 +149,13 @@ if datatype(postbytes,'W')\=1 | datatype(postversion,'W')\=1 |,
  exit 8
 end
 
-'STATE' storefn 'META A'
+'STATE' storefn 'META G'
 if rc\=0 then do
  say 'GITFPACK: stored metadata is missing; retained pack for diagnosis'
  exit 8
 end
 drop meta.
-'EXECIO 1 DISKR' storefn 'META A 1 (STEM META. FINIS'
+'EXECIO 1 DISKR' storefn 'META G 1 (STEM META. FINIS'
 if rc\=0 | meta.0\=1 then do
  say 'GITFPACK: cannot read stored metadata; retained pack'
  exit 8
@@ -167,9 +168,9 @@ if words(meta.1)\=5 | mtag\='META' | translate(moid)\=oid |,
  exit 8
 end
 
-'STATE GITPCHK MODULE A'
+'STATE GITPCHK MODULE G'
 if rc\=0 then do
- say 'GITFPACK: GITPCHK MODULE A is required'
+ say 'GITFPACK: GITPCHK MODULE G is required'
  exit 8
 end
 drop defs.
@@ -185,7 +186,7 @@ do i=1 to defs.0
   exit 8
  end
 end
-'FILEDEF PACKIN DISK' storefn 'PACK A'
+'FILEDEF PACKIN DISK' storefn 'PACK G'
 if rc\=0 then do
  say 'GITFPACK: PACKIN FILEDEF failed'
  exit 8
@@ -199,7 +200,7 @@ vrc=rc
 clearrc=rc
 if vrc\=0 | clearrc\=0 then do
  say 'GITFPACK: PACK checksum verification failed RC' vrc
- say 'GITFPACK: retained' storefn 'PACK A for diagnosis'
+ say 'GITFPACK: retained' storefn 'PACK G for diagnosis'
  exit 8
 end
 vbytes=''
@@ -226,7 +227,7 @@ if vbytes\=postbytes | vversion\=postversion |,
    vobjects\=postobjects | length(vsha)\=40 |,
    verify(vsha,'0123456789ABCDEF')\=0 | vpass\=1 then do
  say 'GITFPACK: downloaded pack failed independent verification'
- say 'GITFPACK: retained' storefn 'PACK A for diagnosis'
+ say 'GITFPACK: retained' storefn 'PACK G for diagnosis'
  exit 8
 end
 say 'FETCH PACK VERIFIED' remote branchref oid storefn,

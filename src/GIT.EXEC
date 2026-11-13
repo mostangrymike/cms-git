@@ -3,12 +3,12 @@
 /* Preserve arguments exactly; normalize only the command verb. */
 parse arg command rest
 command = translate(command)
-objectfm = 'A'
+objectfm = 'G'
 if command \= 'INIT' then do
-   'STATE GITMETA REPO A'
+   'STATE GITMETA REPO G'
    if rc = 0 then do
       drop config.
-      'EXECIO * DISKR GITMETA REPO A 1 (STEM CONFIG. FINIS'
+      'EXECIO * DISKR GITMETA REPO G 1 (STEM CONFIG. FINIS'
       if rc \= 0 | config.0 < 4 |,
          config.1 \= 'CMS-GIT-REPOSITORY 1' then do
          say 'GIT: invalid repository metadata'
@@ -30,6 +30,10 @@ if command \= 'INIT' then do
          say 'GIT: invalid OBJECT-DISK setting'
          exit 8
       end
+      if objectfm \= 'G' then do
+         say 'GIT: repository OBJECT-DISK must be G'
+         exit 8
+      end
    end
    else if rc \= 28 then do
       say 'GIT: cannot inspect repository metadata RC' rc
@@ -47,7 +51,7 @@ if command='CHECKOUT' then do
       say 'GIT CHECKOUT -B is not supported'
       exit 4
    end
-   'STATE GITREF2 REPO A'
+   'STATE GITREF2 REPO G'
    checkoutrc=rc
    if checkoutrc=28 then do
       if checkoutarg='-b' | checkoutarg='--branch' then do
@@ -104,14 +108,18 @@ if command = 'INIT' then do
       say 'Usage: GIT INIT [object-filemode [branch]]'
       exit 4
    end
-   if objectfm = '' then objectfm = 'A'
+   if objectfm = '' then objectfm = 'G'
+   if objectfm \= 'G' then do
+      say 'GIT: this installation stores project data on filemode G'
+      exit 4
+   end
    if initbranch='' then initbranch='main'
    call validbranch initbranch
    if result\='OK' then do
       say 'GIT: invalid initial branch name'
       exit 4
    end
-   'STATE GITMETA REPO A'
+   'STATE GITMETA REPO G'
    if rc = 0 then do
       call initrefs initbranch
       if result='OK' then do
@@ -160,11 +168,11 @@ if command = 'INIT' then do
    meta.3 = 'TEXT-RECORD-SEPARATOR LF'
    meta.4 = 'HEAD refs/heads/'||initbranch
    meta.5 = 'OBJECT-DISK' objectfm
-   'EXECIO' meta.0 'DISKW GITMETA REPO A 1 (STEM META. FINIS'
+   'EXECIO' meta.0 'DISKW GITMETA REPO G 1 (STEM META. FINIS'
    if rc \= 0 then exit rc
    call initrefs initbranch
    if result\='OK' then do
-      'ERASE GITMETA REPO A'
+      'ERASE GITMETA REPO G'
       say 'GIT: could not initialize branch refs'
       exit 8
    end
@@ -402,7 +410,7 @@ end
 
 /* Prefer modern REF2 branches, retaining M5 refs when REF2 is absent. */
 if command = 'BRANCH' then do
-   'STATE GITREF2 REPO A'
+   'STATE GITREF2 REPO G'
    if rc=28 then do
       'EXEC GITREF BRANCH' rest
       exit rc
@@ -604,12 +612,28 @@ if command = 'SWITCH' then do
    exit rc
 end
 
-/* M5D integration boundary.  Keep the target-proven M4 object core below
- * unchanged while routing remaining legacy ref commands through M5A/M5B/M5C. */
+/* M5D integration boundary.  The read-only ref commands resolve from REF2;
+ * the legacy M5A/M5B/M5C GITREF EXEC is not part of the modern bundle. */
 if command = 'SHOW-REF' |,
    command = 'SYMBOLIC-REF' | command = 'REV-PARSE' then do
-   'EXEC GITREF' command rest
-   exit rc
+   if command = 'REV-PARSE' then do
+      address command 'EXEC GITVREF OID' rest
+      exit rc
+   end
+   if command = 'SHOW-REF' then do
+      if strip(rest) \= '' then do
+         say 'Usage: GIT SHOW-REF'
+         exit 4
+      end
+      address command 'EXEC GITVREF REFS'
+      exit rc
+   end
+   if length(rest) = 0 then do
+      address command 'EXEC GITVREF HEAD'
+      exit rc
+   end
+   say 'GIT: SYMBOLIC-REF update is not supported'
+   exit 8
 end
 if command = 'UPDATE-REF' then do
    'EXEC GITUPD' rest
@@ -913,8 +937,8 @@ if command='PULL' then do
       end
       pullbridge=bridgehost
       pullport=bridgeport
-      pullpack='PULLPACK'
-      pullindex='PULLIDX'
+      pullpack='PULLNX01'
+      pullindex='PULLIX01'
       pullbranch='HEAD'
       pullextra=''
    end
@@ -953,14 +977,12 @@ if command='PULL' then do
    if objectfm='' then exit 8
    /* The pack, stage, index and newly installed loose objects coexist
       during activation, so the free-space check waits until the fetched
-      size is known.  A dedicated project minidisk accessed as A is a
-      valid object disk; the earlier blanket A rejection prevented the
-      documented one-minidisk-per-project clone model. */
+      size is known. Project state and fetch artifacts live on G. */
    /* A failed pull deliberately retains its pack, stage and index for
       recovery.  A retry with the same fixed names would otherwise stop at
       "already exists", so clear stale pull artifacts up front and say so. */
-   stale.1=pullpack 'PACK A'
-   stale.2=pullpack 'META A'
+   stale.1=pullpack 'PACK G'
+   stale.2=pullpack 'META G'
    stale.3=pullpack 'STAGE' objectfm
    stale.4=pullindex 'INDEX' objectfm
    do sci=1 to 4
@@ -1149,7 +1171,7 @@ if command='PULL' then do
       say 'GIT PULL: remote-tracking ref exceeds the REF2 limit'
       exit 8
    end
-   'EXECIO * DISKR GITREF2 REPO A 1 (STEM PULLREFS. FINIS'
+   'EXECIO * DISKR GITREF2 REPO G 1 (STEM PULLREFS. FINIS'
    if rc\=0 | PULLREFS.0<2 | PULLREFS.1\='REF2 1' then exit 8
    oldtracking='0000000000000000000000000000000000000000'
    trackcount=0
@@ -1189,10 +1211,14 @@ if command='CLONE' then do
       say 'Usage: GIT CLONE <https-url> [object-filemode] [bridge] [port]'
       exit 4
    end
-   if clonefm='' then clonefm='A'
+   if clonefm='' then clonefm='G'
    clonefm=translate(clonefm)
    if verify(clonefm,'ABCDEFGHIJKLMNOPQRSTUVWXYZ')\=0 then do
       say 'GIT CLONE: invalid object filemode'
+      exit 4
+   end
+   if clonefm\='G' then do
+      say 'GIT CLONE: this installation stores project data on filemode G'
       exit 4
    end
    call readbridge
@@ -1217,7 +1243,7 @@ if command='CLONE' then do
       say 'GIT CLONE: invalid bridge port'
       exit 4
    end
-   'STATE GITMETA REPO A'
+   'STATE GITMETA REPO G'
    if rc=0 then do
       say 'GIT CLONE: repository already initialized; use GIT PULL to resume'
       exit 8
@@ -1279,11 +1305,11 @@ if command='CLONE' then do
    'EXEC GIT REMOTE ADD origin' cloneurl
    if rc\=0 then do
       say 'GIT CLONE: remote configuration failed'
-      'ERASE GITMETA REPO A'
-      'ERASE GITREF2 REPO A'
+      'ERASE GITMETA REPO G'
+      'ERASE GITREF2 REPO G'
       exit rc
    end
-   'EXEC GIT PULL origin' clonebridge cloneport 'PULLPACK PULLIDX HEAD'
+   'EXEC GIT PULL origin' clonebridge cloneport 'PULLNX01 PULLIX01 HEAD'
    if rc\=0 then do
       say 'GIT CLONE: initial pull failed; repository partially initialized'
       say 'GIT CLONE: after correcting the failure, run: GIT PULL'
@@ -1504,7 +1530,7 @@ if command = 'COMMIT-STAGED-REF' then do
    drop vr.
    verified=0
    headseen=0
-   'EXECIO * DISKR GITREF2 REPO A 1 (STEM VR. FINIS'
+   'EXECIO * DISKR GITREF2 REPO G 1 (STEM VR. FINIS'
    vrc=rc
    if vrc=0 & vr.0>=3 & vr.1='REF2 1' then do
       do vri=2 to vr.0
@@ -1541,7 +1567,7 @@ if command = 'COMMIT-CURRENT' then do
       exit 4
    end
    drop hr.
-   'EXECIO * DISKR GITREF2 REPO A 1 (STEM HR. FINIS'
+   'EXECIO * DISKR GITREF2 REPO G 1 (STEM HR. FINIS'
    if rc\=0 | hr.0<3 | hr.1\='REF2 1' then do
       say 'GIT: cannot read current REF2 state'
       exit 8
@@ -1587,7 +1613,7 @@ if command = 'COMMIT-CURRENT' then do
    ccrc=rc
    if ccrc\=0 then exit ccrc
    drop nr.
-   'EXECIO * DISKR GITREF2 REPO A 1 (STEM NR. FINIS'
+   'EXECIO * DISKR GITREF2 REPO G 1 (STEM NR. FINIS'
    nrc=rc
    newcount=0
    newcommit=''
@@ -2169,17 +2195,17 @@ parsecloneurl:
       right(owner,1)='.' | right(repo,1)='.' then return 'ERROR'
    return p
 
-/* Default plain-HTTP to TLS bridge endpoint.  GITBRIDG CONFIG A may hold
+/* Default plain-HTTP to TLS bridge endpoint.  GITBRIDG CONFIG G may hold
    one record: BRIDGE <host> <port>.  The defaults match the documented
    VMnet gateway; override the file when the bridge listens elsewhere. */
 readbridge:
    bridgehost='192.168.200.1'
    bridgeport='8443'
-   'STATE GITBRIDG CONFIG A'
+   'STATE GITBRIDG CONFIG G'
    if rc=28 then return 'OK'
    if rc\=0 then return 'ERROR'
    drop bridgeline.
-   'EXECIO * DISKR GITBRIDG CONFIG A 1 (STEM BRIDGELINE. FINIS'
+   'EXECIO * DISKR GITBRIDG CONFIG G 1 (STEM BRIDGELINE. FINIS'
    if rc\=0 | bridgeline.0\=1 then return 'ERROR'
    parse var bridgeline.1 btag bhost bport bextra
    if translate(btag)\='BRIDGE' | bhost='' | bport='' |,
@@ -2212,16 +2238,16 @@ freespace:
 initrefs:
    parse arg ibranch
    if ibranch='' then ibranch='main'
-   'STATE GITREF2 REPO A'
+   'STATE GITREF2 REPO G'
    if rc=0 then return 'EXISTS'
    if rc\=28 then return 'ERROR'
    initial.0=2
    initial.1='REF2 1'
    initial.2='HEAD refs/heads/'||ibranch
-   'EXECIO 2 DISKW GITREF2 REPO A 1 (STEM INITIAL. FINIS'
+   'EXECIO 2 DISKW GITREF2 REPO G 1 (STEM INITIAL. FINIS'
    if rc\=0 then return 'ERROR'
    drop initial.
-   'EXECIO * DISKR GITREF2 REPO A 1 (STEM INITIAL. FINIS'
+   'EXECIO * DISKR GITREF2 REPO G 1 (STEM INITIAL. FINIS'
    if rc\=0 | initial.0\=2 | initial.1\='REF2 1' |,
       initial.2\=('HEAD refs/heads/'||ibranch) then return 'ERROR'
    return 'OK'
@@ -2347,7 +2373,7 @@ localbranchtip:
    lbtip=''
    drop lbt.
    lbt.0=0
-   'EXECIO * DISKR GITREF2 REPO A 1 (STEM LBT. FINIS'
+   'EXECIO * DISKR GITREF2 REPO G 1 (STEM LBT. FINIS'
    if rc\=0 | lbt.0<2 | lbt.1\='REF2 1' then return ''
    do lbti=2 to lbt.0
       if words(lbt.lbti)=3 & word(lbt.lbti,1)='REF' &,

@@ -144,19 +144,19 @@ exit 4
 loadremotes:
  drop remote.name. remote.path.
  remote.0=0
- 'STATE GITMETA REPO A'
+ 'STATE GITMETA REPO G'
  if rc\=0 then do
   say 'GITREMOT: initialize a repository first'
   return 'ERROR'
  end
- 'STATE GITREMOT REPO A'
+ 'STATE GITREMOT REPO G'
  if rc=28 then return 'OK'
  if rc\=0 then do
   say 'GITREMOT: cannot inspect remote database RC' rc
   return 'ERROR'
  end
  drop rm.
- 'EXECIO * DISKR GITREMOT REPO A 1 (STEM RM. FINIS'
+ 'EXECIO * DISKR GITREMOT REPO G 1 (STEM RM. FINIS'
  if rc\=0 | rm.0<1 | rm.1\='GITREMOT 1' then do
   say 'GITREMOT: invalid remote database header'
   return 'ERROR'
@@ -189,8 +189,8 @@ loadremotes:
 writeremotes:
  drop wr.
  if remote.0=0 then do
-  'STATE GITREMOT REPO A'
-  if rc=0 then 'ERASE GITREMOT REPO A'
+  'STATE GITREMOT REPO G'
+  if rc=0 then 'ERASE GITREMOT REPO G'
   if rc\=0 & rc\=28 then return 'ERROR'
   return 'OK'
  end
@@ -201,12 +201,12 @@ writeremotes:
   if length(wr.idx)>80 then return 'ERROR'
  end
  wr.0=remote.0+1
- 'STATE GITREMOT REPO A'
+ 'STATE GITREMOT REPO G'
  hadfile=rc=0
  if rc\=0 & rc\=28 then return 'ERROR'
  if hadfile then do
   drop bakfile.
-  'EXECIO * DISKR GITREMOT REPO A 1 (STEM BAKFILE. FINIS'
+  'EXECIO * DISKR GITREMOT REPO G 1 (STEM BAKFILE. FINIS'
   if rc\=0 then return 'ERROR'
   oldfile.0=BAKFILE.0
   do bi=1 to BAKFILE.0
@@ -214,25 +214,25 @@ writeremotes:
   end
  end
  if hadfile then do
-  'ERASE GITREMOT REPO A'
+  'ERASE GITREMOT REPO G'
   if rc\=0 then return 'ERROR'
  end
- 'EXECIO' wr.0 'DISKW GITREMOT REPO A 1 (STEM WR. FINIS'
+ 'EXECIO' wr.0 'DISKW GITREMOT REPO G 1 (STEM WR. FINIS'
  if rc\=0 then do
   if hadfile then call writeoldfile
   return 'ERROR'
  end
  drop verifyfile.
- 'EXECIO * DISKR GITREMOT REPO A 1 (STEM VERIFYFILE. FINIS'
+ 'EXECIO * DISKR GITREMOT REPO G 1 (STEM VERIFYFILE. FINIS'
  if rc\=0 | verifyfile.0\=wr.0 then do
   if hadfile then call restoreoldfile
-  else 'ERASE GITREMOT REPO A'
+  else 'ERASE GITREMOT REPO G'
   return 'ERROR'
  end
  do vi=1 to wr.0
   if verifyfile.vi\=wr.vi then do
    if hadfile then call restoreoldfile
-   else 'ERASE GITREMOT REPO A'
+   else 'ERASE GITREMOT REPO G'
    return 'ERROR'
   end
  end
@@ -247,13 +247,13 @@ restoreold:
  return
 
 restoreoldfile:
- 'STATE GITREMOT REPO A'
- if rc=0 then 'ERASE GITREMOT REPO A'
+ 'STATE GITREMOT REPO G'
+ if rc=0 then 'ERASE GITREMOT REPO G'
  call writeoldfile
  return
 
 writeoldfile:
- 'EXECIO' oldfile.0 'DISKW GITREMOT REPO A 1 (STEM OLDFILE. FINIS'
+ 'EXECIO' oldfile.0 'DISKW GITREMOT REPO G 1 (STEM OLDFILE. FINIS'
  return
 
 parseurl:

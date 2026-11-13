@@ -220,9 +220,9 @@ with tempfile.TemporaryDirectory(prefix="m280-") as td:
     assert "p_data.oi = obin" in rex
     assert "p_count = oi" in rex
     assert "objs.oi.otype" not in rex
-    # Filemode is accepted as an argument (default A).
+    # Filemode is accepted as an argument (default G).
     assert "parse arg cmd fm extra" in rex
-    assert "if fm='' then fm='A'" in rex
+    assert "if fm='' then fm='G'" in rex
     # The pack is written as uppercase hex text, one 128-column record.
     assert "hxpack = c2x(pack)" in rex
     assert "substr(hxpack,p,128)" in rex

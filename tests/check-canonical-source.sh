@@ -768,7 +768,7 @@ start=source.index("if command='CHECKOUT' then do")
 end=source.index("if command = 'VERSION' then do",start)
 block=source[start:end]
 for token in ("if checkoutarg='-B' then do",
-              "'STATE GITREF2 REPO A'", 'if checkoutrc=28 then do',
+              "'STATE GITREF2 REPO G'", 'if checkoutrc=28 then do',
               "if checkoutarg='-b' | checkoutarg='--branch' then",
               "rest='-c'||substr(rest,length(checkoutarg)+1)",
               "command='SWITCH'"):
@@ -776,7 +776,7 @@ for token in ("if checkoutarg='-B' then do",
   raise SystemExit(f'M231 checkout alias missing {token!r}')
 prefix='parse arg command rest\ncommand=translate(command)\n'
 suffix='say command\nsay strip(rest)\n'
-state="'STATE GITREF2 REPO A'"
+state="'STATE GITREF2 REPO G'"
 if state not in block:
  raise SystemExit('M231 state probe missing')
 for path, result in zip(sys.argv[2:], ('rc=0','rc=28','rc=8')):
@@ -844,7 +844,7 @@ source=Path(sys.argv[1]).read_text()
 start=source.index("if command='CHECKOUT' then do")
 end=source.index('if command = \'VERSION\' then do',start)
 block=source[start:end]
-for token in ("'STATE GITREF2 REPO A'", 'checkoutrc=rc',
+for token in ("'STATE GITREF2 REPO G'", 'checkoutrc=rc',
               'if checkoutrc=28 then do',
               "if checkoutarg='-b' | checkoutarg='--branch' then do",
               "say 'GIT CHECKOUT -b requires modern REF2'",
@@ -855,7 +855,7 @@ legacy=block[block.index('if checkoutrc=28 then do'):
              block.index('else if checkoutrc=0 then do')]
 if "command='SWITCH'" in legacy:
  raise SystemExit('M232 routes legacy checkout to modern REF2 updater')
-if block.index("'STATE GITREF2 REPO A'") > block.index("command='SWITCH'"):
+if block.index("'STATE GITREF2 REPO G'") > block.index("command='SWITCH'"):
  raise SystemExit('M232 selects checkout implementation before checking REF2')
 print('M232 LEGACY CHECKOUT FALLBACK GUARDS PASS 8')
 PY
@@ -1365,7 +1365,10 @@ for path in "$root/src/GITVREF.EXEC" "$root/src/GITREF.EXEC" \
   echo "M260 hardcoded object disk in $(basename "$path")" >&2
   exit 1
  fi
- grep -Fq "objectfm='A'" "$path" || grep -Fq "objectfm = 'A'" "$path" || {
+ expected_disk=A
+ if [ "$(basename "$path")" = "GITVREF.EXEC" ]; then expected_disk=G; fi
+ grep -Fq "objectfm='$expected_disk'" "$path" || \
+   grep -Fq "objectfm = '$expected_disk'" "$path" || {
   echo "M260 missing legacy object disk default in $(basename "$path")" >&2
   exit 1
  }
@@ -2040,10 +2043,10 @@ toasciihex:
 """+splitpath
 block=block.replace("'STATE' newfn.ni newft.ni newfm.ni",
                     'call cmsstate newfn.ni,newft.ni,newfm.ni')
-block=block.replace("'STATE GITWORK REPO A'", 'call mapstate')
-block=block.replace("'EXECIO * DISKR GITWORK REPO A 1 (STEM BEFORE. FINIS'",
+block=block.replace("'STATE GITWORK REPO G'", 'call mapstate')
+block=block.replace("'EXECIO * DISKR GITWORK REPO G 1 (STEM BEFORE. FINIS'",
                     'before.0=1\n rc=0')
-block=block.replace("'ERASE GITWORK REPO A'", "say 'SIMULATED ERASE'\n rc=0")
+block=block.replace("'ERASE GITWORK REPO G'", "say 'SIMULATED ERASE'\n rc=0")
 prefix="""parse arg rest
 command='ADD'
 mockmode='@MODE@'
@@ -2491,10 +2494,10 @@ if not block.index("'STATE' newfn.ni newft.ni newfm.ni") < block.index('call wor
  raise SystemExit('M255 must check all workfiles before hashing the batch')
 block=block.replace("'STATE' newfn.ni newft.ni newfm.ni",
                     'call cmsstate newfn.ni,newft.ni,newfm.ni')
-block=block.replace("'STATE GITWORK REPO A'", 'call mapstate')
-block=block.replace("'EXECIO * DISKR GITWORK REPO A 1 (STEM BEFORE. FINIS'",
+block=block.replace("'STATE GITWORK REPO G'", 'call mapstate')
+block=block.replace("'EXECIO * DISKR GITWORK REPO G 1 (STEM BEFORE. FINIS'",
                     'before.0=1\n rc=0')
-block=block.replace("'ERASE GITWORK REPO A'", "say 'SIMULATED ERASE'\n rc=0")
+block=block.replace("'ERASE GITWORK REPO G'", "say 'SIMULATED ERASE'\n rc=0")
 helpers=source[source.index('validid:\n'):source.index('validmode:\n')]
 helpers+=source[source.index('validmode:\n'):source.index('validtext:\n')]
 helpers+='''
@@ -2874,8 +2877,8 @@ block=block.replace('call loadmap',"result='OK'")
 block=block.replace("'STATE' mapfn.pi mapft.pi mapfm.pi",'rc=0')
 block=block.replace("'EXECIO * DISKR' mapfn.pi mapft.pi mapfm.pi '1 (STEM RESTOREOLD. FINIS'",
                     "restoreold.0=1\nrestoreold.1='old-data'\nrc=0")
-block=block.replace("'STATE GITWORK REPO A'",'rc=0')
-block=block.replace("'EXECIO * DISKR GITWORK REPO A 1 (STEM BEFORE. FINIS'",
+block=block.replace("'STATE GITWORK REPO G'",'rc=0')
+block=block.replace("'EXECIO * DISKR GITWORK REPO G 1 (STEM BEFORE. FINIS'",
                     "before.0=1\nbefore.1='WORK1 2'\nrc=0")
 block=block.replace('call readrestoreblob mapstage.pi',"result='6E65770A'")
 block=block.replace('call bodyrecords restorebody.restorearg',
@@ -2970,13 +2973,13 @@ end=source.index("if command='COMMIT' then do",start)
 block=source[start:end]
 for token in ('if mapstage.ai=zeros & mapbase.ai\\=zeros then do',
               'deleteflag.ai=1', 'if deleteflag.ai=1 then iterate',
-              'mapcount=keptcount', "'ERASE GITWORK REPO A'", 'call savemap',
+              'mapcount=keptcount', "'ERASE GITWORK REPO G'", 'call savemap',
               "say 'ACCEPTED WORKTREE DELETED' deletepath.ai"):
  if token not in block:
   raise SystemExit(f'M250 delete acceptance source guard missing {token!r}')
-if not block.index("'ERASE GITWORK REPO A'")<block.index('call savemap'):
+if not block.index("'ERASE GITWORK REPO G'")<block.index('call savemap'):
  raise SystemExit('M250 must erase before shorter map write')
-block=block.replace("'EXECIO * DISKR GITWORK REPO A 1 (STEM BEFORE. FINIS'",
+block=block.replace("'EXECIO * DISKR GITWORK REPO G 1 (STEM BEFORE. FINIS'",
                     "before.0=1\nrc=0")
 block=block.replace("'STATE' mapfn.ai mapft.ai mapfm.ai",
  "if mapfn.ai='DELETED' then rc=28\nelse rc=0")
@@ -2984,7 +2987,7 @@ block=block.replace('call workoid mapfn.ai,mapft.ai,mapfm.ai,maplf.ai,0',
  "if ai=2 then result='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\nelse result='CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC'")
 block=block.replace('call asciitocms mappath.ai',"result='deleted'")
 block=block.replace('call loadmap',"result='OK'")
-block=block.replace("'ERASE GITWORK REPO A'","say 'SIMULATED ERASE'\nrc=0")
+block=block.replace("'ERASE GITWORK REPO G'","say 'SIMULATED ERASE'\nrc=0")
 block=block.replace('call savemap',"result='OK'\nsay 'SIMULATED SAVE' mapcount")
 block=block.replace('call restoremap',"result='OK'")
 verify=("if mapcount\\=2 | mapfn.1\\='STAGED' | mapfn.2\\='CLEAN' then exit 12\n"
@@ -3549,7 +3552,7 @@ from pathlib import Path
 import sys
 git=Path(sys.argv[1]).read_text()
 refs=Path(sys.argv[2]).read_text()
-for token in ("if command = 'BRANCH' then do", "'STATE GITREF2 REPO A'",
+for token in ("if command = 'BRANCH' then do", "'STATE GITREF2 REPO G'",
               'if rc=28 then do', "'EXEC GITREF BRANCH' rest",
               "EXEC GITVREF BRANCHES",
               "EXEC GIT UPDATE-REF' branchref branchoid zeros",
@@ -4434,13 +4437,46 @@ echo 'HOST STAGING, INDEX AND GIT OID TEST PASSED'
 )
 exit $?
 fi
+# M283 selector: independently guard REF2 read-only routing and fail-closed
+# handling of the unsupported legacy SYMBOLIC-REF mutation.
+if [ "${1:-}" = "M283" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+g="$root/src/GIT.EXEC"
+v="$root/src/GITVREF.EXEC"
+test -s "$g"
+test -s "$v"
+for token in \
+ "command = 'REV-PARSE'" \
+ "address command 'EXEC GITVREF OID' rest" \
+ "address command 'EXEC GITVREF REFS'" \
+ "if length(rest) = 0 then do" \
+ "SYMBOLIC-REF update is not supported"; do
+ grep -Fq "$token" "$g"
+done
+grep -Fq "if command='OID' then do" "$v"
+grep -Fq "if command='REFS' then do" "$v"
+grep -Fq "say refoid.ri refname.ri" "$v"
+if grep -Fq "'EXEC GITREF' command rest" "$g"; then
+ echo 'FAIL: legacy GITREF router still captures read-only ref commands' >&2
+ exit 1
+fi
+awk 'length($0)>80 {print "FAIL: GIT.EXEC record >80 columns:",NR; bad=1}
+     END {exit bad}' "$g"
+awk 'length($0)>80 {print "FAIL: GITVREF record >80 columns:",NR; bad=1}
+     END {exit bad}' "$v"
+echo 'M283 REF2 READ ROUTE GUARDS PASSED'
+)
+exit $?
+fi
 # Fail closed on unknown selector names; never run an unrelated default gate.
 if [ "$#" -gt 1 ]; then
   echo "FAIL: expected at most one guard selector" >&2
   exit 2
 fi
 case "${1:-}" in
-  ""|NATIVE|MAP|CONFIG|BACKUP|VREF|M155|M157|READONLY|CMSCLNK|DISPATCH) ;;
+  ""|NATIVE|MAP|CONFIG|BACKUP|VREF|M155|M157|M283|READONLY|CMSCLNK|DISPATCH) ;;
   *) echo "FAIL: unknown guard selector: $1" >&2; exit 2 ;;
 esac
 # Original three independent Hercules/DASD safety modes (run with bash).
@@ -4619,8 +4655,8 @@ grep -Fxq "HEAD refs/heads/main" "$r"
 grep -Fxq "REF refs/heads/main 00D8D63229305230C8D37F884CE87F9E1A89468C" "$r"
 grep -Fq "GITREC SHOWFULL GITFIX M15NEW" "$v"
 grep -Fq "SHOW FULL ROOT CLOSURE VERIFIED" "$v"
-grep -Fq "'FILEDEF SEL0 DISK M15SL0 PTR A'" "$v"
-grep -Fq "'FILEDEF SEL1 DISK M15SL1 PTR A'" "$v"
+grep -Fq "'FILEDEF SEL0 DISK M15SL0 PTR G'" "$v"
+grep -Fq "'FILEDEF SEL1 DISK M15SL1 PTR G'" "$v"
 grep -Fq "command = 'VERIFY-REF'" "$g"
 grep -Fq "address command 'EXEC GITVREF RESOLVE' rest" "$g"
 grep -Fq "command = 'SHOW-REF-FULL'" "$g"
@@ -5305,6 +5341,21 @@ grep -Fq "command = 'HASH-WORKFILE'" "$g"
 grep -Fq "command = 'WRITE-WORKFILE'" "$g"
 grep -Fq "strip(wline.i,'T')" "$g"
 grep -Fq "if final = '1' then hex = hex || '0A'" "$g"
+# M283: read-only ref commands resolve from REF2, never the absent legacy
+# GITREF EXEC.  The HEAD-writing SYMBOLIC-REF form is refused explicitly.
+grep -Fq "command = 'REV-PARSE'" "$g"
+grep -Fq "address command 'EXEC GITVREF OID' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF REFS'" "$g"
+grep -Fq "if length(rest) = 0 then do" "$g"
+grep -Fq "SYMBOLIC-REF update is not supported" "$g"
+grep -Fq "if command='OID' then do" "$v"
+grep -Fq "if command='REFS' then do" "$v"
+grep -Fq "say refoid.ri refname.ri" "$v"
+if grep -Fq "'EXEC GITREF' command rest" "$g"; then
+ echo "FAIL: legacy GITREF router still captures read-only ref commands" >&2
+ exit 1
+fi
+echo "M283 REF2 READ ROUTE GUARDS PASSED"
 echo "M164 PRACTICAL WORKTREE ROUTE GUARDS PASSED"
 
 )

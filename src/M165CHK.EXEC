@@ -11,7 +11,7 @@ if result\=0 then exit 8
 say 'M165 DISPOSABLE TARGETS ABSENT'
 
 drop rb.
-'EXECIO * DISKR GITREF2 REPO A 1 (STEM RB. FINIS'
+'EXECIO * DISKR GITREF2 REPO G 1 (STEM RB. FINIS'
 if rc\=0 then do
  say 'M165 REF SNAPSHOT FAIL'
  exit 8
@@ -155,7 +155,7 @@ if acceptedcount\=1 then do
  exit 8
 end
 
-'STATE GITTREE REPO A'
+'STATE GITTREE REPO G'
 if rc=28 then nop
 else do
  call cleanup
@@ -164,7 +164,7 @@ else do
 end
 
 drop ra.
-'EXECIO * DISKR GITREF2 REPO A 1 (STEM RA. FINIS'
+'EXECIO * DISKR GITREF2 REPO G 1 (STEM RA. FINIS'
 if rc\=0 | ra.0\=rb.0 then do
  call cleanup
  say 'M165 REF RECHECK FAIL'
@@ -228,15 +228,15 @@ cleanup:
   if rc\=0 then crc=8
  end
  else if rc\=28 then crc=8
- 'STATE GITWORK REPO A'
+ 'STATE GITWORK REPO G'
  if rc=0 then do
-  'ERASE GITWORK REPO A'
+  'ERASE GITWORK REPO G'
   if rc\=0 then crc=8
  end
  else if rc\=28 then crc=8
- 'STATE GITTREE REPO A'
+ 'STATE GITTREE REPO G'
  if rc=0 then do
-  'ERASE GITTREE REPO A'
+  'ERASE GITTREE REPO G'
   if rc\=0 then crc=8
  end
  else if rc\=28 then crc=8

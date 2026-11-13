@@ -8,24 +8,27 @@ if store='' | datafm='' | extra\='' | length(store)>8 |,
  say 'Usage: GIT FETCH-IMPORT pack-file data-filemode'
  exit 4
 end
+if datafm\='G' then do
+ say 'FETCH-IMPORT: this installation stores project data on filemode G'
+ exit 4
+end
 stage=store
 
-'STATE' store 'PACK A'
+'STATE' store 'PACK G'
 if rc\=0 then do
- say 'FETCH-IMPORT: retained PACK missing' store 'PACK A'
+ say 'FETCH-IMPORT: retained PACK missing' store 'PACK G'
  exit 8
 end
-'STATE' store 'META A'
+'STATE' store 'META G'
 if rc\=0 then do
- say 'FETCH-IMPORT: retained META missing' store 'META A'
+ say 'FETCH-IMPORT: retained META missing' store 'META G'
  exit 8
 end
 
-/* Size the stage, index and installed objects from the retained pack.
-   A dedicated project minidisk accessed as A is a valid data disk. */
+/* Size the stage, index and installed objects from the retained pack. */
 needblocks=180000
 drop pmeta.
-'EXECIO 1 DISKR' store 'META A 1 (STEM PMETA. FINIS'
+'EXECIO 1 DISKR' store 'META G 1 (STEM PMETA. FINIS'
 if rc=0 & pmeta.0=1 then do
  parse var pmeta.1 ptag poid pbytes prest
  if datatype(pbytes,'W')=1 & pbytes>0 then,
@@ -64,14 +67,14 @@ if rc\=28 then do
  say 'FETCH-IMPORT: output STATE failed RC' rc
  exit 8
 end
-'STATE GITPCHK MODULE A'
+'STATE GITPCHK MODULE G'
 if rc\=0 then do
- say 'FETCH-IMPORT: GITPCHK MODULE A is required'
+ say 'FETCH-IMPORT: GITPCHK MODULE G is required'
  exit 8
 end
-'STATE GITPIMP MODULE A'
+'STATE GITPIMP MODULE G'
 if rc\=0 then do
- say 'FETCH-IMPORT: GITPIMP MODULE A is required'
+ say 'FETCH-IMPORT: GITPIMP MODULE G is required'
  exit 8
 end
 
@@ -92,7 +95,7 @@ do di=1 to defs.0
 end
 
 drop m.
-'EXECIO 1 DISKR' store 'META A 1 (STEM M. FINIS'
+'EXECIO 1 DISKR' store 'META G 1 (STEM M. FINIS'
 if rc\=0 | m.0\=1 then do
  say 'FETCH-IMPORT: META read failed'
  exit 8
@@ -108,7 +111,7 @@ if words(m.1)\=5 | mtag\='META' | length(moid)\=40 |,
  exit 8
 end
 
-'FILEDEF PACKIN DISK' store 'PACK A'
+'FILEDEF PACKIN DISK' store 'PACK G'
 if rc\=0 then do
  say 'FETCH-IMPORT: PACKIN FILEDEF failed'
  exit 8

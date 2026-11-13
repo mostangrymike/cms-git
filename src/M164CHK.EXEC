@@ -30,7 +30,7 @@ if src\=0 then do
 end
 
 drop m.
-'EXECIO * DISKR GITWORK REPO A 1 (STEM M. FINIS'
+'EXECIO * DISKR GITWORK REPO G 1 (STEM M. FINIS'
 if rc\=0 | m.0\=7 then do
  call cleanup
  say 'M164 MAP READ FAIL'
@@ -136,7 +136,7 @@ if arc\=0 then do
  exit 8
 end
 drop m.
-'EXECIO * DISKR GITWORK REPO A 1 (STEM M. FINIS'
+'EXECIO * DISKR GITWORK REPO G 1 (STEM M. FINIS'
 if rc\=0 | m.0\=7 then do
  call cleanup
  say 'M164 STAGED MAP READ FAIL'
@@ -202,9 +202,9 @@ cleanup:
   if rc\=0 then crc=8
  end
  else if rc\=28 then crc=8
- 'STATE GITWORK REPO A'
+ 'STATE GITWORK REPO G'
  if rc=0 then do
-  'ERASE GITWORK REPO A'
+  'ERASE GITWORK REPO G'
   if rc\=0 then crc=8
  end
  else if rc\=28 then crc=8

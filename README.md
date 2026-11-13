@@ -18,7 +18,10 @@ gate status, see this repository's Actions tab.
 
 The consolidated Python test runner is `tests/test-m203-bounded-batch.py`;
 the shell safety/native integration runner is `tests/check-canonical-source.sh`.
-Both preserve independently invoked historical gates. All 99 historical EXEC source entries now reside in a single
+Both preserve independently invoked historical gates. The shell safety
+scripts use GNU/Linux coreutils (`realpath --`, `stat -c`, `cp --reflink`,
+`sha256sum`); run the complete gate on the Linux CI runner. macOS needs
+compatible coreutils and is not an equivalent validation host. All 99 historical EXEC source entries now reside in a single
 `archive/HISTORICAL_EXEC.json` collection retaining six separately audited
 bundle identities and counts (15, 48, 23, 3, 3, 7). Exact original historical
 EXEC files are recoverable using `scripts/restore-cms-exec.py`, and ten
@@ -379,8 +382,8 @@ unsupported. CMS behavior remains unverified.
 M262 adds repository-local GitHub HTTPS remote metadata with
 `GIT REMOTE ADD|GET|REMOVE` and listing. It accepts GitHub owner/repository
 URLs only. `GIT CREDENTIAL IMPORT <github-user>` imports a `TOKEN <value>` or
-`APIKEY <value>` record from `GHTOKEN REPO A`. `GIT CREDENTIAL IMPORT-USERPASS`
-imports `USER <name>` and `PASSWORD <token>` records from `GHPASS REPO A`.
+`APIKEY <value>` record from `GHTOKEN REPO G`. `GIT CREDENTIAL IMPORT-USERPASS`
+imports `USER <name>` and `PASSWORD <token>` records from `GHPASS REPO G`.
 Both forms verify the stored credential and erase the temporary input. For
 GitHub HTTPS Git operations, the password field must contain a personal access
 token; GitHub account-password authentication is no longer supported. Status
@@ -424,17 +427,35 @@ initial `GIT PULL remote bridge port pack index [branch|HEAD]` path. It
 downloads and verifies a pack, imports and activates its objects, confirms the
 remote tip descends from the current local tip, then updates the tracking ref,
 branch ref and mapped workfiles. The selected remote branch must match the
-current branch, and the clean worktree map must cover an unchanged flat set of
-regular CMS-compatible text paths. Dirty or incomplete maps, path additions or
-removals, nested paths, binary blobs and non-fast-forward updates are rejected.
+current branch; the clean worktree map is preflighted against both commit trees.
+Mapped nested paths and fast-forward additions, updates and removals are
+supported. Dirty or incomplete maps, binary blobs, unsupported tree modes and
+non-fast-forward updates are rejected.
 Pack, stage and index files remain available for recovery. The shallow pull
 path is CMS-validated (measured tip-to-tip timings in
-`docs/M273-SHALLOW-PULL.md`). No-argument pull reads the first configured
-remote plus an optional `GITBRIDG CONFIG A` endpoint. `GIT CLONE` is also
-CMS-validated: it resolves the remote's advertised default branch, creates the
-branch ref, and checks out the flat worktree in one command, bounded by the
-same flat-worktree and fast-forward rules. Push is separately proven by M281.
-See `docs/GITHUB_SYNC_PLAN.md`.
+`docs/M273-SHALLOW-PULL.md`). CMS validation on 2026-11-11 covered nested, long
+and multi-dot mapped paths and fast-forward pulls applying mapped updates,
+additions and removals. This is three-way path/map reconciliation against the
+old and new commit trees, not a divergent-history merge: non-fast-forward pulls
+remain rejected. No-argument pull reads the first configured remote plus an
+optional `GITBRIDG CONFIG G` endpoint. `GIT CLONE` was CMS-validated on
+2026-11-10 with a flat one-file fixture; nested clone coverage is not yet
+recorded. Push is separately proven by M281. See `docs/GITHUB_SYNC_PLAN.md`.
+
+The current source changes move repository metadata, REF2/worktree state,
+credentials, remotes, and loose objects to filemode G. Those G-storage changes
+are still pending CMS validation; the recorded pull/clone/push target runs used
+the prior A-based repository layout. Do not treat host guards as proof that the
+G migration has been deployed or is safe on a CMS disk.
+
+M282 adds reachable-object pack creation through `GIT GC` and `GIT REPACK`.
+`LIMIT=n` is for bounded pack runs; `GIT GC --prune=now LIMIT=n` is refused so
+objects omitted from a partial pack cannot be pruned. `REPACK -d` is disabled
+because the runtime has no pack reader, and the currently unimplemented
+`REPACK -a` / `GC --aggressive` options fail explicitly. Default repack keeps
+loose objects. M282 is host-guarded only and has not been validated on CMS;
+`GC --prune=now` is destructive and must not be run without separate target
+review and a verified recovery path.
 
 ---
 

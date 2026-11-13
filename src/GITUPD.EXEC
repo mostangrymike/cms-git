@@ -1,11 +1,11 @@
 /* M166: safe modern REF2 compare-and-swap updater. */
 address cms
 parse arg ref newoid oldoid extra
-objectfm='A'
-'STATE GITMETA REPO A'
+objectfm='G'
+'STATE GITMETA REPO G'
 if rc=0 then do
  drop cfg.
- 'EXECIO * DISKR GITMETA REPO A 1 (STEM CFG. FINIS'
+ 'EXECIO * DISKR GITMETA REPO G 1 (STEM CFG. FINIS'
  if rc\=0 | cfg.0<4 | cfg.1\='CMS-GIT-REPOSITORY 1' then do
   say 'GITUPD: invalid repository metadata'
   exit 8
@@ -21,6 +21,10 @@ if rc=0 then do
  if objectrecords>1 | length(objectfm)\=1 |,
     verify(objectfm,'ABCDEFGHIJKLMNOPQRSTUVWXYZ')\=0 then do
   say 'GITUPD: invalid OBJECT-DISK setting'
+  exit 8
+ end
+ if objectfm\='G' then do
+  say 'GITUPD: repository OBJECT-DISK must be G'
   exit 8
  end
 end
@@ -780,12 +784,12 @@ readrefs:
  refcount=0
  headref=''
  headcount=0
- 'STATE GITREF2 REPO A'
+ 'STATE GITREF2 REPO G'
  if rc\=0 then do
   say 'GITUPD: REF2 database not found'
   return 'ERROR'
  end
- 'EXECIO * DISKR GITREF2 REPO A 1 (STEM RR. FINIS'
+ 'EXECIO * DISKR GITREF2 REPO G 1 (STEM RR. FINIS'
  if rc\=0 | rr.0<2 | rr.1\='REF2 1' then do
   say 'GITUPD: invalid REF2 header'
   return 'ERROR'
@@ -836,10 +840,10 @@ readrefs:
 
 restore:
  if bak.0<2 then return 'ERROR'
- 'STATE GITREF2 REPO A'
+ 'STATE GITREF2 REPO G'
  rrc=rc
  if rrc=0 then do
-  'ERASE GITREF2 REPO A'
+  'ERASE GITREF2 REPO G'
   if rc\=0 then do
    say 'GITUPD: REF2 rollback erase failed'
    return 'ERROR'
@@ -849,7 +853,7 @@ restore:
   say 'GITUPD: REF2 rollback state failed' rrc
   return 'ERROR'
  end
- 'EXECIO' bak.0 'DISKW GITREF2 REPO A 1 (STEM BAK. FINIS'
+ 'EXECIO' bak.0 'DISKW GITREF2 REPO G 1 (STEM BAK. FINIS'
  if rc\=0 then do
   say 'GITUPD: REF2 rollback failed'
   return 'ERROR'
@@ -867,12 +871,12 @@ writerefs:
   wr.wn='REF' refname.wi refoid.wi
  end
  wr.0=wn
- 'ERASE GITREF2 REPO A'
+ 'ERASE GITREF2 REPO G'
  if rc\=0 then do
   say 'GITUPD: cannot replace REF2 database'
   return 'ERROR'
  end
- 'EXECIO' wr.0 'DISKW GITREF2 REPO A 1 (STEM WR. FINIS'
+ 'EXECIO' wr.0 'DISKW GITREF2 REPO G 1 (STEM WR. FINIS'
  if rc\=0 then do
   say 'GITUPD: cannot write REF2 database'
   return 'ERROR'

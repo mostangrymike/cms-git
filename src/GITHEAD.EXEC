@@ -62,13 +62,13 @@ validbranch: procedure
    return 'OK'
 
 readrefs: procedure expose rr.
-   'STATE GITREFS REPO A'
+   'STATE GITREFS REPO G'
    if rc \= 0 then do
       say 'GITHEAD: refs database not found'
       return 'ERROR'
    end
    drop rr.
-   'EXECIO * DISKR GITREFS REPO A 1 (STEM RR. FINIS'
+   'EXECIO * DISKR GITREFS REPO G 1 (STEM RR. FINIS'
    if rc \= 0 then return 'ERROR'
    do i = 1 to rr.0
       if words(rr.i) \= 3 then do
@@ -88,7 +88,7 @@ readrefs: procedure expose rr.
 
 readhead: procedure expose headref
    drop hm.
-   'EXECIO * DISKR GITMETA REPO A 1 (STEM HM. FINIS'
+   'EXECIO * DISKR GITMETA REPO G 1 (STEM HM. FINIS'
    if rc \= 0 then do
       say 'GITHEAD: repository metadata not found'
       return 'ERROR'
@@ -128,7 +128,7 @@ resolvehead: procedure expose headref headoid rr.
 writehead: procedure
    parse arg newref
    drop hm.
-   'EXECIO * DISKR GITMETA REPO A 1 (STEM HM. FINIS'
+   'EXECIO * DISKR GITMETA REPO G 1 (STEM HM. FINIS'
    if rc \= 0 then do
       say 'GITHEAD: repository metadata not found'
       return 'ERROR'
@@ -145,7 +145,7 @@ writehead: procedure
       return 'ERROR'
    end
    hm.slot = 'HEAD' newref
-   'EXECIO' hm.0 'DISKW GITMETA REPO A 1 (STEM HM. FINIS'
+   'EXECIO' hm.0 'DISKW GITMETA REPO G 1 (STEM HM. FINIS'
    if rc \= 0 then do
       say 'GITHEAD: cannot write repository metadata'
       return 'ERROR'

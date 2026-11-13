@@ -25,13 +25,13 @@ if action='REMOVE' then do
   say 'Usage: GIT CREDENTIAL REMOVE'
   exit 4
  end
- 'STATE GHCRED REPO A'
+ 'STATE GHCRED REPO G'
  if rc=28 then do
   say 'No GitHub credential stored'
   exit 0
  end
  if rc\=0 then exit 8
- 'ERASE GHCRED REPO A'
+ 'ERASE GHCRED REPO G'
  if rc\=0 then do
   say 'GITCRED: cannot remove credential file'
   exit 8
@@ -51,13 +51,13 @@ if action='IMPORT' then do
   say 'GITCRED: invalid GitHub user name'
   exit 4
  end
- 'STATE GHTOKEN REPO A'
+ 'STATE GHTOKEN REPO G'
  if rc\=0 then do
-  say 'GITCRED: create GHTOKEN REPO A with one TOKEN record first'
+  say 'GITCRED: create GHTOKEN REPO G with one TOKEN record first'
   exit 8
  end
  drop input.
- 'EXECIO * DISKR GHTOKEN REPO A 1 (STEM INPUT. FINIS'
+ 'EXECIO * DISKR GHTOKEN REPO G 1 (STEM INPUT. FINIS'
  if rc\=0 | input.0\=1 then do
   say 'GITCRED: token input must contain exactly one record'
   exit 8
@@ -80,7 +80,7 @@ if action='IMPORT' then do
   say 'GITCRED: could not store API key'
   exit 8
  end
- 'ERASE GHTOKEN REPO A'
+ 'ERASE GHTOKEN REPO G'
  if rc\=0 then do
   say 'GITCRED: stored credential; temporary input remains'
   exit 8
@@ -94,13 +94,13 @@ if action='IMPORT-USERPASS' then do
   say 'Usage: GIT CREDENTIAL IMPORT-USERPASS'
   exit 4
  end
- 'STATE GHPASS REPO A'
+ 'STATE GHPASS REPO G'
  if rc\=0 then do
-  say 'GITCRED: create GHPASS REPO A with USER and PASSWORD records'
+  say 'GITCRED: create GHPASS REPO G with USER and PASSWORD records'
   exit 8
  end
  drop input.
- 'EXECIO * DISKR GHPASS REPO A 1 (STEM INPUT. FINIS'
+ 'EXECIO * DISKR GHPASS REPO G 1 (STEM INPUT. FINIS'
  if rc\=0 | input.0\=2 then do
   say 'GITCRED: input must contain exactly two records'
   exit 8
@@ -130,7 +130,7 @@ if action='IMPORT-USERPASS' then do
   say 'GITCRED: could not store username/password credential'
   exit 8
  end
- 'ERASE GHPASS REPO A'
+ 'ERASE GHPASS REPO G'
  if rc\=0 then do
   say 'GITCRED: stored credential; temporary input remains'
   exit 8
@@ -144,7 +144,7 @@ say '       GIT CREDENTIAL REMOVE'
 exit 4
 
 storecredential:
- 'STATE GHCRED REPO A'
+ 'STATE GHCRED REPO G'
  if rc=0 then do
   say 'GITCRED: remove the existing credential before replacing it'
   return 'ERROR'
@@ -167,16 +167,16 @@ storecredential:
   pos=pos+64
  end
  output.0=n
- 'EXECIO' output.0 'DISKW GHCRED REPO A 1 (STEM OUTPUT. FINIS'
+ 'EXECIO' output.0 'DISKW GHCRED REPO G 1 (STEM OUTPUT. FINIS'
  if rc\=0 then do
-  'STATE GHCRED REPO A'
-  if rc=0 then 'ERASE GHCRED REPO A'
+  'STATE GHCRED REPO G'
+  if rc=0 then 'ERASE GHCRED REPO G'
   return 'ERROR'
  end
  call readcredential
  if result\='OK' | present\=1 | username\=storeduser |,
     credentialmode\=storedmode | secret\=storedsecret then do
-  'ERASE GHCRED REPO A'
+  'ERASE GHCRED REPO G'
   return 'ERROR'
  end
  return 'OK'
@@ -186,11 +186,11 @@ readcredential:
  storeduser=''
  storedsecret=''
  storedmode=''
- 'STATE GHCRED REPO A'
+ 'STATE GHCRED REPO G'
  if rc=28 then return 'OK'
  if rc\=0 then return 'ERROR'
  drop cred.
- 'EXECIO * DISKR GHCRED REPO A 1 (STEM CRED. FINIS'
+ 'EXECIO * DISKR GHCRED REPO G 1 (STEM CRED. FINIS'
  if rc\=0 | cred.0<4 then return 'ERROR'
  if cred.1='GHCRED 1' then do
   storedmode='APIKEY'

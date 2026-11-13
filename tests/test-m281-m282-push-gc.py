@@ -96,7 +96,10 @@ assert "ancestry check failed" not in PUSH
 
 # Credential requirement and no credential echoing.
 assert "valid GitHub credential required for push" in PUSH
-assert "STATE GHCRED REPO A" in PUSH
+assert "STATE GHCRED REPO G" in PUSH
+assert "STATE GITMETA REPO G" in PUSH
+assert "STATE GITREMOT REPO G" in PUSH
+assert "DISKR GITREF2 REPO G" in PUSH
 assert "Authorization: Basic" in PUSH
 assert "Bearer" not in PUSH
 
@@ -152,18 +155,38 @@ assert "PACK'||right(packnum,4,'0')" in GC
 assert "if cmd='GC' & prune=1 then do" in GC
 assert "isreach=0" in GC
 assert "'ERASE' objfn 'GITOBJ' objectfm" in GC
-assert "if cmd='REPACK' & repack_delete=1 then do" in GC
 assert "'STATE' packfn 'PACK' objectfm" in GC
+assert "if cmd='GC' & prune=1 & packlimit>0 then do" in GC
+assert "LIMIT cannot be combined with --prune=now" in GC
+assert "if opt='-D' then do" in GC
+assert "-d is disabled; packed objects are not readable yet" in GC
+assert "if opt='-A' then do" in GC
+assert "-a is not implemented" in GC
+assert "if opt='--AGGRESSIVE' then do" in GC
+assert "--aggressive is not implemented" in GC
+assert "repack_delete" not in GC
+assert "repack_all" not in GC
+assert "if cmd='REPACK' & repack_delete=1 then do" not in GC
+first_repo_read = GC.index("'STATE GITMETA REPO G'")
+for guard in (
+    "LIMIT cannot be combined with --prune=now",
+    "-d is disabled; packed objects are not readable yet",
+    "-a is not implemented",
+    "--aggressive is not implemented",
+):
+    assert GC.index(guard) < first_repo_read, guard
+assert "deleting packed loose objects" not in GC
 
 # GITIMP must resolve the configured object disk instead of assuming A.
-assert "'STATE GITMETA REPO A'" in IMP
+assert "'STATE GITMETA REPO G'" in IMP
 assert "objectfm=translate(word(impmeta.mi,2))" in IMP
 assert "'STATE' objfn 'GITOBJ' objectfm" in IMP
 assert "'DISKW' objfn 'GITOBJ' objectfm" in IMP
 assert "'ERASE' objfn 'GITOBJ' objectfm" in IMP
 assert "'GITOBJ A'" not in IMP
 
-# Bounded validation: LIMIT=n truncates the reachable closure before packing.
+# Bounded validation: LIMIT=n truncates the reachable closure before packing,
+# and cannot enable pruning of objects omitted from that partial pack.
 assert "if left(opt,6)='LIMIT='" in GC
 assert "objlist.0=packlimit" in GC
 assert "LIMIT active; packing" in GC
@@ -181,7 +204,7 @@ assert "'RENAME OBJOUT STAGE' objectfm packfn 'PACK' objectfm" in GC
 assert "'ERASE' stagefn 'STAGE' objectfm" in GC
 
 # Prefer the native GITPMKC module when present, falling back to REXX.
-assert "'STATE GITPMKC MODULE A'" in GC
+assert "'STATE GITPMKC MODULE G'" in GC
 assert "nativepmk=(rc=0)" in GC
 assert "'GITPMKC BUILD HEX'" in GC
 assert "(RECFM V LRECL 255" in GC
@@ -219,7 +242,7 @@ assert "'EXECIO' sn 'DISKW' stagefn 'STAGE' objectfm '1 (STEM STGOUT. FINIS'" in
 assert "DISKW' stagefn 'STAGE' objectfm||' 1 (STEM STGOUT. FINIS'" not in PUSH
 
 # M281 pack-build: prefer native GITPMKC HEX, fallback REXX GITPMK BUILD.
-assert "'STATE GITPMKC MODULE A'" in PUSH
+assert "'STATE GITPMKC MODULE G'" in PUSH
 assert "'GITPMKC BUILD HEX'" in PUSH
 assert "(RECFM V LRECL 255" in PUSH
 assert "'RENAME OBJOUT STAGE' objectfm pack 'PACK' objectfm" in PUSH

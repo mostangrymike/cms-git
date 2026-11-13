@@ -24,12 +24,12 @@ if command='IS-ANCESTOR' then do
   say 'Usage: GITVREF IS-ANCESTOR ancestor-commit descendant-commit'
   exit 4
  end
- 'STATE GITMETA REPO A'
+ 'STATE GITMETA REPO G'
  if rc\=0 then exit 8
  drop meta.
- 'EXECIO * DISKR GITMETA REPO A 1 (STEM META. FINIS'
+ 'EXECIO * DISKR GITMETA REPO G 1 (STEM META. FINIS'
  if rc\=0 | meta.0<4 | meta.1\='CMS-GIT-REPOSITORY 1' then exit 8
- objectfm='A'
+ objectfm='G'
  objectrecords=0
  do mi=1 to meta.0
   if word(meta.mi,1)='OBJECT-DISK' then do
@@ -40,6 +40,10 @@ if command='IS-ANCESTOR' then do
  end
  if objectrecords>1 | length(objectfm)\=1 |,
     verify(objectfm,'ABCDEFGHIJKLMNOPQRSTUVWXYZ')\=0 then exit 8
+ if objectfm\='G' then do
+  say 'GITVREF: repository OBJECT-DISK must be G'
+  exit 8
+ end
  queue.0=1
  queue.1=descendant
  seen.descendant=1
@@ -155,6 +159,26 @@ if command='HEAD' then do
  say headref
  exit 0
 end
+/* Quiet REF2 resolution for the GIT REV-PARSE read surface. */
+if command='OID' then do
+ if spec='' | depth\='' | extra\='' then exit 4
+ call readrefs
+ if result\='OK' then exit 8
+ call resolve spec
+ if result='ERROR' then exit 8
+ say result
+ exit 0
+end
+/* REF2 ref listing for the GIT SHOW-REF read surface. */
+if command='REFS' then do
+ if spec\='' | depth\='' | extra\='' then exit 4
+ call readrefs
+ if result\='OK' then exit 8
+ do ri=1 to refcount
+  say refoid.ri refname.ri
+ end
+ exit 0
+end
 if command='BRANCHES' then do
  if depth\='' | extra\='' then exit 4
  branchpattern=spec
@@ -227,7 +251,7 @@ if command='REMOTE-BRANCHES' then do
  end
  drop remoteinput.
  remoteinput.0=0
- 'EXECIO * DISKR GITREF2 REPO A 1 (STEM REMOTEINPUT. FINIS'
+ 'EXECIO * DISKR GITREF2 REPO G 1 (STEM REMOTEINPUT. FINIS'
  if rc\=0 | remoteinput.0<2 | remoteinput.1\='REF2 1' then do
   say 'GITVREF: invalid REF2 database'
   exit 8
@@ -497,19 +521,14 @@ call resolve spec
 if result='ERROR' then exit 8
 oid=result
 if command='RESOLVE' then do
-  /* RESOLVE works from REF2 plus the loose store; the native store
-     (GITFIX/M15NEW) is not required and is absent in shallow repos. */
+  /* RESOLVE works from G-filemode REF2 and the loose object store. */
   objectfn=substr(oid,1,8)
   call objectdisk
   if result='ERROR' then exit 8
   if result='NATIVE' then do
-   /* Legacy repositories without GITMETA used G, then A. */
+   /* Legacy metadata-free repositories use the G object disk. */
    objectfm='G'
    'STATE' objectfn 'GITOBJ' objectfm
-   if rc\=0 then do
-    objectfm='A'
-    'STATE' objectfn 'GITOBJ' objectfm
-   end
   end
   else do
    objectfm=result
@@ -527,6 +546,12 @@ if command='LOG' then do
  /* Prefer the activated loose store when it holds the starting commit;
     native GEN2 fixtures remain the fallback for the protected test data. */
  call trylooselog
+ if result='OK' then exit 0
+ if result='ERROR' then exit 8
+end
+if command='SHOW' then do
+ /* Same preference for the single-commit view. */
+ call trylooseshow
  if result='OK' then exit 0
  if result='ERROR' then exit 8
 end
@@ -2520,9 +2545,9 @@ readrefs:
  drop rr. refname. refoid.
  headref=''
  refcount=0
- 'EXECIO * DISKR GITREF2 REPO A 1 (STEM RR. FINIS'
+ 'EXECIO * DISKR GITREF2 REPO G 1 (STEM RR. FINIS'
  if rc\=0 then do
-  say 'GITVREF: GITREF2 REPO A not found'
+  say 'GITVREF: GITREF2 REPO G not found'
   return 'ERROR'
  end
  if rr.0<2 | rr.1\='REF2 1' then do
@@ -5400,9 +5425,9 @@ tagbefore:
  return 'NO'
 
 bindnative:
- 'FILEDEF SEL0 DISK M15SL0 PTR A'
+ 'FILEDEF SEL0 DISK M15SL0 PTR G'
  if rc\=0 then return 'ERROR'
- 'FILEDEF SEL1 DISK M15SL1 PTR A'
+ 'FILEDEF SEL1 DISK M15SL1 PTR G'
  if rc\=0 then return 'ERROR'
  do i=1 to 4
   typ=word('STAGE INDEX SEEK GEN',i)
@@ -5419,11 +5444,11 @@ bindnative:
    no GITMETA exists (legacy layout), ERROR when it is malformed, otherwise
    the single validated filemode. */
 objectdisk:
- 'STATE GITMETA REPO A'
+ 'STATE GITMETA REPO G'
  if rc=28 then return 'NATIVE'
  if rc\=0 then return 'ERROR'
  drop od_meta.
- 'EXECIO * DISKR GITMETA REPO A 1 (STEM OD_META. FINIS'
+ 'EXECIO * DISKR GITMETA REPO G 1 (STEM OD_META. FINIS'
  if rc\=0 | od_meta.0<1 |,
     od_meta.1\='CMS-GIT-REPOSITORY 1' then return 'ERROR'
  od_fm='A'
@@ -5485,6 +5510,7 @@ trylooselog:
   call verifylltree
   if result\='OK' then return 'ERROR'
  end
+ call emitverified
  say 'LOG LOOSE SNAPSHOTS VERIFIED'
  say 'LOG DATA BEGIN'
  do ll_ni=1 to ll_count
@@ -5494,6 +5520,45 @@ trylooselog:
  end
  say 'LOG NODES' ll_count
  say 'LOG DATA END'
+ return 'OK'
+
+/* Loose-store GIT SHOW fallback.  Returns OK after verifying the commit,
+   its complete bounded root tree/blob closure, and a re-read/re-hash of
+   the commit, ERROR on malformed or missing objects, or NATIVE when the
+   requested commit is not in the activated loose store. */
+trylooseshow:
+ call objectdisk
+ if result='ERROR' then return 'ERROR'
+ if result='NATIVE' then return 'NATIVE'
+ ls_fm=result
+ ls_probe=substr(oid,1,8)
+ 'STATE' ls_probe 'GITOBJ' ls_fm
+ if rc=28 then return 'NATIVE'
+ if rc\=0 then return 'ERROR'
+ ll_id=oid
+ ll_ofm=ls_fm
+ call readllobj
+ if result\='OK' then return 'ERROR'
+ if rlo_type\='COMMIT' then return 'ERROR'
+ ls_tree=rlo_tree
+ ls_hex=rlo_hex
+ ls_size=rlo_size
+ ll_vfm=ls_fm
+ drop ll_tseen. ll_bseen.
+ ll_vroot=ls_tree
+ call verifylltree
+ if result\='OK' then return 'ERROR'
+ /* Re-read and re-hash the commit after closure verification. */
+ ll_id=oid
+ ll_ofm=ls_fm
+ call readllobj
+ if result\='OK' then return 'ERROR'
+ if rlo_type\='COMMIT' then return 'ERROR'
+ if rlo_tree\=ls_tree then return 'ERROR'
+ call emitverified
+ say 'SHOW FULL ROOT CLOSURE VERIFIED'
+ call emitllcommit ls_hex,ls_size
+ if result\='OK' then return 'ERROR'
  return 'OK'
 
 /* Read and verify one loose object; parse commit tree/parent links. */

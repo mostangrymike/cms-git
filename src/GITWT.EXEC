@@ -2,7 +2,7 @@
 address cms
 parse arg command rest
 command=translate(command)
-objectfm='A'
+objectfm='G'
 /* The worktree map is the path source of truth: PATH is stored as hex and
    the CMS file ID is a derived handle, so nested and long Git paths are
    representable.  512 bytes keeps one PATH record within a V-format record;
@@ -14,10 +14,10 @@ workfilemax=50
    to scan a much larger commit tree to find the few paths that are added,
    updated or removed.  Beyond this bound the pull fails closed. */
 treescanmax=4096
-'STATE GITMETA REPO A'
+'STATE GITMETA REPO G'
 if rc=0 then do
  drop cfg.
- 'EXECIO * DISKR GITMETA REPO A 1 (STEM CFG. FINIS'
+ 'EXECIO * DISKR GITMETA REPO G 1 (STEM CFG. FINIS'
  if rc\=0 | cfg.0<4 | cfg.1\='CMS-GIT-REPOSITORY 1' then do
   say 'GITWT: invalid repository metadata'
   exit 8
@@ -33,6 +33,10 @@ if rc=0 then do
  if objectrecords>1 | length(objectfm)\=1 |,
     verify(objectfm,'ABCDEFGHIJKLMNOPQRSTUVWXYZ')\=0 then do
   say 'GITWT: invalid OBJECT-DISK setting'
+  exit 8
+ end
+ if objectfm\='G' then do
+  say 'GITWT: repository OBJECT-DISK must be G'
   exit 8
  end
 end
@@ -238,11 +242,11 @@ if command='CHECKOUT-TREE' then do
   end
  end
  drop before.
- 'STATE GITWORK REPO A'
+ 'STATE GITWORK REPO G'
  beforeexists=0
  if rc=0 then do
   beforeexists=1
-  'EXECIO * DISKR GITWORK REPO A 1 (STEM BEFORE. FINIS'
+  'EXECIO * DISKR GITWORK REPO G 1 (STEM BEFORE. FINIS'
   if rc\=0 then do
    say 'GITWT: cannot save prior worktree map'
    exit 8
@@ -283,10 +287,10 @@ if command='CHECKOUT-TREE' then do
  end
  call savemap
  if result\='OK' then do
-  'STATE GITWORK REPO A'
-  if rc=0 then 'ERASE GITWORK REPO A'
+  'STATE GITWORK REPO G'
+  if rc=0 then 'ERASE GITWORK REPO G'
   if beforeexists then,
-   'EXECIO' before.0 'DISKW GITWORK REPO A 1 (STEM BEFORE. FINIS'
+   'EXECIO' before.0 'DISKW GITWORK REPO G 1 (STEM BEFORE. FINIS'
   do trb=1 to written
    'ERASE' tfn.trb tft.trb 'A'
   end
@@ -480,13 +484,13 @@ if command='RESTORE-WORKTREE' then do
    end
   end
  end
- 'STATE GITWORK REPO A'
+ 'STATE GITWORK REPO G'
  if rc\=0 then do
   say 'GITWT: cannot snapshot worktree map'
   exit 8
  end
  drop before.
- 'EXECIO * DISKR GITWORK REPO A 1 (STEM BEFORE. FINIS'
+ 'EXECIO * DISKR GITWORK REPO G 1 (STEM BEFORE. FINIS'
  if rc\=0 then do
   say 'GITWT: cannot snapshot worktree map'
   exit 8
@@ -827,9 +831,9 @@ if command='CHECK-PULL' | command='APPLY-PULL' then do
   exit 0
  end
  drop before.
- 'STATE GITWORK REPO A'
+ 'STATE GITWORK REPO G'
  if rc\=0 then exit 8
- 'EXECIO * DISKR GITWORK REPO A 1 (STEM BEFORE. FINIS'
+ 'EXECIO * DISKR GITWORK REPO G 1 (STEM BEFORE. FINIS'
  if rc\=0 then exit 8
  restorecount=mapcount
  drop restorepi. restoreexists. restoreoldcount.
@@ -1165,10 +1169,10 @@ if command='APPLY-SWITCH' then do
    restoreline.switchi.switchline=rec.switchline
   end
  end
- 'STATE GITWORK REPO A'
+ 'STATE GITWORK REPO G'
  if rc\=0 then exit 8
  drop before.
- 'EXECIO * DISKR GITWORK REPO A 1 (STEM BEFORE. FINIS'
+ 'EXECIO * DISKR GITWORK REPO G 1 (STEM BEFORE. FINIS'
  if rc\=0 then exit 8
  do switchi=1 to restorecount
   pi=restorepi.switchi
@@ -1402,10 +1406,10 @@ if command='ADD' then do
    newoid.ni=result
    if newoid.ni='ERROR' then exit 8
   end
-  'STATE GITWORK REPO A'
+  'STATE GITWORK REPO G'
   if rc=0 then do
    drop before.
-   'EXECIO * DISKR GITWORK REPO A 1 (STEM BEFORE. FINIS'
+   'EXECIO * DISKR GITWORK REPO G 1 (STEM BEFORE. FINIS'
    if rc\=0 then exit 8
    oldmap=1
   end
@@ -1428,7 +1432,7 @@ if command='ADD' then do
   call savemap
   if result\='OK' then do
    if oldmap=1 then call restoremap
-   else 'ERASE GITWORK REPO A'
+   else 'ERASE GITWORK REPO G'
    exit 8
   end
   do ni=1 to newcount
@@ -1648,7 +1652,7 @@ if command='ACCEPT' then do
  end
  say 'GITWT ACCEPT LEVEL M168'
  drop before.
- 'EXECIO * DISKR GITWORK REPO A 1 (STEM BEFORE. FINIS'
+ 'EXECIO * DISKR GITWORK REPO G 1 (STEM BEFORE. FINIS'
  if rc\=0 then do
   say 'GITWT: cannot snapshot worktree map'
   exit 8
@@ -1720,7 +1724,7 @@ if command='ACCEPT' then do
  end
  mapcount=keptcount
  if deletecount>0 then do
-  'ERASE GITWORK REPO A'
+  'ERASE GITWORK REPO G'
   if rc\=0 then do
    call restoremap
    say 'GITWT: cannot truncate accepted worktree map'
@@ -3012,10 +3016,10 @@ modehex:
 
 writehex:
  parse arg raw
- 'STATE GITTREE REPO A'
+ 'STATE GITTREE REPO G'
  trc=rc
  if trc=0 then do
-  'ERASE GITTREE REPO A'
+  'ERASE GITTREE REPO G'
   if rc\=0 then return 'ERROR'
  end
  else if trc\=28 then return 'ERROR'
@@ -3033,13 +3037,13 @@ writehex:
   tp=tp+take
  end
  tr.0=tn
- 'EXECIO' tr.0 'DISKW GITTREE REPO A 1 (STEM TR. FINIS'
+ 'EXECIO' tr.0 'DISKW GITTREE REPO G 1 (STEM TR. FINIS'
  if rc\=0 then return 'ERROR'
  drop tw.
  tw.0=0
- 'PIPE CMS GIT WRITE-TREE-HEXFILE GITTREE REPO A | STEM tw.'
+ 'PIPE CMS GIT WRITE-TREE-HEXFILE GITTREE REPO G | STEM tw.'
  wrc=rc
- 'ERASE GITTREE REPO A'
+ 'ERASE GITTREE REPO G'
  erc=rc
  if wrc\=0 | erc\=0 then return 'ERROR'
  found=0
@@ -3061,12 +3065,12 @@ loadmap:
 
  drop mapbase. mapstage. mappath.
  mapcount=0
- 'STATE GITWORK REPO A'
+ 'STATE GITWORK REPO G'
  mrc=rc
  if mrc=28 then return 'OK'
  if mrc\=0 then return 'ERROR'
  drop wm.
- 'EXECIO * DISKR GITWORK REPO A 1 (STEM WM. FINIS'
+ 'EXECIO * DISKR GITWORK REPO G 1 (STEM WM. FINIS'
  if rc\=0 | wm.0<2 then return 'ERROR'
  if word(wm.1,1)\='WORK1' | words(wm.1)\=2 then return 'ERROR'
  mapcount=word(wm.1,2)
@@ -3119,14 +3123,14 @@ loadmap:
  return 'OK'
 
 restoremap:
- 'STATE GITWORK REPO A'
+ 'STATE GITWORK REPO G'
  rmc=rc
  if rmc=0 then do
-  'ERASE GITWORK REPO A'
+  'ERASE GITWORK REPO G'
   if rc\=0 then return 'ERROR'
  end
  else if rmc\=28 then return 'ERROR'
- 'EXECIO' before.0 'DISKW GITWORK REPO A 1 (STEM BEFORE. FINIS'
+ 'EXECIO' before.0 'DISKW GITWORK REPO G 1 (STEM BEFORE. FINIS'
  if rc\=0 then return 'ERROR'
  return 'OK'
 
@@ -3169,27 +3173,27 @@ savemap:
  drop smbak.
  smbak.0=0
  smold=0
- 'STATE GITWORK REPO A'
+ 'STATE GITWORK REPO G'
  if rc=0 then do
   smold=1
-  'EXECIO * DISKR GITWORK REPO A 1 (STEM SMBAK. FINIS'
+  'EXECIO * DISKR GITWORK REPO G 1 (STEM SMBAK. FINIS'
   if rc\=0 then do
    say 'GITWT: cannot snapshot worktree map'
    return 'ERROR'
   end
-  'ERASE GITWORK REPO A'
+  'ERASE GITWORK REPO G'
   if rc\=0 then do
    say 'GITWT: cannot replace worktree map'
    return 'ERROR'
   end
  end
  else if rc\=28 then return 'ERROR'
- 'EXECIO' sw.0 'DISKW GITWORK REPO A 1 (STEM SW. FINIS'
+ 'EXECIO' sw.0 'DISKW GITWORK REPO G 1 (STEM SW. FINIS'
  if rc\=0 then do
-  'STATE GITWORK REPO A'
-  if rc=0 then 'ERASE GITWORK REPO A'
+  'STATE GITWORK REPO G'
+  if rc=0 then 'ERASE GITWORK REPO G'
   if smold then do
-   'EXECIO' smbak.0 'DISKW GITWORK REPO A 1 (STEM SMBAK. FINIS'
+   'EXECIO' smbak.0 'DISKW GITWORK REPO G 1 (STEM SMBAK. FINIS'
    if rc\=0 then say 'GITWT: worktree map restore also failed'
   end
   say 'GITWT: cannot write worktree map'
@@ -3238,7 +3242,7 @@ readrefs:
  drop rr. refname. refoid.
  headref=''
  refcount=0
- 'EXECIO * DISKR GITREF2 REPO A 1 (STEM RR. FINIS'
+ 'EXECIO * DISKR GITREF2 REPO G 1 (STEM RR. FINIS'
  /* Two lines is an unborn repository: header plus symbolic HEAD. */
  if rc\=0 | rr.0<2 | rr.1\='REF2 1' then return 'ERROR'
  do ri=2 to rr.0
@@ -3340,12 +3344,12 @@ resolve:
 
 bindnative:
  success=1
- 'FILEDEF SEL0 DISK M15SL0 PTR A'
+ 'FILEDEF SEL0 DISK M15SL0 PTR G'
  if rc\=0 then do
   say 'GITWT: FILEDEF SEL0 failed RC' rc
   success=0
  end
- 'FILEDEF SEL1 DISK M15SL1 PTR A'
+ 'FILEDEF SEL1 DISK M15SL1 PTR G'
  if rc\=0 then do
   say 'GITWT: FILEDEF SEL1 failed RC' rc
   success=0

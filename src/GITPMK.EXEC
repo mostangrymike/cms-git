@@ -12,7 +12,7 @@ if cmd\='BUILD' | extra\='' then do
 end
 
 /* ---- Main program ---- */
-if fm='' then fm='A'
+if fm='' then fm='G'
 fm=translate(strip(fm))
 if length(fm)\=1 | verify(fm,'ABCDEFGHIJKLMNOPQRSTUVWXYZ')\=0 then do
    say 'GITPMK: invalid filemode' fm

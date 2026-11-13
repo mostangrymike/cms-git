@@ -12,7 +12,7 @@ call absent 'GITTREE','REPO','A'
 if result\=0 then exit 8
 
 drop rb.
-'EXECIO * DISKR GITREF2 REPO A 1 (STEM RB. FINIS'
+'EXECIO * DISKR GITREF2 REPO G 1 (STEM RB. FINIS'
 if rc\=0 | rb.0<3 then do
  say 'M167 REF2 SNAPSHOT FAIL'
  exit 8
@@ -53,7 +53,7 @@ dirty=1
 say 'M167 DISPOSABLE REF INITIALIZED'
 
 drop setup.
-'EXECIO * DISKR GITREF2 REPO A 1 (STEM SETUP. FINIS'
+'EXECIO * DISKR GITREF2 REPO G 1 (STEM SETUP. FINIS'
 if rc\=0 | setup.0\=rb.0+1 then do
  call cleanup
  say 'M167 SETUP SNAPSHOT FAIL'
@@ -111,7 +111,7 @@ end
 say 'M167 INTEGRATED COMMIT RC0'
 
 drop post.
-'EXECIO * DISKR GITREF2 REPO A 1 (STEM POST. FINIS'
+'EXECIO * DISKR GITREF2 REPO G 1 (STEM POST. FINIS'
 if rc\=0 | post.0\=setup.0 then do
  call cleanup
  say 'M167 POST REF2 READ FAIL'
@@ -165,7 +165,7 @@ if rc\=0 then do
 end
 
 drop rf.
-'EXECIO * DISKR GITREF2 REPO A 1 (STEM RF. FINIS'
+'EXECIO * DISKR GITREF2 REPO G 1 (STEM RF. FINIS'
 if rc\=0 | rf.0\=rb.0 then do
  call cleanup
  say 'M167 REF2 RESTORE READ FAIL'
@@ -205,15 +205,15 @@ absent:
 cleanup:
  crc=0
  if dirty then do
-  'STATE GITREF2 REPO A'
+  'STATE GITREF2 REPO G'
   src=rc
   if src=0 then do
-   'ERASE GITREF2 REPO A'
+   'ERASE GITREF2 REPO G'
    if rc\=0 then crc=8
   end
   else if src\=28 then crc=8
   if crc=0 then do
-   'EXECIO' rb.0 'DISKW GITREF2 REPO A 1 (STEM RB. FINIS'
+   'EXECIO' rb.0 'DISKW GITREF2 REPO G 1 (STEM RB. FINIS'
    if rc\=0 then crc=8
   end
  end
@@ -223,15 +223,15 @@ cleanup:
   if rc\=0 then crc=8
  end
  else if rc\=28 then crc=8
- 'STATE GITWORK REPO A'
+ 'STATE GITWORK REPO G'
  if rc=0 then do
-  'ERASE GITWORK REPO A'
+  'ERASE GITWORK REPO G'
   if rc\=0 then crc=8
  end
  else if rc\=28 then crc=8
- 'STATE GITTREE REPO A'
+ 'STATE GITTREE REPO G'
  if rc=0 then do
-  'ERASE GITTREE REPO A'
+  'ERASE GITTREE REPO G'
   if rc\=0 then crc=8
  end
  else if rc\=28 then crc=8

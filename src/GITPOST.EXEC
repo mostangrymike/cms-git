@@ -15,12 +15,12 @@ if storemode then do
  storefn=translate(storefn)
  call safefn storefn
  if result\='OK' then exit 4
- 'STATE' storefn 'PACK A'
+ 'STATE' storefn 'PACK G'
  if rc\=28 then do
   say 'GITPOST: store PACK already exists' storefn
   exit 8
  end
- 'STATE' storefn 'META A'
+ 'STATE' storefn 'META G'
  if rc\=28 then do
   say 'GITPOST: store META already exists' storefn
   exit 8
@@ -263,8 +263,8 @@ say 'FETCH POST SHALLOW LINES' shallows 'UNSHALLOW' unshallows 'ACK' acks
 say 'FETCH POST PROGRESS BYTES' progress
 say 'FETCH POST HTTP BYTES' total
 if storemode then do
- say 'FETCH POST STORED' storefn 'PACK A'
- say 'FETCH POST META' storefn 'META A'
+ say 'FETCH POST STORED' storefn 'PACK G'
+ say 'FETCH POST META' storefn 'META G'
  say 'M171 FETCH STORE PASS'
 end
 say 'M170 FETCH POST PASS'
@@ -289,7 +289,7 @@ storefeed:
   storechecked=1
   call afree
   if result='ERROR' | result<64 then do
-   say 'GITPOST: disk A has fewer than 64 free blocks; not storing the pack'
+   say 'GITPOST: disk G has fewer than 64 free blocks; not storing the pack'
    return 'ERROR'
   end
  end
@@ -308,7 +308,7 @@ storefeed:
 storeflush:
  if srecs=0 then return 'OK'
  sw.0=srecs
- 'EXECIO' srecs 'DISKW' storefn 'PACK A 0 (STEM SW. FINIS'
+ 'EXECIO' srecs 'DISKW' storefn 'PACK G 0 (STEM SW. FINIS'
  if rc\=0 then return 'ERROR'
  drop sw.
  srecs=0
@@ -326,21 +326,21 @@ storefinal:
     back the partial PACK instead of leaving an unusable pair. */
  call afree
  if result='ERROR' | result<2 then do
-  say 'GITPOST: disk A is full; erasing partial' storefn 'PACK A'
-  'ERASE' storefn 'PACK A'
+  say 'GITPOST: disk G is full; erasing partial' storefn 'PACK G'
+  'ERASE' storefn 'PACK G'
   return 'ERROR'
  end
  sm.1='META' oid packbytes pver pobjects
  sm.0=1
- 'EXECIO 1 DISKW' storefn 'META A 1 (STEM SM. FINIS'
+ 'EXECIO 1 DISKW' storefn 'META G 1 (STEM SM. FINIS'
  if rc\=0 then return 'ERROR'
  return 'OK'
 
 storeclean:
- 'STATE' storefn 'PACK A'
- if rc=0 then 'ERASE' storefn 'PACK A'
- 'STATE' storefn 'META A'
- if rc=0 then 'ERASE' storefn 'META A'
+ 'STATE' storefn 'PACK G'
+ if rc=0 then 'ERASE' storefn 'PACK G'
+ 'STATE' storefn 'META G'
+ if rc=0 then 'ERASE' storefn 'META G'
  return
 
 httpfeed:
@@ -574,11 +574,11 @@ authheader: procedure
  address cms
  tokenalphabet='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
  tokenalphabet=tokenalphabet||'0123456789_-'
- 'STATE GHCRED REPO A'
+ 'STATE GHCRED REPO G'
  if rc=28 then return ''
  if rc\=0 then return 'ERROR'
  drop cred.
- 'EXECIO * DISKR GHCRED REPO A 1 (STEM CRED. FINIS'
+ 'EXECIO * DISKR GHCRED REPO G 1 (STEM CRED. FINIS'
  if rc\=0 | cred.0<4 then return 'ERROR'
  if cred.1='GHCRED 1' then do
   authmode='APIKEY'
@@ -730,14 +730,14 @@ asciitocms: procedure
  return translate(ascii,bytes,tab)
 
 afree:
- /* Return the blocks left on the A disk, or ERROR. */
+ /* Return the blocks left on the G disk, or ERROR. */
  drop af.
 af.0=0
-'PIPE CMS QUERY DISK A | STEM AF.'
+'PIPE CMS QUERY DISK G | STEM AF.'
 if rc\=0 then return 'ERROR'
 found=''
 do afi=1 to af.0
- if word(af.afi,3)='A' & word(af.afi,4)='R/W' & words(af.afi)>=11 then,
+ if word(af.afi,3)='G' & word(af.afi,4)='R/W' & words(af.afi)>=11 then,
   found=word(af.afi,10)
 end
 if datatype(found,'W')\=1 then return 'ERROR'
