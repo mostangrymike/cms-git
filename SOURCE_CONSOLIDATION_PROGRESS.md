@@ -222,7 +222,7 @@ proofs in view.
   remains **142/146 pass** with four known environment-only failures.
   M289-M293 source guards and G1-only CMS fixtures pass. M293 focused host
   checks, archive audit, and the preserved-source `CHECK` suite also pass.
-- GitHub Actions run 2240 is validating M293 commit `93be2f7`.
+- GitHub Actions run 2240 passed for M293 commit `93be2f7`.
 - CI runs 2236/2237 initially stopped at M167 and 2238 at M168 because two
   preserved tests still expected the former combined HEAD/CHECKOUT dispatch.
   Both boundaries were updated; run 2239 passed, including M164-M171.
