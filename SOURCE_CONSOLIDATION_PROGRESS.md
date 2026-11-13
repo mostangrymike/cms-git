@@ -192,7 +192,7 @@ proofs in view.
 
 - Consolidation changes are published: M289 `279e91f`, M290 `02f4f80`, and
   ACLEAN archive-test correction `3612aa2`; GitHub CI run 2235 passed. The
-  latest progress/handoff commit is `138825a`.
+  latest progress/handoff commit is `f640694`.
 - `SOURCE_CONSOLIDATION_PROGRESS.md` is the current recovery note.
 - Tracked source count: 177 → **96**. Historical/test/benchmark source is
   recoverable through `scripts/restore-cms-exec.py MISSING`; scratch copies
@@ -237,23 +237,17 @@ proofs in view.
   `src/GITPINFL.EXEC`; only the
   early-refusal paths of GITZDOFS/GITZDREF were target-tested. M287/M288 are
   CMS parse/refusal tested; M289/M290 have G-only CMS fixture passes.
-- Still open: the absolute minimum runtime-file goal. Beyond the GITODLT→
-  GITZDOFS inline merge, the current pass intentionally preserves external
-  EXEC/module entry points. Next phase needs a caller/ABI map for the remaining
-  70 EXEC and 23 C sources, followed by small internal merges and live CMS
-  validation. A one-EXEC/one-C design would require a new dispatcher and
-  compiler/link strategy, not safe concatenation.
-- A fresh lexical call map found no additional small, single-caller internal
-  helper. Remaining EXECs are shared callers, public GIT command handlers, or
-  broader algorithm/module boundaries; review those by caller/ABI before any
-  further merge.
 - C consolidation review confirmed `GITREC.C` includes `GITCIDX.C` and
   `GITSEL.C` with renamed `main` symbols, while each is also built as a
   standalone CMS module and referenced independently by target gates. Keep
   these files separate until the CMS build/upload interface is redesigned.
-- Current one-caller core DEFLATE helpers have been inlined only after adding
-  and passing G1-only fixtures. Continue with the caller/ABI map; do not merge
-  deeper modules based on token counts alone.
+- Final `LIVEPLAN` inventory after M290: 96 tracked paths (88 GIT, 2 milestone,
+  6 other), no exact duplicate source groups, and 32 files with zero lexical
+  callers. Zero-call files remain preserved; this is not deletion approval.
+- The safe sole-caller helper pass is complete. Remaining source paths are
+  shared callers, public command/module entrypoints, or native ABI boundaries.
+  Further reduction needs an explicit dispatcher/build-ABI redesign and
+  separate CMS validation; no one-file target is claimed.
 
 ## Decisions and validation
 
