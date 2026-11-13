@@ -117,10 +117,10 @@ proofs in view.
 - `LOCAL_SCRATCH.json`: two unique ignored backup sources plus GIT42TEST; three
   identical ignored GITWT backup files were reduced to one archived copy. Four
   scratch files were removed from `src/` after hash and secret-pattern checks.
-- Current `HISTORICAL_EXEC.json`: **178** source entries in 11 verified
-  bundles (139 EXEC, 17 C, 22 ASSEMBLE). `restore-cms-exec.py MISSING` is the
+- Current `HISTORICAL_EXEC.json`: **179** source entries in 11 verified
+  bundles (140 EXEC, 17 C, 22 ASSEMBLE). `restore-cms-exec.py MISSING` is the
   non-overwriting preparation step before host guards or source upload.
-- Current tracked source paths: **97**, down from 177 (71 EXEC, 23 C, 0
+- Current tracked source paths: **96**, down from 177 (70 EXEC, 23 C, 0
   ASSEMBLE, one REPO, two shell scripts). After `restore-cms-exec.py MISSING`,
   the physical `src/` directory also contains on-demand archived sources and
   fixtures; do not treat those restored/untracked files as active tracked code.
@@ -137,8 +137,8 @@ proofs in view.
   into the strict path in GITPNWLK. The byte-exact old helper is archived in
   `LEGACY_HELPERS.json` for historical tests and is restored on demand.
   M287 guards check bounded 64-byte reads, trailer validation, the known M8A
-  digest, and archive parity. The merged CMS entrypoint has not yet been
-  target-validated.
+  digest, and archive parity. CMS verified parsing and early-refusal only;
+  strict PACK processing remains unvalidated on the target.
 - Inlined the sole production callers' bounded native staging and output
   publisher from GITNSTG/GITNOUT into GITPZNAT. Exact originals remain in
   `LEGACY_HELPERS.json` for restored tests. M288 guards check 1-KiB staging
@@ -160,9 +160,23 @@ proofs in view.
   M9J tests. M289 guards compare the inlined body with the archive and check
   fixed, dynamic, stored/fixed, and bad-Adler fixtures. A G1-only CMS stack
   with unique temporary names passed all four cases, including expected
-  bad-Adler rejection. All temporary EXECs and data files were erased and
-  verified absent; no A-disk file was written. Evidence:
-  `cms-m289-streaming-zlib-target.json`.
+   bad-Adler rejection. All temporary EXECs and data files were erased and
+   verified absent; no A-disk file was written. Evidence:
+   `cms-m289-streaming-zlib-target.json`.
+- Inlined the sole production caller's general DEFLATE engine from GITPDEF
+  into GITPINFL. The exact engine remains archived for restored M9E tests.
+  M290 guards compare the copied core with its archive and model fixed,
+  dynamic, stored/fixed, and bad-Adler cases. A G1-only CMS stack passed all
+  four cases; temporary EXECs and PACK files were erased and verified absent.
+  No A-disk file was written. Evidence:
+  `cms-m290-general-inflater-target.json`.
+- Inlined the sole production caller's general DEFLATE engine from GITPDEF
+  into GITPINFL. The exact engine remains archived for restored M9E tests.
+  M290 guards compare the copied core with its archive and model fixed,
+  dynamic, stored/fixed, and bad-Adler cases. The G1-only CMS stack passed the
+  same four cases; all temporary EXECs and PACK files were erased and verified
+  absent. No A-disk file was written. Evidence:
+  `cms-m290-general-inflater-target.json`.
 - Direct Telnet CMS tests of the exact EXEC sources on A1 returned RC4 for
   invalid verbs and RC8 for malformed zlib input (expected early refusal).
   The full resolver paths were not exercised: GITINFL/GITDAPP and legacy
@@ -172,20 +186,20 @@ proofs in view.
   object were absent before/after. Target evidence:
   `/private/var/folders/y0/hyjtc91x5071jc0gntk0pzcw0000gn/T/opencode/cms-m284-m285-target-run3.json`.
   Do not call either full resolver path CMS-proven.
-- Overall, 80 tracked source paths have been removed. Runtime modules remain
+- Overall, 81 tracked source paths have been removed. Runtime modules remain
   separate where CMS EXEC/module names and distinct C `main` entry points are
-  public build/runtime boundaries. No changes have been committed or pushed.
+  public build/runtime boundaries. M290 is not committed yet.
 
 ## Current handoff
 
-- Latest published consolidation commit is `2e234df`; M289 changes are local
+- Latest published consolidation commit is `279e91f`; M290 changes are local
   and will be published after validation.
 - `SOURCE_CONSOLIDATION_PROGRESS.md` is the current recovery note.
-- Tracked source count: 177 → **97**. Historical/test/benchmark source is
+- Tracked source count: 177 → **96**. Historical/test/benchmark source is
   recoverable through `scripts/restore-cms-exec.py MISSING`; scratch copies
   have exact SHA-256 records in `archive/LOCAL_SCRATCH.json`.
 - Full host gate remains **142/146 pass** with four known macOS/Linux
-  environment-only failures; M289 focused guards and the G1 CMS fixture pass.
+  environment-only failures; M289/M290 focused guards and G1 CMS fixtures pass.
 - CMS drive placement is being completed separately from source consolidation:
   operator clarified all CMS-Git files must live on G. The 18 smaller A1
   project files were copied to absent G1 names (module duplicates under
@@ -215,19 +229,19 @@ proofs in view.
   PACK erasure until the A-disk read/track-deletion error is resolved or
   separately reviewed. `PROFILE` and `RESTORE` were never changed.
 - Active runtime source edits are `src/GITZDOFS.EXEC`, `src/GITZDREF.EXEC`,
-  `src/GITPNWLK.EXEC`, `src/GITPZNAT.EXEC`, and `src/GITPZBUF.EXEC`; only the
+  `src/GITPNWLK.EXEC`, `src/GITPZNAT.EXEC`, `src/GITPZBUF.EXEC`, and
+  `src/GITPINFL.EXEC`; only the
   early-refusal paths of GITZDOFS/GITZDREF were target-tested. M287/M288 are
-  CMS parse/refusal tested; M289 has a full G-only CMS fixture pass.
+  CMS parse/refusal tested; M289/M290 have G-only CMS fixture passes.
 - Still open: the absolute minimum runtime-file goal. Beyond the GITODLT→
   GITZDOFS inline merge, the current pass intentionally preserves external
   EXEC/module entry points. Next phase needs a caller/ABI map for the remaining
-  71 EXEC and 23 C sources, followed by small internal merges and live CMS
+  70 EXEC and 23 C sources, followed by small internal merges and live CMS
   validation. A one-EXEC/one-C design would require a new dispatcher and
   compiler/link strategy, not safe concatenation.
-- The current lexical scan's next one-caller candidate is `GITPDEF` (general
-  DEFLATE, 279 lines, called by GITPINFL). It is a core algorithm, not a small
-  wrapper; keep it separate until a disposable CMS fixture can exercise the
-  merged path end-to-end. A token caller count alone is not deletion approval.
+- Current one-caller core DEFLATE helpers have been inlined only after adding
+  and passing G1-only fixtures. Continue with the caller/ABI map; do not merge
+  deeper modules based on token counts alone.
 
 ## Decisions and validation
 

@@ -5920,4 +5920,81 @@ if zlib.decompress(mixed) != mixed_body:
     raise SystemExit("M289 stored/fixed fixture mismatch")
 print("M289 INLINE STREAMING DEFLATE AND LEGACY ARCHIVE GUARDS PASS")
 PY
+python3 - "$root/src/GITPINFL.EXEC" "$root/archive/HISTORICAL_EXEC.json" "$root" <<'PY'
+import json
+import subprocess
+import sys
+import zlib
+from pathlib import Path
+
+worker = Path(sys.argv[1]).read_text()
+archive = json.loads(Path(sys.argv[2]).read_text())
+root = Path(sys.argv[3])
+for token in (
+    "base = defpos",
+    "if btype = 0 then call stored",
+    "if btype = 1 then call fixed",
+    "if btype = 2 then call dynamic",
+    "queue out",
+    "queue used",
+    "trailer = defpos + defused",
+    "GITPINFL: Adler-32 mismatch",
+):
+    if token not in worker:
+        raise SystemExit("M290 inline general DEFLATE guard missing " + token)
+if "EXEC GITPDEF" in worker:
+    raise SystemExit("M290 retains external GITPDEF call")
+if any(len(line) > 80 for line in worker.splitlines()):
+    raise SystemExit("M290 CMS source record exceeds 80 columns")
+
+legacy = archive["bundles"]["LEGACY_HELPERS.json"]["files"]
+old = legacy.get("GITPDEF.EXEC")
+restored = root / "src/GITPDEF.EXEC"
+if not old or not restored.is_file() or restored.read_text() != old:
+    raise SystemExit("M290 legacy DEFLATE helper archive/restore mismatch")
+tracked = subprocess.run(
+    ["git", "ls-files", "--error-unmatch", "src/GITPDEF.EXEC"],
+    cwd=root, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+if tracked.returncode == 0:
+    raise SystemExit("M290 sole-caller helper remains tracked")
+
+old_main = old[old.index("base = start\n"):old.index("\nstored:\n")]
+old_main = old_main.replace("base = start\n", "base = defpos\n", 1)
+old_main = old_main[:old_main.rfind("exit 0")].rstrip() + "\n"
+inline_start = worker.index("base = defpos\n")
+inline_end = worker.index("queue used\n", inline_start) + len("queue used\n")
+if worker[inline_start:inline_end] != old_main:
+    raise SystemExit("M290 DEFLATE main body changed during inline merge")
+old_helpers = old[old.index("\nstored:\n") + 1:]
+helper_start = worker.index("\nstored:\n") + 1
+helper_end = worker.index("\nadler: procedure\n", helper_start)
+if worker[helper_start:helper_end].rstrip("\n") != old_helpers.rstrip("\n"):
+    raise SystemExit("M290 DEFLATE helper procedures differ from archive")
+
+for stream, want in (
+    ("789C4B4C4A0600024D0127", b"abc"),
+    ("789C000300FCFF6162634B4C4A0600080C024D", b"abcabc"),
+):
+    if zlib.decompress(bytes.fromhex(stream)) != want:
+        raise SystemExit("M290 fixed/stored fixture mismatch")
+dynamic_raw = bytes.fromhex(
+    "1589C11100300C825671358CB5FB6FD0F40507F460E740BD16746164CC76F8EC0C"
+    "EACEC8CD03")
+dynamic_body = bytes.fromhex(
+    "616665616262646561616662656162646120676161632062616261616262616161"
+    "6261616663636120666162646420626664")
+import struct
+dynamic = (b"\x78\x9c" + dynamic_raw +
+           struct.pack(">I", zlib.adler32(dynamic_body)))
+if zlib.decompress(dynamic) != dynamic_body:
+    raise SystemExit("M290 dynamic-Huffman fixture mismatch")
+bad = bytes.fromhex("789C4B4C4A0600024D0128")
+try:
+    zlib.decompress(bad)
+except zlib.error:
+    pass
+else:
+    raise SystemExit("M290 corrupted Adler fixture unexpectedly passed")
+print("M290 INLINE GENERAL DEFLATE AND LEGACY ARCHIVE GUARDS PASS")
+PY
 echo 'Canonical ASCII header and CMS C source guards passed'
