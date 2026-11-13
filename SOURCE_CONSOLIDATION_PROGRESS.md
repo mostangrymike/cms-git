@@ -186,18 +186,23 @@ proofs in view.
   Do not call either full resolver path CMS-proven.
 - Overall, 81 tracked source paths have been removed. Runtime modules remain
   separate where CMS EXEC/module names and distinct C `main` entry points are
-  public build/runtime boundaries. M290 is not committed yet.
+  public build/runtime boundaries.
 
 ## Current handoff
 
-- Latest published consolidation commit is `279e91f`; M290 changes are local
-  and will be published after validation.
+- Latest published consolidation commit is `3612aa2`, including M289/M290 and
+  the ACLEAN archive-inventory test correction.
 - `SOURCE_CONSOLIDATION_PROGRESS.md` is the current recovery note.
 - Tracked source count: 177 → **96**. Historical/test/benchmark source is
   recoverable through `scripts/restore-cms-exec.py MISSING`; scratch copies
   have exact SHA-256 records in `archive/LOCAL_SCRATCH.json`.
-- Full host gate remains **142/146 pass** with four known macOS/Linux
-  environment-only failures; M289/M290 focused guards and G1 CMS fixtures pass.
+- Full host gate baseline remains **142/146 pass** with four known
+  macOS/Linux environment-only failures. Focused M289/M290 guards and CMS G1
+  fixtures pass; GitHub Actions is rerunning after the ACLEAN correction.
+- GitHub runs 2233/2234 failed at the ACLEAN archive-inventory assertion: its
+  expected legacy-helper set still listed five entries. Updated the fixture
+  for all ten archived helpers in `3612aa2`; the focused ACLEAN test passes
+  locally, and run 2235 is still in progress.
 - CMS drive placement is being completed separately from source consolidation:
   operator clarified all CMS-Git files must live on G. The 18 smaller A1
   project files were copied to absent G1 names (module duplicates under
@@ -237,6 +242,10 @@ proofs in view.
   70 EXEC and 23 C sources, followed by small internal merges and live CMS
   validation. A one-EXEC/one-C design would require a new dispatcher and
   compiler/link strategy, not safe concatenation.
+- A fresh lexical call map found no additional small, single-caller internal
+  helper. Remaining EXECs are shared callers, public GIT command handlers, or
+  broader algorithm/module boundaries; review those by caller/ABI before any
+  further merge.
 - Current one-caller core DEFLATE helpers have been inlined only after adding
   and passing G1-only fixtures. Continue with the caller/ABI map; do not merge
   deeper modules based on token counts alone.
