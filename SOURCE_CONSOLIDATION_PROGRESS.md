@@ -246,8 +246,18 @@ proofs in view.
   runtime sources. Made archive enrichment conditional for archive-free
   synthetic checkouts; the fixture now passes locally. `MISSING` parity,
   `AUDIT`, `LIVEDEPS`, full canonical guards, and preserved-source `CHECK` also
-  pass locally. The fix was pushed as `78a97b1`; Actions run 2243 is in
-  progress, with no result yet.
+  pass locally. The fix was pushed as `78a97b1`; GitHub Actions run 2243
+  completed successfully.
+- Full CMS read-only smoke pass: 332 offline CMS-tooling unit tests and MCP
+  protocol validation passed before connecting. On the existing G repository,
+  `QUERY TERMINAL`, `QUERY DISK G`, source/repository `STATE`, `GIT STAMP`,
+  `STATUS --short --branch`, `BRANCH`, `TAG --list`, `LOG --max-count 1`,
+  `SHOW HEAD`, and `DIFF --name-only` all returned to Ready. The selected log
+  and show verified commit `BE43A71F4C6030A0D8D3649DFDFE478409D03A10`; the
+  worktree status was `## main` and diff output was empty. The test used G only;
+  it created, changed, uploaded, or erased no CMS files and did not touch A.
+  The terminal was left connected and idle. Evidence:
+  `/private/var/folders/y0/hyjtc91x5071jc0gntk0pzcw0000gn/T/opencode/cms-full-smoke-evidence.json`.
 - CI runs 2236/2237 initially stopped at M167 and 2238 at M168 because two
   preserved tests still expected the former combined HEAD/CHECKOUT dispatch.
   Both boundaries were updated; run 2239 passed, including M164-M171.

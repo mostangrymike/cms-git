@@ -16053,4 +16053,18 @@ one. The scanner now adds deferred runtime sources only when the archive
 exists; archive-free synthetic fixtures inventory their tracked files alone.
 `LIVEPLANFIX`, canonical guards, archive audit, `LIVEDEPS`, and preserved-source
 `CHECK` pass locally after the correction. The fix is committed and pushed as
-`78a97b1`; Actions run 2243 is in progress. No CMS target behavior changed.
+`78a97b1`; GitHub Actions run 2243 completed successfully. No CMS target
+behavior changed.
+
+Full CMS read-only smoke pass: before connecting, all 332 offline CMS-tooling
+unit tests and `validate_cms_mcp.py` passed. A persistent line-mode Telnet
+session reached CMS Ready on 2026-11-13 and tested `QUERY TERMINAL`,
+`QUERY DISK G`, `STATE GIT EXEC G`, `STATE GITMETA REPO G`,
+`STATE GITREF2 REPO G`, `GIT STAMP`, `GIT STATUS --short --branch`,
+`GIT BRANCH`, `GIT TAG --list`, `GIT LOG --max-count 1`, `GIT SHOW HEAD`,
+and `GIT DIFF --name-only`. Every command completed at a fresh Ready prompt.
+The log/show path verified commit `BE43A71F4C6030A0D8D3649DFDFE478409D03A10`;
+status was clean on `main`, and the diff listing was empty. G was the only
+disk queried; no CMS files were created, changed, uploaded, or erased, and A
+was not accessed. The live terminal was left connected and idle. Evidence:
+`cms-full-smoke-evidence.json` in the OpenCode temp evidence directory.
