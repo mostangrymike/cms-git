@@ -222,6 +222,12 @@ restoration. G1-only CMS fixtures exercised HEAD, checkout, branch listing,
 branch creation, duplicate rejection, and missing-branch behavior; no A-disk
 files were used.
 
+M293 inlines the single production caller of GitHub credential management in
+`GIT.EXEC`; the exact `GITCRED.EXEC` source remains archived for restoration.
+G1-only CMS fixtures passed synthetic API-key and username/password imports,
+status, removal, and legacy credential reading. Test credentials were synthetic,
+were not printed, and all G1 files were erased and verified absent.
+
 M233 allows `GIT TAG -d|--delete name` without an explicit OID. It resolves the
 exact tag ref and passes the observed OID to the existing compare-and-swap
 updater; supplying an expected OID remains supported. The delete still fails

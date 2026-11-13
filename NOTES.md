@@ -15993,3 +15993,20 @@ listing the newly created branch. All temporary G1 EXEC and repository/object
 files were erased and verified absent. No A-disk files were written. Evidence:
 `cms-m292-gitref-target.json` in the OpenCode temp evidence directory. Host
 suite and CI status are recorded in `SOURCE_CONSOLIDATION_PROGRESS.md`.
+
+## 2026-11-13 — M293 inline credential handler
+
+Plan: remove the one-caller `GITCRED.EXEC` source boundary while preserving the
+documented `GIT CREDENTIAL` commands, legacy credential-file reading, and
+secret-safe output. Keep the exact prior EXEC source restorable from the archive.
+
+Progress: the credential dispatcher and storage/status/import/remove handlers
+now live in `GIT.EXEC`; helper variables are namespaced to avoid collisions
+with the main Git command state. `GITCRED.EXEC` was archived byte-for-byte and
+removed from tracked sources. The source/archive guard, M281/M282 host checks,
+ACLEAN inventory, archive audit, preserved-source `CHECK` suite, and M293 CMS
+fixture pass. The G1-only target fixture used synthetic API-key and
+username/password values, checked status/import/removal plus legacy v1 reading,
+asserted no output contains the synthetic values, and erased every temporary
+file. No A-disk file was used. Evidence:
+`cms-m293-gitcred-target.json` in the OpenCode temp evidence directory.

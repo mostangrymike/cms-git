@@ -19,7 +19,13 @@ CRED = (ROOT / "src" / "GITCRED.EXEC").read_text()
 assert "if command = 'REMOTE' then do" in GIT
 assert "address command 'EXEC GITREMOT' rest" in GIT
 assert "if command = 'CREDENTIAL' then do" in GIT
-assert "address command 'EXEC GITCRED' rest" in GIT
+assert "call gitcredential rest" in GIT
+assert "address command 'EXEC GITCRED' rest" not in GIT
+assert "gitcredential:" in GIT
+for helper in ("gc_storecredential:", "gc_readcredential:",
+               "gc_validsecret:", "gc_validuser:"):
+    assert helper in GIT
+assert "gc_tokenalphabet=" in GIT
 assert "if command = 'GC' | command = 'REPACK' then do" in GIT
 assert "'EXEC GITGC' command rest" in GIT
 assert "'EXEC GITPUSH' rest" in GIT
@@ -107,7 +113,8 @@ assert "Bearer" not in PUSH
 assert "call authheader" in PUSH
 assert "application/x-git-receive-pack-advertisement" in PUSH
 assert "application/x-git-upload-pack-advertisement" not in PUSH
-for src, name in ((PUSH, "GITPUSH"), (CRED, "GITCRED")):
+for src, name in ((PUSH, "GITPUSH"), (CRED, "GITCRED"),
+                  (GIT, "GIT")):
     for line in src.splitlines():
         if "say" not in line.lower():
             continue

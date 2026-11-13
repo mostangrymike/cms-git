@@ -32,7 +32,7 @@ def load():
         "NATIVE_BENCH_C.json": 9,
         "NATIVE_PROBES_C.json": 8,
         "ASSEMBLE_DECKS.json": 22,
-        "LEGACY_HELPERS.json": 12,
+        "LEGACY_HELPERS.json": 13,
     }
     actual = {p.name for p in ARCHIVES.glob("*.json")}
     if actual != {"HISTORICAL_EXEC.json", "LOCAL_SCRATCH.json"}:
@@ -64,7 +64,7 @@ def load():
 def audit():
     """Read-only tracked-source audit; called after CI regeneration."""
     files = load()
-    if len(files) != 181:
+    if len(files) != 182:
         raise RuntimeError("Archive count mismatch")
     tracked = subprocess.check_output(["git", "ls-files", "-z"], cwd=ROOT)
     paths = {p.decode() for p in tracked.split(b"\0") if p}

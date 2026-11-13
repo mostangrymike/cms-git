@@ -186,8 +186,8 @@ if command = 'REMOTE' then do
    exit rc
 end
 if command = 'CREDENTIAL' then do
-   address command 'EXEC GITCRED' rest
-   exit rc
+   call gitcredential rest
+   exit result
 end
 
 /* Modern lightweight tag porcelain over the guarded REF2 updater. */
@@ -2642,3 +2642,262 @@ legacy_writerefs: procedure expose lb_refcount lb_refname. lb_refoid.
    'EXECIO' lb_wr.0 'DISKW GITREFS REPO G 1 (STEM LB_WR. FINIS'
    if rc \= 0 then return 'ERROR'
    return 'OK'
+
+/* M293: inlined GITCRED credential handler. */
+gitcredential:
+   address cms
+   gc_tokenalphabet='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+   gc_tokenalphabet=gc_tokenalphabet||'0123456789_-'
+   parse arg gc_args
+   parse var gc_args gc_action gc_rest
+   gc_action=translate(strip(gc_action))
+
+if gc_action='STATUS' then do
+ if strip(gc_rest)\='' then exit 4
+ call gc_readcredential
+ if result\='OK' then exit 8
+ if gc_present=0 then do
+  say 'No GitHub credential stored'
+  exit 0
+ end
+ if gc_storedmode='APIKEY' then gc_modeout='API key'
+ else gc_modeout='username/password credential'
+ say 'GitHub' gc_modeout 'stored for' gc_storeduser
+ exit 0
+end
+
+if gc_action='REMOVE' then do
+ if strip(gc_rest)\='' then do
+  say 'Usage: GIT CREDENTIAL REMOVE'
+  exit 4
+ end
+ 'STATE GHCRED REPO G'
+ if rc=28 then do
+  say 'No GitHub credential stored'
+  exit 0
+ end
+ if rc\=0 then exit 8
+ 'ERASE GHCRED REPO G'
+ if rc\=0 then do
+  say 'GITCRED: cannot remove credential file'
+  exit 8
+ end
+ say 'Removed stored GitHub credential'
+ exit 0
+end
+
+if gc_action='IMPORT' then do
+ parse var gc_rest gc_username gc_extra
+ if gc_username='' | gc_extra\='' then do
+  say 'Usage: GIT CREDENTIAL IMPORT github-user'
+  exit 4
+ end
+ call gc_validuser gc_username
+ if result\='OK' then do
+  say 'GITCRED: invalid GitHub user name'
+  exit 4
+ end
+ 'STATE GHTOKEN REPO G'
+ if rc\=0 then do
+  say 'GITCRED: create GHTOKEN REPO G with one TOKEN record first'
+  exit 8
+ end
+ drop gc_input.
+ 'EXECIO * DISKR GHTOKEN REPO G 1 (STEM GC_INPUT. FINIS'
+ if rc\=0 | gc_input.0\=1 then do
+  say 'GITCRED: token input must contain exactly one record'
+  exit 8
+ end
+ parse var gc_input.1 gc_label gc_secret
+ gc_secret=strip(gc_secret)
+ if (translate(gc_label)\='TOKEN' & translate(gc_label)\='APIKEY') |,
+    gc_secret='' then do
+  say 'GITCRED: input record must begin TOKEN or APIKEY'
+  exit 8
+ end
+ call gc_validsecret gc_secret
+ if result\='OK' then do
+  say 'GITCRED: API key has invalid characters or length'
+  exit 8
+ end
+ gc_credentialmode='APIKEY'
+ call gc_storecredential
+ if result\='OK' then do
+  say 'GITCRED: could not store API key'
+  exit 8
+ end
+ 'ERASE GHTOKEN REPO G'
+ if rc\=0 then do
+  say 'GITCRED: stored credential; temporary input remains'
+  exit 8
+ end
+ say 'Stored GitHub API key for' gc_username
+ exit 0
+end
+
+if gc_action='IMPORT-USERPASS' then do
+ if strip(gc_rest)\='' then do
+  say 'Usage: GIT CREDENTIAL IMPORT-USERPASS'
+  exit 4
+ end
+ 'STATE GHPASS REPO G'
+ if rc\=0 then do
+  say 'GITCRED: create GHPASS REPO G with USER and PASSWORD records'
+  exit 8
+ end
+ drop gc_input.
+ 'EXECIO * DISKR GHPASS REPO G 1 (STEM GC_INPUT. FINIS'
+ if rc\=0 | gc_input.0\=2 then do
+  say 'GITCRED: input must contain exactly two records'
+  exit 8
+ end
+ parse var gc_input.1 gc_userlabel gc_username
+ parse var gc_input.2 gc_passlabel gc_secret
+ gc_username=strip(gc_username)
+ gc_secret=strip(gc_secret)
+ if words(gc_input.1)\=2 | translate(gc_userlabel)\='USER' |,
+    words(gc_input.2)\=2 | translate(gc_passlabel)\='PASSWORD' then do
+  say 'GITCRED: expected USER name and PASSWORD token records'
+  exit 8
+ end
+ call gc_validuser gc_username
+ if result\='OK' then do
+  say 'GITCRED: invalid GitHub user name'
+  exit 4
+ end
+ call gc_validsecret gc_secret
+ if result\='OK' then do
+  say 'GITCRED: password field must contain a GitHub token'
+  exit 8
+ end
+ gc_credentialmode='USERPASS'
+ call gc_storecredential
+ if result\='OK' then do
+  say 'GITCRED: could not store username/password credential'
+  exit 8
+ end
+ 'ERASE GHPASS REPO G'
+ if rc\=0 then do
+  say 'GITCRED: stored credential; temporary input remains'
+  exit 8
+ end
+ say 'Stored GitHub username/password credential for' gc_username
+ exit 0
+end
+
+say 'Usage: GIT CREDENTIAL STATUS | IMPORT user | IMPORT-USERPASS'
+say '       GIT CREDENTIAL REMOVE'
+exit 4
+
+gc_storecredential:
+ 'STATE GHCRED REPO G'
+ if rc=0 then do
+  say 'GITCRED: remove the existing credential before replacing it'
+  return 'ERROR'
+ end
+ if rc\=28 then return 'ERROR'
+ drop gc_output.
+ gc_output.1='GHCRED 2'
+ gc_output.2='MODE' gc_credentialmode
+ gc_output.3='USER' gc_username
+ gc_output.4='SECRET-LENGTH' length(gc_secret)
+ gc_n=4
+ gc_pos=1
+ gc_part=0
+ do while gc_pos<=length(gc_secret)
+  gc_part=gc_part+1
+  gc_n=gc_n+1
+  if gc_part=1 then gc_label='SECRET'
+  else gc_label='SECRET+' gc_part
+  gc_output.gc_n=gc_label substr(gc_secret,gc_pos,64)
+  gc_pos=gc_pos+64
+ end
+ gc_output.0=gc_n
+ 'EXECIO' gc_output.0 'DISKW GHCRED REPO G 1 (STEM GC_OUTPUT. FINIS'
+ if rc\=0 then do
+  'STATE GHCRED REPO G'
+  if rc=0 then 'ERASE GHCRED REPO G'
+  return 'ERROR'
+ end
+ call gc_readcredential
+ if result\='OK' | gc_present\=1 | gc_username\=gc_storeduser |,
+    gc_credentialmode\=gc_storedmode | gc_secret\=gc_storedsecret then do
+  'ERASE GHCRED REPO G'
+  return 'ERROR'
+ end
+ return 'OK'
+
+gc_readcredential:
+ gc_present=0
+ gc_storeduser=''
+ gc_storedsecret=''
+ gc_storedmode=''
+ 'STATE GHCRED REPO G'
+ if rc=28 then return 'OK'
+ if rc\=0 then return 'ERROR'
+ drop gc_cred.
+ 'EXECIO * DISKR GHCRED REPO G 1 (STEM GC_CRED. FINIS'
+ if rc\=0 | gc_cred.0<4 then return 'ERROR'
+ if gc_cred.1='GHCRED 1' then do
+  gc_storedmode='APIKEY'
+  gc_userrec=2
+  gc_lenrec=3
+  gc_firstsecret=4
+  gc_lenlabel='TOKEN-LENGTH'
+  gc_chunkprefix='TOKEN'
+ end
+ else if gc_cred.1='GHCRED 2' then do
+  if words(gc_cred.2)\=2 | word(gc_cred.2,1)\='MODE' then,
+   return 'ERROR'
+  gc_storedmode=word(gc_cred.2,2)
+  if gc_storedmode\='APIKEY' & gc_storedmode\='USERPASS' then,
+   return 'ERROR'
+  gc_userrec=3
+  gc_lenrec=4
+  gc_firstsecret=5
+  gc_lenlabel='SECRET-LENGTH'
+  gc_chunkprefix='SECRET'
+ end
+ else return 'ERROR'
+ if words(gc_cred.gc_userrec)\=2 | word(gc_cred.gc_userrec,1)\='USER' then,
+  return 'ERROR'
+ gc_storeduser=strip(word(gc_cred.gc_userrec,2))
+ call gc_validuser gc_storeduser
+ if result\='OK' then return 'ERROR'
+ if words(gc_cred.gc_lenrec)\=2 |,
+    word(gc_cred.gc_lenrec,1)\=gc_lenlabel then return 'ERROR'
+ gc_secretlength=word(gc_cred.gc_lenrec,2)
+ if datatype(gc_secretlength,'W')\=1 | gc_secretlength<1 |,
+    gc_secretlength>240 then return 'ERROR'
+ gc_chunks=(gc_secretlength+63)%64
+ if gc_cred.0\=gc_firstsecret+gc_chunks-1 then return 'ERROR'
+ do gc_ci=1 to gc_chunks
+  gc_rec=gc_firstsecret+gc_ci-1
+  parse var gc_cred.gc_rec gc_clabel gc_cvalue
+  gc_cvalue=strip(gc_cvalue)
+  if gc_ci=1 then gc_expected=gc_chunkprefix
+  else gc_expected=gc_chunkprefix||'+'||(gc_ci-1)
+  gc_wantlen=gc_secretlength-((gc_ci-1)*64)
+  if gc_wantlen>64 then gc_wantlen=64
+  if words(gc_cred.gc_rec)\=2 | gc_clabel\=gc_expected |,
+     length(gc_cvalue)\=gc_wantlen then return 'ERROR'
+  call gc_validsecret gc_cvalue
+  if result\='OK' then return 'ERROR'
+  gc_storedsecret=gc_storedsecret||gc_cvalue
+ end
+ if length(gc_storedsecret)\=gc_secretlength then return 'ERROR'
+ gc_present=1
+ return 'OK'
+
+gc_validsecret:
+ parse arg gc_value
+ if gc_value='' | length(gc_value)>240 then return 'ERROR'
+ if verify(gc_value,gc_tokenalphabet)\=0 then return 'ERROR'
+ return 'OK'
+
+gc_validuser:
+ parse arg gc_user
+ if gc_user='' | length(gc_user)>39 then return 'ERROR'
+ gc_allowed='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-'
+ if verify(translate(gc_user),gc_allowed)\=0 then return 'ERROR'
+ return 'OK'

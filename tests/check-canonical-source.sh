@@ -6108,7 +6108,8 @@ new_labels = [worker.index(name + ":") for _, name in names]
 for i, (old_name, new_name) in enumerate(names):
     old_end = old_labels[i + 1] if i + 1 < len(names) else old.index(
         "readhead:") if "readhead:" in old[old_labels[i]:] else len(old)
-    new_end = new_labels[i + 1] if i + 1 < len(names) else len(worker)
+    new_end = new_labels[i + 1] if i + 1 < len(names) else worker.index(
+        "/* M293: inlined GITCRED credential handler. */")
     old_body = old[old_labels[i]:old_end].strip()
     new_body = worker[new_labels[i]:new_end].strip()
     for before, after in names:
@@ -6136,5 +6137,109 @@ for i, (old_name, new_name) in enumerate(names):
     if old_body != new_body:
         raise SystemExit("M292 inlined helper differs from archive: " + old_name)
 print("M292 INLINE LEGACY BRANCH AND ARCHIVE GUARDS PASS")
+PY
+python3 - "$root/src/GIT.EXEC" "$root/archive/HISTORICAL_EXEC.json" "$root" <<'PY'
+import json
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+worker = Path(sys.argv[1]).read_text()
+archive = json.loads(Path(sys.argv[2]).read_text())
+root = Path(sys.argv[3])
+legacy = archive["bundles"]["LEGACY_HELPERS.json"]["files"]
+old = legacy.get("GITCRED.EXEC")
+restored = root / "src/GITCRED.EXEC"
+if not old or not restored.is_file() or restored.read_text() != old:
+    raise SystemExit("M293 credential helper archive/restore mismatch")
+tracked = subprocess.run(
+    ["git", "ls-files", "--error-unmatch", "src/GITCRED.EXEC"],
+    cwd=root, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+if tracked.returncode == 0:
+    raise SystemExit("M293 sole-caller credential helper remains tracked")
+
+route = worker[worker.index("if command = 'CREDENTIAL' then do"):
+               worker.index("if command = 'TAG' then do")]
+if "call gitcredential rest" not in route or "EXEC GITCRED" in route:
+    raise SystemExit("M293 credential dispatcher is not inlined")
+
+mapping = {
+    "readcredential": "gc_readcredential",
+    "storecredential": "gc_storecredential",
+    "validsecret": "gc_validsecret",
+    "validuser": "gc_validuser",
+    "tokenalphabet": "gc_tokenalphabet",
+    "action": "gc_action", "rest": "gc_rest",
+    "present": "gc_present", "storedmode": "gc_storedmode",
+    "modeout": "gc_modeout", "storeduser": "gc_storeduser",
+    "username": "gc_username", "extra": "gc_extra",
+    "input": "gc_input", "label": "gc_label", "secret": "gc_secret",
+    "credentialmode": "gc_credentialmode", "output": "gc_output",
+    "n": "gc_n", "pos": "gc_pos", "part": "gc_part",
+    "userlabel": "gc_userlabel", "passlabel": "gc_passlabel",
+    "userrec": "gc_userrec", "lenrec": "gc_lenrec",
+    "firstsecret": "gc_firstsecret", "lenlabel": "gc_lenlabel",
+    "chunkprefix": "gc_chunkprefix", "i": "gc_i", "ci": "gc_ci",
+    "rec": "gc_rec", "clabel": "gc_clabel", "cvalue": "gc_cvalue",
+    "expected": "gc_expected", "wantlen": "gc_wantlen",
+    "secretlength": "gc_secretlength", "chunks": "gc_chunks",
+    "storedsecret": "gc_storedsecret", "cred": "gc_cred",
+    "value": "gc_value", "user": "gc_user", "allowed": "gc_allowed",
+}
+
+def rename_code(line):
+    pieces = []
+    code = []
+    quoted = False
+    i = 0
+    while i < len(line):
+        ch = line[i]
+        if ch == "'":
+            if quoted and i + 1 < len(line) and line[i + 1] == "'":
+                code.append("''")
+                i += 2
+                continue
+            pieces.append(rename_words("".join(code)) if not quoted
+                          else "".join(code))
+            code = []
+            quoted = not quoted
+            pieces.append(ch)
+            i += 1
+            continue
+        code.append(ch)
+        i += 1
+    pieces.append("".join(code) if quoted else rename_words("".join(code)))
+    return "".join(pieces)
+
+def rename_words(text):
+    for name in sorted(mapping, key=len, reverse=True):
+        text = re.sub(r"(?<![A-Za-z0-9_])" + re.escape(name) +
+                      r"(?![A-Za-z0-9_])", mapping[name], text)
+    return text
+
+old_body = old[old.index("if action='STATUS' then do"):]
+old_body = "\n".join(rename_code(line) for line in old_body.splitlines())
+old_body = old_body.replace("STEM INPUT.", "STEM GC_INPUT.")
+old_body = old_body.replace("STEM OUTPUT.", "STEM GC_OUTPUT.")
+old_body = old_body.replace("STEM CRED.", "STEM GC_CRED.")
+prologue = (
+    "/* M293: inlined GITCRED credential handler. */\n"
+    "gitcredential:\n"
+    "   address cms\n"
+    "   gc_tokenalphabet='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'\n"
+    "   gc_tokenalphabet=gc_tokenalphabet||'0123456789_-'\n"
+    "   parse arg gc_args\n"
+    "   parse var gc_args gc_action gc_rest\n"
+    "   gc_action=translate(strip(gc_action))\n\n"
+)
+expected = prologue + old_body + "\n"
+actual = worker[worker.index(
+    "/* M293: inlined GITCRED credential handler. */"):]
+if actual.rstrip() != expected.rstrip():
+    raise SystemExit("M293 inline credential handler differs from archive")
+if any(len(line) > 80 for line in worker.splitlines()):
+    raise SystemExit("M293 CMS source record exceeds 80 columns")
+print("M293 INLINE CREDENTIAL HANDLER AND ARCHIVE GUARDS PASS")
 PY
 echo 'Canonical ASCII header and CMS C source guards passed'
