@@ -206,13 +206,21 @@ M231 adds `GIT CHECKOUT <branch>` and `GIT CHECKOUT -b|--branch name
 [start-point]` aliases to the guarded switch flow. `-B` is rejected because
 force-reset behavior is not implemented. Detached checkout and path restore are
 not part of the current symbolic-HEAD model. When REF2 is absent, plain branch
-checkout retains the legacy GITHEAD route; branch creation requires REF2. CMS
-behavior remains unverified.
+checkout uses the legacy GITHEAD behavior inlined into GIT.EXEC; `checkout -b`
+still requires REF2. CMS behavior remains unverified.
 
 M232 guards the checkout alias selection: only a present REF2 store enters the
 modern switch path, and the absent-store result preserves the legacy path.
 Source-derived tests also require `checkout -b` to reject the legacy store.
 CMS behavior remains unverified.
+
+M291/M292 inline the legacy HEAD/checkout and branch fallback handlers into
+`GIT.EXEC`, preserving the absent-REF2 behavior while removing the standalone
+`GITHEAD.EXEC` and `GITREF.EXEC` production sources. Exact originals remain
+available in `archive/HISTORICAL_EXEC.json` for historical tests and on-demand
+restoration. G1-only CMS fixtures exercised HEAD, checkout, branch listing,
+branch creation, duplicate rejection, and missing-branch behavior; no A-disk
+files were used.
 
 M233 allows `GIT TAG -d|--delete name` without an explicit OID. It resolves the
 exact tag ref and passes the observed OID to the existing compare-and-swap

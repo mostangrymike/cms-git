@@ -15972,3 +15972,24 @@ commit. Write, verification, or map-save failures restore the files and map;
 GITUPD restores REF2 if apply fails. Unmapped files are preserved. Mapped paths
 added or removed by the destination commit remain unsupported. Tests were not
 run; CMS behavior remains unverified.
+
+## 2026-11-13 — M292 inline legacy branch fallback
+
+Plan: reduce the active CMS source count without changing the no-REF2 legacy
+`GIT BRANCH` behavior. Preserve the exact standalone source in the historical
+archive for restoration and old tests.
+
+Progress: the legacy branch-list/create handler and its validation, commit
+object, refs read, and refs write procedures are now in `GIT.EXEC`. The
+REF2-absent route calls the inline handler; REF2 errors still fail closed and
+the modern branch path remains unchanged. The former `GITREF.EXEC` is removed
+from tracked sources, with its exact bytes retained in
+`archive/HISTORICAL_EXEC.json`. M292 source/archive guards and archive counts
+were updated.
+
+A disposable G1-only CMS fixture passed legacy branch listing with current
+marker, creation from a validated COMMIT record, duplicate rejection, and
+listing the newly created branch. All temporary G1 EXEC and repository/object
+files were erased and verified absent. No A-disk files were written. Evidence:
+`cms-m292-gitref-target.json` in the OpenCode temp evidence directory. Host
+suite and CI status are recorded in `SOURCE_CONSOLIDATION_PROGRESS.md`.

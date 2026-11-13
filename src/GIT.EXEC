@@ -410,10 +410,10 @@ end
 
 /* Prefer modern REF2 branches, retaining M5 refs when REF2 is absent. */
 if command = 'BRANCH' then do
-   'STATE GITREF2 REPO G'
-   if rc=28 then do
-      'EXEC GITREF BRANCH' rest
-      exit rc
+    'STATE GITREF2 REPO G'
+    if rc=28 then do
+       call legacybranch rest
+       exit result
    end
    if rc\=0 then do
       say 'GIT: cannot inspect modern REF2 branch store RC' rc
@@ -2523,4 +2523,122 @@ head_writehead: procedure
       say 'GITHEAD: cannot write repository metadata'
       return 'ERROR'
    end
+   return 'OK'
+
+legacybranch:
+   parse arg lb_args
+   lb_words = words(lb_args)
+   if lb_words = 0 then do
+      call head_readhead
+      if result \= 'OK' then return 8
+      call legacy_readrefs
+      if result \= 'OK' then return 8
+      do lb_i = 1 to lb_refcount
+         lb_mark = ' '
+         if headref = 'refs/heads/' || lb_refname.lb_i then,
+            lb_mark = '*'
+         say lb_mark lb_refname.lb_i lb_refoid.lb_i
+      end
+      return 0
+   end
+   if lb_words \= 2 then do
+      say 'Usage: GITREF BRANCH [name commit-object-id]'
+      return 4
+   end
+   lb_name = word(lb_args,1)
+   lb_oid = translate(word(lb_args,2))
+   call legacy_validbranch lb_name
+   if result \= 'OK' then return 4
+   if length(lb_oid) \= 40 |,
+      verify(lb_oid,'0123456789ABCDEF') \= 0 then do
+      say 'GITREF: invalid branch object-id' word(lb_args,2)
+      return 4
+   end
+   call legacy_requirecommit lb_oid
+   if result \= 'OK' then return 8
+   call legacy_readrefs
+   if result \= 'OK' then return 8
+   do lb_i = 1 to lb_refcount
+      if lb_refname.lb_i = lb_name then do
+         say 'GITREF: branch already exists' lb_name
+         return 8
+      end
+   end
+   lb_refcount = lb_refcount + 1
+   lb_n = lb_refcount
+   lb_refname.lb_n = lb_name
+   lb_refoid.lb_n = lb_oid
+   call legacy_writerefs
+   if result \= 'OK' then return 8
+   say 'refs/heads/' || lb_name lb_oid
+   return 0
+
+legacy_validbranch: procedure
+   parse arg name
+   if name = '' | name = '.' | name = '..' | pos('/',name) > 0 |,
+      pos(' ',name) > 0 | pos('..',name) > 0 | pos('~',name) > 0 |,
+      pos('^',name) > 0 | pos(':',name) > 0 | pos('?',name) > 0 |,
+      pos('*',name) > 0 | pos('[',name) > 0 | right(name,1) = '.' then do
+      say 'GITREF: invalid branch name' name
+      return 'ERROR'
+   end
+   return 'OK'
+
+legacy_requirecommit: procedure expose objectfm
+   parse upper arg oid
+   fn = substr(oid,1,8)
+   drop obj.
+   'EXECIO * DISKR' fn 'GITOBJ' objectfm '1 (STEM OBJ. FINIS'
+   if rc \= 0 then do
+      say 'GITREF: object not found' oid
+      return 'ERROR'
+   end
+   if obj.0 < 2 | word(obj.1,1) \= 'OID' | word(obj.1,2) \= oid |,
+      word(obj.2,1) \= 'TYPE' then do
+      say 'GITREF: invalid object record' oid
+      return 'ERROR'
+   end
+   if word(obj.2,2) \= 'COMMIT' then do
+      say 'GITREF: branch target is not a COMMIT object' oid
+      return 'ERROR'
+   end
+   return 'OK'
+
+legacy_readrefs: procedure expose lb_refcount lb_refname. lb_refoid.
+   drop lb_refname. lb_refoid.
+   lb_refcount = 0
+   'STATE GITREFS REPO G'
+   if rc \= 0 then return 'OK'
+   drop lb_rr.
+   'EXECIO * DISKR GITREFS REPO G 1 (STEM LB_RR. FINIS'
+   if rc \= 0 then return 'ERROR'
+   do lb_i = 1 to lb_rr.0
+      if words(lb_rr.lb_i) \= 3 then do
+         say 'GITREF: corrupt refs record' lb_i
+         return 'ERROR'
+      end
+      lb_tag = word(lb_rr.lb_i,1)
+      lb_name = word(lb_rr.lb_i,2)
+      lb_oid = word(lb_rr.lb_i,3)
+      if lb_tag \= 'BRANCH' | lb_name = '' |,
+         length(lb_oid) \= 40 |,
+         verify(lb_oid,'0123456789ABCDEF') \= 0 then do
+         say 'GITREF: corrupt refs record' lb_i
+         return 'ERROR'
+      end
+      lb_refcount = lb_refcount + 1
+      lb_n = lb_refcount
+      lb_refname.lb_n = lb_name
+      lb_refoid.lb_n = lb_oid
+   end
+   return 'OK'
+
+legacy_writerefs: procedure expose lb_refcount lb_refname. lb_refoid.
+   drop lb_wr.
+   lb_wr.0 = lb_refcount
+   do lb_i = 1 to lb_refcount
+      lb_wr.lb_i = 'BRANCH' lb_refname.lb_i lb_refoid.lb_i
+   end
+   'EXECIO' lb_wr.0 'DISKW GITREFS REPO G 1 (STEM LB_WR. FINIS'
+   if rc \= 0 then return 'ERROR'
    return 'OK'

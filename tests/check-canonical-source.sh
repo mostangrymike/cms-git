@@ -3553,7 +3553,7 @@ import sys
 git=Path(sys.argv[1]).read_text()
 refs=Path(sys.argv[2]).read_text()
 for token in ("if command = 'BRANCH' then do", "'STATE GITREF2 REPO G'",
-              'if rc=28 then do', "'EXEC GITREF BRANCH' rest",
+              'if rc=28 then do', "call legacybranch rest",
               "EXEC GITVREF BRANCHES",
               "EXEC GIT UPDATE-REF' branchref branchoid zeros",
               "EXEC GIT UPDATE-REF' branchref zeros branchoid",
@@ -6049,13 +6049,92 @@ old_labels = [old.index(name + ":") for name, _ in names]
 new_labels = [worker.index(new + ":") for _, new in names]
 for i, (old_name, new_name) in enumerate(names):
     old_end = old_labels[i + 1] if i + 1 < len(names) else len(old)
-    new_end = new_labels[i + 1] if i + 1 < len(names) else len(worker)
+    new_end = new_labels[i + 1] if i + 1 < len(names) else worker.index(
+        "legacybranch:")
     old_body = old[old_labels[i]:old_end]
     new_body = worker[new_labels[i]:new_end]
     for before, after in names:
         new_body = new_body.replace(after, before)
-    if new_body != old_body:
+    if new_body.rstrip() != old_body.rstrip():
         raise SystemExit("M291 inlined helper differs from archive: " + old_name)
 print("M291 INLINE LEGACY HEAD/CHECKOUT AND ARCHIVE GUARDS PASS")
+PY
+python3 - "$root/src/GIT.EXEC" "$root/archive/HISTORICAL_EXEC.json" "$root" <<'PY'
+import json
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+worker = Path(sys.argv[1]).read_text()
+archive = json.loads(Path(sys.argv[2]).read_text())
+root = Path(sys.argv[3])
+legacy = archive["bundles"]["LEGACY_HELPERS.json"]["files"]
+old = legacy.get("GITREF.EXEC")
+restored = root / "src/GITREF.EXEC"
+if not old or not restored.is_file() or restored.read_text() != old:
+    raise SystemExit("M292 legacy refs helper archive/restore mismatch")
+tracked = subprocess.run(
+    ["git", "ls-files", "--error-unmatch", "src/GITREF.EXEC"],
+    cwd=root, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+if tracked.returncode == 0:
+    raise SystemExit("M292 sole-caller legacy refs helper remains tracked")
+
+branch = worker[worker.index("legacybranch:"):
+                worker.index("legacy_validbranch:")]
+for token in (
+    "call legacy_readrefs",
+    "call legacy_requirecommit lb_oid",
+    "call legacy_writerefs",
+    "GITREF: branch already exists",
+):
+    if token not in branch:
+        raise SystemExit("M292 inline legacy branch guard missing " + token)
+if "EXEC GITREF" in worker:
+    raise SystemExit("M292 retains external GITREF call")
+if "GITREF: branch target is not a COMMIT object" not in worker:
+    raise SystemExit("M292 commit-target validation guard missing")
+if any(len(line) > 80 for line in worker.splitlines()):
+    raise SystemExit("M292 CMS source record exceeds 80 columns")
+
+names = (
+    ("validbranch", "legacy_validbranch"),
+    ("requirecommit", "legacy_requirecommit"),
+    ("readrefs", "legacy_readrefs"),
+    ("writerefs", "legacy_writerefs"),
+)
+old_labels = [old.index(name + ":") for name, _ in names]
+new_labels = [worker.index(name + ":") for _, name in names]
+for i, (old_name, new_name) in enumerate(names):
+    old_end = old_labels[i + 1] if i + 1 < len(names) else old.index(
+        "readhead:") if "readhead:" in old[old_labels[i]:] else len(old)
+    new_end = new_labels[i + 1] if i + 1 < len(names) else len(worker)
+    old_body = old[old_labels[i]:old_end].strip()
+    new_body = worker[new_labels[i]:new_end].strip()
+    for before, after in names:
+        new_body = re.sub(r"\b" + re.escape(after) + r"\b", before, new_body)
+    for before, after in (
+        ("lb_refcount", "refcount"), ("lb_refname", "refname"),
+        ("lb_refoid", "refoid"), ("lb_i", "i"), ("lb_n", "n"),
+        ("lb_rr", "rr"), ("lb_wr", "wr"), ("lb_tag", "tag"),
+        ("lb_name", "name"), ("lb_oid", "oid"),
+    ):
+        new_body = re.sub(r"\b" + before + r"\b", after, new_body)
+    new_body = new_body.replace("REPO G 1", "REPO A 1")
+    new_body = new_body.replace("REPO G'", "REPO A'")
+    new_body = new_body.replace("STEM LB_RR.", "STEM RR.")
+    new_body = new_body.replace("STEM LB_WR.", "STEM WR.")
+    new_body = new_body.replace(
+        "length(oid) \\= 40 |,\n         verify",
+        "length(oid) \\= 40 | verify")
+    if old_name == "readrefs":
+        # The inline loader uses a G1/G repository and wraps the final
+        # validation term to retain the CMS 80-column source limit.
+        new_body = new_body.replace(
+            "length(oid) \\= 40 |,\n         verify",
+            "length(oid) \\= 40 | verify")
+    if old_body != new_body:
+        raise SystemExit("M292 inlined helper differs from archive: " + old_name)
+print("M292 INLINE LEGACY BRANCH AND ARCHIVE GUARDS PASS")
 PY
 echo 'Canonical ASCII header and CMS C source guards passed'
