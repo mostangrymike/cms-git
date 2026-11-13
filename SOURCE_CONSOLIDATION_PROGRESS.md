@@ -214,10 +214,10 @@ proofs in view.
   remains **142/146 pass** with four known environment-only failures.
   M289-M292 source guards and G1-only CMS fixtures pass. M292 focused host
   checks, archive audit, and the preserved-source `CHECK` suite also pass.
-- CI runs 2236/2237 stopped at the preserved M167 test because its source
-  boundary still expected the former combined HEAD/CHECKOUT dispatch label.
-  Updated that test to use the split HEAD boundary; `PMODEL M167` now passes
-  locally. A follow-up workflow result is pending.
+- CI runs 2236/2237 stopped at M167, and 2238 passed M167 but stopped at M168:
+  both preserved host tests still expected the former combined HEAD/CHECKOUT
+  dispatch label. Updated both source boundaries to the split HEAD handler.
+  M164-M171 host models now pass locally; the next workflow result is pending.
 - GitHub runs 2233/2234 failed at the ACLEAN archive-inventory assertion: its
   expected legacy-helper set still listed five entries. The fixture now tracks
   all twelve archived helpers; the focused ACLEAN test passes locally.
