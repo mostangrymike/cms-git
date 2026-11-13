@@ -228,6 +228,12 @@ G1-only CMS fixtures passed synthetic API-key and username/password imports,
 status, removal, and legacy credential reading. Test credentials were synthetic,
 were not printed, and all G1 files were erased and verified absent.
 
+M294 inlines the single production caller of loose-object import from
+`GITIMP.EXEC` into `GIT.EXEC`; the exact prior source remains archived. Its
+G1-only CMS fixture imported a synthetic blob from a canned CATHEX response,
+verified the stored object, and confirmed repeat-import idempotence. All test
+files were removed and verified absent.
+
 M233 allows `GIT TAG -d|--delete name` without an explicit OID. It resolves the
 exact tag ref and passes the observed OID to the existing compare-and-swap
 updater; supplying an expected OID remains supported. The delete still fails

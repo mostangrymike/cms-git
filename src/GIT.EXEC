@@ -856,8 +856,8 @@ if command = 'DIR-REF-FULL' then do
    exit rc
 end
 if command = 'IMPORT-OBJECT' then do
-   'EXEC GITIMP' rest
-   exit rc
+   call gitimport rest
+   exit result
 end
 if command = 'FETCH-DISCOVER' then do
    'EXEC GITFETCH DISCOVER' rest
@@ -2900,4 +2900,194 @@ gc_validuser:
  if gc_user='' | length(gc_user)>39 then return 'ERROR'
  gc_allowed='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-'
  if verify(translate(gc_user),gc_allowed)\=0 then return 'ERROR'
+ return 'OK'
+
+/* M294: inlined GITIMP object installer. */
+gitimport:
+ address cms
+ parse arg gi_args
+ parse upper var gi_args gi_oid gi_extra
+gi_objfn=substr(gi_oid,1,8)
+
+/* Loose objects live on the repository object disk, which need not be A. */
+objectfm='G'
+'STATE GITMETA REPO G'
+if rc=0 then do
+ drop gi_impmeta.
+ 'EXECIO * DISKR GITMETA REPO G 1 (STEM GI_IMPMETA. FINIS'
+ if rc\=0 | gi_impmeta.0<1 | gi_impmeta.1\='CMS-GIT-REPOSITORY 1' then do
+  say 'GITIMP: invalid repository metadata'
+  exit 8
+ end
+ do gi_mi=1 to gi_impmeta.0
+  if word(gi_impmeta.gi_mi,1)='OBJECT-DISK' then do
+   if words(gi_impmeta.gi_mi)\=2 then do
+    say 'GITIMP: invalid OBJECT-DISK setting'
+    exit 8
+   end
+   objectfm=translate(word(gi_impmeta.gi_mi,2))
+  end
+ end
+ if length(objectfm)\=1 |,
+    verify(objectfm,'ABCDEFGHIJKLMNOPQRSTUVWXYZ')\=0 then do
+  say 'GITIMP: invalid OBJECT-DISK setting'
+  exit 8
+ end
+ if objectfm\='G' then do
+  say 'GITIMP: repository OBJECT-DISK must be G'
+  exit 8
+ end
+end
+else if rc\=28 then do
+ say 'GITIMP: cannot inspect repository metadata RC' rc
+ exit 8
+end
+
+'STATE' gi_objfn 'GITOBJ' objectfm
+gi_src=rc
+if gi_src=0 then do
+ address command 'EXEC GIT VERIFY-OBJECT' gi_oid
+ if rc\=0 then do
+  say 'GITIMP: existing loose object failed verification'
+  exit 8
+ end
+ say 'IMPORT OBJECT ALREADY PRESENT' gi_oid
+ exit 0
+end
+if gi_src\=28 then do
+ say 'GITIMP: cannot inspect loose object target RC' gi_src
+ exit 8
+end
+
+call gi_bindnative
+if result\='OK' then exit 8
+drop gi_out.
+gi_out.0=0
+gi_cmd='GITREC CATHEX GITFIX M15NEW' gi_oid
+'PIPE CMS' gi_cmd '| STEM GI_OUT.'
+gi_grc=rc
+if gi_grc\=0 then do
+ say 'GITIMP: verified native object read failed RC' gi_grc
+ exit gi_grc
+end
+
+gi_meta=0
+gi_begins=0
+gi_ends=0
+gi_indata=0
+gi_body=''
+do gi_i=1 to gi_out.0
+ gi_line=gi_out.gi_i
+ if word(gi_line,1)='SEEK' & word(gi_line,2)='OBJECT' &,
+    word(gi_line,3)='OID' then do
+  if gi_meta then do
+   say 'GITIMP: duplicate CATHEX metadata'
+   exit 8
+  end
+  if words(gi_line)<8 | word(gi_line,4)\=gi_oid |,
+     word(gi_line,5)\='OBJ' | word(gi_line,7)\='TYPE' then do
+   say 'GITIMP: malformed CATHEX metadata'
+   exit 8
+  end
+  gi_mobj=word(gi_line,6)
+  gi_typ=word(gi_line,8)
+  if datatype(gi_mobj,'W')\=1 | gi_mobj<1 | gi_mobj>1808 then do
+   say 'GITIMP: invalid CATHEX object number'
+   exit 8
+  end
+  if datatype(gi_typ,'W')\=1 | gi_typ<1 | gi_typ>4 then do
+   say 'GITIMP: invalid CATHEX object type'
+   exit 8
+  end
+  gi_meta=1
+ end
+ else if gi_line='OBJECT DATA BEGIN' then do
+  if gi_begins | gi_indata then do
+   say 'GITIMP: invalid CATHEX data begin'
+   exit 8
+  end
+  gi_begins=1
+  gi_indata=1
+ end
+ else if gi_line='OBJECT DATA END' then do
+  if \gi_indata | gi_ends then do
+   say 'GITIMP: invalid CATHEX data end'
+   exit 8
+  end
+  gi_ends=1
+  gi_indata=0
+ end
+ else if gi_indata then do
+  if word(gi_line,1)\='HEX' | words(gi_line)\=2 then do
+   say 'GITIMP: malformed CATHEX data record'
+   exit 8
+  end
+  gi_h=translate(word(gi_line,2))
+  if gi_h='' | length(gi_h)>64 | length(gi_h)//2\=0 |,
+     verify(gi_h,'0123456789ABCDEF')\=0 then do
+   say 'GITIMP: invalid CATHEX data hex'
+   exit 8
+  end
+  gi_body=gi_body||gi_h
+ end
+end
+if gi_meta\=1 | gi_begins\=1 | gi_ends\=1 | gi_indata then do
+ say 'GITIMP: incomplete CATHEX framing'
+ exit 8
+end
+gi_size=length(gi_body)%2
+if gi_size>65536 then do
+ say 'GITIMP: CATHEX body too large'
+ exit 8
+end
+if gi_typ<1 | gi_typ>3 then do
+ say 'GITIMP: loose TAG objects are not supported yet'
+ exit 8
+end
+gi_type=word('COMMIT TREE BLOB',gi_typ)
+
+drop gi_loose.
+gi_loose.1='OID' gi_oid
+gi_loose.2='TYPE' gi_type
+gi_loose.3='SIZE' gi_size
+gi_n=3
+gi_p=1
+do while gi_p<=length(gi_body)
+ gi_take=min(128,length(gi_body)-gi_p+1)
+ gi_n=gi_n+1
+ gi_loose.gi_n='DATA' substr(gi_body,gi_p,gi_take)
+ gi_p=gi_p+gi_take
+end
+gi_loose.0=gi_n
+'EXECIO' gi_loose.0 'DISKW' gi_objfn 'GITOBJ' objectfm ,
+ '1 (STEM GI_LOOSE. FINIS'
+if rc\=0 then do
+ say 'GITIMP: cannot create loose object'
+ exit 8
+end
+
+address command 'EXEC GIT VERIFY-OBJECT' gi_oid
+vrc=rc
+if vrc\=0 then do
+ 'ERASE' gi_objfn 'GITOBJ' objectfm
+ say 'GITIMP: loose object verification failed'
+ exit 8
+end
+say 'IMPORTED' gi_type gi_size gi_oid
+exit 0
+
+gi_bindnative:
+ 'FILEDEF SEL0 DISK M15SL0 PTR G'
+ if rc\=0 then return 'ERROR'
+ 'FILEDEF SEL1 DISK M15SL1 PTR G'
+ if rc\=0 then return 'ERROR'
+ do gi_j=1 to 4
+  gi_t=word('STAGE INDEX SEEK GEN',gi_j)
+  gi_d=word('C0STG C0IDX C0SEEK C0GEN',gi_j)
+  'FILEDEF' gi_d 'DISK GITFIX' gi_t 'G'
+  if rc\=0 then return 'ERROR'
+  gi_d=word('C1STG C1IDX C1SEEK C1GEN',gi_j)
+  'FILEDEF' gi_d 'DISK M15NEW' gi_t 'G'
+  if rc\=0 then return 'ERROR'
+ end
  return 'OK'

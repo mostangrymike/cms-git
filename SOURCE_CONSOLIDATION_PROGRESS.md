@@ -117,10 +117,10 @@ proofs in view.
 - `LOCAL_SCRATCH.json`: two unique ignored backup sources plus GIT42TEST; three
   identical ignored GITWT backup files were reduced to one archived copy. Four
   scratch files were removed from `src/` after hash and secret-pattern checks.
-- Current `HISTORICAL_EXEC.json`: **182** source entries in 11 verified
-  bundles (143 EXEC, 17 C, 22 ASSEMBLE). `restore-cms-exec.py MISSING` is the
+- Current `HISTORICAL_EXEC.json`: **183** source entries in 11 verified
+  bundles (144 EXEC, 17 C, 22 ASSEMBLE). `restore-cms-exec.py MISSING` is the
   non-overwriting preparation step before host guards or source upload.
-- Current tracked source paths: **93**, down from 177 (67 EXEC, 23 C, 0
+- Current tracked source paths: **92**, down from 177 (66 EXEC, 23 C, 0
   ASSEMBLE, one REPO, two shell scripts). After `restore-cms-exec.py MISSING`,
   the physical `src/` directory also contains on-demand archived sources and
   fixtures; do not treat those restored/untracked files as active tracked code.
@@ -192,7 +192,14 @@ proofs in view.
   API-key and username/password import, status, removal, and legacy-format
   reading. Synthetic values were not printed. All temporary G1 files were
   erased and verified absent; no A-disk file was written. Evidence:
-  `cms-m293-gitcred-target.json`.
+   `cms-m293-gitcred-target.json`.
+- Inlined the single production caller of loose-object import from GITIMP into
+  `GIT.EXEC`; the exact GITIMP source remains archived. M294 guards compare the
+  handler with the archived source and reject the external EXEC route. A
+  G1-only CMS fixture imported a synthetic blob from a canned CATHEX response,
+  verified the loose object, and confirmed repeat-import idempotence. All test
+  EXECs and repository/object files were erased and verified absent. No A-disk
+  file was written. Evidence: `cms-m294-gitimp-target.json`.
 - GitHub CI for M289 exposed a stale ACLEAN test assertion that enumerated
   only five legacy helpers. The preserved ACLEAN host fixture now enumerates
   all thirteen archived helpers; `python3 tests/test-m203-bounded-batch.py ACLEAN`
@@ -206,29 +213,31 @@ proofs in view.
   object were absent before/after. Target evidence:
   `/private/var/folders/y0/hyjtc91x5071jc0gntk0pzcw0000gn/T/opencode/cms-m284-m285-target-run3.json`.
   Do not call either full resolver path CMS-proven.
-- Overall, 84 tracked source paths have been removed. Runtime modules remain
+- Overall, 85 tracked source paths have been removed. Runtime modules remain
   separate where CMS EXEC/module names and distinct C `main` entry points are
   public build/runtime boundaries.
 
 ## Current handoff
 
 - M289 `279e91f`, M290 `02f4f80`, ACLEAN correction `3612aa2`, M291
-  `b57e257`, M292 `be4e5c6`, and M293 `93be2f7` are published.
+  `b57e257`, M292 `be4e5c6`, and M293 `93be2f7` are published. M294 and its
+  validation are included in this handoff.
 - `SOURCE_CONSOLIDATION_PROGRESS.md` is the current recovery note.
-- Tracked source count: 177 → **93**. Historical/test/benchmark source is
+- Tracked source count: 177 → **92**. Historical/test/benchmark source is
   recoverable through `scripts/restore-cms-exec.py MISSING`; scratch copies
   have exact SHA-256 records in `archive/LOCAL_SCRATCH.json`.
 - GitHub Actions run 2239 passed for `d2985bf`. The full local macOS gate
   remains **142/146 pass** with four known environment-only failures.
-  M289-M293 source guards and G1-only CMS fixtures pass. M293 focused host
+  M289-M294 source guards and G1-only CMS fixtures pass. M294 focused host
   checks, archive audit, and the preserved-source `CHECK` suite also pass.
 - GitHub Actions run 2240 passed for M293 commit `93be2f7`.
+- CI for the M294 importer consolidation is pending.
 - CI runs 2236/2237 initially stopped at M167 and 2238 at M168 because two
   preserved tests still expected the former combined HEAD/CHECKOUT dispatch.
   Both boundaries were updated; run 2239 passed, including M164-M171.
 - GitHub runs 2233/2234 failed at the ACLEAN archive-inventory assertion: its
   expected legacy-helper set still listed five entries. The fixture now tracks
-  all thirteen archived helpers; the focused ACLEAN test passes locally.
+  all fourteen archived helpers; the focused ACLEAN test passes locally.
 - CMS drive placement is being completed separately from source consolidation:
   operator clarified all CMS-Git files must live on G. The 18 smaller A1
   project files were copied to absent G1 names (module duplicates under
@@ -261,7 +270,7 @@ proofs in view.
   `src/GITPNWLK.EXEC`, `src/GITPZNAT.EXEC`, `src/GITPZBUF.EXEC`,
   `src/GITPINFL.EXEC`, and `src/GIT.EXEC`; only the early-refusal paths of
   GITZDOFS/GITZDREF were target-tested. M287/M288 are
-  CMS parse/refusal tested; M289-M293 have G-only CMS fixture passes.
+  CMS parse/refusal tested; M289-M294 have G-only CMS fixture passes.
 - C consolidation review confirmed `GITREC.C` includes `GITCIDX.C` and
   `GITSEL.C` with renamed `main` symbols, while each is also built as a
   standalone CMS module and referenced independently by target gates. Keep

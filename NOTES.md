@@ -16010,3 +16010,19 @@ username/password values, checked status/import/removal plus legacy v1 reading,
 asserted no output contains the synthetic values, and erased every temporary
 file. No A-disk file was used. Evidence:
 `cms-m293-gitcred-target.json` in the OpenCode temp evidence directory.
+
+## 2026-11-13 — M294 inline loose-object importer
+
+Plan: fold the sole production caller of `GITIMP.EXEC` into `GIT.EXEC`, without
+changing the public `GIT IMPORT-OBJECT` command. Preserve the original source
+exactly in the historical archive.
+
+Progress: the inline importer retains CATHEX framing checks, object-type and
+size limits, loose-object write/readback verification, and idempotent handling
+of an existing verified object. M294 guards compare its procedures with the
+archive and reject the old EXEC call. A G1-only CMS fixture imported a synthetic
+blob from a canned CATHEX response, verified the resulting loose object, and
+confirmed a repeated import is idempotent. The three test EXECs and two
+G1 metadata/object files were erased and verified absent. No A-disk file was
+used. Evidence: `cms-m294-gitimp-target.json` in the OpenCode temp evidence
+directory.

@@ -5330,7 +5330,7 @@ awk 'length($0)>80 {print "FAIL: GITVREF record >80 columns:", NR; bad=1}
 awk 'length($0)>80 {print "FAIL: GITREF2 record >80 columns:", NR; bad=1}
      END {exit bad}' "$r"
 grep -Fq "if command = 'IMPORT-OBJECT' then do" "$g"
-grep -Fq "'EXEC GITIMP' rest" "$g"
+grep -Fq "call gitimport rest" "$g"
 grep -Fq "if command = 'CHECKOUT-FILE' then do" "$g"
 grep -Fq "'EXEC GITWT CHECKOUT' rest" "$g"
 grep -Fq "if command = 'STATUS' then do" "$g"
@@ -6235,11 +6235,112 @@ prologue = (
 )
 expected = prologue + old_body + "\n"
 actual = worker[worker.index(
-    "/* M293: inlined GITCRED credential handler. */"):]
+    "/* M293: inlined GITCRED credential handler. */"):
+    worker.index("/* M294: inlined GITIMP object installer. */")]
 if actual.rstrip() != expected.rstrip():
     raise SystemExit("M293 inline credential handler differs from archive")
 if any(len(line) > 80 for line in worker.splitlines()):
     raise SystemExit("M293 CMS source record exceeds 80 columns")
 print("M293 INLINE CREDENTIAL HANDLER AND ARCHIVE GUARDS PASS")
+PY
+python3 - "$root/src/GIT.EXEC" "$root/archive/HISTORICAL_EXEC.json" "$root" <<'PY'
+import json
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+worker = Path(sys.argv[1]).read_text()
+archive = json.loads(Path(sys.argv[2]).read_text())
+root = Path(sys.argv[3])
+old = archive["bundles"]["LEGACY_HELPERS.json"]["files"].get("GITIMP.EXEC")
+restored = root / "src/GITIMP.EXEC"
+if not old or not restored.is_file() or restored.read_text() != old:
+    raise SystemExit("M294 importer archive/restore mismatch")
+tracked = subprocess.run(
+    ["git", "ls-files", "--error-unmatch", "src/GITIMP.EXEC"],
+    cwd=root, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+if tracked.returncode == 0:
+    raise SystemExit("M294 sole-caller importer remains tracked")
+route = worker[worker.index("if command = 'IMPORT-OBJECT' then do"):
+               worker.index("if command = 'FETCH-DISCOVER' then do")]
+if "call gitimport rest" not in route or "EXEC GITIMP" in route:
+    raise SystemExit("M294 object-import dispatcher is not inlined")
+for token in (
+    "gitimport:",
+    "call gi_bindnative",
+    "GITREC CATHEX GITFIX M15NEW",
+    "GITIMP: malformed CATHEX metadata",
+    "GITIMP: malformed CATHEX data record",
+    "GITIMP: loose TAG objects are not supported yet",
+):
+    if token not in worker:
+        raise SystemExit("M294 inline importer guard missing " + token)
+if "EXEC GITIMP" in worker:
+    raise SystemExit("M294 retains an external GITIMP call")
+if any(len(line) > 80 for line in worker.splitlines()):
+    raise SystemExit("M294 CMS source record exceeds 80 columns")
+
+mapping = {
+    "objfn": "gi_objfn", "impmeta": "gi_impmeta", "mi": "gi_mi",
+    "src": "gi_src", "bindnative": "gi_bindnative", "out": "gi_out",
+    "cmd": "gi_cmd", "grc": "gi_grc", "meta": "gi_meta",
+    "begins": "gi_begins", "ends": "gi_ends", "indata": "gi_indata",
+    "body": "gi_body", "i": "gi_i", "line": "gi_line",
+    "mobj": "gi_mobj", "typ": "gi_typ", "h": "gi_h", "size": "gi_size",
+    "type": "gi_type", "loose": "gi_loose", "n": "gi_n", "p": "gi_p",
+    "take": "gi_take", "j": "gi_j", "t": "gi_t", "d": "gi_d",
+    "oid": "gi_oid", "extra": "gi_extra",
+}
+
+def rename_words(text):
+    for name in sorted(mapping, key=len, reverse=True):
+        text = re.sub(r"(?<![A-Za-z0-9_])" + re.escape(name) +
+                      r"(?![A-Za-z0-9_])", mapping[name], text)
+    return text
+
+def rename_code(line):
+    pieces = []
+    code = []
+    quoted = False
+    i = 0
+    while i < len(line):
+        ch = line[i]
+        if ch == "'":
+            if quoted and i + 1 < len(line) and line[i + 1] == "'":
+                code.append("''")
+                i += 2
+                continue
+            pieces.append(rename_words("".join(code)) if not quoted
+                          else "".join(code))
+            code = []
+            quoted = not quoted
+            pieces.append(ch)
+            i += 1
+            continue
+        code.append(ch)
+        i += 1
+    pieces.append("".join(code) if quoted else rename_words("".join(code)))
+    return "".join(pieces)
+
+old_body = old[old.index("objfn=substr(oid,1,8)"):]
+old_body = "\n".join(rename_code(line) for line in old_body.splitlines())
+old_body = old_body.replace("STEM IMPMETA.", "STEM GI_IMPMETA.")
+old_body = old_body.replace("STEM OUT.", "STEM GI_OUT.")
+old_body = old_body.replace("STEM out.", "STEM GI_OUT.")
+old_body = old_body.replace("STEM LOOSE.", "STEM GI_LOOSE.")
+prologue = (
+    "/* M294: inlined GITIMP object installer. */\n"
+    "gitimport:\n"
+    " address cms\n"
+    " parse arg gi_args\n"
+    " parse upper var gi_args gi_oid gi_extra\n"
+)
+expected = prologue + old_body + "\n"
+actual = worker[worker.index(
+    "/* M294: inlined GITIMP object installer. */"):]
+if actual.rstrip() != expected.rstrip():
+    raise SystemExit("M294 inline importer differs from archive")
+print("M294 INLINE OBJECT IMPORTER AND ARCHIVE GUARDS PASS")
 PY
 echo 'Canonical ASCII header and CMS C source guards passed'
