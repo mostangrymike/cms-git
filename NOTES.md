@@ -16052,5 +16052,5 @@ production archive, but the runtime-source inventory scan attempted to load
 one. The scanner now adds deferred runtime sources only when the archive
 exists; archive-free synthetic fixtures inventory their tracked files alone.
 `LIVEPLANFIX`, canonical guards, archive audit, `LIVEDEPS`, and preserved-source
-`CHECK` pass locally after the correction. The correction still needs commit
-and a fresh Actions run; no CMS target behavior changed.
+`CHECK` pass locally after the correction. The fix is committed and pushed as
+`78a97b1`; Actions run 2243 is in progress. No CMS target behavior changed.

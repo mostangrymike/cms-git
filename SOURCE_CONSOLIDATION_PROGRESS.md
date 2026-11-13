@@ -246,7 +246,8 @@ proofs in view.
   runtime sources. Made archive enrichment conditional for archive-free
   synthetic checkouts; the fixture now passes locally. `MISSING` parity,
   `AUDIT`, `LIVEDEPS`, full canonical guards, and preserved-source `CHECK` also
-  pass locally. The focused CI fix is not yet committed or re-run.
+  pass locally. The fix was pushed as `78a97b1`; Actions run 2243 is in
+  progress, with no result yet.
 - CI runs 2236/2237 initially stopped at M167 and 2238 at M168 because two
   preserved tests still expected the former combined HEAD/CHECKOUT dispatch.
   Both boundaries were updated; run 2239 passed, including M164-M171.
