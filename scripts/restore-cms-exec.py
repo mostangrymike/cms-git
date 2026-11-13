@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Restore preserved historical CMS EXEC source (never overwrite existing files).
+"""Restore preserved historical CMS source (never overwrite existing files).
 
 Usage:
   python3 scripts/restore-cms-exec.py M9PCONS.EXEC
+  python3 scripts/restore-cms-exec.py GITPHXM.C
   python3 scripts/restore-cms-exec.py ALL
   python3 scripts/restore-cms-exec.py MISSING
 """
@@ -27,9 +28,14 @@ def load():
         "M9_WALKERS.json": 3,
         "M6_PROTOCOL.json": 3,
         "M9-M12_TRANSPORT.json": 7,
+        "TARGET_GATES.json": 31,
+        "NATIVE_BENCH_C.json": 9,
+        "NATIVE_PROBES_C.json": 8,
+        "ASSEMBLE_DECKS.json": 22,
+        "LEGACY_HELPERS.json": 8,
     }
     actual = {p.name for p in ARCHIVES.glob("*.json")}
-    if actual != {"HISTORICAL_EXEC.json"}:
+    if actual != {"HISTORICAL_EXEC.json", "LOCAL_SCRATCH.json"}:
         raise SystemExit("Archive inventory mismatch: " + str(sorted(actual)))
     collection = json.loads((ARCHIVES / "HISTORICAL_EXEC.json").read_text(
         encoding="utf-8"))
@@ -47,8 +53,8 @@ def load():
         if not isinstance(entries, dict) or len(entries) != count:
             raise RuntimeError("Archive count mismatch: " + name)
         for filename, source in entries.items():
-            if not re.fullmatch(r"[A-Z0-9]{1,8}[.]EXEC", filename):
-                raise RuntimeError("Invalid CMS filename: " + filename)
+            if not re.fullmatch(r"[A-Z0-9]{1,8}[.](EXEC|C|ASSEMBLE)", filename):
+                raise RuntimeError("Invalid CMS source filename: " + filename)
             if filename in files or not isinstance(source, str) or not source:
                 raise RuntimeError("Duplicate or empty EXEC: " + filename)
             files[filename] = source
@@ -58,7 +64,7 @@ def load():
 def audit():
     """Read-only tracked-source audit; called after CI regeneration."""
     files = load()
-    if len(files) != 99:
+    if len(files) != 177:
         raise RuntimeError("Archive count mismatch")
     tracked = subprocess.check_output(["git", "ls-files", "-z"], cwd=ROOT)
     paths = {p.decode() for p in tracked.split(b"\0") if p}
@@ -102,7 +108,7 @@ def audit():
                     "%s:%d" % (relative, lineno))
     for name, locations in sorted(references.items()):
         print(name, "REFERENCES", len(locations), ", ".join(locations[:8]))
-    print("ARCHIVED CMS EXEC DEPENDENCY AUDIT PASS", len(files),
+    print("ARCHIVED CMS SOURCE DEPENDENCY AUDIT PASS", len(files),
           "ARCHIVED", len(references), "REFERENCED")
 
 
@@ -201,7 +207,7 @@ def consolidation_inventory():
 
 def main():
     if len(sys.argv) != 2:
-        raise SystemExit("Usage: python3 scripts/restore-cms-exec.py NAME.EXEC|ALL|MISSING|AUDIT|LIVEDEPS|LIVEPLAN")
+        raise SystemExit("Usage: python3 scripts/restore-cms-exec.py NAME.EXEC|NAME.C|ALL|MISSING|AUDIT|LIVEDEPS|LIVEPLAN")
     arg = sys.argv[1].upper()
     if arg == "LIVEDEPS":
         live_dependencies()

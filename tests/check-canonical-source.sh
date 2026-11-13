@@ -5587,4 +5587,263 @@ if grep -Eq 'sprintf\(\(char \*\)(hashbuf|head|idx_hashbuf)'    "$walk" "$index"
  echo 'CMS-native formatted text in a canonical Git SHA header' >&2
  exit 1
 fi
+python3 - "$root/src/GITZDOFS.EXEC" "$root/archive/HISTORICAL_EXEC.json" "$root" <<'PY'
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+worker = Path(sys.argv[1]).read_text()
+archive = json.loads(Path(sys.argv[2]).read_text())
+root = Path(sys.argv[3])
+for token in (
+    "call inflatez zdata",
+    "call decodeofs offhex",
+    "call readbase basepos",
+    "'EXEC GITDAPP APPLY' basedata delta",
+    "readbase: procedure expose basetype basedata",
+    "decodeofs: procedure",
+    "nextbyte: procedure",
+    "GITODLT: duplicate OFS_DELTA base position",
+    "GITODLT: invalid base object data",
+):
+    if token not in worker:
+        raise SystemExit("M284 inline OFS source guard missing " + token)
+if "EXEC GITODLT" in worker:
+    raise SystemExit("M284 retains external GITODLT call")
+if not (worker.index("call inflatez zdata") <
+        worker.index("call decodeofs offhex") <
+        worker.index("call readbase basepos") <
+        worker.index("'EXEC GITDAPP APPLY' basedata delta")):
+    raise SystemExit("M284 resolver order changed")
+if any(len(line) > 80 for line in worker.splitlines()):
+    raise SystemExit("M284 CMS source record exceeds 80 columns")
+legacy = archive["bundles"]["LEGACY_HELPERS.json"]["files"]
+old = legacy.get("GITODLT.EXEC")
+if not old or not (root / "src/GITODLT.EXEC").is_file():
+    raise SystemExit("M284 legacy helper archive/restore missing")
+if (root / "src/GITODLT.EXEC").read_text() != old:
+    raise SystemExit("M284 restored GITODLT differs from archived source")
+tracked = subprocess.run(
+    ["git", "ls-files", "--error-unmatch", "src/GITODLT.EXEC"],
+    cwd=root, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+if tracked.returncode == 0:
+    raise SystemExit("M284 obsolete helper remains tracked")
+
+def decode(hexbytes):
+    data = bytes.fromhex(hexbytes)
+    value = data[0] & 127
+    for byte in data[1:]:
+        value = (value + 1) * 128 + (byte & 127)
+        if value > 9007199254740991:
+            raise ValueError("overflow")
+    if any(byte < 128 for byte in data[:-1]):
+        raise ValueError("unexpected early terminator")
+    if data[-1] >= 128:
+        raise ValueError("truncated continuation")
+    return value
+
+for encoded, expected in (("01", 1), ("7F", 127), ("8000", 128),
+                          ("8100", 256), ("808000", 16512)):
+    if decode(encoded) != expected:
+        raise SystemExit("M284 offset model mismatch " + encoded)
+if 100 - decode("01") != 99:
+    raise SystemExit("M284 base position model mismatch")
+print("M284 INLINE OFS RESOLVER AND LEGACY ARCHIVE GUARDS PASS")
+PY
+python3 - "$root/src/GITZDREF.EXEC" "$root/archive/HISTORICAL_EXEC.json" "$root" <<'PY'
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+worker = Path(sys.argv[1]).read_text()
+archive = json.loads(Path(sys.argv[2]).read_text())
+root = Path(sys.argv[3])
+for token in (
+    "call inflatez zdata",
+    "call readbase oid",
+    "'EXEC GITDAPP APPLY' datahex delta",
+    "objectfm = 'A'",
+    "'STATE GITMETA REPO A'",
+    "readbase: procedure expose datahex objectfm",
+    "word(obj.1,2) \\= oid",
+    "word(obj.3,1) \\= 'SIZE'",
+    "GITRDEL: base SIZE mismatch",
+    "GITRDEL: invalid base DATA hex",
+):
+    if token not in worker:
+        raise SystemExit("M285 inline REF source guard missing " + token)
+if "EXEC GITRDEL" in worker:
+    raise SystemExit("M285 retains external GITRDEL call")
+if not (worker.index("call inflatez zdata") <
+        worker.index("call readbase oid") <
+        worker.index("'EXEC GITDAPP APPLY' datahex delta")):
+    raise SystemExit("M285 REF resolver order changed")
+if any(len(line) > 80 for line in worker.splitlines()):
+    raise SystemExit("M285 CMS source record exceeds 80 columns")
+legacy = archive["bundles"]["LEGACY_HELPERS.json"]["files"]
+old = legacy.get("GITRDEL.EXEC")
+if not old or not (root / "src/GITRDEL.EXEC").is_file():
+    raise SystemExit("M285 legacy helper archive/restore missing")
+if (root / "src/GITRDEL.EXEC").read_text() != old:
+    raise SystemExit("M285 restored GITRDEL differs from archived source")
+tracked = subprocess.run(
+    ["git", "ls-files", "--error-unmatch", "src/GITRDEL.EXEC"],
+    cwd=root, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+if tracked.returncode == 0:
+    raise SystemExit("M285 obsolete helper remains tracked")
+print("M285 INLINE REF RESOLVER AND LEGACY ARCHIVE GUARDS PASS")
+PY
+python3 - "$root/src/GITPZNAT.EXEC" "$root/archive/HISTORICAL_EXEC.json" "$root" <<'PY'
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+worker = Path(sys.argv[1]).read_text()
+archive = json.loads(Path(sys.argv[2]).read_text())
+root = Path(sys.argv[3])
+for token in (
+    "'STATE GITNDRV MODULE A'",
+    "GITPZNAT: native bridge unavailable; use REXX",
+    "call stagepack offset 65536",
+    "'ERASE GITNRES DATA A'",
+    "'ERASE GITNOUT DATA A'",
+    "'GITNDRV'",
+    "'EXECIO 1 DISKR GITNRES DATA A 1 (STEM M. FINIS'",
+    "call commitnative decoded",
+    "queue used",
+    "queue decoded",
+):
+    if token not in worker:
+        raise SystemExit("M286 inline bridge guard missing " + token)
+if "EXEC GITNBRG" in worker:
+    raise SystemExit("M286 retains external GITNBRG call")
+if "EXEC GITNSTG" in worker or "EXEC GITNOUT" in worker:
+    raise SystemExit("M286/M288 retains external native bridge helper call")
+if worker.count("'STATE GITNDRV MODULE A'") != 1:
+    raise SystemExit("M286 native-module preflight must run exactly once")
+if any(len(line) > 80 for line in worker.splitlines()):
+    raise SystemExit("M286 CMS source record exceeds 80 columns")
+old = archive["bundles"]["LEGACY_HELPERS.json"]["files"].get("GITNBRG.EXEC")
+if not old or not (root / "src/GITNBRG.EXEC").is_file():
+    raise SystemExit("M286 legacy wrapper archive/restore missing")
+if (root / "src/GITNBRG.EXEC").read_text() != old:
+    raise SystemExit("M286 restored GITNBRG differs from archived source")
+tracked = subprocess.run(
+    ["git", "ls-files", "--error-unmatch", "src/GITNBRG.EXEC"],
+    cwd=root, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+if tracked.returncode == 0:
+    raise SystemExit("M286 sole-caller wrapper remains tracked")
+print("M286 INLINE NATIVE BRIDGE AND LEGACY ARCHIVE GUARDS PASS")
+PY
+python3 - "$root/src/GITPNWLK.EXEC" "$root/archive/HISTORICAL_EXEC.json" "$root" <<'PY'
+import hashlib
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+worker = Path(sys.argv[1]).read_text()
+archive = json.loads(Path(sys.argv[2]).read_text())
+root = Path(sys.argv[3])
+for token in (
+    "verifyrc = verifysha()",
+    "verifysha: procedure",
+    "'EXECIO 1 DISKR GITPMETA PACK A 1 (STEM M. FINIS'",
+    "payload = size - 20",
+    "if count > 64 then count = 64",
+    "'EXEC GITPBUF READSTACK' offset count",
+    "'GITSTRM'",
+    "'EXEC GITPBUF READSTACK' payload 20",
+    "GITPSHA: pack checksum mismatch",
+    "say 'PACK SHA1' digest",
+):
+    if token not in worker:
+        raise SystemExit("M287 inline PACK SHA guard missing " + token)
+if "EXEC GITPSHA" in worker:
+    raise SystemExit("M287 retains external GITPSHA call")
+if not (worker.index("verifyrc = verifysha()") <
+        worker.index("'EXECIO 1 DISKR GITPMETA PACK A 1 (STEM SM. FINIS'")):
+    raise SystemExit("M287 strict walk verifies PACK before reading metadata")
+if any(len(line) > 80 for line in worker.splitlines()):
+    raise SystemExit("M287 CMS source record exceeds 80 columns")
+
+legacy = archive["bundles"]["LEGACY_HELPERS.json"]["files"]
+old = legacy.get("GITPSHA.EXEC")
+restored = root / "src/GITPSHA.EXEC"
+if not old or not restored.is_file():
+    raise SystemExit("M287 legacy checksum helper archive/restore missing")
+if restored.read_text() != old:
+    raise SystemExit("M287 restored GITPSHA differs from archived source")
+tracked = subprocess.run(
+    ["git", "ls-files", "--error-unmatch", "src/GITPSHA.EXEC"],
+    cwd=root, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+if tracked.returncode == 0:
+    raise SystemExit("M287 obsolete sole-caller helper remains tracked")
+
+header = "5041434B0000000200000002"
+one = "337801010300FCFF616263024D0127"
+two = "337801010300FCFF78797A02D7016C"
+body = bytes.fromhex(header + one + two)
+digest = hashlib.sha1(body).hexdigest().upper()
+if digest != "5F1C02695D4BC807AE4A5DD622AD1D28E7659429":
+    raise SystemExit("M287 M8A PACK checksum model mismatch")
+good_trailer = bytes.fromhex(digest)
+bad_trailer = bytes.fromhex(digest[:-2] + "28")
+computed = hashlib.sha1(body).digest()
+if computed != good_trailer:
+    raise SystemExit("M287 valid PACK trailer model rejected")
+if computed == bad_trailer:
+    raise SystemExit("M287 corrupted PACK trailer model accepted")
+print("M287 INLINE PACK SHA AND LEGACY ARCHIVE GUARDS PASS")
+PY
+python3 - "$root/src/GITPZNAT.EXEC" "$root/archive/HISTORICAL_EXEC.json" "$root" <<'PY'
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+worker = Path(sys.argv[1]).read_text()
+archive = json.loads(Path(sys.argv[2]).read_text())
+root = Path(sys.argv[3])
+for token in (
+    "call stagepack offset 65536",
+    "call commitnative decoded",
+    "stagepack: procedure",
+    "commitnative: procedure",
+    "first = sourceoff % 64 + 1",
+    "if take > 1024-within then take = 1024-within",
+    "if i < batch & length(h) \\= 128 then return 8",
+    "'EXECIO' r.0 'DISKW GITNSTG DATA A 0 (STEM R. FINIS'",
+    "if rc \\= 0 & rc \\= 2 then return 8",
+    "'EXECIO' batch 'DISKW GITOBUF DATA A 0 (STEM R. FINIS'",
+    "m.1 = 'META' want '-' 1",
+):
+    if token not in worker:
+        raise SystemExit("M288 inline native I/O guard missing " + token)
+if "EXEC GITNSTG" in worker or "EXEC GITNOUT" in worker:
+    raise SystemExit("M288 retains external single-caller helper")
+if not (worker.index("call stagepack offset 65536") <
+        worker.index("'GITNDRV'") <
+        worker.index("call commitnative decoded") <
+        worker.index("queue used")):
+    raise SystemExit("M288 native bridge order changed")
+if any(len(line) > 80 for line in worker.splitlines()):
+    raise SystemExit("M288 CMS source record exceeds 80 columns")
+
+legacy = archive["bundles"]["LEGACY_HELPERS.json"]["files"]
+for name in ("GITNSTG.EXEC", "GITNOUT.EXEC"):
+    old = legacy.get(name)
+    restored = root / "src" / name
+    if not old or not restored.is_file() or restored.read_text() != old:
+        raise SystemExit("M288 legacy helper archive/restore mismatch " + name)
+    tracked = subprocess.run(
+        ["git", "ls-files", "--error-unmatch", "src/" + name],
+        cwd=root, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    if tracked.returncode == 0:
+        raise SystemExit("M288 sole-caller helper remains tracked " + name)
+print("M288 INLINE NATIVE STAGING/PUBLISH GUARDS PASS")
+PY
 echo 'Canonical ASCII header and CMS C source guards passed'

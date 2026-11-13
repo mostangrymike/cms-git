@@ -21,10 +21,11 @@ the shell safety/native integration runner is `tests/check-canonical-source.sh`.
 Both preserve independently invoked historical gates. The shell safety
 scripts use GNU/Linux coreutils (`realpath --`, `stat -c`, `cp --reflink`,
 `sha256sum`); run the complete gate on the Linux CI runner. macOS needs
-compatible coreutils and is not an equivalent validation host. All 99 historical EXEC source entries now reside in a single
-`archive/HISTORICAL_EXEC.json` collection retaining six separately audited
-bundle identities and counts (15, 48, 23, 3, 3, 7). Exact original historical
-EXEC files are recoverable using `scripts/restore-cms-exec.py`, and ten
+compatible coreutils and is not an equivalent validation host. Historical
+and target-gate sources now reside in the single `archive/HISTORICAL_EXEC.json`
+collection: 135 EXEC files, 17 native test/benchmark/probe C files, and 22
+assembler decks in ten separately audited bundles. Exact originals are recoverable using
+`scripts/restore-cms-exec.py`, and ten
 native tree wrappers are regenerated using `scripts/restore-ph-wrappers.py`.
 Never delete active production helpers based solely on static reference misses.
 
@@ -2419,15 +2420,30 @@ The real September 29 z/VM CMS M55 protected regression passed on the original 1
 
 ## Restoring historical CMS test EXEC source
 
-Older M3–M13 milestone-only test EXEC sources are preserved losslessly in `archive/M3-M5_EXEC.json`, `archive/M6-M9_EXEC.json` and `archive/M10-M13_EXEC.json` rather than occupying one tracked source file per test. This is *source packaging only*: working CMS programs, Git core sources, current M188/M206 behavior and target-proven modules are not changed. Git history also retains each original path. From the Mac checkout, run:
+Older M3–M13 test EXECs, M155–M176 target-gate checkers, historical native
+benchmark/probe C sources, and assembler decks are preserved losslessly in
+`archive/HISTORICAL_EXEC.json` rather than occupying one tracked file per
+test or build input. This is *source packaging only*: runtime programs,
+target-proven CMS modules, and test behavior are unchanged. Git history also
+retains each original path. Restore exact files before running guards that
+read them, building a module, or uploading a checker to CMS:
 
 ```sh
-python3 scripts/restore-cms-exec.py M9PCONS.EXEC
-# or restore all archived historical test EXECs:
-python3 scripts/restore-cms-exec.py ALL
+# restore only sources missing from src/ (also the CI preparation step)
+python3 scripts/restore-cms-exec.py MISSING
+# or restore one named archived checker/source:
+python3 scripts/restore-cms-exec.py M176CHK.EXEC
+python3 scripts/restore-cms-exec.py GITPHXM.C
+python3 scripts/restore-cms-exec.py GITSTRM.ASSEMBLE
 ```
 
-Restoration refuses to overwrite any pre-existing `src/NAME.EXEC`. To test on CMS after restoring a particular source, use the established `src`-directory upload script, e.g. `./cms-upload.sh M9PCONS.EXEC`; only then invoke the associated CMS test. The archives are not CMS files and should not be uploaded directly. Archive sources are checked for exact preservation, and restoration is exercised by GitHub CI. A successful GitHub host check does not replace a real CMS target test.
+Restoration refuses to overwrite any pre-existing source file. To test on CMS
+after restoring a particular source, use the established `src`-directory
+upload script, e.g. `./cms-upload.sh M9PCONS.EXEC`; only then invoke the
+associated CMS test. The archives are not CMS files and should not be uploaded
+directly. Archive sources are checked for exact preservation, and restoration
+is exercised by GitHub CI. A successful GitHub host check does not replace a
+real CMS target test.
 
 
 ## Regenerate native tree performance wrappers

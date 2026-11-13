@@ -36,12 +36,12 @@ if version\=2 then do
  say 'GITPNWLK: unsupported PACK version' version
  exit 8
 end
-if strict then do
- 'EXEC GITPSHA VERIFY'
- if rc \= 0 then do
-  say 'GITPNWLK: PACK integrity verification failed'
-  exit 8
- end
+ if strict then do
+  verifyrc = verifysha()
+  if verifyrc \= 0 then do
+   say 'GITPNWLK: PACK integrity verification failed'
+   exit 8
+  end
  drop sm.
  'EXECIO 1 DISKR GITPMETA PACK A 1 (STEM SM. FINIS'
  if rc \= 0 | sm.0 \= 1 then exit 8
@@ -263,3 +263,68 @@ readhex:
  parse pull h
  if length(h)\=n*2 then return 'ERROR'
  return translate(h)
+
+verifysha: procedure
+ address command
+ drop m.
+ 'EXECIO 1 DISKR GITPMETA PACK A 1 (STEM M. FINIS'
+ if rc \= 0 | m.0 \= 1 then do
+  say 'GITPSHA: pack metadata not found'
+  return 8
+ end
+ parse var m.1 tag size tail final junk
+ if tag \= 'META' | junk \= '' | datatype(size,'W') \= 1 then do
+  say 'GITPSHA: corrupt pack metadata'
+  return 8
+ end
+ if size < 20 | final \= 1 | tail \= '-' then do
+  say 'GITPSHA: finalized pack with trailer required'
+  return 8
+ end
+ payload = size - 20
+ 'MAKEBUF'
+ queue right(d2x(payload),8,'0')
+ offset = 0
+ do while offset < payload
+  count = payload - offset
+  if count > 64 then count = 64
+  'EXEC GITPBUF READSTACK' offset count
+  if rc \= 0 then do
+   save = rc
+   'DROPBUF'
+   return save
+  end
+  offset = offset + count
+ end
+ 'GITSTRM'
+ if rc \= 0 then do
+  save = rc
+  'DROPBUF'
+  return save
+ end
+ pull digest
+ 'DROPBUF'
+ 'MAKEBUF'
+ 'EXEC GITPBUF READSTACK' payload 20
+ if rc \= 0 then do
+  save = rc
+  'DROPBUF'
+  return save
+ end
+ if queued() < 1 then do
+  'DROPBUF'
+  say 'GITPSHA: pack trailer missing'
+  return 8
+ end
+ pull trailer
+ 'DROPBUF'
+ trailer = translate(trailer)
+ digest = translate(digest)
+ if digest \= trailer then do
+  say 'GITPSHA: pack checksum mismatch'
+  say 'COMPUTED' digest
+  say 'TRAILER ' trailer
+  return 8
+ end
+ say 'PACK SHA1' digest
+ return 0
