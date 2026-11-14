@@ -290,8 +290,14 @@ behavior remains unverified.
 M243 adds `GIT STATUS --short` and `GIT STATUS --porcelain`, reporting staged
 and unstaged additions, modifications, and deletions in two-column status
 form. It reports mapped worktree paths only; untracked-file discovery remains
-unsupported. M258 adds exact and wildcard path filtering. CMS behavior remains
-unverified.
+off by default. M258 adds exact and wildcard path filtering. M298 adds
+opt-in `--untracked-files=<FM>` scanning for one CMS filemode. Unmapped
+workfiles are displayed as `?? FN.FT`; repository object/metadata filetypes
+and already-mapped file IDs are excluded. Since CMS minidisks are flat and can
+contain unrelated files, the mode must be requested explicitly. Pathspecs
+filter both mapped and discovered paths. Host fixtures pass; a G1-only CMS
+fixture exercised the LISTFILE stack scan and failed closed for a missing
+pathspec without changing the production map or repository.
 
 M244 adds `GIT DIFF --name-only` for unstaged mapped changes and
 `GIT DIFF --cached|--staged --name-only` for staged changes. It lists paths

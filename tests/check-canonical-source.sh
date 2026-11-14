@@ -1707,9 +1707,10 @@ block=source[start:end]
 required=("statusopt=translate(word(rest,si))", "statusopt='--SHORT'",
           "statusopt='--PORCELAIN'", "statusopt='--BRANCH'",
           "if mapbase.i=zeros then x='A'", "if state='DELETED' then y='D'",
-          "if state='MODIFIED' | state='STAGED+MODIFIED' then y='M'",
-          "if x\\=' ' | y\\=' ' then say x||y||' '||p",
-          "if shortstatus=0 then say 'STATUS SUMMARY TRACKED'")
+           "if state='MODIFIED' | state='STAGED+MODIFIED' then y='M'",
+           "if x\\=' ' | y\\=' ' then say x||y||' '||p",
+           "say 'STATUS SUMMARY TRACKED' statusselectedcount",
+           "if statusuntrackedfm\\='' then")
 for token in required:
  if token not in block:
   raise SystemExit(f'M243 short status source guard missing {token!r}')
@@ -1773,7 +1774,7 @@ expected=$(printf 'M  staged\n M modified\nMM both\n D gone\nA  added\nAD addgon
 check "$tmp/status.rexx" 0 "$expected" --short
 check "$tmp/status.rexx" 0 "$expected" --porcelain
 check "$tmp/empty.rexx" 0 '' --short
-check "$tmp/status.rexx" 4 'Usage: GIT STATUS [--short|--porcelain] [--branch] [--] [path ...]' --unknown
+check "$tmp/status.rexx" 4 'Usage: GIT STATUS [--short|--porcelain] [--branch] [--untracked-files=FM] [--] [path ...]' --unknown
 echo 'M243 SOURCE-DERIVED SHORT STATUS FIXTURES PASS 4'
 )
 exit $?
@@ -2987,6 +2988,118 @@ echo 'M259 SOURCE-DERIVED WORKTREE RESTORE FIXTURES PASS 11'
 exit $?
 fi
 
+# STATUS untracked discovery is opt-in by CMS filemode because a CMS minidisk
+# can contain repository internals and unrelated files as well as workfiles.
+if [ "${1:-}" = "M298" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M258
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GITWT.EXEC" "$tmp/status.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+start=source.index("if command='STATUS' then do")
+end=source.index("if command='DIFF' then do",start)
+status=source[start:end]
+status=status.replace(
+    "call readrefs", "headref='refs/heads/main'\n  result='OK'")
+status=status.replace("call loadmap", "result='OK'")
+status=status.replace("'STATE' mapfn.i mapft.i mapfm.i",
+                      "call statestate mapfn.i,mapft.i,mapfm.i")
+status=status.replace(
+    "call workoid mapfn.i,mapft.i,mapfm.i,maplf.i,0",
+    "call mockwork mapfn.i,mapft.i,mapfm.i,maplf.i,0")
+hstart=source.index("\nmatchpath:\n")+1
+hend=source.index("\nreadrestoreblob:\n",hstart)
+helpers=source[hstart:hend].replace(
+    "address command listcmd", "call mocklist listcmd")
+fixture=(
+    "parse arg rest\n"
+    "do while queued()>0\n pull argrecord\nend\n"
+    "command='STATUS'\n"
+    "mapcount=1\n"
+    "workpathhexmax=1024\n"
+    "mapfn.1='TRACKED'\nmapft.1='TEXT'\nmapfm.1='A'\nmaplf.1=1\n"
+    "zeros='0000000000000000000000000000000000000000'\n"
+    "mapbase.1=zeros\nmapstage.1=zeros\n"
+    "mappath.1=c2x('tracked.txt')\n"+
+    status+
+    "exit 99\n"+
+    helpers+
+    "mocklist:\n parse arg listcmd\n"
+    " mode=word(listcmd,4)\n"
+    " if mode='B' then do\n  queue 'BAD RECORD'\n  rc=8\n  return\n end\n"
+    " if mode='Q' then do\n"
+    "  do qi=1 to 4097\n   queue 'FRESH TEXT Q1'\n  end\n"
+    "  rc=0\n  return\n end\n"
+    " queue 'TRACKED TEXT A1'\n"
+    " queue 'FRESH TEXT A1'\n"
+    " queue 'OTHER EXEC A1'\n"
+    " queue 'GITOBJ GITOBJ A1'\n"
+    " queue 'PACK0001 PACK A1'\n"
+    " queue 'GITWORK REPO A1'\n"
+    " queue 'GITM MODULE A1'\n"
+    " queue 'M173NET STAGE A1'\n"
+    " queue 'ORPHAN DATA A1'\n"
+    " queue 'FRESH TEXT A1'\n"
+    " queue 'WRONG TEXT B1'\n"
+    " rc=0\n return\n"
+    "statestate:\n parse arg sfn,sft,sfm\n rc=0\n return\n"
+    "mockwork:\n return '0000000000000000000000000000000000000000'\n"
+    "validmode:\n parse upper arg vmode\n"
+    " if length(vmode)=1 then return 'OK'\n return 'ERROR'\n"
+    "toasciihex:\n parse arg text\n return c2x(text)\n"
+    "asciitocms:\n parse arg hex\n return x2c(hex)\n")
+Path(sys.argv[2]).write_text(fixture)
+for token in ("--UNTRACKED-FILES=", "call scanuntracked statusuntrackedfm",
+              "LISTFILE * * ", "(STACK", "untrackedpathhex.",
+              "say '??' path", "pathspec did not match any checked out or"):
+    if token not in source:
+        raise SystemExit(f'M298 untracked status source guard missing {token!r}')
+print('M298 UNTRACKED STATUS SOURCE GUARDS PASS 7')
+PY
+rexx -c "$tmp/status.rexx" /dev/null
+check() {
+ fixture=$1
+ expected_rc=$2
+ expected=$3
+ shift 3
+ if output=$(rexx "$fixture" "$@"); then rc=0; else rc=$?; fi
+ if [ "$rc" -ne "$expected_rc" ] || [ "$output" != "$expected" ]; then
+  echo "M298 STATUS $*: expected RC $expected_rc '$expected', got RC $rc '$output'" >&2
+  exit 1
+ fi
+}
+check "$tmp/status.rexx" 0 '' --short
+check "$tmp/status.rexx" 0 \
+ "$(printf '?? FRESH.TEXT\n?? OTHER.EXEC\n?? ORPHAN.DATA')" \
+ --short --untracked-files=A
+check "$tmp/status.rexx" 0 '?? FRESH.TEXT' \
+ --short --untracked-files=A 'FRESH*'
+check "$tmp/status.rexx" 4 \
+ 'GITWT: pathspec did not match any checked out or untracked path MISSING' \
+ --short --untracked-files=A MISSING
+check "$tmp/status.rexx" 4 \
+ 'Usage: GIT STATUS [--short|--porcelain] [--branch] [--untracked-files=FM] [--] [path ...]' \
+ --short --untracked-files=AA
+check "$tmp/status.rexx" 4 \
+ 'GITWT: duplicate --untracked-files option' \
+ --short --untracked-files=A --untracked-files=A
+check "$tmp/status.rexx" 8 \
+ 'GITWT: cannot safely enumerate untracked files on B' \
+ --short --untracked-files=B
+check "$tmp/status.rexx" 8 \
+ 'GITWT: cannot safely enumerate untracked files on Q' \
+ --short --untracked-files=Q
+echo 'M298 SOURCE-DERIVED UNTRACKED STATUS FIXTURES PASS 6'
+)
+exit $?
+fi
+
 # Annotated tag objects: exact source construction, option validation, and
 # bounded peeling of tag objects to their commit target.
 if [ "${1:-}" = "M297" ]; then
@@ -3385,7 +3498,8 @@ block=source[start:end]
 required=("statusopt='--SHORT'", "statusopt='--PORCELAIN'",
           "statusopt='--BRANCH'", 'call readrefs',
           "say '##' branchname", "say 'On branch' branchname",
-          "Usage: GIT STATUS [--short|--porcelain] [--branch] [--] [path ...]")
+          "Usage: GIT STATUS [--short|--porcelain] [--branch]",
+          "[--untracked-files=FM] [--] [path ...]")
 for token in required:
  if token not in block:
   raise SystemExit(f'M247 status branch guard missing {token!r}')
@@ -3425,7 +3539,7 @@ expected=$(printf 'On branch feature/status\nSTATUS NO TRACKED FILES')
 check "$tmp/empty.rexx" 0 "$expected" --branch
 check "$tmp/status.rexx" 0 '## feature/status' --short --branch
 check "$tmp/status.rexx" 0 '## feature/status' --branch --porcelain
-check "$tmp/status.rexx" 4 'Usage: GIT STATUS [--short|--porcelain] [--branch] [--] [path ...]' --branch --unknown
+check "$tmp/status.rexx" 4 'Usage: GIT STATUS [--short|--porcelain] [--branch] [--untracked-files=FM] [--] [path ...]' --branch --unknown
 echo 'M247 SOURCE-DERIVED STATUS BRANCH FIXTURES PASS 4'
 )
 exit $?

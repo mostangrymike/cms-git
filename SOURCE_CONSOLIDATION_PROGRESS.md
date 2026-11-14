@@ -315,6 +315,10 @@ proofs in view.
   `GIT GC` now follows TAG objects into their commit closure. The annotated
   tag handler passed a G1-only CMS fixture using real `GITSTRM` hashing with
   storage/ref updates stubbed to protect production state.
+- M298 adds opt-in `STATUS --untracked-files=<FM>` via LISTFILE stack
+  enumeration. `GITWT.EXEC` remains archived in `RUNTIME_MODULES.json`; a
+  G1-only CMS source fixture scanned G read-only and cleaned up with protected
+  state unchanged. Tracked `src/` remains 30.
 
 ## Decisions and validation
 

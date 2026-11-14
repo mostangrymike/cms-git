@@ -16129,3 +16129,30 @@ the depth bound, hash-verified malformed tag data, and a non-tag object.
 worktree state, stage/index files, `GITPCAT`, `GITREC`, `GITWT`, and `GITSTRM`
 states were unchanged before and after. Evidence:
 `cms-m297-annotated-tag-target.json` in the OpenCode temp evidence directory.
+
+## 2026-11-14 — M298 opt-in untracked status
+
+`GIT STATUS --untracked-files=<FM>` now scans one explicitly selected CMS
+filemode using `LISTFILE * * <FM> (STACK`. The option is off by default because
+CMS disks are flat and commonly mix a worktree with unrelated files and
+repository storage. File IDs already represented in `GITWORK` are omitted, as
+are Git object/pack/metadata and native stage/index/module filetypes. Remaining
+files are reported as `?? FN.FT`; pathspecs filter both mapped and discovered
+paths. A malformed listing, nonempty input stack, or scan beyond 4096 records
+fails closed before porcelain output. The explicit mode lets callers choose
+the CMS workfile disk without changing persisted repo configuration.
+
+`M298` source-derived fixtures cover opt-in behavior, mapped-file exclusion,
+internal-filetype exclusion, duplicate collapse, pathspec filtering,
+unmatched-path refusal, malformed LISTFILE output, command errors, and scan
+overflow. `M258` and `M298` canonical fixtures pass; CMS Regina syntax and
+80-column checks pass.
+
+A disposable `ZTM298 EXEC G1` copy of the candidate `GITWT` ran
+`STATUS --short --untracked-files=G ZZZUNMATCH298` on z/VM 6.3 CMS. LISTFILE
+enumeration completed over the G filemode and the deliberately absent
+pathspec failed with RC 4. The fixture was erased and verified absent;
+`GIT EXEC`, metadata/REF2/worktree state, stage/index data, and protected
+modules were unchanged before and after. No repository or map writes were
+performed. Evidence: `cms-m298-untracked-target.json` in the OpenCode temp
+evidence directory.
