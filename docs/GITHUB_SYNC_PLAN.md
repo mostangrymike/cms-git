@@ -570,6 +570,21 @@ the local Regina syntax parser. The command-runner boundary in `cms-tooling`
 now requires a fresh CMS Ready prompt and rejects the ambiguous reconnect
 RUNNING banner; its command and startup tests passed locally.
 
+### M300 bounded non-fast-forward merge — source implemented, CMS validation pending
+
+`GIT PULL` now finds a unique common ancestor across loose and packed commits,
+then creates a two-parent merge commit for divergent histories. Merge is
+whole-blob, not line-based: it accepts non-conflicting changes on existing
+paths only when modes stay unchanged and every selected change is mapped.
+Same-path divergent edits, path additions/removals, mode changes, ambiguous
+merge bases, empty tree merges, and unmapped changes fail closed. The worktree
+must be clean. Conflicts never write markers or change local refs.
+
+Host source guards and Regina syntax checks pass. No CMS run has validated this
+path; retain the existing G1-only disposable-fixture boundary for target
+testing. Merge commits currently use deterministic default identity/time
+metadata from `COMMIT-TREE`.
+
 CMS qualification did not run. On 2026-10-20, terminal 0200 reconnected to a
 formatted z/VM guest banner with an empty RUNNING field. One null Enter exposed
 MORE; one PA2 then produced an unformatted 24x80 all-asterisk buffer. Fresh

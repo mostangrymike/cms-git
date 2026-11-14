@@ -1256,31 +1256,108 @@ if command='PULL' then do
       say 'Already up to date' pullold
       exit 0
    end
-   if pullold\=zeros then do
-      drop ancestorout.
-      ancestorout.0=0
-      ancestorcmd='EXEC GITVREF IS-ANCESTOR'||' '||pullold||' '||pullnew
+    if pullold\=zeros then do
+       drop ancestorout.
+       ancestorout.0=0
+       ancestorcmd='EXEC GITVREF IS-ANCESTOR'||' '||pullold||' '||pullnew
       'PIPE CMS' ancestorcmd '| STEM ANCESTOROUT.'
       /* CMS PIPE STEM wraps at column 80, including inside an OID. */
       ancestorline=''
       do ai=1 to ancestorout.0
          ancestorline=ancestorline||strip(ancestorout.ai)
       end
-      if rc\=0 |,
-         ancestorline\='ANCESTOR YES' pullold pullnew then do
-         say 'GIT PULL: remote tip is not a fast-forward; local refs unchanged'
-         exit 8
-      end
-   end
-   pullcheckcmd='EXEC GITWT CHECK-PULL'||' '||currentbranch||' '||,
-       pullold||' '||pullnew
-   drop pullcheckout.
-   pullcheckout.0=0
-   'PIPE CMS' pullcheckcmd '| STEM PULLCHECKOUT.'
-   if rc\=0 then do
-      say 'GIT PULL: worktree preflight failed; local refs unchanged'
-      exit 8
-   end
+       if rc\=0 then do
+          say 'GIT PULL: cannot verify commit ancestry'
+          exit 8
+       end
+       pulltarget=pullnew
+       if ancestorline\='ANCESTOR YES' pullold pullnew then do
+          drop ancestorout.
+          ancestorout.0=0
+          ancestorcmd='EXEC GITVREF IS-ANCESTOR'||' '||pullnew||' '||,
+              pullold
+          'PIPE CMS' ancestorcmd '| STEM ANCESTOROUT.'
+          ancestorline=''
+          do ai=1 to ancestorout.0
+             ancestorline=ancestorline||strip(ancestorout.ai)
+          end
+          if rc\=0 then do
+             say 'GIT PULL: cannot verify reverse ancestry'
+             exit 8
+          end
+          if ancestorline='ANCESTOR YES' pullnew pullold then,
+              pulltarget=pullold
+          else do
+             drop mergebaseout.
+             mergebaseout.0=0
+             mergebasecmd='EXEC GITVREF MERGE-BASE'||' '||pullold||' '||,
+                 pullnew
+             'PIPE CMS' mergebasecmd '| STEM MERGEBASEOUT.'
+             mergebaseline=''
+             do ai=1 to mergebaseout.0
+                mergebaseline=mergebaseline||strip(mergebaseout.ai)
+             end
+             if rc\=0 | words(mergebaseline)\=2 |,
+                word(mergebaseline,1)\='MERGE-BASE' |,
+                length(word(mergebaseline,2))\=40 |,
+                verify(word(mergebaseline,2),,
+                    '0123456789ABCDEF')\=0 then do
+                say 'GIT PULL: no common ancestor within merge limit'
+                exit 8
+             end
+             pullbase=word(mergebaseline,2)
+             mergecheck='EXEC GITWT CHECK-MERGE'||' '||currentbranch||' '||,
+                 pullold||' '||pullnew||' '||pullbase
+             drop mergecheckout.
+             mergecheckout.0=0
+             'PIPE CMS' mergecheck '| STEM MERGECHECKOUT.'
+             if rc\=0 then do
+                say 'GIT PULL: merge preflight failed; local refs unchanged'
+                exit 8
+             end
+             drop mergecommitout.
+             mergecommitout.0=0
+             mergecmd='EXEC GITWT MERGE-COMMIT'||' '||currentbranch||' '||,
+                 pullold||' '||pullnew||' '||pullbase||,
+                 ' -T 0 -Z +0000 -M Merge_remote_branch'
+             'PIPE CMS' mergecmd '| STEM MERGECOMMITOUT.'
+             if rc\=0 then do
+                say 'GIT PULL: merge commit creation failed'
+                exit 8
+             end
+             mergecommit=''
+             mergecommits=0
+             do ai=1 to mergecommitout.0
+                if word(mergecommitout.ai,1)='COMMIT-STAGED' &,
+                   word(mergecommitout.ai,2)='COMMIT' then do
+                   mergecandidate=translate(word(mergecommitout.ai,3))
+                   if length(mergecandidate)=40 &,
+                      verify(mergecandidate,'0123456789ABCDEF')=0 then do
+                      mergecommits=mergecommits+1
+                      mergecommit=mergecandidate
+                   end
+                end
+             end
+             if mergecommits\=1 then do
+                say 'GIT PULL: merge commit result is ambiguous'
+                exit 8
+             end
+             pulltarget=mergecommit
+          end
+       end
+    end
+    else pulltarget=pullnew
+    if pulltarget\=pullold then do
+       pullcheckcmd='EXEC GITWT CHECK-PULL'||' '||currentbranch||' '||,
+           pullold||' '||pulltarget
+       drop pullcheckout.
+       pullcheckout.0=0
+       'PIPE CMS' pullcheckcmd '| STEM PULLCHECKOUT.'
+       if rc\=0 then do
+          say 'GIT PULL: worktree preflight failed; local refs unchanged'
+          exit 8
+       end
+    end
    trackingref='refs/remotes/'||pullremote||'/'||branchfromremote
    if length(trackingref)>35 then do
       say 'GIT PULL: remote-tracking ref exceeds the REF2 limit'
@@ -1305,12 +1382,13 @@ if command='PULL' then do
       say 'GIT PULL: remote-tracking ref update failed; local branch unchanged'
       exit rc
    end
-   'EXEC GITUPD PULL-HEAD' currentbranch pullold pullnew
+    'EXEC GITUPD PULL-HEAD' currentbranch pullold pulltarget
    if rc\=0 then do
       say 'GIT PULL: branch unchanged; tracking ref records fetched tip'
       exit rc
    end
-   say 'PULL COMPLETE' pullremote branchfromremote pullold pullnew
+    say 'PULL COMPLETE' pullremote branchfromremote pullold pulltarget
+    if pulltarget\=pullnew then say 'PULL REMOTE TIP' pullnew
    say 'PULL PACK RETAINED' pullpack 'INDEX' pullindex objectfm
    exit 0
 end

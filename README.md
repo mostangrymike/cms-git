@@ -465,16 +465,20 @@ remote tip descends from the current local tip, then updates the tracking ref,
 branch ref and mapped workfiles. The selected remote branch must match the
 current branch; the clean worktree map is preflighted against both commit trees.
 Mapped nested paths and fast-forward additions, updates and removals are
-supported. Dirty or incomplete maps, binary blobs, unsupported tree modes and
-non-fast-forward updates are rejected.
-Pack, stage and index files remain available for recovery. The shallow pull
-path is CMS-validated (measured tip-to-tip timings in
-`docs/M273-SHALLOW-PULL.md`). CMS validation on 2026-11-11 covered nested, long
-and multi-dot mapped paths and fast-forward pulls applying mapped updates,
-additions and removals. This is three-way path/map reconciliation against the
-old and new commit trees, not a divergent-history merge: non-fast-forward pulls
-remain rejected. No-argument pull reads the first configured remote plus an
-optional `GITBRIDG CONFIG G` endpoint. `GIT CLONE` was CMS-validated on
+supported. Divergent histories use a bounded merge-base walk and create a
+two-parent merge commit when the unique merge base is unambiguous. Automatic
+tree merge supports existing paths with unchanged modes and non-conflicting
+whole-blob changes, provided every changed path is mapped. Same-file divergent
+edits, path additions/removals, mode changes, ambiguous merge bases, and
+unmapped changes fail closed; no conflict markers are written. Dirty or
+incomplete maps, binary blobs, and unsupported tree modes are rejected. Pack,
+stage and index files remain available for recovery. The shallow pull path is
+CMS-validated (measured tip-to-tip timings in `docs/M273-SHALLOW-PULL.md`).
+CMS validation on 2026-11-11 covered nested, long and multi-dot mapped paths
+and fast-forward pulls applying mapped updates, additions and removals. The
+new divergent-history merge path has host checks only; it is not CMS-validated.
+No-argument pull reads the first configured remote plus an optional
+`GITBRIDG CONFIG G` endpoint. `GIT CLONE` was CMS-validated on
 2026-11-10 with a flat one-file fixture; nested clone coverage is not yet
 recorded. Push is separately proven by M281. See `docs/GITHUB_SYNC_PLAN.md`.
 

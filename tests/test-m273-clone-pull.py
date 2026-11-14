@@ -20,6 +20,12 @@ GIT = (ROOT / "src" / "GIT.EXEC").read_text()
 assert "if command='PULL' then do" in GIT
 assert "if command='CLONE' then do" in GIT
 assert "if command='PUSH' then do" in GIT
+pull = GIT.split("if command='PULL' then do", 1)[1]
+assert "EXEC GITVREF MERGE-BASE" in pull
+assert "EXEC GITWT CHECK-MERGE" in pull
+assert "EXEC GITWT MERGE-COMMIT" in pull
+assert "PULL REMOTE TIP" in pull
+assert "remote tip is not a fast-forward" not in pull
 
 # --- INIT / initrefs: branch-aware unborn repository -------------------
 assert "Usage: GIT INIT [object-filemode [branch]]" in GIT
@@ -123,7 +129,93 @@ assert "if words(rr.i)\\=2 | headref\\='' then return 'ERROR'" not in VREF
 # --- Unborn first pull: create branch, then materialize the worktree -----
 UPD = (ROOT / "src" / "GITUPD.EXEC").read_text()
 WT = (ROOT / "src" / "GITWT.EXEC").read_text()
+VREF = (ROOT / "src" / "GITVREF.EXEC").read_text()
+assert "call readloose toid" in WT
+assert "'PIPE CMS EXEC GIT PACK-READ' readid '| STEM READOBJ.'" in WT
+assert "readobj.readi='PACK-READ PASS'" in WT
+assert "if readend\\=1 | length(readhex)%2\\=readsize then return 'ERROR'" in WT
+assert "if readtype\\='TREE' then return 'ERROR'" in WT
+assert "if command='CHECK-MERGE' then do" in WT
+assert "if command='MERGE-COMMIT' then do" in WT
+assert "call preparemerge" in WT
+assert "GITWT: merge path additions or removals are unsupported" in WT
+assert "GITWT: content conflict at" in WT
+assert "GITWT: merge mode changes are unsupported" in WT
+assert "'-P' mergeparent" in WT
+assert "if command='MERGE-BASE' then do" in VREF
+assert "call readparents localcurrent" in VREF
+assert "call readparents remotecurrent" in VREF
+assert "'PIPE CMS EXEC GIT PACK-READ' rpcommit '| STEM RPOUT.'" in VREF
+assert "if rpend\\=1 | length(rphex)%2\\=rpsize then return 'ERROR'" in VREF
+assert "ambiguous merge bases are unsupported" in VREF
+assert "'PIPE CMS EXEC GIT PACK-READ' oid '| STEM OBJ.'" in UPD
 assert "if createmode=0 & (slot=0 | localold\\=oldoid) then do" in UPD
+
+
+def merge_blob(base, local, remote):
+    if local == remote:
+        return local
+    if local == base:
+        return remote
+    if remote == base:
+        return local
+    raise ValueError("content conflict")
+
+
+def unique_merge_base(local, remote, parents):
+    def ancestors(start):
+        found = set()
+        todo = [start]
+        while todo:
+            node = todo.pop(0)
+            if node in found:
+                continue
+            found.add(node)
+            todo.extend(parents.get(node, ()))
+        return found
+
+    local_ancestors = ancestors(local)
+    remote_queue = [remote]
+    remote_seen = set()
+    common = []
+    while remote_queue:
+        node = remote_queue.pop(0)
+        if node in remote_seen:
+            continue
+        remote_seen.add(node)
+        if node in local_ancestors:
+            common.append(node)
+        remote_queue.extend(parents.get(node, ()))
+    if not common:
+        raise ValueError("no merge base")
+    base = common[0]
+    base_ancestors = ancestors(base)
+    if any(node not in base_ancestors for node in common):
+        raise ValueError("ambiguous merge bases")
+    return base
+
+
+assert merge_blob("base", "local-only", "base") == "local-only"
+assert merge_blob("base", "base", "remote-only") == "remote-only"
+assert merge_blob("base", "same", "same") == "same"
+assert unique_merge_base("local", "remote", {
+    "local": ("base",), "remote": ("near",), "near": ("base",),
+}) == "base"
+try:
+    unique_merge_base("left", "right", {
+        "left": ("base-a", "base-b"), "right": ("base-a", "base-b"),
+        "base-a": ("root",), "base-b": ("root",),
+    })
+except ValueError as exc:
+    assert str(exc) == "ambiguous merge bases"
+else:
+    raise AssertionError("criss-cross merge bases must fail closed")
+try:
+    merge_blob("base", "left", "right")
+except ValueError:
+    pass
+else:
+    raise AssertionError("conflicting edits must fail closed")
 assert "if slot=0 & oldoid=zeros then createmode=1" in UPD
 assert "refname.refcount=branchref" in UPD
 assert "EXEC GITWT CHECKOUT-TREE" in UPD
