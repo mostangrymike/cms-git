@@ -1487,11 +1487,12 @@ block=block[block.index(' addall=0'):]
 state="'STATE' mapfn.pi mapft.pi mapfm.pi"
 work="call workoid mapfn.pi,mapft.pi,mapfm.pi,maplf.pi,1"
 for token in ('if word(rest,1)=\'--\' then do', 'call toasciihex path',
-              'call findpath pathhex',state,work,
+              'call matchliteral pathhex,mappath.pi',state,work,
               'mapstage.pi=addoid.ai','call savemap',"say 'ADDED'"):
  if token not in block:
   raise SystemExit(f'M239 multi-add block missing {token!r}')
-if not (block.index('call toasciihex path')<block.index('call findpath pathhex')<
+if not (block.index('call toasciihex path')<
+        block.index('call matchliteral pathhex,mappath.pi')<
         block.index(state)<block.index(work)<block.index('mapstage.pi=addoid.ai')<
         block.index('call savemap')<block.index("say 'ADDED'")):
  raise SystemExit('M239 add preflight/save/output order changed')
@@ -1524,7 +1525,8 @@ fixture=(
  "mappath.3='67616D6D61'\nmappath.4='64656C7461'\n"
  "mappath.5='2D64617368'\n"+
  block+addhelpers+findpath+
- "toasciihex:\n parse arg text\n return c2x(text)\n")
+ "toasciihex:\n parse arg text\n return c2x(text)\n"
+ "asciitocms:\n parse arg text\n return x2c(text)\n")
 Path(sys.argv[2]).write_text(fixture)
 print('M239 MULTI-ADD SOURCE GUARDS PASS 8')
 PY
@@ -1603,7 +1605,7 @@ required=("translate(word(rest,1))='-U'",
           "translate(word(rest,1))='--UPDATE'",
            'addrequested=addrequested-1',
            "if translate(word(rest,2))='--' then do",
-           'call toasciihex path', 'call findpath pathhex',
+           'call toasciihex path', 'call matchliteral pathhex,mappath.pi',
            'if addall=1 & addrequested=0 then do', 'do ai=1 to mapcount',
           'call asciitocms mappath.ai', "say 'GITWT: no mapped paths to update'",
           'call savemap')
@@ -1794,13 +1796,20 @@ source=Path(sys.argv[2]).read_text()
 start=source.index("if command='DIFF' then do")
 end=source.index('/* Read-only preflight for a branch switch',start)
 block=source[start:end]
-required=("diffarg1='--CACHED'", "diffarg1='--STAGED'",
-          r"diffarg1\='--NAME-ONLY'", 'if mapstage.i\\=mapbase.i then changed=1',
+required=("diffopt='--CACHED'", "diffopt='--STAGED'",
+          "diffopt='--NAME-ONLY'", 'diffselected.i\\=1',
+          'if mapstage.i\\=mapbase.i then changed=1',
           "'STATE' mapfn.i mapft.i mapfm.i", 'if work\\=mapstage.i then changed=1',
           'if changed=1 then do', 'say path')
 for token in required:
  if token not in block:
   raise SystemExit(f'M244 diff source guard missing {token!r}')
+if not (block.index('diffselected.i=1')<
+        block.index("'STATE' mapfn.i mapft.i mapfm.i")):
+ raise SystemExit('M244 DIFF must resolve pathspecs before inspecting files')
+hstart=source.index('\naddselected:\n')+1
+hend=source.index('\npreflightpull:\n',hstart)
+helpers=source[hstart:hend]
 state="if mapfn.i='GONE' | mapfn.i='ADDGONE' then rc=28\nelse rc=0"
 work=("if mapfn.i='CLEAN' | mapfn.i='ADD' then\n"
       " result='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
@@ -1832,10 +1841,12 @@ fixture=(
  "mappath.1='636C65616E'\nmappath.2='737461676564'\n"
  "mappath.3='6D6F646966696564'\nmappath.4='626F7468'\n"
  "mappath.5='676F6E65'\nmappath.6='6164646564'\n"
- "mappath.7='616464676F6E65'\n"+
+ "mappath.7='6469722F616464676F6E65'\n"+
  block.replace('call loadmap',"result='OK'")
       .replace("'STATE' mapfn.i mapft.i mapfm.i",state)
       .replace('call workoid mapfn.i,mapft.i,mapfm.i,maplf.i,0',work)+
+ helpers+
+ "toasciihex:\n parse arg text\n return c2x(text)\n"
  "asciitocms:\n parse arg text\n return x2c(text)\n")
 Path(sys.argv[3]).write_text(fixture)
 Path(sys.argv[4]).write_text(fixture.replace('mapcount=7','mapcount=0'))
@@ -1857,15 +1868,19 @@ check() {
   exit 1
  fi
 }
-cached=$(printf 'staged\nboth\nadded\naddgone')
-unstaged=$(printf 'modified\nboth\ngone\naddgone')
+cached=$(printf 'staged\nboth\nadded\ndir/addgone')
+unstaged=$(printf 'modified\nboth\ngone\ndir/addgone')
 check "$tmp/diff.rexx" 0 "$cached" --cached --name-only
 check "$tmp/diff.rexx" 0 "$cached" --staged --name-only
 check "$tmp/diff.rexx" 0 "$unstaged" --name-only
+check "$tmp/diff.rexx" 0 'dir/addgone' --name-only dir
+check "$tmp/diff.rexx" 0 'staged' --cached --name-only 'st[a-z]ged'
+check "$tmp/diff.rexx" 0 'dir/addgone' --name-only 'dir/*'
+check "$tmp/diff.rexx" 0 "$unstaged" --name-only --
 check "$tmp/empty.rexx" 0 '' --name-only
-check "$tmp/diff.rexx" 4 'Usage: GIT DIFF [--cached|--staged] --name-only' --cached
-check "$tmp/diff.rexx" 4 'Usage: GIT DIFF [--cached|--staged] --name-only' --name-only extra
-echo 'M244 SOURCE-DERIVED GIT DIFF NAME-ONLY FIXTURES PASS 6'
+check "$tmp/diff.rexx" 4 'Usage: GIT DIFF [--cached|--staged] --name-only [--] [path ...]' --cached
+check "$tmp/diff.rexx" 4 'GITWT: pathspec did not match any checked out path missing' --name-only missing
+echo 'M244 SOURCE-DERIVED GIT DIFF NAME-ONLY FIXTURES PASS 10'
 )
 exit $?
 fi
@@ -1889,13 +1904,14 @@ start=source.index("if command='RESET' then do")
 end=source.index("if command='ACCEPT' then do",start)
 block=source[start:end]
 required=('resetrequested=words(rest)', "if word(rest,1)='--' then do",
-          'call toasciihex path','call findpath pathhex',
-          'resetold.resetcount=mapstage.pi',
+          'call toasciihex path','call matchliteral pathhex,mappath.pi',
+          'call addreset pi,matchedpath',
           'mapstage.pi=mapbase.pi','call savemap',"say 'UNSTAGED'")
 for token in required:
  if token not in block:
   raise SystemExit(f'M245 reset source guard missing {token!r}')
-if not (block.index('call findpath pathhex')<block.index('mapstage.pi=mapbase.pi')<
+if not (block.index('call matchliteral pathhex,mappath.pi')<
+        block.index('mapstage.pi=mapbase.pi')<
         block.index('call savemap')<block.index("say 'UNSTAGED'")):
  raise SystemExit('M245 RESET mutates before validating all paths or reports early')
 state="'STATE' mapfn.pi mapft.pi mapfm.pi"
@@ -1903,18 +1919,23 @@ work="call workoid mapfn.pi,mapft.pi,mapfm.pi,maplf.pi,1"
 block=block.replace('call loadmap',"result='OK'")
 block=block.replace('call savemap',"result='OK'\nsay 'SIMULATED SAVE'")
 fixture=(
- "parse arg rest\ncommand='RESET'\nmapcount=4\n"
+ "parse arg rest\ncommand='RESET'\nmapcount=5\n"
  "mapfn.1='ALPHA'\nmapfn.2='BETA'\n"
- "mapfn.3='STATEFAIL'\nmapfn.4='HASHFAIL'\n"
- "do mi=1 to 4\n mapft.mi='DATA'\n mapfm.mi='A'\n"
+ "mapfn.3='STATEFAIL'\nmapfn.4='HASHFAIL'\nmapfn.5='DIRONE'\n"
+ "do mi=1 to 5\n mapft.mi='DATA'\n mapfm.mi='A'\n"
  " maplf.mi=1\n mapbase.mi='0000000000000000000000000000000000000000'\n"
  " mapstage.mi='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\nend\n"
  "mappath.1='616C706861'\nmappath.2='62657461'\n"
- "mappath.3='67616D6D61'\nmappath.4='64656C7461'\n"+
+ "mappath.3='67616D6D61'\nmappath.4='64656C7461'\n"
+ "mappath.5='6469722F6F6E65'\n"+
  block)
 fstart=source.index('\nfindpath:\n')+1
 fend=source.index('\nfindfile:\n',fstart)
-fixture+=source[fstart:fend]+"toasciihex:\n parse arg text\n return c2x(text)\n"
+hstart=source.index('\naddselected:\n')+1
+hend=source.index('\npreflightpull:\n',hstart)
+fixture+=source[hstart:hend]+source[fstart:fend]
+fixture+="toasciihex:\n parse arg text\n return c2x(text)\n"
+fixture+="asciitocms:\n parse arg text\n return x2c(text)\n"
 Path(sys.argv[3]).write_text(fixture)
 print('M245 GIT RESET SOURCE GUARDS PASS 8')
 PY
@@ -1936,11 +1957,13 @@ check() {
 check 0 "$(printf 'SIMULATED SAVE\nUNSTAGED alpha\nUNSTAGED beta')" alpha beta
 check 0 "$(printf 'SIMULATED SAVE\nUNSTAGED alpha')" alpha alpha
 check 0 "$(printf 'SIMULATED SAVE\nUNSTAGED alpha\nUNSTAGED beta')" -- alpha beta
+check 0 "$(printf 'SIMULATED SAVE\nUNSTAGED dir/one')" dir
+check 0 "$(printf 'SIMULATED SAVE\nUNSTAGED beta')" 'b[ae]ta'
 check 4 'GITWT: path is not checked out unknown' alpha unknown
 check 4 'Usage: GIT RESET [--] path [path ...] (maximum 16 paths)' --
 many='a a a a a a a a a a a a a a a a a'
 check 4 'Usage: GIT RESET [--] path [path ...] (maximum 16 paths)' $many
-echo 'M245 SOURCE-DERIVED GIT RESET FIXTURES PASS 6'
+echo 'M245 SOURCE-DERIVED GIT RESET FIXTURES PASS 8'
 )
 exit $?
 fi
@@ -2641,11 +2664,12 @@ for token in ("translate(word(rest,1))='-U'",
               "translate(word(rest,1))='--UPDATE'",
               'if addall=1 & addrequested=0 then do',
               "if translate(word(rest,2))='--' then do",
-              'addstart=3', 'call findpath pathhex',
+              'addstart=3', 'call matchliteral pathhex,mappath.pi',
               'mapstage.pi=addoid.ai', 'call savemap'):
  if token not in block:
   raise SystemExit(f'M256 selected update source guard missing {token!r}')
-if not (block.index('call findpath pathhex')<block.index('call savemap')):
+if not (block.index('call matchliteral pathhex,mappath.pi')<
+        block.index('call savemap')):
  raise SystemExit('M256 update paths must be resolved before the map save')
 print('M256 SELECTED UPDATE SOURCE GUARDS PASS 8')
 PY
@@ -2731,12 +2755,15 @@ beta=BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
 check "$tmp/wildcard.rexx" 0 "$(printf 'SIMULATED SAVE\nADDED alpha %s\nSTAGE DIFFERS FROM BASE' "$alpha")" 'a*'
 check "$tmp/wildcard.rexx" 0 "$(printf 'SIMULATED SAVE\nADDED beta %s\nSTAGE DIFFERS FROM BASE' "$beta")" '?eta'
 check "$tmp/wildcard.rexx" 0 "$(printf 'SIMULATED SAVE\nADDED src/one.c %s\nSTAGE DIFFERS FROM BASE' "$beta")" 'src/*.c'
+check "$tmp/wildcard.rexx" 0 "$(printf 'SIMULATED SAVE\nADDED src/one.c %s\nSTAGE DIFFERS FROM BASE' "$beta")" src
+check "$tmp/wildcard.rexx" 0 "$(printf 'SIMULATED SAVE\nADDED alpha %s\nSTAGE DIFFERS FROM BASE\nADDED beta %s\nSTAGE DIFFERS FROM BASE' "$alpha" "$beta")" '[ab]*'
+check "$tmp/wildcard.rexx" 0 "$(printf 'SIMULATED SAVE\nADDED beta %s\nSTAGE DIFFERS FROM BASE' "$beta")" 'b[ae]ta'
 check "$tmp/wildcard.rexx" 0 "$(printf 'SIMULATED SAVE\nADDED alpha %s\nSTAGE DIFFERS FROM BASE\nADDED beta %s\nSTAGE DIFFERS FROM BASE' "$alpha" "$beta")" 'a*' '?eta'
 check "$tmp/wildcard.rexx" 0 "$(printf 'SIMULATED SAVE\nADDED alpha %s\nSTAGE DIFFERS FROM BASE' "$alpha")" 'a*' alpha
 check "$tmp/wildcard.rexx" 0 "$(printf 'SIMULATED SAVE\nADDED beta %s\nSTAGE DIFFERS FROM BASE' "$beta")" -u '?eta'
 check "$tmp/wildcard.rexx" 4 'GITWT: pathspec did not match any checked out path z*' 'z*'
 check "$tmp/overflow.rexx" 4 'GITWT: pathspec expands to more than 16 paths' 'p*'
-echo 'M257 SOURCE-DERIVED WILDCARD ADD FIXTURES PASS 8'
+echo 'M257 SOURCE-DERIVED WILDCARD ADD FIXTURES PASS 11'
 )
 exit $?
 fi
@@ -2813,6 +2840,8 @@ check() {
 check 0 "$(printf 'M  beta\n M src/one.c\nM  -dash')" --short
 check 0 'M  beta' --short beta
 check 0 ' M src/one.c' --short 'src/*.c'
+check 0 ' M src/one.c' --short src
+check 0 'M  beta' --short 'b[ae]ta'
 check 0 'M  beta' --short 'b*' beta
 check 0 'M  -dash' --short -- -dash
 check 4 'GITWT: pathspec did not match any checked out path z*' --short 'z*'
@@ -2823,7 +2852,7 @@ if [ "$rc" -ne 0 ] || [ "$output" != 'M  beta' ]; then
  echo "M258 inspected an unselected CMS file: RC $rc '$output'" >&2
  exit 1
 fi
-echo 'M258 SOURCE-DERIVED SELECTED STATUS FIXTURES PASS 8'
+echo 'M258 SOURCE-DERIVED SELECTED STATUS FIXTURES PASS 10'
 )
 exit $?
 fi
@@ -2941,6 +2970,7 @@ expected=$(printf 'SIMULATED WRITE MOD\nSIMULATED ERASE DEL\nSIMULATED SAVE\nRES
 check "$tmp/restore.rexx" 0 "$expected" alpha gone
 expected=$(printf 'SIMULATED WRITE MOD\nSIMULATED SAVE\nRESTORED WORKTREE alpha BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB')
 check "$tmp/restore.rexx" 0 "$expected" 'a*'
+check "$tmp/restore.rexx" 0 "$expected" 'a[lb]pha'
 check "$tmp/restore.rexx" 0 "$expected" alpha 'a*'
 check "$tmp/restore.rexx" 0 "$expected" -- alpha
 expected=$(printf 'SIMULATED WRITE MOD\nSIMULATED SAVE\nRESTORED WORKTREE alpha AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA')
@@ -2951,7 +2981,7 @@ many='alpha alpha alpha alpha alpha alpha alpha alpha alpha alpha alpha alpha al
 check "$tmp/restore.rexx" 4 'Usage: GIT RESTORE --worktree [--] path [path ...] (maximum 16 paths)' $many
 expected=$(printf 'SIMULATED WRITE MOD\nSIMULATED BACKUP RESTORE MOD\nSIMULATED BACKUP RESTORE DEL\nGITWT: workfile verification failed; restore rollback RC OK')
 check "$tmp/failure.rexx" 8 "$expected" alpha gone
-echo 'M259 SOURCE-DERIVED WORKTREE RESTORE FIXTURES PASS 10'
+echo 'M259 SOURCE-DERIVED WORKTREE RESTORE FIXTURES PASS 11'
 )
 exit $?
 fi

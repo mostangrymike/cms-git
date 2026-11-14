@@ -288,8 +288,9 @@ unverified.
 
 M244 adds `GIT DIFF --name-only` for unstaged mapped changes and
 `GIT DIFF --cached|--staged --name-only` for staged changes. It lists paths
-without patch content and does not include unmapped or untracked files. CMS
-behavior remains unverified.
+without patch content and does not include unmapped or untracked files.
+M296 adds optional `[--] path ...` filtering (up to 16 pathspecs) to both
+forms. CMS behavior remains unverified.
 
 M245 adds `GIT RESET [--] path...` for up to 16 mapped paths. It restores each
 selected stage OID to its base OID in one worktree-map save; CMS workfiles and
@@ -367,24 +368,25 @@ unverified.
 M257 lets ordinary `GIT ADD` and selected `GIT ADD -u|--update` expand `*` and
 `?` pathspecs over mapped Git paths. `*` matches any sequence of path bytes,
 including `/`; `?` matches one byte. Unmatched pathspecs fail, duplicate
-matches collapse, and a command can select no more than 16 paths. Directory
-discovery and bracket expressions are unsupported. Host source-derived
+matches collapse, and a command can select no more than 16 paths. M296 adds
+bracket expressions and directory-prefix expansion. Host source-derived
 fixtures pass; CMS behavior remains unverified.
 
 M258 lets `GIT STATUS [--short|--porcelain] [--branch] [--] [path ...]` report
 only selected mapped worktree paths. Exact paths, `*`, and `?` pathspecs are
 supported, up to 16 input pathspecs. The branch heading is still shown when
 requested, and the verbose summary counts only selected paths. Unmatched
-pathspecs fail; host source-derived fixtures pass. CMS behavior remains
-unverified.
+pathspecs fail; host source-derived fixtures pass. M296 adds bracket classes
+and directory-prefix matching. CMS behavior remains unverified.
 
 M259 adds `GIT RESTORE --worktree [--] path...`, restoring up to 16 selected
 mapped CMS workfiles to their staged content. Staged deletion removes the CMS
 file; restored text blobs must fit CMS's 80-byte records. It validates every
 target before writing, verifies restored blob OIDs, rolls back file writes on
 failure, and updates final-newline metadata in one worktree-map save. Exact
-and wildcard paths are supported. Host source-derived fixtures pass; CMS
-behavior remains unverified.
+and wildcard paths are supported; M296 adds bracket classes and
+directory-prefix matching. Host source-derived fixtures pass; CMS behavior
+remains unverified.
 
 M260 adds `GIT RESTORE --source revision --worktree [--] path...`. It resolves
 the source to a commit and restores selected mapped files from that commit's
@@ -477,6 +479,18 @@ because the runtime has no pack reader, and the currently unimplemented
 loose objects. M282 is host-guarded only and has not been validated on CMS;
 `GC --prune=now` is destructive and must not be run without separate target
 review and a verified recovery path.
+
+M296 expands pathspec handling for `GIT ADD`, `GIT STATUS`, `GIT RESET`,
+`GIT RESTORE --worktree`, and `GIT DIFF --name-only`. Patterns now support
+single-byte `?`, multi-byte `*`, bracket expressions (`[abc]`, `[a-z]`,
+`[!abc]`, `[^abc]`, and a leading literal `]`), and literal directory-prefix
+matching, so `src` selects every mapped path below `src/`. The bracket matcher
+treats an unterminated `[` literally. Duplicate matches still collapse and a
+command still accepts at most 16 input pathspecs. Host source-derived fixtures
+cover directory and bracket selection for every command. A G1-only CMS fixture
+ran the matcher's 27 directory, wildcard, range, negation, and literal cases on
+z/VM 6.3 CMS and passed; it was erased afterward, and the protected G files
+were unchanged.
 
 ---
 

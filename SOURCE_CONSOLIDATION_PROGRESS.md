@@ -306,6 +306,11 @@ proofs in view.
 - Remaining tracked C/runtime files retain CMS module and native ABI
   boundaries. Deferred EXEC modules keep their original CMS names through the
   lossless restore step; no target module or minidisk was changed by M295.
+- M296 expands pathspecs for ADD, STATUS, RESET, RESTORE, and DIFF with
+  bracket classes and literal directory-prefix matching. The updated
+  `GITWT.EXEC` lives in `RUNTIME_MODULES.json`; tracked `src/` remains 30.
+  A G1-only CMS fixture ran 27 matcher cases and passed, then erased its
+  fixture; protected G files were unchanged.
 
 ## Decisions and validation
 

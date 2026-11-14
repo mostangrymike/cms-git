@@ -16068,3 +16068,35 @@ status was clean on `main`, and the diff listing was empty. G was the only
 disk queried; no CMS files were created, changed, uploaded, or erased, and A
 was not accessed. The live terminal was left connected and idle. Evidence:
 `cms-full-smoke-evidence.json` in the OpenCode temp evidence directory.
+
+## 2026-11-13 — M296 pathspec expansion
+
+`GITWT.EXEC` pathspec matching now supports bracket expressions in addition to
+`*` and `?`: `[abc]`, ranges such as `[a-z]`, negated classes with `!` or `^`,
+and a leading literal `]`. An unterminated `[` is matched literally. Literal
+pathspecs (no wildcard or bracket byte) also match every mapped path below the
+named directory, so `GIT ADD src` and `GIT DIFF --name-only src` select paths
+under `src/`.
+
+The same matcher is used by `GIT ADD`, `GIT ADD -u`, `GIT STATUS`, `GIT RESET`,
+and `GIT RESTORE --worktree`. `GIT DIFF --name-only` and
+`GIT DIFF --cached|--staged --name-only` now accept up to 16 optional
+pathspecs after `[--]`; unmatched pathspecs fail before any worktree
+inspection. Duplicate selected paths still collapse.
+
+Host source-derived fixtures cover directory and bracket selection for ADD,
+selected ADD, STATUS, RESET, RESTORE, and both DIFF forms, plus negated
+classes, ranges, and an unterminated bracket. `M244`, `M245`, `M257`, `M258`,
+`M259`, canonical `M259`, `CHECK`, `LIVEDEPS`, and archive `AUDIT` pass. The
+updated `GITWT.EXEC` is stored in `archive/HISTORICAL_EXEC.json` under
+`RUNTIME_MODULES.json`; the tracked `src/` count remains 30.
+
+The G1-only CMS fixture uploaded the extracted matcher and 27 cases as
+`ZTPM296 EXEC G1`, ran them on z/VM 6.3 CMS, and reported
+`M296 CMS MATCH PASS 27`; all cases succeeded. The fixture EXEC and its G1
+file were erased and verified absent. The protected G files (`GIT EXEC`,
+`GITMETA REPO`, `GITREF2 REPO`, `GITWORK REPO`, `M173NET STAGE`,
+`M174NET INDEX`, `GITPCAT MODULE`, `GITREC MODULE`, and `GITWT EXEC`) were
+present before and after with unchanged state. No production G repository
+data was modified and no A-disk file was used. Evidence:
+`cms-m296-pathspec-target.json` in the OpenCode temp evidence directory.
