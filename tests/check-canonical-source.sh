@@ -121,7 +121,7 @@ required={
      'if oldoid=zeros then do',
      "EXEC GIT UPDATE-REF' ref newoid oldoid",
      "verb='-D' | verb='--DELETE'",
-     "say '       GIT TAG -d|--delete name [expected-commit-oid]'",
+     "say '       GIT TAG -d|--delete name [expected-old-oid]'",
      "ref='refs/tags/'||action", "ref='refs/tags/'||tagname",
      "EXEC GIT UPDATE-REF' ref oid zeros",
      "EXEC GIT UPDATE-REF' ref zeros expectedoid")),
@@ -459,7 +459,8 @@ program=(
  " else if mode='wrongref' then rs.1='VERIFIED REF other AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
  " else if mode='badoid' then rs.1='VERIFIED REF ' qspec ' SHORT'\n"
  " else rs.1='VERIFIED REF ' qspec ' AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
- " return 'OK'\n")
+  " return 'OK'\n"
+  "peeltocommit:\n parse arg peelid\n return peelid\n")
 Path(sys.argv[2]).write_text(program)
 tag=source[source.index("if command = 'TAG' then do"):]
 create=tag[tag.index("if action='' "):]
@@ -932,7 +933,7 @@ check 0 "$(printf 'SIMULATED UPDATE-REF refs/tags/v1 000000000000000000000000000
 check 8 'GIT: cannot resolve tag refs/tags/missing' -d missing
 check 4 'GIT: invalid tag name' -d 'bad|name'
 check 4 'GIT: invalid expected tag object-id' -d v1 nope
-check 4 'Usage: GIT TAG -d|--delete name [expected-commit-oid]' -d v1 "$oid" extra
+check 4 'Usage: GIT TAG -d|--delete name [expected-old-oid]' -d v1 "$oid" extra
 echo 'M233 SOURCE-DERIVED TAG DELETE FIXTURES PASS 6'
 )
 exit $?
@@ -2982,6 +2983,179 @@ check "$tmp/restore.rexx" 4 'Usage: GIT RESTORE --worktree [--] path [path ...] 
 expected=$(printf 'SIMULATED WRITE MOD\nSIMULATED BACKUP RESTORE MOD\nSIMULATED BACKUP RESTORE DEL\nGITWT: workfile verification failed; restore rollback RC OK')
 check "$tmp/failure.rexx" 8 "$expected" alpha gone
 echo 'M259 SOURCE-DERIVED WORKTREE RESTORE FIXTURES PASS 11'
+)
+exit $?
+fi
+
+# Annotated tag objects: exact source construction, option validation, and
+# bounded peeling of tag objects to their commit target.
+if [ "${1:-}" = "M297" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GIT.EXEC" "$tmp" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+out=Path(sys.argv[2])
+for token in ("verb='-A' | verb='--ANNOTATE'",
+              "say 'Usage: GIT TAG -a|--annotate name [start-point]'",
+              "call hashstored 'TAG',annhex",
+              "call storeobject annoiid,'TAG',annhex",
+              "EXEC GIT UPDATE-REF' ref annoiid zeros",
+              "call peeltocommit resolvedoid",
+              "call hashstored 'TAG',datahex",
+              "result\\=storedoid",
+              "else if type = 'TAG' then prefix = '74616720'",
+              "objtype \\= 'COMMIT' & objtype \\= 'TAG'",
+              "gi_type=word('COMMIT TREE BLOB TAG',gi_typ)"):
+    if token not in source:
+        raise SystemExit(f'M297 annotated tag source guard missing {token!r}')
+
+start=source.index("if command = 'TAG' then do")
+end=source.index("\n/* Bounded porcelain LOG",start)
+block=source[start:end]
+needle="address command 'EXEC GIT UPDATE-REF' ref annoiid zeros"
+if needle not in block:
+    raise SystemExit('M297 annotated tag update call missing')
+block=block.replace(needle,"call fakeupdate ref,annoiid,zeros")
+block=block.replace("address command 'EXEC GIT VERIFY-OBJECT' oid",
+                    "call fakeverify oid")
+block=block.replace("address command 'EXEC GIT UPDATE-REF' ref oid zeros",
+                    "call fakeupdate ref,oid,zeros")
+block=block.replace("if rc\\=0 then exit rc\n","")
+vstart=source.index('\nvalidtag: procedure\n')+1
+vend=source.index('\nvalidbranch: procedure\n',vstart)
+validtag=source[vstart:vend]
+fixture=(
+ "parse arg rest\ncommand='TAG'\n"+
+ block+
+ "\nexit 0\n"
+ "fakeupdate:\n parse arg fref,foid,fold\n"
+ " say 'UPDATE' fref foid fold\n rc=0\n return\n"
+ "fakeverify:\n parse arg void\n rc=0\n return\n"
+ "readobject:\n parse arg poid\n objtype='COMMIT'\n datahex=''\n return 'OK'\n"
+ "resolvetagtarget:\n return 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "hashstored:\n parse upper arg htype,hhex\n"
+ " say 'HASHTYPE' htype\n say 'HASHHEX' hhex\n"
+ " return '1111111111111111111111111111111111111111'\n"
+ "storeobject:\n parse upper arg soid,stype,shex\n"
+ " say 'STORED' stype shex\n return 'OK'\n"+
+ validtag+
+ "toasciihex:\n parse arg text\n return c2x(text)\n")
+(out/'tag.rexx').write_text(fixture)
+
+pstart=source.index('\npeeltocommit: procedure expose objectfm\n')+1
+pend=source.index('\nresolvetagtarget: procedure expose rs.\n',pstart)
+peel=source[pstart:pend]
+peel=peel.replace("call hashstored 'TAG',datahex",
+                  "call fakehash 'TAG',datahex")
+peel_fix=(
+ "parse arg oid\ncall peeltocommit oid\nsay result\nexit 0\n"+peel+
+ "fakehash:\n parse arg ftype,fhex\n"
+ " if storedoid='BADHASH' then return '2222222222222222222222222222222222222222'\n"
+ " return storedoid\n"
+ "readobject:\n parse arg poid\n"
+ " a='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ " b='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
+ " c='CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC'\n"
+ " storedoid=poid\n"
+ " if poid=a then do\n  objtype='COMMIT'\n  datahex=''\n  return 'OK'\n end\n"
+ " if poid=b then do\n  objtype='TAG'\n  datahex=c2x('object '||a||'0A'x)\n  return 'OK'\n end\n"
+ " if poid=c then do\n  objtype='TAG'\n  datahex=c2x('object '||b||'0A'x)\n  return 'OK'\n end\n"
+ " if poid='LOOP' then do\n  objtype='TAG'\n  datahex=c2x('object LOOP'||'0A'x)\n  return 'OK'\n end\n"
+ " if poid='BAD1' then do\n  objtype='TAG'\n  datahex=c2x('type commit'||'0A'x)\n  return 'OK'\n end\n"
+ " if poid='BADHASH' then do\n  objtype='TAG'\n  datahex=c2x('object '||a||'0A'x)\n  return 'OK'\n end\n"
+ " if poid='BLOB' then do\n  objtype='BLOB'\n  datahex=''\n  return 'OK'\n end\n"
+ " return 'ERROR'\n")
+(out/'peel.rexx').write_text(peel_fix)
+
+commit='A'*40
+default=("object "+commit.lower()+"\n"
+         "type commit\n"
+         "tag v1\n"
+         "tagger CMS Git <cms@example.invalid> 0 +0000\n"
+         "\n"
+         "release notes\n")
+(out/'default.hex').write_text(default.encode().hex()+'\n')
+custom=("object "+commit.lower()+"\n"
+        "type commit\n"
+        "tag v1\n"
+        "tagger Jane Doe <jane@example.com> 1700000000 -0500\n"
+        "\n"
+        "hello world\n")
+(out/'custom.hex').write_text(custom.encode().hex()+'\n')
+print('M297 ANNOTATED TAG SOURCE GUARDS PASS 9')
+PY
+rexx -c "$tmp/tag.rexx" /dev/null
+rexx -c "$tmp/peel.rexx" /dev/null
+check() {
+ fixture=$1
+ expected_rc=$2
+ expected=$3
+ shift 3
+ if output=$(rexx "$fixture" "$@"); then rc=0; else rc=$?; fi
+ if [ "$rc" -ne "$expected_rc" ] || [ "$output" != "$expected" ]; then
+  echo "M297 $*: expected RC $expected_rc '$expected', got RC $rc '$output'" >&2
+  exit 1
+ fi
+}
+check "$tmp/tag.rexx" 4 'GIT: missing value for tag option -M' -a v1 -M
+check "$tmp/tag.rexx" 4 'GIT: annotated tag requires -M message' -a v1
+check "$tmp/tag.rexx" 4 'GIT: unknown tag option -X' -a v1 -X foo -M msg
+check "$tmp/tag.rexx" 4 'GIT: annotated tag accepts one start point' \
+ -a v1 HEAD main -M msg
+check "$tmp/tag.rexx" 4 'GIT: invalid tag timezone +9900' \
+ -a v1 -M msg -Z +9900
+check "$tmp/tag.rexx" 4 'GIT: invalid tag timestamp 12x' \
+ -a v1 -M msg -T 12x
+check "$tmp/tag.rexx" 4 'GIT: invalid tag name' -a .hidden -M msg
+
+content=$(rexx "$tmp/tag.rexx" -a v1 -M release_notes)
+expected=$(printf 'HASHTYPE TAG\nSTORED TAG %s\nUPDATE refs/tags/v1 %s %s\nTAG CREATED refs/tags/v1 %s' \
+ "$(tr 'a-f' 'A-F' < "$tmp/default.hex")" \
+ '1111111111111111111111111111111111111111' \
+ '0000000000000000000000000000000000000000' \
+ '1111111111111111111111111111111111111111')
+actual=$(printf '%s\n' "$content" | sed -n '1p;3,5p')
+if [ "$actual" != "$expected" ]; then
+ echo "M297 default annotated tag framing mismatch" >&2
+ echo "expected: $expected" >&2
+ echo "actual:   $actual" >&2
+ exit 1
+fi
+actual=$(printf '%s\n' "$content" | sed -n 's/^HASHHEX //p' | tr 'A-F' 'a-f')
+if [ "$actual" != "$(cat "$tmp/default.hex")" ]; then
+ echo "M297 default annotated tag content mismatch" >&2
+ exit 1
+fi
+
+content=$(rexx "$tmp/tag.rexx" -a v1 HEAD -M hello_world \
+ -A 'Jane_Doe_<jane@example.com>' -T 1700000000 -Z -0500)
+actual=$(printf '%s\n' "$content" | sed -n 's/^HASHHEX //p' | tr 'A-F' 'a-f')
+if [ "$actual" != "$(cat "$tmp/custom.hex")" ]; then
+ echo "M297 custom annotated tag content mismatch" >&2
+ exit 1
+fi
+
+check "$tmp/tag.rexx" 0 "UPDATE refs/tags/v1 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA 0000000000000000000000000000000000000000
+TAG CREATED refs/tags/v1 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" v1
+
+check "$tmp/peel.rexx" 0 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' \
+ AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+check "$tmp/peel.rexx" 0 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' \
+ BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+check "$tmp/peel.rexx" 0 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' \
+ CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+check "$tmp/peel.rexx" 0 'ERROR' BLOB
+check "$tmp/peel.rexx" 0 'ERROR' LOOP
+check "$tmp/peel.rexx" 0 'ERROR' BAD1
+check "$tmp/peel.rexx" 0 'ERROR' BADHASH
+check "$tmp/peel.rexx" 0 'ERROR' ZZZZ
+echo 'M297 SOURCE-DERIVED ANNOTATED TAG FIXTURES PASS 19'
 )
 exit $?
 fi

@@ -220,6 +220,8 @@ jobs:
         run: sh tests/check-canonical-source.sh M237
       - name: Check M238 tag force update CAS resolution
         run: sh tests/check-canonical-source.sh M238
+      - name: Check M297 annotated tag objects and peeling
+        run: sh tests/check-canonical-source.sh M297
       - name: Check M239 multi-path mapped worktree add
         run: sh tests/check-canonical-source.sh M239
       - name: Check M240 short-history GIT LOG completion

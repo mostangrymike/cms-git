@@ -190,7 +190,7 @@ if command = 'CREDENTIAL' then do
    exit result
 end
 
-/* Modern lightweight tag porcelain over the guarded REF2 updater. */
+/* Modern lightweight and annotated tag porcelain over the guarded updater. */
 if command = 'TAG' then do
    if strip(rest)='' then do
       address command 'EXEC GITVREF TAGS'
@@ -212,6 +212,118 @@ if command = 'TAG' then do
       end
       address command 'EXEC GITVREF TAGS' tagname
       exit rc
+   end
+   if verb='-A' | verb='--ANNOTATE' then do
+      annname=tagname
+      if annname='' then do
+         say 'Usage: GIT TAG -a|--annotate name [start-point]',
+             '-M message [-A identity] [-T seconds] [-Z zone]'
+         exit 4
+      end
+      call validtag annname
+      if result\='OK' then do
+         say 'GIT: invalid tag name'
+         exit 4
+      end
+      annstart=''
+      annmsg=''
+      annmsgfound=0
+      annident='CMS Git <cms@example.invalid>'
+      annstamp='0'
+      annzone='+0000'
+      ti=3
+      do while ti<=words(rest)
+         annopt=translate(word(rest,ti))
+         if annopt='-M' | annopt='-A' | annopt='-T' | annopt='-Z' then do
+            if ti=words(rest) then do
+               say 'GIT: missing value for tag option' word(rest,ti)
+               exit 4
+            end
+            annval=word(rest,ti+1)
+            if annopt='-M' then do
+               annmsg=translate(annval,' ','_')
+               annmsgfound=1
+            end
+            else if annopt='-A' then annident=translate(annval,' ','_')
+            else if annopt='-T' then annstamp=annval
+            else annzone=annval
+            ti=ti+2
+         end
+         else if left(annopt,1)='-' then do
+            say 'GIT: unknown tag option' word(rest,ti)
+            exit 4
+         end
+         else do
+            if annstart\='' then do
+               say 'GIT: annotated tag accepts one start point'
+               exit 4
+            end
+            annstart=word(rest,ti)
+            ti=ti+1
+         end
+      end
+      if annmsgfound=0 then do
+         say 'GIT: annotated tag requires -M message'
+         exit 4
+      end
+      if length(annmsg)>4096 then do
+         say 'GIT: tag message is too long'
+         exit 4
+      end
+      if annstart='' then annstart='HEAD'
+      if annident='' | length(annident)>128 then do
+         say 'GIT: invalid tagger identity'
+         exit 4
+      end
+      if verify(annstamp,'0123456789')\=0 | annstamp='' then do
+         say 'GIT: invalid tag timestamp' annstamp
+         exit 4
+      end
+      if length(annzone)\=5 |,
+         (substr(annzone,1,1)\='+' & substr(annzone,1,1)\='-') |,
+         verify(substr(annzone,2),'0123456789')\=0 then do
+         say 'GIT: invalid tag timezone' annzone
+         exit 4
+      end
+      annzhour=substr(annzone,2,2)+0
+      annzmin=substr(annzone,4,2)+0
+      if annzhour>23 | annzmin>59 then do
+         say 'GIT: invalid tag timezone' annzone
+         exit 4
+      end
+      call resolvetagtarget annstart
+      anncommit=result
+      if anncommit='ERROR' then do
+         say 'GIT: cannot resolve tag start point' annstart
+         exit 4
+      end
+      call readobject anncommit
+      if result\='OK' | objtype\='COMMIT' then do
+         say 'GIT: annotated tags require a verified COMMIT target'
+         exit 8
+      end
+      lowertarget=translate(anncommit,'abcdef','ABCDEF')
+      call toasciihex 'object '||lowertarget
+      annhex=result||'0A'
+      call toasciihex 'type commit'
+      annhex=annhex||result||'0A'
+      call toasciihex 'tag '||annname
+      annhex=annhex||result||'0A'
+      call toasciihex 'tagger '||annident||' '||annstamp||' '||annzone
+      annhex=annhex||result||'0A0A'
+      call toasciihex annmsg
+      annhex=annhex||result||'0A'
+      call hashstored 'TAG',annhex
+      annoiid=result
+      if annoiid='HASHERROR' then exit 8
+      call storeobject annoiid,'TAG',annhex
+      if result\='OK' then exit 8
+      zeros='0000000000000000000000000000000000000000'
+      ref='refs/tags/'||annname
+      address command 'EXEC GIT UPDATE-REF' ref annoiid zeros
+      if rc\=0 then exit rc
+      say 'TAG CREATED' ref annoiid
+      exit 0
    end
    if verb='-F' | verb='--FORCE' then do
       if tagname='' | oid='' | fifth\='' then do
@@ -252,8 +364,9 @@ if command = 'TAG' then do
       address command 'EXEC GIT VERIFY-OBJECT' newoid
       if rc\=0 then exit 8
       call readobject newoid
-      if result\='OK' | objtype\='COMMIT' then do
-         say 'GIT: lightweight tags require a verified COMMIT object'
+      if result\='OK' |,
+         (objtype\='COMMIT' & objtype\='TAG') then do
+         say 'GIT: force update requires a verified COMMIT or TAG object'
          exit 8
       end
       address command 'EXEC GIT UPDATE-REF' ref newoid oldoid
@@ -263,7 +376,7 @@ if command = 'TAG' then do
    end
    if verb='-D' | verb='--DELETE' then do
       if tagname='' | extra\='' | fifth\='' then do
-         say 'Usage: GIT TAG -d|--delete name [expected-commit-oid]'
+         say 'Usage: GIT TAG -d|--delete name [expected-old-oid]'
          exit 4
       end
       call validtag tagname
@@ -296,7 +409,9 @@ if command = 'TAG' then do
    end
    if action='' | oid\='' | extra\='' | fifth\='' then do
       say 'Usage: GIT TAG name [start-point]'
-      say '       GIT TAG -d|--delete name [expected-commit-oid]'
+      say '       GIT TAG -a|--annotate name [start-point] -M message'
+      say '       GIT TAG -f|--force name new-oid [expected-old-oid]'
+      say '       GIT TAG -d|--delete name [expected-old-oid]'
       exit 4
    end
    call validtag action
@@ -2078,7 +2193,7 @@ readobject: procedure expose storedoid objtype datahex objectfm
       return 'ERROR'
    end
    if objtype \= 'BLOB' & objtype \= 'TREE' &,
-      objtype \= 'COMMIT' then do
+      objtype \= 'COMMIT' & objtype \= 'TAG' then do
       say 'GIT: unsupported object type' objtype
       return 'ERROR'
    end
@@ -2169,6 +2284,7 @@ hashstored: procedure
    if type = 'BLOB' then prefix = '626C6F6220'
    else if type = 'TREE' then prefix = '7472656520'
    else if type = 'COMMIT' then prefix = '636F6D6D697420'
+   else if type = 'TAG' then prefix = '74616720'
    else return 'HASHERROR'
    streamhex = prefix || dechex || '00' || datahex
    total = length(streamhex) % 2
@@ -2322,6 +2438,37 @@ validbranch: procedure
    end
    return 'OK'
 
+/* Follow annotated-tag objects to their commit target, with a bounded chain. */
+peeltocommit: procedure expose objectfm
+   parse arg poid
+   do peelcount=1 to 8
+      call readobject poid
+      if result\='OK' then return 'ERROR'
+      if objtype='COMMIT' then return poid
+      if objtype\='TAG' then return 'ERROR'
+      call hashstored 'TAG',datahex
+      if result='HASHERROR' | result\=storedoid then,
+         return 'ERROR'
+      if length(datahex)<96 then return 'ERROR'
+      if left(datahex,14)\='6F626A65637420' then return 'ERROR'
+      if substr(datahex,95,2)\='0A' then return 'ERROR'
+      poid=''
+      do peelpos=15 to 93 by 2
+         peelbyte=x2d(substr(datahex,peelpos,2))
+         if peelbyte>=48 & peelbyte<=57 then,
+            peelnibble=peelbyte-48
+         else if peelbyte>=65 & peelbyte<=70 then,
+            peelnibble=peelbyte-55
+         else if peelbyte>=97 & peelbyte<=102 then,
+            peelnibble=peelbyte-87
+         else return 'ERROR'
+         poid=poid||substr('0123456789ABCDEF',peelnibble+1,1)
+      end
+      if length(poid)\=40 |,
+         verify(poid,'0123456789ABCDEF')\=0 then return 'ERROR'
+   end
+   return 'ERROR'
+
 resolvetagtarget: procedure expose rs.
    parse arg wanted
    if wanted='HEAD' then do
@@ -2338,7 +2485,9 @@ resolvetagtarget: procedure expose rs.
    end
    if length(resolvedoid)\=40 |,
       verify(resolvedoid,'0123456789ABCDEF')\=0 then return 'ERROR'
-   return resolvedoid
+   call peeltocommit resolvedoid
+   if result='ERROR' then return 'ERROR'
+   return result
 
 resolvestart: procedure expose rs.
    parse arg wanted
@@ -3040,11 +3189,11 @@ if gi_size>65536 then do
  say 'GITIMP: CATHEX body too large'
  exit 8
 end
-if gi_typ<1 | gi_typ>3 then do
- say 'GITIMP: loose TAG objects are not supported yet'
+if gi_typ<1 | gi_typ>4 then do
+ say 'GITIMP: unsupported loose object type'
  exit 8
 end
-gi_type=word('COMMIT TREE BLOB',gi_typ)
+gi_type=word('COMMIT TREE BLOB TAG',gi_typ)
 
 drop gi_loose.
 gi_loose.1='OID' gi_oid

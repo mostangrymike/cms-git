@@ -311,6 +311,10 @@ proofs in view.
   `GITWT.EXEC` lives in `RUNTIME_MODULES.json`; tracked `src/` remains 30.
   A G1-only CMS fixture ran 27 matcher cases and passed, then erased its
   fixture; protected G files were unchanged.
+- M297 adds annotated commit-tag creation and verified bounded tag peeling;
+  `GIT GC` now follows TAG objects into their commit closure. The annotated
+  tag handler passed a G1-only CMS fixture using real `GITSTRM` hashing with
+  storage/ref updates stubbed to protect production state.
 
 ## Decisions and validation
 

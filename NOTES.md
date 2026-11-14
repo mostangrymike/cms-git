@@ -16100,3 +16100,32 @@ file were erased and verified absent. The protected G files (`GIT EXEC`,
 present before and after with unchanged state. No production G repository
 data was modified and no A-disk file was used. Evidence:
 `cms-m296-pathspec-target.json` in the OpenCode temp evidence directory.
+
+## 2026-11-14 — M297 annotated commit tags
+
+`GIT TAG -a|--annotate name [start-point] -M message` now creates a Git
+annotated tag object and updates `refs/tags/name` with its SHA-1. The default
+start point is `HEAD`; `-A identity`, `-T seconds`, and `-Z zone` override the
+tagger fields. As with the existing command-line convention, underscores in
+message and identity words represent spaces. Tag targets must resolve to a
+verified commit. `GIT VERIFY-OBJECT`, loose-object import, forced tag updates,
+and `GIT GC` now accept or follow TAG objects; peeling checks the object hash
+and bounds nested tags to eight object reads. Non-commit tag targets and
+worktree checkout of tags remain unsupported.
+
+The `M297` source-derived REXX suite verifies exact default/custom tag bytes,
+validation failures, single/nested tag peeling, malformed headers, and
+hash-mismatch refusal. `M208`, `M225`, `M226`, `M238`, `M297`,
+`test-m281-m282-push-gc.py`, Regina syntax/80-column checks, and preserved
+source `CHECK` pass.
+
+A G1-only CMS fixture ran the exact annotated-tag command handler and peeler
+with stubbed loose-object storage/ref update, so no production repository data
+was changed. It used the actual `toasciihex`, `hashstored`, and `GITSTRM`
+module; the computed tag OID matched an independently calculated Git SHA-1.
+The fixture also tested seven nested tags resolving to a commit, rejection at
+the depth bound, hash-verified malformed tag data, and a non-tag object.
+`ZTPM297 EXEC G1` was erased and verified absent. `GIT EXEC`, metadata/REF2/
+worktree state, stage/index files, `GITPCAT`, `GITREC`, `GITWT`, and `GITSTRM`
+states were unchanged before and after. Evidence:
+`cms-m297-annotated-tag-target.json` in the OpenCode temp evidence directory.

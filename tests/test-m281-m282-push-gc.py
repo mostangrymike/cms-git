@@ -135,6 +135,27 @@ assert "call walk_commit localtip" in PUSH
 assert "call walk_tree treeoid" in PUSH
 assert "call walk_tree treeoid" in GC
 
+# Annotated tag refs are retained in the pack and their verified targets are
+# enqueued through the same bounded commit walk; malformed or mismatched tag
+# objects fail closed before their target is followed.
+gcwalk_start = GC.index("walk_commit: procedure")
+gcwalk_end = GC.index("walk_tree: procedure", gcwalk_start)
+gcwalk = GC[gcwalk_start:gcwalk_end]
+for token in (
+    "if ctype='TAG' then do",
+    "EXEC GIT VERIFY-OBJECT' current",
+    "left(cdata,14)\\='6F626A65637420'",
+    "substr(cdata,95,2)\\='0A'",
+    "call asciitocms substr(cdata,15,80)",
+    "cqueue.cqueuex=tagtarget",
+    "if ctype\\='COMMIT' then do",
+):
+    assert token in gcwalk, token
+if not (gcwalk.index("if ctype='TAG' then do") <
+        gcwalk.index("if ctype\\='COMMIT' then do") <
+        gcwalk.index("/* Parse tree OID")):
+    raise SystemExit("GITGC must peel tag refs before requiring a commit")
+
 # Commit body parsing decodes the 80-column hex-encoded ASCII OID.
 for src, name in ((PUSH, "GITPUSH"), (GC, "GITGC")):
     # Commit OIDs are ASCII hex text; decode via asciitocms (X2C alone

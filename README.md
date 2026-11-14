@@ -106,14 +106,21 @@ list-pattern wildcards (no bracket classes). `GIT TAG` and `GIT TAG -l`/
 `GIT TAG -f|--force <name> <new-oid> [expected-old-oid]` updates an existing
 tag using compare-and-swap; if the expected OID is omitted, the current tag OID
 is resolved first. A supplied OID must be nonzero and match the current tag;
-`GIT TAG -d|--delete <name> [expected-commit-oid]` deletes one using
+`GIT TAG -d|--delete <name> [expected-old-oid]` deletes one using
 compare-and-swap. If omitted, the current tag OID is resolved first. Creation
 verifies the target commit; deletion still passes an exact old OID to the updater.
 Names use a safe ASCII subset and the stored full ref is limited to 35
 characters to fit the existing 80-column records. `GIT VERIFY-REF` resolves
-tag refs; worktree checkout remains branch-only. Annotated tags and tags of
-non-commit objects are not supported. Host source/REXX checks pass; CMS
-compilation and target behavior remain unverified.
+tag refs; worktree checkout remains branch-only. M297 adds annotated tags of
+commit objects with `GIT TAG -a|--annotate <name> [<start-point>] -M <message>`.
+The default start point is `HEAD`; `_` represents a space in message and
+identity values. `-A <identity>`, `-T <seconds>`, and `-Z <zone>` override the
+tagger and timestamp defaults. Tag objects are SHA-1 verified, may be peeled
+through a bounded chain to a commit, and are followed by `GIT GC`; tags of
+non-commit objects remain unsupported. Host source-derived checks and a G1-only
+CMS fixture pass. The fixture exercised the exact tag builder with real
+`GITSTRM` hashing, while stubbing loose-object storage and ref updates so
+production repository state was not changed.
 
 M217 routes `GIT BRANCH` through `GITREF2` when that modern store exists, with
 the legacy M5 branch path retained when it does not. The modern path lists
