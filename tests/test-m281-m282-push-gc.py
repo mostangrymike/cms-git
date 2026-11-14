@@ -186,24 +186,103 @@ assert "'ERASE' objfn 'GITOBJ' objectfm" in GC
 assert "'STATE' packfn 'PACK' objectfm" in GC
 assert "if cmd='GC' & prune=1 & packlimit>0 then do" in GC
 assert "LIMIT cannot be combined with --prune=now" in GC
-assert "if opt='-D' then do" in GC
-assert "-d is disabled; packed objects are not readable yet" in GC
+assert "if cmd='REPACK' & repack_delete=1 & packlimit>0 then do" in GC
+assert "LIMIT cannot be combined with -d" in GC
+for token in ("'PIPE CMS QUERY FILEDEF | STEM GCFDEF.'",
+              "FILEDEF already active for", "'STATE OBJOUT STAGE' objectfm",
+              "packneedbytes=packsourcebytes*6+4194304",
+              "if gcfree<packneedblocks then do"):
+    assert token in GC, token
+preflight_end = GC.index("'EXECIO' sn 'DISKW' stagefn 'STAGE'")
+assert GC.index("'PIPE CMS QUERY FILEDEF | STEM GCFDEF.'") < preflight_end
+assert GC.index("if gcfree<packneedblocks then do") < preflight_end
+assert "if opt='-D' then repack_delete=1" in GC
 assert "if opt='-A' then do" in GC
 assert "-a is not implemented" in GC
 assert "if opt='--AGGRESSIVE' then do" in GC
 assert "--aggressive is not implemented" in GC
-assert "repack_delete" not in GC
 assert "repack_all" not in GC
-assert "if cmd='REPACK' & repack_delete=1 then do" not in GC
+
+# M299: every pack is verified and left readable before anything is deleted.
+# GITPCHK re-hashes the pack, GITPIMP reimports it into a retained stage,
+# GITPIDX indexes that stage, and GITPIMP VERIFY re-reads every object; the
+# retained stage/index pair plus the GITPACKS registry keep packed objects
+# readable through GITPCAT after their loose copies are removed.
+for token in (
+    "'PIPE CMS GITPCHK | STEM PV.'",
+    "'PIPE CMS GITPIMP IMPORT CHECKED | STEM IMP.'",
+    "'PIPE CMS GITPIDX BUILD CHECKED | STEM BIX.'",
+    "'PIPE CMS GITPIMP VERIFY' packed '| STEM VF.'",
+    "'FILEDEF OBJOUT DISK' packfn 'STAGE' objectfm '(RECFM V LRECL 4096'",
+    "'FILEDEF IDXOUT DISK' packfn 'INDEX' objectfm '(RECFM V LRECL 80'",
+    "call packregistry packfn",
+    "call packregistry packfn,0",
+    "call packregistry packfn,1",
+    "call removeoldpacks packfn",
+    "'LISTFILE PACK* PACK '||objectfm||' (STACK'",
+    "parse upper arg regfn,replaceold",
+    "call packcleanup",
+    "GITPACKS REPO",
+    "M171 PACK VERIFY PASS",
+    "M173 PACK IMPORT PASS",
+    "M174 INDEX BUILD PASS",
+    "M173 STAGE VERIFY PASS",
+):
+    assert token in GC, token
+verified_at = GC.index("pack' packfn 'verified and readable")
+append_registry_at = GC.index("call packregistry packfn,0")
+remove_old_at = GC.index("call removeoldpacks packfn")
+registry_at = GC.index("call packregistry packfn,1")
+assert verified_at < append_registry_at < remove_old_at < registry_at
+for erase in ("removed' dupes 'loose copy(ies) of packed objects",
+              "pruning unreachable loose objects"):
+    assert registry_at < GC.index(erase), erase
+# -d removes only verified packed duplicates; GC --prune also drops
+# unreachable objects.  LIMIT can never combine with pruning.
+assert "(cmd='GC' & prune=1) | (cmd='REPACK' & repack_delete=1)" in GC
+for token in ("call readgcpacked current", "call readgcpacked oidcur",
+              "readgcpacked: procedure", "PACK-READ",
+              "objtype=gcobjtype", "ctype=gcobjtype",
+              "LISTFILE PACK* PACK"):
+    assert token in GC or token in GIT, token
+walkstart = GC.index("walk_commit: procedure")
+walkend = GC.index("walk_tree: procedure", walkstart)
+walk = GC[walkstart:walkend]
+assert walk.index("if cmtstate=28 then do") < walk.index(
+    "call readgcpacked current")
+assert GC.index("call readgcpacked oidcur") < GC.index("objtype=gcobjtype")
 first_repo_read = GC.index("'STATE GITMETA REPO G'")
 for guard in (
     "LIMIT cannot be combined with --prune=now",
-    "-d is disabled; packed objects are not readable yet",
+    "LIMIT cannot be combined with -d",
+    "Usage: GIT REPACK [-d] [LIMIT=n]",
     "-a is not implemented",
     "--aggressive is not implemented",
 ):
     assert GC.index(guard) < first_repo_read, guard
 assert "deleting packed loose objects" not in GC
+
+# M299: the loose-object reader falls back to verified pack stage/index
+# pairs through GITPCAT CAT, and independently re-hashes the result.
+for token in (
+    "call packread oid",
+    "packread: procedure",
+    "catcmd='PIPE CMS GITPCAT CAT'||' '||proid||' | STEM PR.'",
+    "GITPACKS REPO",
+    "parsecat:",
+    "M175 PACK CAT PASS",
+    "call hashstored pctype,pchex",
+    "result \\= pcoid",
+):
+    assert token in GIT, token
+loose_miss = GIT.index("call packread oid")
+assert loose_miss < GIT.index("say 'GIT: object not found' oid")
+# A malformed registry record must fail closed rather than skip the pack.
+pr_start = GIT.index("packread: procedure")
+pr_end = GIT.index("parsecat:", pr_start)
+pr_block = GIT[pr_start:pr_end]
+assert "return 'ERROR'" in pr_block
+assert "verify(prname,'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@$#')\\=0" in pr_block
 
 # GITIMP must resolve the configured object disk instead of assuming A.
 assert "'STATE GITMETA REPO G'" in IMP

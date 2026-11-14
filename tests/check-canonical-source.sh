@@ -3100,6 +3100,279 @@ echo 'M298 SOURCE-DERIVED UNTRACKED STATUS FIXTURES PASS 6'
 exit $?
 fi
 
+# Pack-reader fallback: loose misses resolve through verified pack
+# stage/index pairs via GITPCAT CAT, with an independent local re-hash.
+if [ "${1:-}" = "M299" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+sh "$0" M298
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+python3 - "$root/src/GIT.EXEC" "$root/src/GITGC.EXEC" \
+ "$tmp/packread.rexx" "$tmp/gcpack.rexx" "$tmp/remove.rexx" <<'PY'
+from pathlib import Path
+import sys
+
+source=Path(sys.argv[1]).read_text()
+gcsource=Path(sys.argv[2]).read_text()
+start=source.index("readobject: procedure")
+end=source.index("toasciihex: procedure",start)
+block=source[start:end]
+for token in ("call packread oid", "packread: procedure",
+              "catcmd='PIPE CMS GITPCAT CAT'||' '||proid||' | STEM PR.'",
+              "GITPACKS REPO", "parsecat:", "M175 PACK CAT PASS",
+              "call hashstored pctype,pchex", "result \\= pcoid"):
+    if token not in block:
+        raise SystemExit(f'M299 pack reader source guard missing {token!r}')
+for token in ("command = 'PACK-READ' then do",
+              "do catpos=1 to length(datahex) by 64",
+              "say 'HEX' substr(datahex,catpos,64)",
+              "say 'PACK-READ PASS'"):
+    if token not in source:
+        raise SystemExit(f'M299 PACK-READ output guard missing {token!r}')
+for token in ("readgcpacked: procedure", "if cmtstate=28 then do",
+              "call readgcpacked current", "if treestate=28 then do",
+              "call readgcpacked oidcur",
+              "packneedbytes=packsourcebytes*6+4194304",
+              "call removeoldpacks packfn"):
+    if token not in gcsource:
+        raise SystemExit(f'M299 GC pack integration guard missing {token!r}')
+replacements=(
+ ("readobject: procedure expose storedoid objtype datahex objectfm",
+  "readobject: procedure expose storedoid objtype datahex objectfm cfg."),
+ ("packread: procedure expose storedoid objtype datahex objectfm",
+  "packread: procedure expose storedoid objtype datahex objectfm cfg."),
+ ("'EXECIO * DISKR' objfn 'GITOBJ' objectfm '1 (STEM OBJ. FINIS'",
+  "call fakeloose objfn"),
+ ("'EXECIO * DISKR GITPACKS REPO' objectfm '1 (STEM REG. FINIS'",
+  "call fakeregistry"),
+ ("'STATE' prname 'STAGE' objectfm", "call fakestate prname,'STAGE'"),
+ ("'STATE' prname 'INDEX' objectfm", "call fakestate prname,'INDEX'"),
+ ("'FILEDEF STGIN DISK' prname 'STAGE' objectfm", "rc=0"),
+ ("'FILEDEF IDXIN DISK' prname 'INDEX' objectfm", "rc=0"),
+ ("'FILEDEF IDXIN CLEAR'", "rc=0"),
+ ("'FILEDEF STGIN CLEAR'", "rc=0"),
+  ("catcmd='PIPE CMS GITPCAT CAT'||' '||proid||' | STEM PR.'\n"
+   "      address command catcmd", "call fakecat proid"),
+ ("call hashstored pctype,pchex", "call fakehash pctype,pchex"),
+)
+for old,new in replacements:
+    if old not in block:
+        raise SystemExit(f'M299 fixture transform missing {old!r}')
+    block=block.replace(old,new)
+driver=(
+ "parse arg mode\n"
+ "objectfm='G'\n"
+ "zeros='0000000000000000000000000000000000000000'\n"
+ "oid='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
+ "cfg.oid=oid\n"
+ "cfg.pack='ZTPK298'\n"
+ "cfg.loosepresent=0\n"
+ "cfg.regrc=28\n"
+ "cfg.regok=0\n"
+ "cfg.statestage=1\n"
+ "cfg.catrc=0\n"
+ "cfg.catok=0\n"
+ "cfg.hashvalue=oid\n"
+ "if mode='LOOSE' then cfg.loosepresent=1\n"
+ "if mode='BADREG' | mode='GOOD' | mode='BADHASH' | mode='WRONGOID' |"
+ " mode='NOPASS' | mode='BADSIZE' | mode='NOSTAGE' | mode='CATFAIL' then do\n"
+ " cfg.regrc=0\n"
+ " cfg.regok=1\n"
+ "end\n"
+ "if mode='BADREG' then cfg.regok=2\n"
+ "if mode='NOSTAGE' then cfg.statestage=0\n"
+ "if mode='BADHASH' then cfg.hashvalue='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
+ "if mode='WRONGOID' then cfg.wrongoid=1\n"
+ "if mode='BADSIZE' then cfg.badsize=1\n"
+ "if mode='NOPASS' then cfg.nopass=1\n"
+ "if mode\\='NOPACK' & mode\\='LOOSE' & mode\\='BADREG' then cfg.catok=1\n"
+ "if mode='CATFAIL' then cfg.catrc=8\n"
+ "storedoid=''\n"
+ "objtype='NONE'\n"
+ "datahex=''\n"
+ "call readobject oid\n"
+ "say 'READ' result 'TYPE' objtype 'LEN' length(datahex)\n"
+ "exit 0\n")
+helpers=(
+ "fakeloose:\n parse arg fname\n drop obj.\n"
+ " if cfg.loosepresent=0 then do\n  rc=28\n  return\n end\n"
+ " obj.0=4\n obj.1='OID' cfg.oid\n obj.2='TYPE COMMIT'\n"
+ " obj.3='SIZE 5'\n obj.4='DATA 4142434445'\n rc=0\n return\n"
+ "fakeregistry:\n drop reg.\n"
+ " if cfg.regrc\\=0 then do\n  rc=cfg.regrc\n  return\n end\n"
+ " if cfg.regok=1 then do\n"
+ "  reg.0=2\n reg.1='PACKS 1'\n reg.2='PACK' cfg.pack\n end\n"
+ " else if cfg.regok=2 then do\n"
+ "  reg.0=2\n reg.1='PACKS 1'\n reg.2='BROKEN RECORD X'\n end\n"
+ " rc=0\n return\n"
+ "fakestate:\n parse arg fname,fkind\n"
+ " if fkind='STAGE' & cfg.statestage=0 then rc=28\n"
+ " else rc=0\n return\n"
+ "fakecat:\n parse arg fcoid\n drop pr.\n"
+ " if cfg.catok=0 | cfg.catrc\\=0 then do\n  pr.0=0\n  rc=cfg.catrc\n"
+ "  return\n end\n"
+ " pr.0=5\n"
+ " pr.1='PACKOBJ OID' fcoid\n"
+ " if cfg.wrongoid=1 then do\n"
+ "  pr.1='PACKOBJ OID' 'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n end\n"
+ " pr.2='PACKOBJ OBJ 1 TYPE 2 SIZE 4'\n"
+ " if cfg.badsize=1 then pr.2='PACKOBJ OBJ 1 TYPE 2 SIZE 9'\n"
+ " pr.3='PACKOBJ HEX 41424344'\n"
+ " pr.4='PACKOBJ INDEX TOTAL 3 UNIQUE 3'\n"
+ " if cfg.nopass=1 then pr.5='PACKOBJ INDEX TOTAL 3 UNIQUE 3'\n"
+ " else pr.5='M175 PACK CAT PASS'\n"
+ " rc=0\n return\n"
+ "fakehash:\n parse arg htype,hhex\n return cfg.hashvalue\n")
+Path(sys.argv[3]).write_text(driver+block+helpers)
+
+gstart=gcsource.index("readgcpacked: procedure")
+gend=gcsource.index("walk_commit: procedure",gstart)
+gblock=gcsource[gstart:gend].replace(
+    "readgcpacked: procedure expose objectfm gcobjtype gcobjdata",
+    "readgcpacked: procedure expose objectfm gcobjtype gcobjdata testmode")
+for token in ("PACK-READ", "gcobjdata=gcobjdata||ghex",
+              "gsize>65536", "gpass\\=1"):
+    if token not in gblock:
+        raise SystemExit(f'M299 GITGC packed reader guard missing {token!r}')
+gblock=gblock.replace(
+    "packcmd='PIPE CMS EXEC GIT PACK-READ'||' '||wanted||' | STEM GCPACK.'",
+    "packcmd='MOCK PACK-READ '||wanted")
+gblock=gblock.replace("address command packcmd", "call mockpack wanted")
+gfixture=(
+    "parse arg mode wanted\nobjectfm='G'\ntestmode=mode\n"
+    "call readgcpacked wanted\n"
+    "if result='OK' then say 'RESULT OK TYPE' gcobjtype 'DATA' gcobjdata\n"
+    "else say 'RESULT' result\n"
+    "exit 0\n"+gblock+
+    "mockpack:\n parse arg mwanted\n"
+    " drop gcpack.\n gcpack.0=0\n"
+    " if testmode='CATRC' then do\n  rc=8\n  return\n end\n"
+    " if testmode='TOOBIG' then do\n"
+    "  gcpack.1='OID' mwanted\n"
+    "  gcpack.2='TYPE BLOB'\n  gcpack.3='SIZE 65537'\n"
+    "  do mi=4 to 2052\n   gcpack.mi='HEX' copies('41',32)\n  end\n"
+    "  gcpack.2053='PACK-READ PASS'\n  gcpack.0=2053\n"
+    "  rc=0\n  return\n end\n"
+    " gcpack.1='OID' mwanted\n gcpack.2='TYPE BLOB'\n"
+    " gcpack.3='SIZE 4'\n gcpack.4='HEX 41424344'\n"
+    " gcpack.5='PACK-READ PASS'\n gcpack.0=5\n"
+    " if testmode='BADHEX' then gcpack.4='HEX 41ZZ'\n"
+    " if testmode='BADSIZE' then gcpack.3='SIZE 5'\n"
+    " if testmode='BADTYPE' then gcpack.2='TYPE MODULE'\n"
+    " if testmode='BADID' then gcpack.1='OID BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\n"
+    " if testmode='NOPASS' then gcpack.5='PACK READ PASS'\n"
+ " rc=0\n return\n")
+Path(sys.argv[4]).write_text(gfixture)
+
+rstart=gcsource.index("removeoldpacks: procedure")
+rend=gcsource.index("packregistry: procedure",rstart)
+rblock=gcsource[rstart:rend]
+rblock=rblock.replace(
+    "removeoldpacks: procedure expose objectfm",
+    "removeoldpacks: procedure expose objectfm testmode")
+rblock=rblock.replace("address command listcmd",
+                      "call mocklist listcmd")
+rblock=rblock.replace("'STATE' oldfn 'PACK' objectfm",
+                      "call fakestate oldfn,'PACK'")
+rblock=rblock.replace("'STATE' oldfn 'STAGE' objectfm",
+                      "call fakestate oldfn,'STAGE'")
+rblock=rblock.replace("'STATE' oldfn 'INDEX' objectfm",
+                      "call fakestate oldfn,'INDEX'")
+rblock=rblock.replace("'ERASE' oldfn 'PACK' objectfm",
+                      "call fakeerase oldfn,'PACK'")
+rblock=rblock.replace("'ERASE' oldfn 'STAGE' objectfm",
+                      "call fakeerase oldfn,'STAGE'")
+rblock=rblock.replace("'ERASE' oldfn 'INDEX' objectfm",
+                      "call fakeerase oldfn,'INDEX'")
+rfixture=(
+    "parse arg testmode\nobjectfm='G'\n"
+    "do while queued()>0\n pull argrecord\nend\n"
+    "call removeoldpacks 'PACK0002'\n"
+    "say 'RESULT' result\nexit 0\n"+rblock+
+    "mocklist:\n parse arg listcmd\n"
+    " if testmode='FAIL' then do\n  queue 'PACK0001 PACK G1'\n"
+    "  rc=8\n  return\n end\n"
+    " queue 'PACK0001 PACK G1'\n"
+    " queue 'PACK0001 PACK G1'\n"
+    " queue 'PACK0002 PACK G1'\n"
+    " queue 'PACKTEST PACK G1'\n"
+    " queue 'PACK0003 PACK A1'\n"
+    " queue 'PULLPACK PACK G1'\n"
+    " rc=0\n return\n"
+    "fakestate:\n parse arg fname,ftype\n rc=0\n return\n"
+    "fakeerase:\n parse arg fname,ftype\n"
+    " say 'ERASE' fname ftype\n rc=0\n return\n")
+Path(sys.argv[5]).write_text(rfixture)
+print('M299 PACK READER SOURCE GUARDS PASS 19')
+PY
+rexx -c "$tmp/packread.rexx" /dev/null
+rexx -c "$tmp/gcpack.rexx" /dev/null
+rexx -c "$tmp/remove.rexx" /dev/null
+check() {
+ expected=$1
+ shift 1
+ if output=$(rexx "$tmp/packread.rexx" "$@"); then rc=0; else rc=$?; fi
+ if [ "$rc" -ne 0 ] || [ "$output" != "$expected" ]; then
+  echo "M299 $*: expected RC 0 '$expected', got RC $rc '$output'" >&2
+  exit 1
+ fi
+}
+checkgc() {
+ expected=$1
+ shift 1
+ if output=$(rexx "$tmp/gcpack.rexx" "$@"); then rc=0; else rc=$?; fi
+ if [ "$rc" -ne 0 ] || [ "$output" != "$expected" ]; then
+  echo "M299 GITGC PACK-READ $*: expected RC 0 '$expected', got RC $rc '$output'" >&2
+  exit 1
+ fi
+}
+oid=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+checkgc "RESULT OK TYPE BLOB DATA 41424344" GOOD "$oid"
+checkgc "RESULT ERROR" CATRC "$oid"
+checkgc "RESULT ERROR" BADID "$oid"
+checkgc "RESULT ERROR" BADSIZE "$oid"
+checkgc "RESULT ERROR" BADHEX "$oid"
+checkgc "RESULT ERROR" BADTYPE "$oid"
+checkgc "RESULT ERROR" NOPASS "$oid"
+checkgc "RESULT ERROR" TOOBIG "$oid"
+checkremove() {
+ expected=$1
+ shift 1
+ if output=$(rexx "$tmp/remove.rexx" "$@"); then rc=0; else rc=$?; fi
+ if [ "$rc" -ne 0 ] || [ "$output" != "$expected" ]; then
+  echo "M299 old pack cleanup $*: expected '$expected', got '$output'" >&2
+  exit 1
+ fi
+}
+checkremove "$(printf 'ERASE PACK0001 PACK\nGIT GC: removed superseded pack PACK0001\nERASE PACK0001 STAGE\nERASE PACK0001 INDEX\nRESULT OK')" GOOD
+checkremove 'RESULT ERROR' FAIL
+oid=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+notfound="GIT: object not found $oid"
+check "READ OK TYPE COMMIT LEN 10" LOOSE
+check "$notfound
+READ ERROR TYPE NONE LEN 0" NOPACK
+check "READ OK TYPE TREE LEN 8" GOOD
+check "$notfound
+READ ERROR TYPE NONE LEN 0" BADHASH
+check "$notfound
+READ ERROR TYPE NONE LEN 0" WRONGOID
+check "$notfound
+READ ERROR TYPE NONE LEN 0" NOPASS
+check "$notfound
+READ ERROR TYPE NONE LEN 0" BADSIZE
+check "$notfound
+READ ERROR TYPE NONE LEN 0" BADREG
+check "$notfound
+READ ERROR TYPE NONE LEN 0" NOSTAGE
+check "$notfound
+READ ERROR TYPE NONE LEN 0" CATFAIL
+echo 'M299 SOURCE-DERIVED PACK READER FIXTURES PASS 12'
+)
+exit $?
+fi
+
 # Annotated tag objects: exact source construction, option validation, and
 # bounded peeling of tag objects to their commit target.
 if [ "${1:-}" = "M297" ]; then

@@ -16156,3 +16156,45 @@ pathspec failed with RC 4. The fixture was erased and verified absent;
 modules were unchanged before and after. No repository or map writes were
 performed. Evidence: `cms-m298-untracked-target.json` in the OpenCode temp
 evidence directory.
+
+## 2026-11-14 — M299 verified pack reader and real GC path
+
+`GIT GC` and `GIT REPACK` now verify each new pack with `GITPCHK`, import it to
+a retained `PACKnnnn STAGE`, build `PACKnnnn INDEX` with `GITPIDX`, and readback-
+verify all staged objects before registering `PACKnnnn` in `GITPACKS REPO G`.
+`GIT.EXEC` falls back to that registry when a loose object is absent;
+`GITPCAT CAT` authenticates the indexed stage object, and `GIT.EXEC` hashes the
+returned body again. Internal `GIT PACK-READ` emits bounded 64-hex-column
+records. `GITGC` now uses this path for packed-only commits, tags, trees, and
+objects while walking or repacking a closure.
+
+Default GC/repack retain loose copies and old packs. `GIT REPACK -d` now
+removes superseded `PACKnnnn` packs and paired stage/index artifacts, plus
+loose copies, only after the replacement pack is verified and registered.
+`GIT GC --prune=now` also removes unreachable loose objects and old packs.
+Both destructive forms reject `LIMIT=n`; failures before pruning leave
+recovery artifacts. Registry updates use a readback check and rollback on
+write failure. CMS FILEDEF collisions and pre-existing output artifacts are
+refused. Scan caps and 64-KiB object limits fail closed.
+
+`M299` source-derived fixtures cover loose-miss pack reads, registry and
+GITPCAT failures, OID/hash/size/type/framing checks, scan caps, old-pack
+selection, and loose/packed GC traversal. `test-m281-m282-push-gc.py`, M299,
+M280, M274, preserved-source `CHECK`, `AUDIT`, `LIVEDEPS`, Regina syntax, and
+80-column checks pass.
+
+A disposable G1-only `ZTM299B`/`ZTGIT299` fixture used the exact production
+pack verification/retention, registry, `GIT PACK-READ`, `GITGC readgcpacked`,
+and `walk_commit`/`walk_tree` procedures. It packed three read-only production
+objects plus a synthetic blob/tree/commit, read all three production objects
+back, read the synthetic packed-only blob, and walked its packed-only closure.
+The temporary pack, stage, index, registry, builder output, and both G1
+EXECs were erased and verified absent. Protected G metadata, refs, worktree,
+native stage/index, modules, and loose objects were unchanged. No full
+`GIT GC` or destructive prune ran against production G.
+
+A separate read-only `GITPCAT CAT` probe against the older retained
+`M173NET STAGE`/`M174NET INDEX` pair returned `PACKOBJ STAGE VERIFY FAIL` for
+an indexed OID. The pair was not changed or used by the M299 fixture, which
+built and verified a fresh disposable stage/index. Evidence:
+`cms-m299-production-target.json` in the OpenCode temp evidence directory.

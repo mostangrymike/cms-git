@@ -486,12 +486,26 @@ G migration has been deployed or is safe on a CMS disk.
 
 M282 adds reachable-object pack creation through `GIT GC` and `GIT REPACK`.
 `LIMIT=n` is for bounded pack runs; `GIT GC --prune=now LIMIT=n` is refused so
-objects omitted from a partial pack cannot be pruned. `REPACK -d` is disabled
-because the runtime has no pack reader, and the currently unimplemented
-`REPACK -a` / `GC --aggressive` options fail explicitly. Default repack keeps
-loose objects. M282 is host-guarded only and has not been validated on CMS;
-`GC --prune=now` is destructive and must not be run without separate target
-review and a verified recovery path.
+objects omitted from a partial pack cannot be pruned. The M282 pack writer was
+host-guarded only.
+
+M299 makes packs readable and GC/repack usable after packing. Each generated
+`PACKnnnn PACK` is checked by `GITPCHK`, imported to `PACKnnnn STAGE`, indexed
+as `PACKnnnn INDEX`, readback-verified, then registered in `GITPACKS REPO G`.
+Loose object reads fall back through that registry and `GITPCAT CAT`, which
+authenticates each returned object before use. GC can traverse commits and trees
+that exist only in packs. Default `GC` and `REPACK` retain loose copies and old
+packs. `REPACK -d` removes old numbered packs and their retained stage/index
+files only after the replacement pack passes every check; it refuses
+`LIMIT=n`. `GC --prune=now` also removes packed loose copies and unreachable
+loose objects, and refuses `LIMIT=n`. `REPACK -a` and `GC --aggressive` remain
+unsupported. Host source guards pass. A G1-only CMS fixture ran the exact
+production verify/retain, pack-reader, and packed-only reachability code against
+a disposable six-object pack. It read back three production objects, verified a
+synthetic blob through both the `GIT` and `GITGC` readers, and walked a packed-
+only synthetic commit/tree/blob closure. All temporary pack artifacts were
+erased. No full GC or destructive prune ran against production G.
+`GC --prune=now` remains destructive; use only with a verified recovery path.
 
 M296 expands pathspec handling for `GIT ADD`, `GIT STATUS`, `GIT RESET`,
 `GIT RESTORE --worktree`, and `GIT DIFF --name-only`. Patterns now support

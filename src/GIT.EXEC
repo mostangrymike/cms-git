@@ -1809,11 +1809,12 @@ if command = 'CHECKOUT' then do
    exit 0
 end
 
-if command = 'VERIFY-OBJECT' | command = 'CAT-OBJECT' then do
+if command = 'VERIFY-OBJECT' | command = 'CAT-OBJECT' |,
+   command = 'PACK-READ' then do
    parse var rest oid extra
    oid = translate(oid)
    if oid = '' | extra \= '' | length(oid) \= 40 then do
-      say 'Usage: GIT' command 'object-id'
+   say 'Usage: GIT' command 'object-id'
       exit 4
    end
    call readobject oid
@@ -1827,6 +1828,19 @@ if command = 'VERIFY-OBJECT' | command = 'CAT-OBJECT' then do
    end
    if command = 'VERIFY-OBJECT' then do
       say oid 'OK'
+      exit 0
+   end
+   if command='PACK-READ' then do
+      say 'OID' storedoid
+      say 'TYPE' objtype
+      say 'SIZE' length(datahex)%2
+      if datahex='' then say 'HEX EMPTY'
+      else do
+         do catpos=1 to length(datahex) by 64
+            say 'HEX' substr(datahex,catpos,64)
+         end
+      end
+      say 'PACK-READ PASS'
       exit 0
    end
    say 'OID' storedoid
@@ -2178,6 +2192,10 @@ readobject: procedure expose storedoid objtype datahex objectfm
    drop obj.
    'EXECIO * DISKR' objfn 'GITOBJ' objectfm '1 (STEM OBJ. FINIS'
    if rc \= 0 then do
+      /* M299: a GC/REPACK pack may hold the only copy.  Try every verified
+         readable pack before reporting the object missing. */
+      call packread oid
+      if result = 'OK' then return 'OK'
       say 'GIT: object not found' oid
       return 'ERROR'
    end
@@ -2233,6 +2251,87 @@ readobject: procedure expose storedoid objtype datahex objectfm
       say 'GIT: corrupt object' oid '- invalid DATA hex'
       return 'ERROR'
    end
+   return 'OK'
+
+/* M299: read one object from a verified GC pack's retained stage/index.
+   The registry lists packs whose stage and index both exist; GITPCAT CAT
+   re-hashes the object, and the result is hashed again locally before it is
+   accepted.  Any malformed registry record fails closed. */
+packread: procedure expose storedoid objtype datahex objectfm
+   parse upper arg proid
+   drop reg.
+   reg.0=0
+   'EXECIO * DISKR GITPACKS REPO' objectfm '1 (STEM REG. FINIS'
+   if rc \= 0 then return 'ERROR'
+   if reg.0 < 1 | reg.0 > 4097 |,
+      reg.1 \= 'PACKS 1' then return 'ERROR'
+   do pri=2 to reg.0
+      parse var reg.pri prtag prname prextra
+      if prtag \= 'PACK' | prname='' | prextra \= '' |,
+         length(prname)>8 |,
+         verify(prname,'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@$#')\=0 then,
+         return 'ERROR'
+      'STATE' prname 'STAGE' objectfm
+      if rc \= 0 then iterate
+      'STATE' prname 'INDEX' objectfm
+      if rc \= 0 then iterate
+      'FILEDEF STGIN DISK' prname 'STAGE' objectfm
+      if rc \= 0 then iterate
+      'FILEDEF IDXIN DISK' prname 'INDEX' objectfm
+      if rc \= 0 then do
+         'FILEDEF STGIN CLEAR'
+         iterate
+      end
+      drop pr.
+      pr.0=0
+      catcmd='PIPE CMS GITPCAT CAT'||' '||proid||' | STEM PR.'
+      address command catcmd
+      catrc=rc
+      'FILEDEF IDXIN CLEAR'
+      'FILEDEF STGIN CLEAR'
+      if catrc \= 0 then iterate
+      call parsecat proid
+      if result = 'OK' then return 'OK'
+   end
+   return 'ERROR'
+
+parsecat:
+   parse arg pcoid
+   pcode=0
+   pcsize=''
+   pchex=''
+   pcpass=0
+   pcoidok=0
+   do pci=1 to pr.0
+      pcline=pr.pci
+      if pcline='M175 PACK CAT PASS' then pcpass=pcpass+1
+      if word(pcline,1)='PACKOBJ' & word(pcline,2)='OID' &,
+         word(pcline,3)=pcoid then pcoidok=1
+      if word(pcline,1)='PACKOBJ' & word(pcline,2)='OBJ' &,
+         word(pcline,4)='TYPE' & word(pcline,6)='SIZE' &,
+         words(pcline)=7 then do
+         pcode=word(pcline,5)
+         pcsize=word(pcline,7)
+      end
+      if word(pcline,1)='PACKOBJ' & word(pcline,2)='HEX' &,
+         words(pcline)=3 then pchex=pchex||word(pcline,3)
+   end
+   if pcoidok \= 1 | pcpass \= 1 then return 'ERROR'
+   if pcode=1 then pctype='COMMIT'
+   else if pcode=2 then pctype='TREE'
+   else if pcode=3 then pctype='BLOB'
+   else if pcode=4 then pctype='TAG'
+   else return 'ERROR'
+   if datatype(pcsize,'W') \= 1 | pcsize>65536 |,
+      length(pchex)%2 \= pcsize then,
+      return 'ERROR'
+   if length(pchex)//2 \= 0 |,
+      verify(pchex,'0123456789ABCDEF') \= 0 then return 'ERROR'
+   call hashstored pctype,pchex
+   if result='HASHERROR' | result \= pcoid then return 'ERROR'
+   storedoid=pcoid
+   objtype=pctype
+   datahex=pchex
    return 'OK'
 
 toasciihex: procedure

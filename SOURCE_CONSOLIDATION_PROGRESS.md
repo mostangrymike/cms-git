@@ -319,6 +319,10 @@ proofs in view.
   enumeration. `GITWT.EXEC` remains archived in `RUNTIME_MODULES.json`; a
   G1-only CMS source fixture scanned G read-only and cleaned up with protected
   state unchanged. Tracked `src/` remains 30.
+- M299 adds verified pack registration/reads and GC fallback for packed-only
+  objects. Deferred `GITGC.EXEC` is updated in `RUNTIME_MODULES.json`;
+  `GIT.EXEC` remains one of the 30 tracked paths. G1-only pipeline and
+  packed-only closure fixtures pass with all temporary artifacts removed.
 
 ## Decisions and validation
 
