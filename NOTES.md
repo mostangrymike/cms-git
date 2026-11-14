@@ -1,5 +1,25 @@
 # Project notes
 
+## 2026-11-14 project handoff — M300
+
+- `main` and `origin/main` point to `38c503e` (`M300 add bounded non-fast-forward merge`).
+- M300 adds packed-object ancestry reads, bounded unique merge-base selection,
+  and two-parent pull merges for non-conflicting whole-blob changes on existing,
+  mapped paths with unchanged modes.
+- Merge rejects same-path conflicts, path additions/removals, mode changes,
+  unmapped changes, ambiguous bases, and empty tree merges. Merge commit uses
+  deterministic default identity/time metadata.
+- Host checks passed: `tests/test-m203-bounded-batch.py CHECK`,
+  `test-m273-clone-pull.py`, M274/M280/M281-M282 tests, VREF/M299 source guards,
+  Regina syntax, 80-column checks, archive audit and LIVEDEPS.
+- CMS validation remains pending for M300 and the G-layout migration. TN3270
+  reached the z/VM login screen, but no credentials were available here. I
+  closed the session without logging in or changing CMS data.
+- Keep CMS validation on disposable G1 fixtures. Do not modify production G
+  data or protected stage/index files. `src/` remains at exactly 30 tracked
+  files.
+- The only untracked repository path is `.codegraph/`; preserve it.
+
 ## Current task plan
 
 - [x] Read the repository guidance, README, current state, and worktree status.
