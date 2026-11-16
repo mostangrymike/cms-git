@@ -16238,6 +16238,8 @@ A VMARC MODULE was not present on the accessed A/F/G/S/T/Y disks. The local
 mode to `VMARC MODULE A`, then installed using the IBM-documented
 `PIPE < VMARC MODULE A | deblock cms | > VMARC MODULE A` command. `VMARC ?`
 identified version 1.2.29. A raw copy is preserved as `VMARCRAW MODULE A`.
+Transfer/install steps follow IBM's [VMARC instructions](https://www.ibm.com/support/pages/zvm/devpages/bkw/vmarc.html)
+and [VMARC download page](https://www.ibm.com/support/pages/zvm/download/vmarc.module).
 
 Previous runtime backups: 20 source EXECs were copied to same-named `M300BK`
 filetypes on G. Every original/backup pair produced identical CMS Git hashes.

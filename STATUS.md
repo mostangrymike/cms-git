@@ -11,7 +11,7 @@ disagrees with this page, this page wins. Last updated 2026-11-16.
 | Latest milestone | **M300** — bounded non-fast-forward merge |
 | Latest commit | see `git log -1 --oneline` (M300 handoff) |
 | Build | no package build; host checks only |
-| Host CI | `.github/workflows/native-stage.yml` — **green** on `3fd30de` (run `43922439161`) |
+| Host CI | `.github/workflows/native-stage.yml` — **green** on `316bd7a` (run `43925674988`) |
 | CMS target | `GIT600 G` runtime EXECs match current main; item-1 read-only checks run (details below) |
 
 ## What is proven
