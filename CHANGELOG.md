@@ -8,6 +8,8 @@ lives in `STATUS.md`. This file records what landed, not proof claims.
 - Add canonical state stack: `STATUS.md`, `ROADMAP.md`, `docs/INDEX.md`,
   `CHANGELOG.md`, and a state-precedence block in `AGENTS.md`.
 - Mark `docs/CURRENT_STATE.md` as history with an M300 header.
+- Tests: realign the M166 host guard with M300's `GITUPD.EXEC` change to verify
+  `newoid` instead of `oid` (stale needle made `native-stage.yml` fail).
 
 ## M300 — bounded non-fast-forward merge
 

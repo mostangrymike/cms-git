@@ -65,6 +65,9 @@ documented restrictions), **Hygiene** (docs/repo cleanup).
 
 ## 6. CI and tests — [#217](https://github.com/mostangrymike/cms-git/issues/217)
 
+- `main` CI has been red since M297; repair the stale M166 guard first, then
+  confirm the full Python host-test set and the C selectors pass on
+  `native-stage.yml`.
 - `native-stage.yml` is one ~200-step sequential job.
 - Tests are source guards + synthetic fixtures, not behavioural differentials
   against reference `git`.

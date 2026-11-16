@@ -11,7 +11,7 @@ disagrees with this page, this page wins. Last updated 2026-11-16.
 | Latest milestone | **M300** — bounded non-fast-forward merge |
 | Latest commit | see `git log -1 --oneline` (M300 handoff) |
 | Build | no package build; host checks only |
-| Host CI | `.github/workflows/native-stage.yml` |
+| Host CI | `.github/workflows/native-stage.yml` — **red since M297**, under repair |
 | CMS target | manual; see proof status below |
 
 ## What is proven
@@ -26,7 +26,8 @@ disagrees with this page, this page wins. Last updated 2026-11-16.
   (2026-11-10).
 - Push: M281 host-proven path.
 - M300 merge (packed ancestry, bounded merge-base, two-parent merge):
-  **host-CI-proven, CMS target validation pending.**
+  **host checks pass locally; CMS target validation pending; CI has not yet run
+  green on M300.**
 
 ## What is not proven
 
@@ -34,6 +35,11 @@ disagrees with this page, this page wins. Last updated 2026-11-16.
   target-proven unless a real CMS run is recorded.
 - M300 and the G-layout migration still need a CMS run on disposable G1
   fixtures.
+- `native-stage.yml` has failed on every push since M297. The first failure is
+  a stale M166 guard needle that still expects `VERIFY-OBJECT oid` where M300
+  changed `GITUPD.EXEC` to verify `newoid`; the guard is being realigned and the
+  rest of the Python host-test set is being re-run. Treat CI status as red
+  until a run completes successfully.
 
 ## Read next
 
