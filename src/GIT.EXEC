@@ -2646,7 +2646,7 @@ peeltocommit: procedure expose objectfm
    end
    return 'ERROR'
 
-resolvetagtarget: procedure expose rs.
+resolvetagtarget: procedure expose rs. objectfm
    parse arg wanted
    if wanted='HEAD' then do
       call queryref 'HEAD'

@@ -15,6 +15,14 @@ IMP = (ROOT / "src" / "GITIMP.EXEC").read_text()
 REMOT = (ROOT / "src" / "GITREMOT.EXEC").read_text()
 CRED = (ROOT / "src" / "GITCRED.EXEC").read_text()
 
+# Revision peeling runs in a private REXX variable pool; expose the
+# configured object filemode so peeltocommit can verify the resolved object.
+resolve_start = GIT.index("resolvetagtarget: procedure")
+resolve_end = GIT.index("resolvestart: procedure", resolve_start)
+resolve_block = GIT[resolve_start:resolve_end]
+assert "resolvetagtarget: procedure expose rs. objectfm" in resolve_block
+assert "call peeltocommit resolvedoid" in resolve_block
+
 # Routing in GIT.EXEC.
 assert "if command = 'REMOTE' then do" in GIT
 assert "address command 'EXEC GITREMOT' rest" in GIT
