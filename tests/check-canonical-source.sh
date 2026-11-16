@@ -438,8 +438,8 @@ query_start=source.index('queryref: procedure',res_start)
 query_end=source.index('\n',source.index('return \'OK\'',query_start))
 helpers=source[tag_start:query_start]
 helpers=helpers.replace(
- 'resolvetagtarget: procedure expose rs.',
- 'resolvetagtarget: procedure expose rs. mode')
+ 'resolvetagtarget: procedure expose rs. objectfm',
+ 'resolvetagtarget: procedure expose rs. objectfm mode')
 program=(
  'parse arg mode wanted\ncall resolvetagtarget wanted\nsay result\nexit 0\n'+
  helpers+
@@ -3445,7 +3445,7 @@ fixture=(
 (out/'tag.rexx').write_text(fixture)
 
 pstart=source.index('\npeeltocommit: procedure expose objectfm\n')+1
-pend=source.index('\nresolvetagtarget: procedure expose rs.\n',pstart)
+pend=source.index('\nresolvetagtarget: procedure expose rs. objectfm\n',pstart)
 peel=source[pstart:pend]
 peel=peel.replace("call hashstored 'TAG',datahex",
                   "call fakehash 'TAG',datahex")
