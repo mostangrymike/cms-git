@@ -11,6 +11,12 @@ lives in `STATUS.md`. This file records what landed, not proof claims.
 - Tests: realign three host guards that still encoded pre-M297/M299/M300
   source: M166 (`newoid`), M260 (object-disk application via `GITOBJ`), and
   M294 (loose TAG importer). `native-stage.yml` is green again.
+- Fix revision peeling to expose `objectfm` into its private REXX variable
+  pool; host guard added. Native-stage CI green on `3fd30de`.
+- Deploy 20 current-main/runtime EXEC sources to CMS `GIT600 G` after
+  hash-verifying staged A files and preserving the previous G sources as
+  `M300BK`; VMARC archive created for backup. Item-1 read-only CMS checks
+  passed 15/16; deeper history stops at missing object (issue #215).
 
 ## M300 — bounded non-fast-forward merge
 

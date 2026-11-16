@@ -16218,3 +16218,53 @@ A separate read-only `GITPCAT CAT` probe against the older retained
 an indexed OID. The pair was not changed or used by the M299 fixture, which
 built and verified a fresh disposable stage/index. Evidence:
 `cms-m299-production-target.json` in the OpenCode temp evidence directory.
+
+
+## 2026-11-16 — deploy latest cms-git REXX runtime and item-1 CMS stress
+
+Plan: compare the installed CMS source against current `main`, stage current
+runtime EXECs over FTP on A, verify their Git blob OIDs, retain rollback copies
+on G, promote to G, then run the read-only item-1 user-command matrix.
+
+Target identification: CMS level 27 / service level 1302; project disk is
+`GIT600` filemode G. The `GIT.EXEC` on G hashed to
+`D08774F129D31CC11A5AB255DDD72ED804F9BFE4`, which matches the historical
+M282 source at `63d013e`, not current `main`. `GIT LEVEL` continues to report
+M176 because that marker identifies the native-generation baseline; it is not
+a full runtime revision. Issue #220 recorded the source lag.
+
+A VMARC MODULE was not present on the accessed A/F/G/S/T/Y disks. The local
+`~/Downloads/vmarc.module` (13,790 bytes) was transferred in FTP Image/Binary
+mode to `VMARC MODULE A`, then installed using the IBM-documented
+`PIPE < VMARC MODULE A | deblock cms | > VMARC MODULE A` command. `VMARC ?`
+identified version 1.2.29. A raw copy is preserved as `VMARCRAW MODULE A`.
+
+Previous runtime backups: 20 source EXECs were copied to same-named `M300BK`
+filetypes on G. Every original/backup pair produced identical CMS Git hashes.
+The VMARC archive `M300BK VMARC G` contains all 20 previous EXECs;
+`VMARC LIST M300BK VMARC G` listed all members.
+
+Deployment: 20 current runtime EXECs were fetched by FTP to A as fixed 80-byte
+CMS text and verified against their current Git blob OIDs. The source correction
+from commit `768c0a5` adds `objectfm` to `resolvetagtarget`'s REXX `EXPOSE` list.
+Without that scope, `GIT LOG`/`GIT SHOW` failed during commit peeling with
+`Invalid filemode OBJECTFM`. The regression guard is in
+`tests/test-m281-m282-push-gc.py`; the related M297 fixture was updated for
+the new signature in `tests/check-canonical-source.sh`. Host CI passed on
+`3fd30de` (run 43922439161). All 20 promoted G EXEC sources now hash-match
+current `main`/runtime archive; the main `GIT.EXEC` blob is
+`96B343E3A881CDC1B4CA94E59056213E74DB35B8`.
+
+CMS item-1 read-only stress results (script: `scripts/stress_cms.py`, artifact:
+`stress_cms_results.json`): 15/16 pass. Branch current/list, tag list, remote
+list, `LOG -n 1`, `LOG --max-count 1`, `LOG -n 1 main`, `SHOW HEAD`, `SHOW
+main`, `REV-PARSE HEAD/main`, and both name-only diff forms passed. `GIT LOG
+-n 16` returned RC 8 at missing object `C30F39A6`; see issue #215. No command
+exceeded the 120-second CMS timing threshold; the slowest read-only LOG/SHOW
+operations were about 23.4 seconds CMS time (about 33.6 seconds wall time,
+including connection setup).
+
+This does not validate the M300 merge write path or G-layout migration. No
+write-path commands ran on the production repository; disposable G1 target
+validation remains pending. Active C sources did not change after the deployed
+M282 source baseline, so C modules were not rebuilt.

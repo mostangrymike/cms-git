@@ -5,6 +5,7 @@ __pycache__/
 
 # CMS live evidence and temp files
 cms-*.json
+stress_cms_results.json
 cms-source-inventory.txt
 src/mainframe_output*.tmp
 src/*.tmp
