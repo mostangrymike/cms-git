@@ -1239,7 +1239,8 @@ if src.count('call objectdisk') < 2:
     raise SystemExit('M260 RESOLVE/LOG do not read the object disk')
 if "od_seen>1 | length(od_fm)\\=1" not in src:
     raise SystemExit('M260 object-disk reader does not validate uniqueness')
-if ("   objectfm=result\n   'STATE' objectfn 'GITOBJ' objectfm") not in src:
+if ("  call objectdisk\n  if result='ERROR' then exit 8\n"
+    "  if result='NATIVE' then objectfm='G'") not in src:
     raise SystemExit('M260 RESOLVE ignores the configured object disk')
 print('M260 LOG LOOSE FALLBACK SOURCE GUARDS PASS 15')
 
@@ -1373,10 +1374,19 @@ for path in "$root/src/GITVREF.EXEC" "$root/src/GITREF.EXEC" \
   echo "M260 missing legacy object disk default in $(basename "$path")" >&2
   exit 1
  }
- grep -Fq "'GITOBJ' objectfm" "$path" || {
-  echo "M260 object disk is not applied in $(basename "$path")" >&2
-  exit 1
- }
+ if [ "$(basename "$path")" = "GITVREF.EXEC" ]; then
+  # Post-M299 RESOLVE delegates to `GIT VERIFY-OBJECT` and the loose
+  # readers select their object disk into ll_fm/ls_fm/ll_ofm.
+  grep -Fq "'GITOBJ'" "$path" || {
+   echo "M260 object disk is not applied in $(basename "$path")" >&2
+   exit 1
+  }
+ else
+  grep -Fq "'GITOBJ' objectfm" "$path" || {
+   echo "M260 object disk is not applied in $(basename "$path")" >&2
+   exit 1
+  }
+ fi
 done
 echo 'M260 SOURCE-DERIVED LOOSE LOG FIXTURES PASS'
 )
