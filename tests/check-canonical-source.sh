@@ -6873,7 +6873,8 @@ for token in (
     "GITREC CATHEX GITFIX M15NEW",
     "GITIMP: malformed CATHEX metadata",
     "GITIMP: malformed CATHEX data record",
-    "GITIMP: loose TAG objects are not supported yet",
+    "GITIMP: unsupported loose object type",
+    "gi_type=word('COMMIT TREE BLOB TAG',gi_typ)",
 ):
     if token not in worker:
         raise SystemExit("M294 inline importer guard missing " + token)
@@ -6930,6 +6931,20 @@ old_body = old_body.replace("STEM IMPMETA.", "STEM GI_IMPMETA.")
 old_body = old_body.replace("STEM OUT.", "STEM GI_OUT.")
 old_body = old_body.replace("STEM out.", "STEM GI_OUT.")
 old_body = old_body.replace("STEM LOOSE.", "STEM GI_LOOSE.")
+# M297 extended the inlined importer to accept loose TAG objects.  Apply that
+# one documented change so the remaining body still has to match the archive
+# byte-for-byte.
+old_body = old_body.replace(
+    "if gi_typ<1 | gi_typ>3 then do\n"
+    " say 'GITIMP: loose TAG objects are not supported yet'\n"
+    " exit 8\n"
+    "end\n"
+    "gi_type=word('COMMIT TREE BLOB',gi_typ)",
+    "if gi_typ<1 | gi_typ>4 then do\n"
+    " say 'GITIMP: unsupported loose object type'\n"
+    " exit 8\n"
+    "end\n"
+    "gi_type=word('COMMIT TREE BLOB TAG',gi_typ)")
 prologue = (
     "/* M294: inlined GITIMP object installer. */\n"
     "gitimport:\n"
