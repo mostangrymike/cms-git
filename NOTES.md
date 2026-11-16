@@ -16270,3 +16270,41 @@ This does not validate the M300 merge write path or G-layout migration. No
 write-path commands ran on the production repository; disposable G1 target
 validation remains pending. Active C sources did not change after the deployed
 M282 source baseline, so C modules were not rebuilt.
+
+
+## 2026-11-16 — CMS M300 merge/write core validation
+
+After the first branch-switch preflight attempt found an inverted `GITWT
+checkworkfile` RC check, the runtime archive was corrected to accept `STATE` RC 0
+for an existing mapped workfile. M219 now pins the successful existing-file
+case. `GITWT EXEC` blob `51102BA43CC7C22666B154A1E2D59391ECAFAFCD` was installed
+on G; `EXEC GITWT CHECK-SWITCH` returned `SWITCH PREFLIGHT SAFE MAPPED 8`.
+Issue #221 records the defect and is closed after target validation. Source CI
+passed on `cf40263` (run 43941401366).
+
+The CMS test used VMARC-protected scratch state on G and a synthetic parentless
+root commit over the current main tree so the bounded ancestry walk did not
+depend on the target's missing older history. Two scratch branches made
+disjoint changes to existing mapped files (Makefile and TPUSH.TXT):
+
+- Common root: `ECCC234F88C605B8F0A503E6FA82EC45193F31A0`
+- Local parent: `90079893125733105ADD4A700E2ED38EC55568CB`
+- Second parent: `E285D3D7CF0B87B9564C7353BF548059E1051202`
+- Merge commit: `B1E3C9E04D5B35DE34D64E4A3BD044D38E685EFB`
+- Merge tree: `26FF092EF1C6228DBE25E5A2B19BAF284C621B18`
+
+`GITVREF MERGE-BASE` returned the synthetic root. `GITWT CHECK-MERGE` passed;
+`GITWT MERGE-COMMIT` wrote a two-parent commit; `GIT UPDATE-REF` CAS passed;
+`GITWT CHECK-PULL` and `APPLY-PULL` passed. Post-apply LOG showed two parents,
+both test blobs were present, and status was clean.
+
+The `M300TEST VMARC G` snapshot restored the original `GITREF2`, `GITWORK`,
+eight mapped workfiles, branch `main` at `BE43A71F4C6030A0D8D3649DFDFE478409D03A10`,
+and original hashes. The scratch branches are gone. Four test commits and
+their new tree/blob objects remain unreachable on G; no object deletion was
+performed. The snapshot archive remains on G for recovery.
+
+This validates the CMS merge commit/ref/worktree write core, not the full outer
+network `GIT PULL` flow. A read-only `MERGE-BASE` between existing shallow
+production histories still returns RC 8; the deeper-history gap is tracked in
+#215. Disposable G1 end-to-end qualification remains pending.

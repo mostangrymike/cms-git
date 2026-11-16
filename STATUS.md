@@ -11,7 +11,7 @@ disagrees with this page, this page wins. Last updated 2026-11-16.
 | Latest milestone | **M300** — bounded non-fast-forward merge |
 | Latest commit | see `git log -1 --oneline` (M300 handoff) |
 | Build | no package build; host checks only |
-| Host CI | `.github/workflows/native-stage.yml` — **green** on `316bd7a` (run `43925674988`) |
+| Host CI | `.github/workflows/native-stage.yml` — **green** on `cf40263` (run `43941401366`) |
 | CMS target | `GIT600 G` runtime EXECs match current main; item-1 read-only checks run (details below) |
 
 ## What is proven
@@ -25,8 +25,10 @@ disagrees with this page, this page wins. Last updated 2026-11-16.
 - Pull/clone via shallow fetch: M273/M274 passed on a real CMS target
   (2026-11-10).
 - Push: M281 host-proven path.
-- M300 merge (packed ancestry, bounded merge-base, two-parent merge):
-  **host-CI-proven**, but its write path remains CMS-target-unvalidated.
+- M300 merge core (bounded merge-base, non-conflicting whole-blob merge,
+  two-parent commit, ref CAS, worktree apply): **host-CI-proven and CMS-tested**
+  with a synthetic root and two mapped disjoint changes. Full network
+  `GIT PULL` integration and disposable-G1 qualification remain pending.
 - CMS latest runtime source deployed on `GIT600 G` on 2026-11-16. The active
   `GIT.EXEC` blob is `96B343E3A881CDC1B4CA94E59056213E74DB35B8`; all 20 promoted
   runtime EXECs matched current-main/archive Git blob hashes. The existing
@@ -40,13 +42,16 @@ disagrees with this page, this page wins. Last updated 2026-11-16.
 
 - Host/CI success is **not** CMS target proof. Do not describe a milestone as
   target-proven unless a real CMS run is recorded.
-- M300 non-fast-forward merge and the G-layout migration still need CMS
-  write-path validation on disposable G1 fixtures. Item-1 checks were read-only.
+- Full `GIT PULL` non-fast-forward fetch/merge orchestration and the G-layout
+  migration still need qualification on a disposable G1. The CMS write test
+  exercised the merge commit/ref/apply core directly on scratch branches.
 - `native-stage.yml` was red after M297 because M166/M260/M294 guards were
-  stale. Those guards are aligned; latest CI is green on `3fd30de`.
-- Old runtime EXEC backups remain on G as `* M300BK G`; a VMARC archive of all
+  stale. Those guards are aligned; latest source CI is green on `cf40263`.
+- Old runtime EXEC backups remain on G as `* M300BK G`; VMARC archive of all
   20 pre-update EXECs is `M300BK VMARC G`. VMARC itself is installed on A;
   original binary retained as `VMARCRAW MODULE A`.
+- Test fixture state was restored from `M300TEST VMARC G`; four test commits
+  and their trees/blobs remain unreachable in G (no objects were erased).
 
 ## Read next
 

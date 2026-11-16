@@ -26,7 +26,9 @@ lives in `STATUS.md`. This file records what landed, not proof claims.
   paths with unchanged modes.
 - Rejects same-path conflicts, path additions/removals, mode changes, unmapped
   changes, ambiguous bases, and empty tree merges.
-- Host checks pass; CMS validation pending.
+- Host CI green; CMS synthetic fixture passed merge-base, preflight,
+  two-parent merge commit, compare-and-swap ref update, pull apply, and clean
+  status. Full network `GIT PULL` qualification remains pending.
 
 ## M299 — verified pack reader and real GC
 
