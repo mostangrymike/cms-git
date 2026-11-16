@@ -4,6 +4,11 @@ Native Git for z/VM CMS. This repository continues the former
 `mostangrymike/ibm-sandbox` project; the dated status records below are
 retained as history.
 
+> **Start here:** [`STATUS.md`](STATUS.md) is the only current-state file.
+> Gaps are in [`ROADMAP.md`](ROADMAP.md); delivered milestones in
+> [`CHANGELOG.md`](CHANGELOG.md); doc classification in
+> [`docs/INDEX.md`](docs/INDEX.md). The sections below are historical.
+
 ## Consolidation status (2026-10-14, verified archive merge)
 
 GitHub `main` is canonical. At that consolidation the repository held

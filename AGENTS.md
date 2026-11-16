@@ -1,5 +1,20 @@
 # Agent notes
 
+## State precedence (authoritative)
+
+When determining project state, gaps, or TODO, read in this order and do not
+substitute older files:
+
+1. `STATUS.md` — the only file that declares the current milestone and proof status.
+2. `ROADMAP.md` — the only gap/TODO list; links GitHub issues.
+3. `CHANGELOG.md` — delivered milestones.
+4. `docs/INDEX.md` — classifies every doc as current/history/runbook/reference.
+5. `NOTES.md`, `docs/CURRENT_STATE.md`, and `docs/*_HISTORY.md` — history only.
+6. `git log --oneline` — what actually merged.
+
+`README.md` milestone sections are historical; do not treat the first section
+as current. A doc not listed in `docs/INDEX.md` is untrusted for state.
+
 - This is a native z/VM CMS Git client: active source is `src/` (CMS REXX `*.EXEC` and C); there is no package-manager build.
 - Read `CONTRIBUTING.md` and the current sections of `README.md`/`NOTES.md` before changing target behavior; these docs also retain dated milestone history.
 - The main host test entrypoint is selector-based: `python3 tests/test-m203-bounded-batch.py CHECK` checks preserved test sources; use a specific selector for focused cases.

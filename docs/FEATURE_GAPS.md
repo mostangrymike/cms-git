@@ -1,5 +1,8 @@
 # cms-git feature gaps (post-M300)
 
+> **Superseded.** This list now lives in the canonical [`../ROADMAP.md`](../ROADMAP.md).
+> Kept for history only; do not treat it as current.
+
 Snapshot taken against `main` at `05abf26` (M300 handoff). This page is the
 tracked list of missing behaviour relative to ordinary Git, plus repo-hygiene
 items. It is a planning document; nothing here is claimed as target-proven.
