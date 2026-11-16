@@ -1,4 +1,12 @@
-# Current CMS Git milestone
+# CMS Git milestone history
+
+> **Current state:** `main` is at the **M300** handoff (`05abf26`). See
+> `NOTES.md` for the latest handoff and `docs/FEATURE_GAPS.md` for the
+> outstanding feature list. The prose below is a chronological milestone
+> record; entries near the top are old and are kept for history only. Do not
+> read the first entry as the current milestone.
+
+## Older milestone record
 
 M46 is actual native z/VM CMS target-proven (September 29, 2026). `CMSCLNK GITREC PLAIN` completed without flagged assembly statements (9.90 CPU / 10.25 elapsed seconds). The one standard `GITRUN M46` passed every gate: independent 1,808-object full original audits for GITFIX and M15NEW, newest seq52, combined M35–37 root links, src depth-one and complete closure, full commit/parent closure, direct TREECLOSURE from the real historical root object ID, expected invalid-depth/noncommit/missing-child RCs, older seq51 fallback, dual-invalid fail-closed RC8, restored seq52, and final protected data checks. Final exact marker: `GITRUN M46 ALL READ ONLY NATIVE GIT TESTS PASSED`. CPU 775.91 seconds; elapsed 792.93 seconds.
 
