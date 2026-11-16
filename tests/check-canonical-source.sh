@@ -4391,6 +4391,12 @@ for source, token in ((upd,"EXEC GITWT CHECK-SWITCH"),
                       (wt,"staged changes block branch switch")):
     if token not in source:
         raise SystemExit(f'M219 source missing safe-switch check: {token}')
+check_start=wt.index("checkworkfile:\n")
+check_end=wt.index("\nbodyrecords:\n",check_start)
+checkworkfile=wt[check_start:check_end]
+if ("if rc=0 then return 'OK'" not in checkworkfile or
+        "if rc\\=0 then return 'OK'" in checkworkfile):
+    raise SystemExit('M219 existing workfile is not accepted by switch preflight')
 # Bound the HEAD branch from its own marker to the next zero-object-id
 # assignment.  PULL-HEAD also defines zeros earlier in the file, so the
 # search must start at the HEAD branch marker.
