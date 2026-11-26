@@ -5,6 +5,12 @@ lives in `STATUS.md`. This file records what landed, not proof claims.
 
 ## Unreleased
 
+- Add M302 persistent merge conflicts: whole-file conflict markers,
+  `GITMERG MERGE G` state, `UU` status, `GIT MERGE --abort`, and
+  resolve/stage/`GIT MERGE --continue` with a two-parent commit. Rollback
+  rewrites now truncate fixed-80 targets before restoring shorter content.
+  Adds `tests/test-m302-merge-conflicts.py` and a workflow gate. CMS validation
+  details and the post-test restore are recorded in `NOTES.md`.
 - Add M301 `GIT MERGE <branch>` for local fast-forward and non-conflicting
   whole-blob merges without a remote fetch. Reuses M300 merge-base,
   preflight, two-parent commit, ref CAS, and worktree apply; adds

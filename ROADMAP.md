@@ -12,9 +12,9 @@ documented restrictions), **Hygiene** (docs/repo cleanup).
 | Item | Status | Notes |
 |---|---|---|
 | First-class `GIT MERGE` verb | Narrow | M301 adds local branch merge; CMS synthetic merge passed 2026-11-26. Network `PULL` merge remains separate. |
-| Line-level three-way merge | Missing | Whole-blob only; same-path divergent edits rejected. |
-| Conflict markers / conflicted state | Missing | Fails closed; no markers, no conflicted index. |
-| `merge --abort` / `--continue` | Missing | Rollback snapshots exist; no user command. |
+| Line-level three-way merge | Missing | M302 writes whole-file conflict blocks; no record-level hunk merge yet. |
+| Conflict markers / conflicted state | Narrow | M302 writes whole-file markers, persists `GITMERG MERGE G`, and reports `UU`; CMS-validated. |
+| `merge --abort` / `--continue` | Narrow | M302 restores the pre-merge local branch on abort and creates a two-parent commit on continue; CMS-validated. |
 | Merge path additions/removals | Missing | Rejected by M300. |
 | Merge mode changes | Missing | Rejected by M300. |
 | Local merge without a remote fetch | Narrow | M301 adds `GIT MERGE <branch>` for local fast-forward and non-conflicting whole-blob merges; host- and CMS-validated. |
@@ -76,7 +76,7 @@ documented restrictions), **Hygiene** (docs/repo cleanup).
 
 ## Suggested order
 
-1. Build on M301: record-level three-way merge + conflict state + abort (#214).
+1. Build on M302: record-level three-way merged hunks inside the existing conflict lifecycle (#214).
 2. cherry-pick / rebase / stash / content diff (#213).
 3. Credential hardening + push parity (#216).
 4. Deep-history strategy + fsck (#215).

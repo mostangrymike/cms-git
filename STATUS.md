@@ -8,11 +8,11 @@ disagrees with this page, this page wins. Last updated 2026-11-26.
 | Field | Value |
 |---|---|
 | Branch | `main` |
-| Latest milestone | **M301** — first-class local branch merge |
-| Latest commit | uncommitted M301 working tree; see `git log -1 --oneline` for the last merged commit |
+| Latest milestone | **M302** — persistent merge conflicts and abort/continue |
+| Latest commit | uncommitted M302 working tree; see `git log -1 --oneline` for the last merged commit |
 | Build | no package build; host checks only |
-| Host CI | M301 local gates pass; GitHub Actions run pending |
-| CMS target | `GIT600 G` restored; M301 synthetic merge passed on 2026-11-26; pre-test M300 runtime restored afterward |
+| Host CI | full local M302 gate passes; GitHub Actions run pending |
+| CMS target | `GIT600 G` restored; M302 conflict/continue/abort lifecycle passed on 2026-11-26; pre-test M300 runtime restored afterward |
 
 ## What is proven
 
@@ -35,10 +35,17 @@ disagrees with this page, this page wins. Last updated 2026-11-26.
   CMS synthetic two-branch merge produced `868157275B4ADFFBDA05C1E22CEDBF8544A49F34`
   with two parents, applied both disjoint file changes, left clean status, and
   restored every runtime/ref/workfile backup byte-for-byte afterward.
+- M302 adds persistent same-path conflict markers, `GITMERG MERGE G` state,
+  `UU` status, `GIT MERGE --abort`, and resolve/stage/`GIT MERGE --continue`.
+  A real CMS fixture produced two-parent commit
+  `960881F4B77E7F40D07267061B078D66024ED89E`, cleared merge state, and verified
+  abort restored the pre-merge local branch with clean status. Merge state and
+  temp files are excluded from untracked scans. Markers are whole-file blocks;
+  record-level three-way content merging remains missing.
 - CMS runtime source deployed on `GIT600 G` on 2026-11-16. The active
   `GIT.EXEC` blob is `96B343E3A881CDC1B4CA94E59056213E74DB35B8`; all 20 promoted
-  runtime EXECs matched the then-current main/archive Git blob hashes. M301 is
-  not included in that deployment. The existing `GIT LEVEL M176` output is a
+  runtime EXECs matched the then-current main/archive Git blob hashes. M301
+  and M302 are not included in that deployment. The existing `GIT LEVEL M176` output is a
   native-generation marker, not the whole-client source revision.
 - Item-1 read-only user-command stress: 15/16 passed on the updated G runtime.
   `GIT LOG -n 16` stopped at missing object `C30F39A6` (tracked in issue #215).
@@ -48,6 +55,8 @@ disagrees with this page, this page wins. Last updated 2026-11-26.
 
 - Host/CI success is **not** CMS target proof. Do not describe a milestone as
   target-proven unless a real CMS run is recorded.
+- M302 writes whole-file conflict blocks, not record-level three-way merged
+  hunks. Full network `GIT PULL` conflict orchestration is also still pending.
 - `MAINT 0600` was restored to the CP directory on 2026-11-26 after the
   web-console candidate `CANDGD` was found to have dropped both `MDISK 600`
   (GIT600) and `MDISK 0601`. Only GIT600 was restored, through validated

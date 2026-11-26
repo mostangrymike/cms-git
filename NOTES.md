@@ -16405,3 +16405,76 @@ left in place; no scratch file or object deletion was performed.
 The host TLS bridge was also restored in documented `http` mode on
 `192.168.200.1:8443`; 44 bridge tests and the 125-test offline build passed.
 CMS-side bridge use remains unproven.
+
+## 2026-11-26 — M302 persistent merge conflicts, abort, and continue
+
+M302 extends M301 same-path conflicts from fail-closed errors to a persistent
+CMS workflow:
+
+- `GITWT MERGE-CONFLICT-STACK` collects every conflicting mapped blob, writes
+  whole-file `<<<<<<< HEAD` / `=======` / `>>>>>>> branch` marker records,
+  stores the marker blob through `GIT WRITE-WORKFILE`, applies non-conflicting
+  and marker stage OIDs to the worktree, and saves the map atomically with
+  rollback.
+- `GITMERG MERGE G` records branch, local/remote/base OIDs, remote branch, and
+  conflicted path hex. `GIT STATUS --short` reports `UU` while marker lines
+  remain and normal staged status after resolution.
+- `GIT MERGE --abort` validates the current branch/tip, restores every mapped
+  workfile from the stored local commit, resets base/stage OIDs, and clears
+  merge state.
+- `GIT MERGE --continue` requires every conflict to be staged, marker-free,
+  and free of unstaged changes, then uses the existing two-parent commit builder,
+  CAS-updates the branch, accepts the worktree map, and clears state.
+- `rollbackrestore` now erases fixed-80 targets before rewriting, preventing old
+  trailing records when a rollback restores a shorter file.
+
+Real CMS fixture on restored GIT600:
+
+- Original HEAD: `BE43A71F4C6030A0D8D3649DFDFE478409D03A10`.
+- Original tree: `D85AE03297370771E3C1CDBB8AE3708C393F379C`.
+- Parentless root: `EDE8607793CCA2AD1F4FEBE92EC76FD42FD1596D`.
+- Local parent: `DD51526524B34A7B05DC2E824AE417F011F6B1C5`.
+- Second parent: `C90C4803424D750F74A42FDC227181A2F9AC1098`.
+- Continued merge commit: `960881F4B77E7F40D07267061B078D66024ED89E`.
+- Merge tree: `A1503E759AB54AB576BD036DEE44802DC8169CEB`.
+- Abort local commit: `D609233093A1D7B6387BF7016E8E4640F9D13109`.
+
+The conflict run wrote all five marker records, left the local branch unchanged,
+and reported `UU newdir/added.txt`. Resolution used native `COPYFILE` from a
+prepared CMS file, `GIT ADD`, and `GIT MERGE --continue`; LOG showed both parents
+and `COMMIT PARENTS 2`, status was clean, and merge state was absent. A second
+conflict on `newdir/second.txt` was aborted; the pre-merge local content
+`M302 abort local` was restored, the local tip stayed `D6092330...`, status was
+clean, and state was absent.
+
+Temporarily deployed runtime blob hashes:
+
+- `GIT.EXEC`: `B32C1AAD1AD8F3D4AE8ABA5B14399E9A59A3C54D`.
+- `GITWT.EXEC`: `C4A3B121CD1AFAF0421F95CB43AAE7A13437410A`.
+- `GITVREF.EXEC`: `4ABA294CAC6763FF9EBFFE0C945E927305C60E76`.
+- `GITUPD.EXEC`: `DAF73ECCBF58676583E4039C3D62560D70D0A1BB`.
+
+The final `GITWT.EXEC` blob `F4C7A04FB96CC6F423ADD80F799D30357A5B118D`
+adds only the `GITMERG`/`GITMRG` untracked-scan exclusion to the lifecycle-test
+source. A separate CMS probe deployed that exact blob, created dummy
+`GITMERG TMP G` and `GITMRG BLOB G`, and verified `STATUS --untracked-files=G`
+did not list either file.
+
+The final `M301BK` restore compared every runtime, `GITREF2`, `GITWORK`, and
+mapped workfile identical to its backup and returned `M302 CMS CONFLICT TEST AND
+RESTORE PASS`. Test objects remain unreachable on G; staging files, hunks, and
+backups remain. No scratch file or object deletion was performed.
+
+CMS-specific defects found and guarded during M302:
+
+- `PIPE CMS` still requires short commands; merge conflict commands use queued
+  arguments with `MAKEBUF`/`DROPBUF`.
+- CMS REXX requires `findpath(path)` parentheses; comma-less `mapidx=findpath
+  path` silently assigns the literal routine name.
+- `pathoidfor` returns an OID on success, not `OK`.
+- `--abort` and `--continue` checks are case-insensitive.
+- `STATUS` must inspect marker lines; a staged marker blob otherwise looks like
+  an ordinary staged modification.
+
+M302 writes whole-file conflict blocks. Record-level three-way merged hunks and
+full network `GIT PULL` conflict orchestration remain future work.

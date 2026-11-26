@@ -1036,10 +1036,28 @@ end
 /* M301: merge one local branch without a remote fetch. */
 if command='MERGE' then do
    parse var rest mrgarg mrgextra
+   if translate(mrgarg)='--ABORT' & mrgextra='' then do
+      'EXEC GITWT MERGE-ABORT'
+      exit rc
+   end
+   if translate(mrgarg)='--CONTINUE' & mrgextra='' then do
+      call mergecontinue
+      if result='OK' then exit 0
+      exit 8
+   end
    if mrgarg='' | mrgextra\='' then do
       say 'Usage: GIT MERGE <branch>'
       exit 4
    end
+   'SET CMSTYPE HT'
+   'STATE GITMERG MERGE G'
+   mrgstate=rc
+   'SET CMSTYPE RT'
+   if mrgstate=0 then do
+      say 'GIT MERGE: merge already in progress; use --continue or --abort'
+      exit 8
+   end
+   if mrgstate\=28 then exit 8
    mrgarg=strip(mrgarg)
    if left(mrgarg,11)='refs/heads/' then mrgarg=substr(mrgarg,12)
    call validbranch mrgarg
@@ -1137,6 +1155,34 @@ if command='MERGE' then do
       parse pull .
    end
    'DROPBUF' mgbuf
+   if mgrc=12 then do
+      'MAKEBUF'
+      mgbuf=rc
+      if mgbuf<0 then exit 8
+      queue mrgcurrent
+      queue mrgold
+      queue mrgnew
+      queue mrgbase
+      queue mrgarg
+      mgcmd='EXEC GITWT MERGE-CONFLICT-STACK'
+      'PIPE CMS' mgcmd '| STEM MGBOUT.'
+      mgrc=rc
+      do while queued()>0
+         parse pull .
+      end
+      'DROPBUF' mgbuf
+      if mgrc=12 then do
+         say 'GIT MERGE: conflicts recorded; branch unchanged'
+         say 'Resolve and stage conflicts, then run GIT MERGE --continue'
+         say 'Or run GIT MERGE --abort to restore the pre-merge worktree'
+         exit 8
+      end
+      do mgdi=1 to mgbout.0
+         say mgbout.mgdi
+      end
+      say 'GIT MERGE: conflict preparation failed; branch unchanged'
+      exit 8
+   end
    if mgrc\=0 then do
       say 'GIT MERGE: preflight failed; branch unchanged'
       exit 8
@@ -2933,6 +2979,68 @@ queryref: procedure expose rs.
    cmd='EXEC GITVREF RESOLVE' qspec
    'PIPE CMS' cmd '| STEM RS.'
    if rc\=0 then return 'ERROR'
+   return 'OK'
+
+mergecontinue:
+   drop mcout.
+   mcout.0=0
+   'PIPE CMS EXEC GITWT MERGE-CONTINUE | STEM MCOUT.'
+   if rc\=0 then return 'ERROR'
+   mcparent=''
+   mcmerge=''
+   mccommit=''
+   mcparents=0
+   mcmerges=0
+   mccommits=0
+   do mci=1 to mcout.0
+      mcw=word(mcout.mci,2)
+      mcval=translate(word(mcout.mci,3))
+      if word(mcout.mci,1)='COMMIT-STAGED' &,
+         words(mcout.mci)=3 then do
+         if mcw='PARENT' & length(mcval)=40 &,
+            verify(mcval,'0123456789ABCDEF')=0 then do
+            mcparents=mcparents+1
+            mcparent=mcval
+         end
+         else if mcw='MERGE-PARENT' & length(mcval)=40 &,
+            verify(mcval,'0123456789ABCDEF')=0 then do
+            mcmerges=mcmerges+1
+            mcmerge=mcval
+         end
+         else if mcw='COMMIT' & length(mcval)=40 &,
+            verify(mcval,'0123456789ABCDEF')=0 then do
+            mccommits=mccommits+1
+            mccommit=mcval
+         end
+      end
+   end
+   if mcparents\=1 | mcmerges\=1 | mccommits\=1 then,
+      return 'ERROR'
+   drop mchout.
+   mchout.0=0
+   'PIPE CMS EXEC GITVREF HEAD | STEM MCHOUT.'
+   if rc\=0 | mchout.0\=1 then return 'ERROR'
+   parse var mchout.1 mchead extra
+   if extra\='' | left(mchead,11)\='refs/heads/' then return 'ERROR'
+   mcbranch=substr(mchead,12)
+   call validbranch mcbranch
+   if result\='OK' then return 'ERROR'
+   call localbranchtip mcbranch
+   if result\=mcparent then return 'ERROR'
+   'EXEC GIT UPDATE-REF' mchead mccommit mcparent
+   if rc\=0 then return 'ERROR'
+   'EXEC GITWT ACCEPT'
+   if rc\=0 then do
+      'EXEC GIT UPDATE-REF' mchead mcparent mccommit
+      say 'GIT MERGE: worktree accept failed; branch rollback attempted'
+      return 'ERROR'
+   end
+   'EXEC GITWT MERGE-CLEAR'
+   if rc\=0 then do
+      say 'GIT MERGE: commit created but merge state clear failed'
+      return 'ERROR'
+   end
+   say 'MERGE CONTINUE COMPLETE' mcbranch mcparent mccommit mcmerge
    return 'OK'
 
 mergeancestor:

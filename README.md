@@ -521,14 +521,25 @@ fetch. It resolves the current and target tips from REF2, checks ancestry in
 both directions, and either reports already-up-to-date, performs a clean
 fast-forward, or uses the M300 merge-base/preflight/two-parent-commit path.
 The merge commit is applied through `GITUPD MERGE-HEAD` and the existing
-worktree apply/rollback code. Same-path content conflicts, path additions or
-removals, mode changes, dirty worktrees, unborn branches, and ambiguous or
-missing merge bases still fail closed. Long two-OID commands use queued
+worktree apply/rollback code. Path additions or removals, mode changes, dirty
+worktrees, unborn branches, and ambiguous or missing merge bases still fail
+closed; same-path content conflicts are handled by M302. Long two-OID commands use queued
 arguments with `MAKEBUF`/`DROPBUF` isolation to avoid CMS PIPE's 80-column
 limit and stale program-stack data. Host syntax, source, archive, workflow,
 and merge-model guards pass. A real CMS synthetic merge on 2026-11-26 produced
 two-parent commit `868157275B4ADFFBDA05C1E22CEDBF8544A49F34`, applied both
 changes, left clean status, and restored all backups byte-for-byte.
+
+M302 adds persistent conflict handling for same-path divergent edits. The worktree
+receives whole-file `<<<<<<< HEAD` / `=======` / `>>>>>>> branch` blocks, the
+stage map holds the marker blob, `GITMERG MERGE G` records the branch/tips/base
+and conflicted paths, and short status reports `UU`. `GIT MERGE --abort` restores
+the pre-merge local branch and clears state. After resolving and staging every
+conflict, `GIT MERGE --continue` creates a two-parent commit, CAS-updates the
+branch, accepts the worktree map, and clears state. A real CMS fixture on
+2026-11-26 produced commit `960881F4B77E7F40D07267061B078D66024ED89E`, verified
+both parents and clean status, then verified abort restoration and full backup
+restore. Record-level three-way hunk merging remains future work.
 
 M296 expands pathspec handling for `GIT ADD`, `GIT STATUS`, `GIT RESET`,
 `GIT RESTORE --worktree`, and `GIT DIFF --name-only`. Patterns now support

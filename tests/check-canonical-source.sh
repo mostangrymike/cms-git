@@ -1757,6 +1757,7 @@ fixture=(
  "mappath.5='676F6E65'\nmappath.6='6164646564'\n"
  "mappath.7='616464676F6E65'\n"+
  block.replace('call loadmap',"result='OK'")
+ .replace('call readmergestate',"result='ABSENT'")
       .replace("'STATE' mapfn.i mapft.i mapfm.i",state)
       .replace('call workoid mapfn.i,mapft.i,mapfm.i,maplf.i,0',work)+
  "asciitocms:\n parse arg text\n return x2c(text)\n")
@@ -1855,6 +1856,7 @@ fixture=(
  "mappath.5='676F6E65'\nmappath.6='6164646564'\n"
  "mappath.7='6469722F616464676F6E65'\n"+
  block.replace('call loadmap',"result='OK'")
+ .replace('call readmergestate',"result='ABSENT'")
       .replace("'STATE' mapfn.i mapft.i mapfm.i",state)
       .replace('call workoid mapfn.i,mapft.i,mapfm.i,maplf.i,0',work)+
  helpers+
@@ -2830,6 +2832,7 @@ fixture=(
  "mappath.1='616C706861'\nmappath.2='62657461'\n"
  "mappath.3='7372632F6F6E652E63'\nmappath.4='2D64617368'\n"+
  block.replace('call loadmap',"result='OK'")
+ .replace('call readmergestate',"result='ABSENT'")
       .replace("'STATE' mapfn.i mapft.i mapfm.i",state)
       .replace('call workoid mapfn.i,mapft.i,mapfm.i,maplf.i,0',work)+
  matchhelpers+findpath+
@@ -2911,6 +2914,8 @@ if not (block.index('call addselected')<block.index('call bodyrecords')<
 helperstart=source.index('\naddselected:\n')+1
 helperend=source.index('\npreflightpull:\n',helperstart)
 helpers=source[helperstart:helperend]
+helpers=helpers.replace("'STATE' rfn rft rfm",'rc=0')
+helpers=helpers.replace("'ERASE' rfn rft rfm",'rc=0')
 findstart=source.index('\nfindpath:\n')+1
 findend=source.index('\nfindfile:\n',findstart)
 findpath=source[findstart:findend]
@@ -3018,6 +3023,7 @@ status=source[start:end]
 status=status.replace(
     "call readrefs", "headref='refs/heads/main'\n  result='OK'")
 status=status.replace("call loadmap", "result='OK'")
+status=status.replace("call readmergestate", "result='ABSENT'")
 status=status.replace("'STATE' mapfn.i mapft.i mapfm.i",
                       "call statestate mapfn.i,mapft.i,mapfm.i")
 status=status.replace(
@@ -3052,6 +3058,8 @@ fixture=(
     " queue 'GITOBJ GITOBJ A1'\n"
     " queue 'PACK0001 PACK A1'\n"
     " queue 'GITWORK REPO A1'\n"
+    " queue 'GITMERG MERGE A1'\n"
+    " queue 'GITMRG BLOB A1'\n"
     " queue 'GITM MODULE A1'\n"
     " queue 'M173NET STAGE A1'\n"
     " queue 'ORPHAN DATA A1'\n"
@@ -3733,6 +3741,7 @@ prefix=(
 for command,block,path in (('STATUS',status,sys.argv[2]),('DIFF',diff,sys.argv[3])):
  fixture=(prefix+f"command='{command}'\n"+
   block.replace('call loadmap',"result='OK'")
+       .replace('call readmergestate',"result='ABSENT'")
        .replace("'STATE' mapfn.i mapft.i mapfm.i",state)
        .replace('call workoid mapfn.i,mapft.i,mapfm.i,maplf.i,0',work)+
   "readrefs:\n headref='refs/heads/test'\n return 'OK'\n"
@@ -3793,6 +3802,7 @@ fixture=(
  "mapstage.1='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'\n"
  "mappath.1='636C65616E'\n" +
  block.replace('call loadmap',"result='OK'")
+ .replace('call readmergestate',"result='ABSENT'")
       .replace("'STATE' mapfn.i mapft.i mapfm.i",'rc=0')
       .replace('call workoid mapfn.i,mapft.i,mapfm.i,maplf.i,0',
                "result='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'")
@@ -5123,7 +5133,7 @@ for token in required:
 for token in ("GITFPACK", "GIT FETCH-IMPORT", "GIT REMOTE"):
     if token in merge:
         raise SystemExit(f"M301 local merge unexpectedly uses {token!r}")
-if any(line.rstrip().endswith(",") and not line.rstrip().endswith(("|,", "&,"))
+if any(line.rstrip().endswith(",") and not line.rstrip().endswith(("|,", "&,", "then,"))
        for line in merge.splitlines()):
     raise SystemExit("M301 merge block contains a CMS-REXX-invalid trailing comma")
 order = (
@@ -5140,7 +5150,7 @@ if positions != sorted(positions):
 if "mergeancestor:" not in g:
     raise SystemExit("M301 ancestry helper missing")
 ancestor_helper = g.split("mergeancestor:", 1)[1].split("localbranchtip:", 1)[0]
-if any(line.rstrip().endswith(",") and not line.rstrip().endswith(("|,", "&,"))
+if any(line.rstrip().endswith(",") and not line.rstrip().endswith(("|,", "&,", "then,"))
        for line in ancestor_helper.splitlines()):
     raise SystemExit("M301 ancestry helper contains a trailing comma")
 for token in (
