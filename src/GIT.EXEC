@@ -1177,6 +1177,11 @@ if command='MERGE' then do
          say 'Or run GIT MERGE --abort to restore the pre-merge worktree'
          exit 8
       end
+      if mgrc=13 then do
+         say 'GIT MERGE: record-level changes merged; branch unchanged'
+         say 'Run GIT MERGE --continue to create the merge commit'
+         exit 8
+      end
       do mgdi=1 to mgbout.0
          say mgbout.mgdi
       end
@@ -2985,7 +2990,12 @@ mergecontinue:
    drop mcout.
    mcout.0=0
    'PIPE CMS EXEC GITWT MERGE-CONTINUE | STEM MCOUT.'
-   if rc\=0 then return 'ERROR'
+   if rc\=0 then do
+      do mci=1 to mcout.0
+         say mcout.mci
+      end
+      return 'ERROR'
+   end
    mcparent=''
    mcmerge=''
    mccommit=''

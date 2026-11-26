@@ -37,6 +37,7 @@ for token in (
     "EXEC GITWT ACCEPT",
     "EXEC GITWT MERGE-CLEAR",
     "MERGE CONTINUE COMPLETE",
+    "say mcout.mci",
 ):
     assert token in continue_helper, token
 
@@ -77,6 +78,10 @@ assert "call pathoidfor mslocal,mappath.abi\n  if result='ERROR'" in WT
 rollback = WT.split("rollbackrestore:", 1)[1].split("writemergestate:", 1)[0]
 assert "'ERASE' rfn rft rfm" in rollback
 assert "call writework rfn,rft,rfm" in rollback
+
+markers = WT.split("workhasmarkers:", 1)[1].split("preflightpull:", 1)[0]
+assert "if whline='<<<<<<< HEAD' then return 1" in markers
+assert "left(whline,7)='======='" not in markers
 
 # State framing is count-checked and uses computed indexes, not stem.(expr).
 state = WT.split("readmergestate:", 1)[1].split("clearmergestate:", 1)[0]

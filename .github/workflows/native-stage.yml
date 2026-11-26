@@ -272,6 +272,8 @@ jobs:
         run: sh tests/check-canonical-source.sh M301
       - name: Check M302 merge conflict lifecycle
         run: python3 tests/test-m302-merge-conflicts.py
+      - name: Check M303 record-level three-way merge
+        run: python3 tests/test-m303-record-merge.py
       - name: Check M260 loose-store GIT LOG fallback
         run: sh tests/check-canonical-source.sh M260
       - name: Check M190 7736-object selective seek closure

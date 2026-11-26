@@ -12,12 +12,12 @@ documented restrictions), **Hygiene** (docs/repo cleanup).
 | Item | Status | Notes |
 |---|---|---|
 | First-class `GIT MERGE` verb | Narrow | M301 adds local branch merge; CMS synthetic merge passed 2026-11-26. Network `PULL` merge remains separate. |
-| Line-level three-way merge | Missing | M302 writes whole-file conflict blocks; no record-level hunk merge yet. |
-| Conflict markers / conflicted state | Narrow | M302 writes whole-file markers, persists `GITMERG MERGE G`, and reports `UU`; CMS-validated. |
+| Record-level three-way merge | Narrow | M303 auto-merges non-overlapping and adjacent record edits with bounded LCS hunks; oversized inputs fall back to whole-file markers. |
+| Conflict markers / conflicted state | Narrow | M302/M303 persist `GITMERG MERGE G`, report `UU`, and localize markers to overlapping record hunks. |
 | `merge --abort` / `--continue` | Narrow | M302 restores the pre-merge local branch on abort and creates a two-parent commit on continue; CMS-validated. |
 | Merge path additions/removals | Missing | Rejected by M300. |
 | Merge mode changes | Missing | Rejected by M300. |
-| Local merge without a remote fetch | Narrow | M301 adds `GIT MERGE <branch>` for local fast-forward and non-conflicting whole-blob merges; host- and CMS-validated. |
+| Local merge without a remote fetch | Narrow | M301–M303 add `GIT MERGE <branch>` for local fast-forward, whole-blob, and bounded record-level merges; host- and CMS-validated. |
 
 ## 2. History editing and worktree — [#213](https://github.com/mostangrymike/cms-git/issues/213)
 
@@ -66,17 +66,16 @@ documented restrictions), **Hygiene** (docs/repo cleanup).
 
 ## 6. CI and tests — [#217](https://github.com/mostangrymike/cms-git/issues/217)
 
-- `main` CI has been red since M297; repair the stale M166 guard first, then
-  confirm the full Python host-test set and the C selectors pass on
-  `native-stage.yml`.
-- `native-stage.yml` is one ~200-step sequential job.
+- M302 GitHub Actions passed; the M303 run is pending at commit time. Keep the
+  full Python host-test set and C selectors green on `native-stage.yml`.
+- `native-stage.yml` is one ~200-step sequential job; splitting it remains work.
 - Tests are source guards + synthetic fixtures, not behavioural differentials
   against reference `git`.
 - No automated CMS target run; native proof is manual.
 
 ## Suggested order
 
-1. Build on M302: record-level three-way merged hunks inside the existing conflict lifecycle (#214).
+1. Complete merge parity: network `PULL` conflict orchestration and path add/remove/mode changes (#214).
 2. cherry-pick / rebase / stash / content diff (#213).
 3. Credential hardening + push parity (#216).
 4. Deep-history strategy + fsck (#215).

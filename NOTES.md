@@ -16478,3 +16478,64 @@ CMS-specific defects found and guarded during M302:
 
 M302 writes whole-file conflict blocks. Record-level three-way merged hunks and
 full network `GIT PULL` conflict orchestration remain future work.
+
+## 2026-11-26 — M303 bounded record-level three-way merge
+
+M303 replaces M302's whole-file-only same-path conflict output with a bounded
+record-level merge while retaining the existing persistent state, abort, stage,
+and continue lifecycle:
+
+- Longest-common-subsequence maps compare base records with each side. Inputs
+  over 2,048 records or 65,536 DP cells per comparison fall back to M302's
+  whole-file marker block.
+- Each side becomes ordered replacement/deletion/insertion hunks. Disjoint
+  hunks, including adjacent record replacements, auto-merge. Identical hunks
+  collapse once; overlapping hunks produce one localized marker block.
+- Auto-merged paths remain staged under `GITMERG MERGE G` and report `RESOLVED`
+  until `GIT MERGE --continue` creates the two-parent commit. Paths with real
+  markers still report `UU`.
+- `workhasmarkers` now keys on the generated `<<<<<<< HEAD` opening record. An
+  ordinary `===========` data record no longer falsely blocks status/continue.
+- `GIT MERGE --continue` now surfaces captured `GITWT` diagnostics when the
+  child command fails.
+
+Host validation passed on the final source: all canonical selectors, the
+no-selector C/source guard, `CHECK`, clone/pull, install, pack, push/GC, M301,
+M302, M303's 15 exact-REXX behavioural cases, archive audit, and LIVEDEPS. The
+Mac lacks GNU `stat -c`, so workflow-only `MAP`/`CONFIG`/`BACKUP` checks are
+deferred to Linux GitHub Actions. M302 Actions run `45897970833` was green.
+
+Real CMS fixture on restored GIT600, with all `M301BK` targets compared before
+any write:
+
+- Original HEAD: `BE43A71F4C6030A0D8D3649DFDFE478409D03A10`.
+- Original tree: `D85AE03297370771E3C1CDBB8AE3708C393F379C`.
+- Parentless root: `94C44D640F22DFF7069B1384FD22810979B31A11`.
+- Separated-edit parents: `BF835187C8EABCF3B761004808E6EBC02A97885F` and
+  `D6CAD50E9F650C543891B8619DD46086E73D63C7`.
+- Separated-edit merge: `A80FBAAD66102F6E7FED9400796985C394475BE9`.
+- Adjacent-edit parents: `D6CAD50E9F650C543891B8619DD46086E73D63C7` and
+  `179BA22FBA3A2C7DCB7979A9CE0E8F8EDE9D94F8`.
+- Adjacent-edit merge: `474898F10AF9EC338456CDAE0994B13AC563128E`.
+- Overlap parents: `179BA22FBA3A2C7DCB7979A9CE0E8F8EDE9D94F8` and
+  `E87E2EEB0F3CBED3805327C29D32E2CCDCCAC15E`.
+- Resolved-overlap merge: `8F32B092A355C640F0BA9897B202959EA50C108C`.
+
+Both auto-merge cases retained the ordinary `===========` record, reported
+`STATUS docs/guide/setup.md RESOLVED`, continued successfully, and LOG showed
+`COMMIT PARENTS 2`. The overlap wrote exactly one localized marker block around
+the changed second record, reported `UU`, then resolved/staged/continued with a
+two-parent commit and clean status.
+
+Temporarily deployed runtime blob hashes:
+
+- `GIT.EXEC`: `ADF24F727C2866DE9BD4174A1FE70355F70CF9C1`.
+- `GITWT.EXEC`: `6243599B0279838B8A0CF4C5591A8A57A66E8681`.
+- `GITVREF.EXEC`: `4ABA294CAC6763FF9EBFFE0C945E927305C60E76`.
+- `GITUPD.EXEC`: `DAF73ECCBF58676583E4039C3D62560D70D0A1BB`.
+
+The final restore compared all 15 runtime/ref/worktree targets identical to
+`M301BK`, cleared merge state/temp files, and left `main` clean with no M303
+branches. A separate read-only pass rechecked those comparisons and verified the
+operator-requested CMS A sed/awk fixture cleanup: `S2TSCR`, `S2TDATA`, `T1`–`T6`,
+and `D1`/`D2` are absent, while recovery archive `CMSUTTST VMARC A` lists all ten.

@@ -5,6 +5,14 @@ lives in `STATUS.md`. This file records what landed, not proof claims.
 
 ## Unreleased
 
+- Add M303 bounded record-level three-way merge: LCS-derived edit hunks
+  auto-merge non-overlapping replacements, insertions, deletions, and adjacent
+  record edits; overlapping hunks produce localized conflict blocks. Auto-merged
+  paths stay staged under the existing merge state until `--continue`. Inputs
+  over 2,048 records or 65,536 LCS cells fall back to whole-file markers.
+  Conflict detection now keys on `<<<<<<< HEAD`, so ordinary `===========`
+  records are not false conflicts. Adds `tests/test-m303-record-merge.py` and a
+  workflow gate.
 - Add M302 persistent merge conflicts: whole-file conflict markers,
   `GITMERG MERGE G` state, `UU` status, `GIT MERGE --abort`, and
   resolve/stage/`GIT MERGE --continue` with a two-parent commit. Rollback
