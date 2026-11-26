@@ -11,7 +11,7 @@ disagrees with this page, this page wins. Last updated 2026-11-26.
 | Latest milestone | **M303** — bounded record-level three-way merge |
 | Latest commit | M303 record-level merge; see `git log -1 --oneline` for the exact commit |
 | Build | no package build; host checks only |
-| Host CI | full local M303 selector/focused gate passes; M302 GitHub Actions passed; M303 Actions pending |
+| Host CI | full local M303 selector/focused gate and GitHub Actions run `45902286121` pass |
 | CMS target | `GIT600 G` restored; M303 separated/adjacent auto-merge and localized conflict/continue passed on 2026-11-26; pre-test M300 runtime restored afterward |
 
 ## What is proven
@@ -73,9 +73,8 @@ disagrees with this page, this page wins. Last updated 2026-11-26.
 - Full `GIT PULL` non-fast-forward fetch/merge orchestration and the G-layout
   migration still need qualification on a disposable G1. The CMS write test
   exercised the merge commit/ref/apply core directly on scratch branches.
-- The M302 GitHub Actions run `45897970833` passed. M303 Actions start on push;
-  the Mac lacks GNU `stat -c`, so workflow-only `MAP`/`CONFIG`/`BACKUP` checks
-  are deferred to the Linux runner.
+- M303 GitHub Actions run `45902286121` passed, including the Linux-only
+  `MAP`/`CONFIG`/`BACKUP` checks that cannot run on this Mac.
 - Old runtime EXEC backups remain on G as `* M300BK G`; VMARC archive of all
   20 pre-update EXECs is `M300BK VMARC G`. VMARC itself is installed on A;
   original binary retained as `VMARCRAW MODULE A`.

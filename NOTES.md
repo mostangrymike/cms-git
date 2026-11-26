@@ -16503,7 +16503,8 @@ Host validation passed on the final source: all canonical selectors, the
 no-selector C/source guard, `CHECK`, clone/pull, install, pack, push/GC, M301,
 M302, M303's 15 exact-REXX behavioural cases, archive audit, and LIVEDEPS. The
 Mac lacks GNU `stat -c`, so workflow-only `MAP`/`CONFIG`/`BACKUP` checks are
-deferred to Linux GitHub Actions. M302 Actions run `45897970833` was green.
+deferred to Linux GitHub Actions. M302 Actions run `45897970833` and M303 Actions
+run `45902286121` were green; the latter completed in 2m29s.
 
 Real CMS fixture on restored GIT600, with all `M301BK` targets compared before
 any write:

@@ -66,8 +66,8 @@ documented restrictions), **Hygiene** (docs/repo cleanup).
 
 ## 6. CI and tests — [#217](https://github.com/mostangrymike/cms-git/issues/217)
 
-- M302 GitHub Actions passed; the M303 run is pending at commit time. Keep the
-  full Python host-test set and C selectors green on `native-stage.yml`.
+- M303 GitHub Actions run `45902286121` passed. Keep the full Python host-test
+  set and C selectors green on `native-stage.yml`.
 - `native-stage.yml` is one ~200-step sequential job; splitting it remains work.
 - Tests are source guards + synthetic fixtures, not behavioural differentials
   against reference `git`.
