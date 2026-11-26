@@ -5077,6 +5077,131 @@ echo 'M283 REF2 READ ROUTE GUARDS PASSED'
 )
 exit $?
 fi
+# M301: first-class local branch merge, reusing the M300 merge core.
+if [ "${1:-}" = "M301" ]; then
+(
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+for file in GIT.EXEC GITWT.EXEC GITVREF.EXEC GITUPD.EXEC; do
+ path="$root/src/$file"
+ test -s "$path"
+ awk 'length($0)>80 {print FILENAME ":" FNR ":" length($0);bad=1}
+      END {exit bad}' "$path"
+ rexx -c "$path" /dev/null
+done
+python3 - "$root" <<'PY'
+from pathlib import Path
+import re
+import sys
+root = Path(sys.argv[1])
+g = (root / "src/GIT.EXEC").read_text()
+u = (root / "src/GITUPD.EXEC").read_text()
+w = (root / "src/GITWT.EXEC").read_text()
+v = (root / "src/GITVREF.EXEC").read_text()
+for name, source in (("GIT", g), ("GITVREF", v), ("GITWT", w), ("GITUPD", u)):
+    if re.search(r"parse upper arg [A-Za-z0-9_.]+ [A-Za-z0-9_.]+", source):
+        raise SystemExit(f"{name} has a CMS-REXX-invalid comma-less PARSE UPPER ARG")
+assert "if command='MERGE' then do" in g
+merge = g.split("if command='MERGE' then do", 1)[1].split("\nend\n", 1)[0]
+required = (
+    "Usage: GIT MERGE <branch>",
+    "call validbranch mrgarg",
+    "call localbranchtip mrgcurrent",
+    "call localbranchtip mrgarg",
+    "call mergeancestor mrgold,mrgnew",
+    "call mergeancestor mrgnew,mrgold",
+    "EXEC GITVREF MERGE-BASE-STACK",
+    "EXEC GITWT CHECK-MERGE-STACK",
+    "EXEC GITWT MERGE-COMMIT-STACK",
+    "EXEC GITUPD PULL-HEAD",
+    "EXEC GITUPD MERGE-HEAD",
+    "MERGE COMPLETE",
+)
+for token in required:
+    if token not in merge:
+        raise SystemExit(f"M301 local merge missing {token!r}")
+for token in ("GITFPACK", "GIT FETCH-IMPORT", "GIT REMOTE"):
+    if token in merge:
+        raise SystemExit(f"M301 local merge unexpectedly uses {token!r}")
+if any(line.rstrip().endswith(",") and not line.rstrip().endswith(("|,", "&,"))
+       for line in merge.splitlines()):
+    raise SystemExit("M301 merge block contains a CMS-REXX-invalid trailing comma")
+order = (
+    "call mergeancestor mrgold,mrgnew",
+    "call mergeancestor mrgnew,mrgold",
+    "EXEC GITVREF MERGE-BASE-STACK",
+    "EXEC GITWT CHECK-MERGE-STACK",
+    "EXEC GITWT MERGE-COMMIT-STACK",
+    "EXEC GITUPD MERGE-HEAD",
+)
+positions = [merge.index(token) for token in order]
+if positions != sorted(positions):
+    raise SystemExit("M301 merge decision/apply order changed")
+if "mergeancestor:" not in g:
+    raise SystemExit("M301 ancestry helper missing")
+ancestor_helper = g.split("mergeancestor:", 1)[1].split("localbranchtip:", 1)[0]
+if any(line.rstrip().endswith(",") and not line.rstrip().endswith(("|,", "&,"))
+       for line in ancestor_helper.splitlines()):
+    raise SystemExit("M301 ancestry helper contains a trailing comma")
+for token in (
+    "parse upper arg maancestor,madescendant",
+    "queue maancestor",
+    "queue madescendant",
+    "macmd='EXEC GITVREF IS-ANCESTOR-STACK'",
+    "'MAKEBUF'",
+    "'DROPBUF' mabuf",
+    "'PIPE CMS' macmd '| STEM MAOUT.'",
+    "ANCESTOR YES",
+    "ANCESTOR NO",
+    "return 'ERROR'",
+):
+    if token not in ancestor_helper:
+        raise SystemExit(f"M301 ancestry helper missing {token!r}")
+for token in (
+    "queue mrgold",
+    "queue mrgnew",
+    "mgcmd='EXEC GITVREF MERGE-BASE-STACK'",
+    "mgcmd='EXEC GITWT CHECK-MERGE-STACK'",
+    "mgcmd='EXEC GITWT MERGE-COMMIT-STACK'",
+    "'MAKEBUF'",
+    "'DROPBUF' mgbuf",
+):
+    if token not in merge:
+        raise SystemExit(f"M301 merge command construction missing {token!r}")
+for token in (
+    "if ref='PULL-HEAD' | ref='MERGE-HEAD' then do",
+    "if ref='PULL-HEAD' then pullkind='FAST-FORWARD'",
+    "else pullkind='MERGED'",
+    "say pullkind branch oldoid newoid",
+    "'DROPBUF' ancbuf",
+):
+    if token not in u:
+        raise SystemExit(f"M301 GITUPD missing {token!r}")
+for token in (
+    "if command='CHECK-MERGE' | command='CHECK-MERGE-STACK' then do",
+    "if command='MERGE-COMMIT' | command='MERGE-COMMIT-STACK' then do",
+    "if command='CHECK-MERGE-STACK' then do",
+    "if command='MERGE-COMMIT-STACK' then do",
+    "call preparemerge",
+    "'-P' mergeparent",
+):
+    if token not in w:
+        raise SystemExit(f"M301 merge core missing {token!r}")
+for token in (
+    "if command='IS-ANCESTOR' | command='IS-ANCESTOR-STACK' then do",
+    "if command='MERGE-BASE' | command='MERGE-BASE-STACK' then do",
+    "if command='IS-ANCESTOR-STACK' then do",
+    "if command='MERGE-BASE-STACK' then do",
+):
+    if token not in v:
+        raise SystemExit(f"M301 ref primitive missing {token!r}")
+print("M301 LOCAL MERGE SOURCE GUARDS PASS", len(required))
+PY
+echo 'M301 REXX syntax and 80-column checks PASS'
+)
+exit $?
+fi
+
 # Fail closed on unknown selector names; never run an unrelated default gate.
 if [ "$#" -gt 1 ]; then
   echo "FAIL: expected at most one guard selector" >&2

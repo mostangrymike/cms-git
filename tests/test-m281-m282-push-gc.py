@@ -135,6 +135,11 @@ for src, name in ((PUSH, "GITPUSH"), (CRED, "GITCRED"),
 assert "ANCESTOR YES" in PUSH
 assert "not a fast-forward; remote has diverged" in PUSH
 assert "GITVREF IS-ANCESTOR" in PUSH
+assert "GITVREF IS-ANCESTOR-STACK" in PUSH
+assert "queue remoteadoid" in PUSH
+assert "queue localtip" in PUSH
+assert "'MAKEBUF'" in PUSH
+assert "'DROPBUF' ancbuf" in PUSH
 
 # Reachability walk is defined and invoked.
 assert "walk_commit:" in PUSH

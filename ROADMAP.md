@@ -11,13 +11,13 @@ documented restrictions), **Hygiene** (docs/repo cleanup).
 
 | Item | Status | Notes |
 |---|---|---|
-| First-class `GIT MERGE` verb | Missing | Merge only happens implicitly in `GIT PULL` (M300). |
+| First-class `GIT MERGE` verb | Narrow | M301 adds local branch merge; CMS synthetic merge passed 2026-11-26. Network `PULL` merge remains separate. |
 | Line-level three-way merge | Missing | Whole-blob only; same-path divergent edits rejected. |
 | Conflict markers / conflicted state | Missing | Fails closed; no markers, no conflicted index. |
 | `merge --abort` / `--continue` | Missing | Rollback snapshots exist; no user command. |
 | Merge path additions/removals | Missing | Rejected by M300. |
 | Merge mode changes | Missing | Rejected by M300. |
-| Local merge without a remote fetch | Missing | Only the pull path builds a merge commit. |
+| Local merge without a remote fetch | Narrow | M301 adds `GIT MERGE <branch>` for local fast-forward and non-conflicting whole-blob merges; host- and CMS-validated. |
 
 ## 2. History editing and worktree — [#213](https://github.com/mostangrymike/cms-git/issues/213)
 
@@ -41,6 +41,7 @@ documented restrictions), **Hygiene** (docs/repo cleanup).
 |---|---|---|
 | Binary workfiles | Missing | CMS text only; fail closed. |
 | Nested paths outside hex PATH map | Narrow | 6g hex `PATH` map only. |
+
 | Submodules / Gitlinks | Missing | Counted, never dereferenced. |
 | Unsupported tree modes | Missing | Fail closed. |
 
@@ -75,7 +76,7 @@ documented restrictions), **Hygiene** (docs/repo cleanup).
 
 ## Suggested order
 
-1. Line-level three-way merge + conflict state + abort (#214).
+1. Build on M301: record-level three-way merge + conflict state + abort (#214).
 2. cherry-pick / rebase / stash / content diff (#213).
 3. Credential hardening + push parity (#216).
 4. Deep-history strategy + fsck (#215).

@@ -5,6 +5,12 @@ lives in `STATUS.md`. This file records what landed, not proof claims.
 
 ## Unreleased
 
+- Add M301 `GIT MERGE <branch>` for local fast-forward and non-conflicting
+  whole-blob merges without a remote fetch. Reuses M300 merge-base,
+  preflight, two-parent commit, ref CAS, and worktree apply; adds
+  `GITUPD MERGE-HEAD` labeling, queued stack-based long-command primitives,
+  and host source/model guards. CMS validation details and the post-test
+  restore are recorded in `NOTES.md`.
 - Add canonical state stack: `STATUS.md`, `ROADMAP.md`, `docs/INDEX.md`,
   `CHANGELOG.md`, and a state-precedence block in `AGENTS.md`.
 - Mark `docs/CURRENT_STATE.md` as history with an M300 header.
@@ -14,7 +20,7 @@ lives in `STATUS.md`. This file records what landed, not proof claims.
 - Fix revision peeling to expose `objectfm` into its private REXX variable
   pool; host guard added. Native-stage CI passed on `3fd30de` and the follow-up
   docs/stress-runner commit `316bd7a`.
-- Deploy 20 current-main/runtime EXEC sources to CMS `GIT600 G` after
+- Deploy 20 then-current-main/runtime EXEC sources to CMS `GIT600 G` after
   hash-verifying staged A files and preserving the previous G sources as
   `M300BK`; VMARC archive created for backup. Item-1 read-only CMS checks
   passed 15/16; deeper history stops at missing object (issue #215).

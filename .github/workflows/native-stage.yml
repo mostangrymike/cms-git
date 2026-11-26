@@ -268,6 +268,8 @@ jobs:
         run: sh tests/check-canonical-source.sh M298
       - name: Check M299 verified pack reader
         run: sh tests/check-canonical-source.sh M299
+      - name: Check M301 local branch merge
+        run: sh tests/check-canonical-source.sh M301
       - name: Check M260 loose-store GIT LOG fallback
         run: sh tests/check-canonical-source.sh M260
       - name: Check M190 7736-object selective seek closure

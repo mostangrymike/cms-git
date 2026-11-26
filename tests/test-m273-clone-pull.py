@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""M273/M274: host source guards for GIT PULL and GIT CLONE.
+"""M273/M274/M301: host guards for GIT CLONE, PULL and local MERGE.
 
 No live remote or CMS target is contacted.  These checks pin the
-usability and safety properties that the clone/pull path relies on:
+usability and safety properties that the clone/pull/merge paths rely on:
 
 * clone resolves the remote default branch instead of assuming "main";
 * clone and no-argument pull honour a configurable bridge endpoint;
@@ -20,6 +20,45 @@ GIT = (ROOT / "src" / "GIT.EXEC").read_text()
 assert "if command='PULL' then do" in GIT
 assert "if command='CLONE' then do" in GIT
 assert "if command='PUSH' then do" in GIT
+assert "if command='MERGE' then do" in GIT
+merge = GIT.split("if command='MERGE' then do", 1)[1].split("\nend\n", 1)[0]
+for token in (
+    "Usage: GIT MERGE <branch>",
+    "call validbranch mrgarg",
+    "call localbranchtip mrgcurrent",
+    "call localbranchtip mrgarg",
+    "call mergeancestor mrgold,mrgnew",
+    "call mergeancestor mrgnew,mrgold",
+    "EXEC GITVREF MERGE-BASE",
+    "EXEC GITWT CHECK-MERGE",
+    "EXEC GITWT MERGE-COMMIT",
+    "EXEC GITUPD PULL-HEAD",
+    "EXEC GITUPD MERGE-HEAD",
+    "MERGE COMPLETE",
+):
+    assert token in merge, token
+for token in ("GITFPACK", "GIT FETCH-IMPORT", "GIT REMOTE"):
+    assert token not in merge, token
+assert not any(line.rstrip().endswith(",") and not line.rstrip().endswith(("|,", "&,"))
+               for line in merge.splitlines())
+assert "mergeancestor:" in GIT
+ancestor_helper = GIT.split("mergeancestor:", 1)[1].split("localbranchtip:", 1)[0]
+assert not any(line.rstrip().endswith(",") and not line.rstrip().endswith(("|,", "&,"))
+               for line in ancestor_helper.splitlines())
+assert "parse upper arg maancestor,madescendant" in ancestor_helper
+assert "queue maancestor" in ancestor_helper
+assert "queue madescendant" in ancestor_helper
+assert "macmd='EXEC GITVREF IS-ANCESTOR-STACK'" in ancestor_helper
+assert "'MAKEBUF'" in ancestor_helper
+assert "'DROPBUF' mabuf" in ancestor_helper
+assert "queue mrgold" in merge
+assert "queue mrgnew" in merge
+assert "mgcmd='EXEC GITVREF MERGE-BASE-STACK'" in merge
+assert "mgcmd='EXEC GITWT CHECK-MERGE-STACK'" in merge
+assert "mgcmd='EXEC GITWT MERGE-COMMIT-STACK'" in merge
+assert merge.count("'MAKEBUF'") >= 3
+assert merge.count("'DROPBUF' mgbuf") >= 3
+assert GIT.index("if command='MERGE' then do") < GIT.index("if command='PULL' then do")
 pull = GIT.split("if command='PULL' then do", 1)[1]
 assert "EXEC GITVREF MERGE-BASE" in pull
 assert "EXEC GITWT CHECK-MERGE" in pull
@@ -135,14 +174,19 @@ assert "'PIPE CMS EXEC GIT PACK-READ' readid '| STEM READOBJ.'" in WT
 assert "readobj.readi='PACK-READ PASS'" in WT
 assert "if readend\\=1 | length(readhex)%2\\=readsize then return 'ERROR'" in WT
 assert "if readtype\\='TREE' then return 'ERROR'" in WT
-assert "if command='CHECK-MERGE' then do" in WT
-assert "if command='MERGE-COMMIT' then do" in WT
+assert "if command='CHECK-MERGE' | command='CHECK-MERGE-STACK' then do" in WT
+assert "if command='MERGE-COMMIT' | command='MERGE-COMMIT-STACK' then do" in WT
+assert "if command='CHECK-MERGE-STACK' then do" in WT
+assert "if command='MERGE-COMMIT-STACK' then do" in WT
 assert "call preparemerge" in WT
 assert "GITWT: merge path additions or removals are unsupported" in WT
 assert "GITWT: content conflict at" in WT
 assert "GITWT: merge mode changes are unsupported" in WT
 assert "'-P' mergeparent" in WT
-assert "if command='MERGE-BASE' then do" in VREF
+assert "if command='MERGE-BASE' | command='MERGE-BASE-STACK' then do" in VREF
+assert "if command='IS-ANCESTOR' | command='IS-ANCESTOR-STACK' then do" in VREF
+assert "if command='MERGE-BASE-STACK' then do" in VREF
+assert "if command='IS-ANCESTOR-STACK' then do" in VREF
 assert "call readparents localcurrent" in VREF
 assert "call readparents remotecurrent" in VREF
 assert "'PIPE CMS EXEC GIT PACK-READ' rpcommit '| STEM RPOUT.'" in VREF
@@ -150,6 +194,13 @@ assert "if rpend\\=1 | length(rphex)%2\\=rpsize then return 'ERROR'" in VREF
 assert "ambiguous merge bases are unsupported" in VREF
 assert "'PIPE CMS EXEC GIT PACK-READ' oid '| STEM OBJ.'" in UPD
 assert "if createmode=0 & (slot=0 | localold\\=oldoid) then do" in UPD
+assert "if ref='PULL-HEAD' | ref='MERGE-HEAD' then do" in UPD
+assert "if ref='PULL-HEAD' then pullkind='FAST-FORWARD'" in UPD
+assert "else pullkind='MERGED'" in UPD
+assert "say pullkind branch oldoid newoid" in UPD
+assert "ancestrycmd='EXEC GITVREF IS-ANCESTOR-STACK'" in UPD
+assert "'EXEC GITWT CHECK-PULL' branch oldoid newoid" in UPD
+assert "'DROPBUF' ancbuf" in UPD
 
 
 def merge_blob(base, local, remote):
@@ -194,6 +245,47 @@ def unique_merge_base(local, remote, parents):
         raise ValueError("ambiguous merge bases")
     return base
 
+
+def is_ancestor(ancestor, descendant, parents):
+    todo = [descendant]
+    seen = set()
+    while todo:
+        node = todo.pop()
+        if node == ancestor:
+            return True
+        if node in seen:
+            continue
+        seen.add(node)
+        todo.extend(parents.get(node, ()))
+    return False
+
+
+def merge_plan(local, target, parents):
+    if local == target:
+        return "up-to-date", local
+    if is_ancestor(local, target, parents):
+        return "fast-forward", target
+    if is_ancestor(target, local, parents):
+        return "up-to-date", local
+    return "merge", unique_merge_base(local, target, parents)
+
+
+assert merge_plan("tip", "tip", {}) == ("up-to-date", "tip")
+assert merge_plan("old", "new", {"new": ("old",)}) == (
+    "fast-forward", "new")
+assert merge_plan("new", "old", {"new": ("old",)}) == (
+    "up-to-date", "new")
+assert merge_plan("left", "right", {
+    "left": ("base",), "right": ("base",),
+}) == ("merge", "base")
+try:
+    merge_plan("left", "right", {
+        "left": ("base-a",), "right": ("base-b",),
+    })
+except ValueError as exc:
+    assert str(exc) == "no merge base"
+else:
+    raise AssertionError("unrelated histories must fail closed")
 
 assert merge_blob("base", "local-only", "base") == "local-only"
 assert merge_blob("base", "base", "remote-only") == "remote-only"

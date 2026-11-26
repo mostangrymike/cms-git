@@ -1033,6 +1033,162 @@ if command = 'FETCH-TRACK' then do
    'EXEC GITUPD' trackingref trackoid expectedoid
    exit rc
 end
+/* M301: merge one local branch without a remote fetch. */
+if command='MERGE' then do
+   parse var rest mrgarg mrgextra
+   if mrgarg='' | mrgextra\='' then do
+      say 'Usage: GIT MERGE <branch>'
+      exit 4
+   end
+   mrgarg=strip(mrgarg)
+   if left(mrgarg,11)='refs/heads/' then mrgarg=substr(mrgarg,12)
+   call validbranch mrgarg
+   if result\='OK' then exit 4
+   drop mghout.
+   mghout.0=0
+   'PIPE CMS EXEC GITVREF HEAD | STEM MGHOUT.'
+   if rc\=0 | mghout.0\=1 then exit 8
+   parse var mghout.1 mrghead extra
+   if extra\='' | left(mrghead,11)\='refs/heads/' then exit 8
+   mrgcurrent=substr(mrghead,12)
+   call validbranch mrgcurrent
+   if result\='OK' then exit 8
+   if mrgarg=mrgcurrent then do
+      say 'GIT MERGE: already on branch' mrgarg
+      exit 8
+   end
+   call localbranchtip mrgcurrent
+   mrgold=result
+   if mrgold='' then do
+      say 'GIT MERGE: current branch has no commit'
+      exit 8
+   end
+   call localbranchtip mrgarg
+   mrgnew=result
+   if mrgnew='' then do
+      say 'GIT MERGE: branch not found' mrgarg
+      exit 8
+   end
+   if mrgold=mrgnew then do
+      say 'Already up to date' mrgold
+      exit 0
+   end
+   call mergeancestor mrgold,mrgnew
+   mrgrel=result
+   if mrgrel='ERROR' then do
+      say 'GIT MERGE: cannot verify commit ancestry'
+      exit 8
+   end
+   if mrgrel='YES' then do
+      'EXEC GITUPD PULL-HEAD' mrgcurrent mrgold mrgnew
+      if rc\=0 then do
+         say 'GIT MERGE: fast-forward update failed'
+         exit rc
+      end
+      say 'MERGE COMPLETE' mrgarg mrgold mrgnew
+      exit 0
+   end
+   call mergeancestor mrgnew,mrgold
+   mrgrel=result
+   if mrgrel='ERROR' then do
+      say 'GIT MERGE: cannot verify reverse ancestry'
+      exit 8
+   end
+   if mrgrel='YES' then do
+      say 'Already up to date' mrgold
+      exit 0
+   end
+   drop mgbout.
+   mgbout.0=0
+   'MAKEBUF'
+   mgbuf=rc
+   if mgbuf<0 then exit 8
+   queue mrgold
+   queue mrgnew
+   mgcmd='EXEC GITVREF MERGE-BASE-STACK'
+   'PIPE CMS' mgcmd '| STEM MGBOUT.'
+   mgrc=rc
+   do while queued()>0
+      parse pull .
+   end
+   'DROPBUF' mgbuf
+   mgbl=''
+   do mgbi=1 to mgbout.0
+      mgbl=mgbl||strip(mgbout.mgbi)
+   end
+   if mgrc\=0 | words(mgbl)\=2 | word(mgbl,1)\='MERGE-BASE' |,
+      length(word(mgbl,2))\=40 |,
+      verify(word(mgbl,2),'0123456789ABCDEF')\=0 then do
+      say 'GIT MERGE: no unique merge base within merge limit'
+      exit 8
+   end
+   mrgbase=word(mgbl,2)
+   'MAKEBUF'
+   mgbuf=rc
+   if mgbuf<0 then exit 8
+   queue mrgcurrent
+   queue mrgold
+   queue mrgnew
+   queue mrgbase
+   mgcmd='EXEC GITWT CHECK-MERGE-STACK'
+   'PIPE CMS' mgcmd '| STEM MGBOUT.'
+   mgrc=rc
+   do while queued()>0
+      parse pull .
+   end
+   'DROPBUF' mgbuf
+   if mgrc\=0 then do
+      say 'GIT MERGE: preflight failed; branch unchanged'
+      exit 8
+   end
+   drop mgcout.
+   mgcout.0=0
+   mrgmsg='Merge_branch_'||mrgarg
+   mrgopts='-T 0 -Z +0000 -M '||mrgmsg
+   'MAKEBUF'
+   mgbuf=rc
+   if mgbuf<0 then exit 8
+   queue mrgcurrent
+   queue mrgold
+   queue mrgnew
+   queue mrgbase
+   queue mrgopts
+   mgcmd='EXEC GITWT MERGE-COMMIT-STACK'
+   'PIPE CMS' mgcmd '| STEM MGCOUT.'
+   mgrc=rc
+   do while queued()>0
+      parse pull .
+   end
+   'DROPBUF' mgbuf
+   if mgrc\=0 then do
+      say 'GIT MERGE: merge commit creation failed'
+      exit 8
+   end
+   mrgcommit=''
+   mrgcommits=0
+   do mgci=1 to mgcout.0
+      if word(mgcout.mgci,1)='COMMIT-STAGED' &,
+         word(mgcout.mgci,2)='COMMIT' & words(mgcout.mgci)=3 then do
+         mrgcandidate=translate(word(mgcout.mgci,3))
+         if length(mrgcandidate)=40 &,
+            verify(mrgcandidate,'0123456789ABCDEF')=0 then do
+            mrgcommits=mrgcommits+1
+            mrgcommit=mrgcandidate
+         end
+      end
+   end
+   if mrgcommits\=1 then do
+      say 'GIT MERGE: merge commit result is ambiguous'
+      exit 8
+   end
+   'EXEC GITUPD MERGE-HEAD' mrgcurrent mrgold mrgcommit
+   if rc\=0 then do
+      say 'GIT MERGE: branch/worktree update failed; merge commit retained'
+      exit rc
+   end
+   say 'MERGE COMPLETE' mrgarg mrgold mrgcommit mrgbase
+   exit 0
+end
 /* M273: fetch, verify and apply one fast-forward pull to a clean flat tree. */
 if command='PULL' then do
    /* No-arg pull: resolve remote, bridge and port from GITREMOT config. */
@@ -1259,14 +1415,24 @@ if command='PULL' then do
     if pullold\=zeros then do
        drop ancestorout.
        ancestorout.0=0
-       ancestorcmd='EXEC GITVREF IS-ANCESTOR'||' '||pullold||' '||pullnew
+       'MAKEBUF'
+       ancbuf=rc
+       if ancbuf<0 then exit 8
+       queue pullold
+       queue pullnew
+       ancestorcmd='EXEC GITVREF IS-ANCESTOR-STACK'
       'PIPE CMS' ancestorcmd '| STEM ANCESTOROUT.'
+      ancestorrc=rc
+      do while queued()>0
+         parse pull .
+      end
+      'DROPBUF' ancbuf
       /* CMS PIPE STEM wraps at column 80, including inside an OID. */
       ancestorline=''
       do ai=1 to ancestorout.0
          ancestorline=ancestorline||strip(ancestorout.ai)
       end
-       if rc\=0 then do
+       if ancestorrc\=0 then do
           say 'GIT PULL: cannot verify commit ancestry'
           exit 8
        end
@@ -1274,14 +1440,23 @@ if command='PULL' then do
        if ancestorline\='ANCESTOR YES' pullold pullnew then do
           drop ancestorout.
           ancestorout.0=0
-          ancestorcmd='EXEC GITVREF IS-ANCESTOR'||' '||pullnew||' '||,
-              pullold
+          'MAKEBUF'
+          ancbuf=rc
+          if ancbuf<0 then exit 8
+          queue pullnew
+          queue pullold
+          ancestorcmd='EXEC GITVREF IS-ANCESTOR-STACK'
           'PIPE CMS' ancestorcmd '| STEM ANCESTOROUT.'
+          ancestorrc=rc
+          do while queued()>0
+             parse pull .
+          end
+          'DROPBUF' ancbuf
           ancestorline=''
           do ai=1 to ancestorout.0
              ancestorline=ancestorline||strip(ancestorout.ai)
           end
-          if rc\=0 then do
+          if ancestorrc\=0 then do
              say 'GIT PULL: cannot verify reverse ancestry'
              exit 8
           end
@@ -1290,14 +1465,23 @@ if command='PULL' then do
           else do
              drop mergebaseout.
              mergebaseout.0=0
-             mergebasecmd='EXEC GITVREF MERGE-BASE'||' '||pullold||' '||,
-                 pullnew
+             'MAKEBUF'
+             mbbuf=rc
+             if mbbuf<0 then exit 8
+             queue pullold
+             queue pullnew
+             mergebasecmd='EXEC GITVREF MERGE-BASE-STACK'
              'PIPE CMS' mergebasecmd '| STEM MERGEBASEOUT.'
+             mergebaserc=rc
+             do while queued()>0
+                parse pull .
+             end
+             'DROPBUF' mbbuf
              mergebaseline=''
              do ai=1 to mergebaseout.0
                 mergebaseline=mergebaseline||strip(mergebaseout.ai)
              end
-             if rc\=0 | words(mergebaseline)\=2 |,
+             if mergebaserc\=0 | words(mergebaseline)\=2 |,
                 word(mergebaseline,1)\='MERGE-BASE' |,
                 length(word(mergebaseline,2))\=40 |,
                 verify(word(mergebaseline,2),,
@@ -1306,22 +1490,44 @@ if command='PULL' then do
                 exit 8
              end
              pullbase=word(mergebaseline,2)
-             mergecheck='EXEC GITWT CHECK-MERGE'||' '||currentbranch||' '||,
-                 pullold||' '||pullnew||' '||pullbase
+             'MAKEBUF'
+             mcbuf=rc
+             if mcbuf<0 then exit 8
+             queue currentbranch
+             queue pullold
+             queue pullnew
+             queue pullbase
+             mergecheck='EXEC GITWT CHECK-MERGE-STACK'
              drop mergecheckout.
              mergecheckout.0=0
              'PIPE CMS' mergecheck '| STEM MERGECHECKOUT.'
-             if rc\=0 then do
+             mergecheckrc=rc
+             do while queued()>0
+                parse pull .
+             end
+             'DROPBUF' mcbuf
+             if mergecheckrc\=0 then do
                 say 'GIT PULL: merge preflight failed; local refs unchanged'
                 exit 8
              end
              drop mergecommitout.
              mergecommitout.0=0
-             mergecmd='EXEC GITWT MERGE-COMMIT'||' '||currentbranch||' '||,
-                 pullold||' '||pullnew||' '||pullbase||,
-                 ' -T 0 -Z +0000 -M Merge_remote_branch'
+             'MAKEBUF'
+             mcbuf=rc
+             if mcbuf<0 then exit 8
+             queue currentbranch
+             queue pullold
+             queue pullnew
+             queue pullbase
+             queue '-T 0 -Z +0000 -M Merge_remote_branch'
+             mergecmd='EXEC GITWT MERGE-COMMIT-STACK'
              'PIPE CMS' mergecmd '| STEM MERGECOMMITOUT.'
-             if rc\=0 then do
+             mergecommcrc=rc
+             do while queued()>0
+                parse pull .
+             end
+             'DROPBUF' mcbuf
+             if mergecommcrc\=0 then do
                 say 'GIT PULL: merge commit creation failed'
                 exit 8
              end
@@ -2728,6 +2934,31 @@ queryref: procedure expose rs.
    'PIPE CMS' cmd '| STEM RS.'
    if rc\=0 then return 'ERROR'
    return 'OK'
+
+mergeancestor:
+   parse upper arg maancestor,madescendant
+   drop maout.
+   maout.0=0
+   'MAKEBUF'
+   mabuf=rc
+   if mabuf<0 then return 'ERROR'
+   queue maancestor
+   queue madescendant
+   macmd='EXEC GITVREF IS-ANCESTOR-STACK'
+   'PIPE CMS' macmd '| STEM MAOUT.'
+   marc=rc
+   do while queued()>0
+      parse pull .
+   end
+   'DROPBUF' mabuf
+   maline=''
+   do mai=1 to maout.0
+      maline=maline||strip(maout.mai)
+   end
+   if marc\=0 then return 'ERROR'
+   if maline='ANCESTOR YES' maancestor madescendant then return 'YES'
+   if maline='ANCESTOR NO' maancestor madescendant then return 'NO'
+   return 'ERROR'
 
 localbranchtip:
    /* Cheap REF2-only lookup of one local branch tip.  Unlike GITVREF RESOLVE

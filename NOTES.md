@@ -16308,3 +16308,100 @@ This validates the CMS merge commit/ref/worktree write core, not the full outer
 network `GIT PULL` flow. A read-only `MERGE-BASE` between existing shallow
 production histories still returns RC 8; the deeper-history gap is tracked in
 #215. Disposable G1 end-to-end qualification remains pending.
+
+## 2026-11-26 — restore GIT600 directory entry and validate M301 local merge
+
+### Directory recovery
+
+The live CP directory matched `CANDGD DIRECT C`: `WEBCONS` existed with
+privilege classes `DEG`, while `CP QUERY MDISK USERID MAINT 0600 DIRECTORY`
+returned `HCPQMD040E`. Local diffs of every `* DIRECT` file on `MAINT 02CC`
+showed that `CANDWEB`, `CANDGE`, and `CANDGD` each removed exactly two MAINT
+records while adding `WEBCONS`:
+
+- `MDISK 600 3390 6000 1600 VMCOM1 W` — the GIT600 minidisk.
+- `MDISK 0601 3390 3331 72 M01W01 W` — a separate minidisk, still not restored.
+
+`USER DIRECT` and `M173BAK DIRECT` also lacked both records. `CANDFIN`,
+`CANDNODM`, and `M173NEW` retained the GIT600 record. The web-console candidate
+change, not the earlier DirMaint removal, was the point where GIT600 disappeared
+from the active directory.
+
+Recovery used a new candidate rather than editing any source in place:
+
+1. Copied active `CANDGD DIRECT C` to new backup `CANDGD DRBK26 C` and verified
+   it with `COMPARE`.
+2. Derived `CANDG600 DIRECT A`, inserted only the GIT600 `MDISK 600` line after
+   the unique `MDISK 29D` anchor with native `PATCH (CHECK`/`PATCH`, and verified
+   4296 → 4297 records.
+3. Normalized to fixed 80-byte records as `CANDGF80 DIRECT A`; `LISTFILE`
+   showed `F 80 4297`, and `DIRECTXA CANDGF80 DIRECT A (EDIT` returned
+   `EOJ DIRECTORY NOT UPDATED` with no diagnostics.
+4. After explicit approval, activated `DIRECTXA CANDGF80 DIRECT A`. Result:
+   `EOJ DIRECTORY UPDATED AND ON LINE`, `HCPDIR494I User directory occupies 58
+   disk pages`.
+5. Verified `CP QUERY MDISK USERID MAINT 0600 DIRECTORY` now returns
+   `MAINT 0600 MAINT 0600`, `WEBCONS` remains `DEG`, and a fresh read-only
+   `CP LINK MAINT 0600 0600 RR` / `ACCESS 0600 G` exposes label `GIT600` with
+   `GITMETA REPO G` and `GIT EXEC G` present.
+
+Rollback remains `DIRECTXA CANDGD DIRECT C`. `CANDGF80 DIRECT A`, `CANDGD
+DRBK26 C`, and the earlier source/candidate backups remain in place. No FORMAT,
+object deletion, or GIT600 data rewrite was performed.
+
+### M301 implementation and CMS proof
+
+M301 adds first-class `GIT MERGE <branch>` for local fast-forward,
+already-contained, and non-conflicting whole-blob merge without a remote fetch.
+It reuses M300 merge-base, preflight, two-parent commit, ref CAS, and worktree
+apply, with `GITUPD MERGE-HEAD` for merge-specific output.
+
+CMS validation exposed three host-only guards could not catch:
+
+- `PIPE CMS` truncates command strings longer than 80 columns, so two-OID
+  ancestry/merge-base and four/five-argument merge commands printed usage.
+  `GITVREF IS-ANCESTOR-STACK`, `MERGE-BASE-STACK`, and `GITWT
+  CHECK-MERGE-STACK`, `MERGE-COMMIT-STACK` now accept queued arguments through
+  short commands. `GITUPD CHECK-PULL` uses direct CMS invocation because only
+  its RC is needed.
+- Queued arguments must be isolated with `MAKEBUF`/`DROPBUF`; stale program-stack
+  data otherwise replaces the intended OIDs. Every MERGE/PULL/UPD/PUSH queued
+  call now drains and drops its private buffer.
+- CMS REXX requires the comma in `PARSE UPPER ARG maancestor,madescendant`.
+  Regina accepted the comma-less form, but CMS passed only one argument. M301
+  guards now reject comma-less multi-variable `PARSE UPPER ARG` in all changed
+  runtime sources.
+
+Real CMS synthetic fixture on restored GIT600:
+
+- Original HEAD: `BE43A71F4C6030A0D8D3649DFDFE478409D03A10`.
+- Original tree: `D85AE03297370771E3C1CDBB8AE3708C393F379C`.
+- Parentless root: `E02477018DFBF9CDE3C37619B45F7019DB420CEC`.
+- Local parent: `7E103F605B4068EC9E19D00F16445EE4EB939EFB`.
+- Second parent: `B13B6FABC1F9FF67702943E745BD4DE9730452FF`.
+- Merge commit: `868157275B4ADFFBDA05C1E22CEDBF8544A49F34`.
+- Merge tree: `80152D85A44475D5C60AD8434B760DBFE7B35FC9`.
+
+`GIT MERGE m306b` returned `MERGED` and `MERGE COMPLETE`; worktree apply
+reported one changed mapped file. `GIT LOG -n 1` showed both parents and
+`COMMIT PARENTS 2`. Both synthetic file markers were present, `GIT STATUS
+--short` was clean, and the full restore/verify script passed.
+
+Temporarily deployed runtime blob hashes:
+
+- `GIT.EXEC`: `2CF0A400FE4FAD166719B3BF58F0C8075F1FF0A4`.
+- `GITUPD.EXEC`: `DAF73ECCBF58676583E4039C3D62560D70D0A1BB`.
+- `GITVREF.EXEC`: `4ABA294CAC6763FF9EBFFE0C945E927305C60E76`.
+- `GITWT.EXEC`: `E9880A657A7AAF9F3AABCB27EC0450B8D7670B72`.
+- `GITPUSH.EXEC`: `B561B0EDF586C96009052A4F65BDCC4D8B61CF63`.
+
+`M301BK` backups were created for all five runtime EXECs, `GITREF2`,
+`GITWORK`, and all eight mapped workfiles. After the test every target was
+restored with `COPYFILE ... (REPLACE OLDDATE` and verified identical with
+`COMPARE`; branch list and clean status matched the original state. The test
+objects remain unreachable on G. Staging EXECs, hunks, probes, and backups were
+left in place; no scratch file or object deletion was performed.
+
+The host TLS bridge was also restored in documented `http` mode on
+`192.168.200.1:8443`; 44 bridge tests and the 125-test offline build passed.
+CMS-side bridge use remains unproven.
