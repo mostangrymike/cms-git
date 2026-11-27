@@ -11,7 +11,7 @@ disagrees with this page, this page wins. Last updated 2026-11-26.
 | Latest milestone | **M305** — structural merge changes |
 | Latest commit | M305 structural merge support; see `git log -1 --oneline` for the exact commit |
 | Build | no package build; host checks only |
-| Host CI | full local M305 selector/focused gate passes; GitHub Actions validation pending |
+| Host CI | full local M305 selector/focused gate and GitHub Actions run `45936644213` pass |
 | CMS target | `GIT600 G` restored; M305 conflict/abort, pure mode-only, and structural auto-merge pulls passed on 2026-11-26 with synthetic verified fetch stubs; all `M301BK` targets and `M305BK` `GITFPACK` were restored and rechecked read-only |
 
 ## What is proven

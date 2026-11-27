@@ -66,8 +66,8 @@ documented restrictions), **Hygiene** (docs/repo cleanup).
 
 ## 6. CI and tests — [#217](https://github.com/mostangrymike/cms-git/issues/217)
 
-- The full local M305 selector/focused gate passes; GitHub Actions validation is
-  pending. Keep the full Python host-test set and C selectors green.
+- The full local M305 selector/focused gate and GitHub Actions run
+  `45936644213` passed. Keep the full Python host-test set and C selectors green.
 - `native-stage.yml` is one ~200-step sequential job; splitting it remains work.
 - Tests are source guards + synthetic fixtures, not behavioural differentials
   against reference `git`.

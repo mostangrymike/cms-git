@@ -16622,7 +16622,7 @@ M305 extends the M302/M303/M304 persistent merge lifecycle:
 Host validation passed on the final source: all canonical selectors, the
 no-selector source/C guard, `CHECK`, clone/pull, install, pack, push/GC, M302,
 M303, M304, M305, archive audit, LIVEDEPS, Regina syntax, 80-column checks, and
-`git diff --check`.
+`git diff --check`. GitHub Actions run `45936644213` passed in 3m1s.
 
 CMS validation used synthetic verified `GITFPACK` stubs but the real `GIT PULL`
 import, activation, ancestry, merge-base, conflict/abort, mode-only continue,
