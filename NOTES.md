@@ -16787,3 +16787,8 @@ the shared dispatch; the full local selector/focused workflow gate;
 `restore-cms-exec.py AUDIT` and `LIVEDEPS`; and `git diff --check`. No CMS target
 run was performed, so M307 is host-proven only. The source archive entry for
 `GITWT.EXEC` was refreshed because that runtime EXEC is restored on demand.
+
+GitHub Actions run `46082118223` for commit `6c1988e` passed in 2m46s, including
+the Linux-only `MAP`/`CONFIG`/`BACKUP` checks that are not runnable on the macOS
+workstation. M307 remains host-proven only; no CMS target run was attempted and
+no live repository state was changed.

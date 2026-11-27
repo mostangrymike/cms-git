@@ -11,7 +11,7 @@ disagrees with this page, this page wins. Last updated 2026-11-27.
 | Latest milestone | **M307** — single-parent `GIT CHERRY-PICK` replay |
 | Latest commit | M307 cherry-pick replay, host guard, and historical guard alignment; see `git log -1 --oneline` for the exact commit |
 | Build | no package build; host checks only |
-| Host CI | full local M307 selector/focused gate pass; GitHub Actions pending |
+| Host CI | full local M307 selector/focused gate and GitHub Actions run `46082118223` pass |
 | CMS target | G runtime restored from `M306BK`; live clone/up-to-date/incremental pull passed on disposable `0601 B`; legacy G repository hashes unchanged; B remains formatted as `M0601B` at 6,964 cylinders |
 
 ## What is proven
@@ -68,8 +68,8 @@ disagrees with this page, this page wins. Last updated 2026-11-27.
   merge machinery. The resulting commit has one parent (the previous branch
   tip) and is applied through `GITUPD MERGE-HEAD`, which verifies the branch,
   ancestry, clean worktree, ref CAS, and worktree apply. Host source/guard,
-  archive, workflow, Regina syntax, and 80-column gates pass. CMS target proof
-  is pending.
+  archive, workflow, Regina syntax, and 80-column gates pass, as does GitHub
+  Actions run `46082118223`. CMS target proof is pending.
 - M306 keeps runtime/support files on G and selects each repository disk with
   `GIT --FM <letter>`. Clone requires an explicit filemode and rejects non-empty
   repository namespaces. A provisioned `0601 B` completed real bridge clone,
