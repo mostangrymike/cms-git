@@ -16708,6 +16708,9 @@ the mapped-worktree cap:
 - Incremental remote tip: `1389184747E98D28616EBC0516D86BA677898A9A`.
 - Clone performed real discovery, POST, three-object pack import/verification,
   activation, ref creation, and B-disk worktree checkout.
+- A clean one-shot `GIT CLONE` after the final hotfixes was not rerun because B
+  was already populated and another FORMAT was not approved. The tiny repository
+  was completed with `FETCH-TRACK` and `GITUPD --FM B PULL-HEAD`.
 - A second pull returned `Already up to date`.
 - The incremental pull returned `FAST-FORWARD`, `PULL COMPLETE`, installed three
   objects, added `SECOND TXT B`, and left clean status. LOG verified the new tip

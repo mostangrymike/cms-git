@@ -96,7 +96,10 @@ disagrees with this page, this page wins. Last updated 2026-11-27.
 - Live network `GIT PULL` now passes through the workstation TLS bridge on
   disposable `0601 B`. Native guest TLS remains unsupported. The client still
   requires an explicit repository filemode; an interactive clone prompt is not
-  implemented.
+  implemented. A clean one-shot `GIT CLONE` after the final hotfixes was not
+  rerun because B was already populated and another FORMAT was not approved;
+  the tiny repository was completed with `FETCH-TRACK` and
+  `GITUPD --FM B PULL-HEAD`.
 - M304 GitHub Actions run `45922512194` passed, including the Linux-only
   `MAP`/`CONFIG`/`BACKUP` checks that cannot run on this Mac.
 - Old runtime EXEC backups remain on G as `* M300BK G`; VMARC archive of all
