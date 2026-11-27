@@ -66,8 +66,8 @@ documented restrictions), **Hygiene** (docs/repo cleanup).
 
 ## 6. CI and tests — [#217](https://github.com/mostangrymike/cms-git/issues/217)
 
-- The full local M304 selector/focused gate passes; M303 GitHub Actions run
-  `45902286121` passed. M304 Actions start on push.
+- The full local M304 selector/focused gate and GitHub Actions run
+  `45922512194` passed. Keep the full Python host-test set and C selectors green.
 - `native-stage.yml` is one ~200-step sequential job; splitting it remains work.
 - Tests are source guards + synthetic fixtures, not behavioural differentials
   against reference `git`.

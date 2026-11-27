@@ -16561,7 +16561,8 @@ lifecycle:
 
 Host validation passed on the final source: all canonical selectors, the
 no-selector source/C guard, `CHECK`, clone/pull, install, pack, push/GC, M301,
-M302, M303, M304, archive audit, and LIVEDEPS.
+M302, M303, M304, archive audit, and LIVEDEPS. GitHub Actions run
+`45922512194` passed in 2m55s.
 
 CMS validation used a synthetic verified `GITFPACK` stub but the real
 `GIT PULL` import, activation, ancestry, merge-base, conflict/auto-merge,

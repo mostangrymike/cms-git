@@ -11,7 +11,7 @@ disagrees with this page, this page wins. Last updated 2026-11-26.
 | Latest milestone | **M304** — fetched-tip pull merge orchestration |
 | Latest commit | M304 pull conflict orchestration; see `git log -1 --oneline` for the exact commit |
 | Build | no package build; host checks only |
-| Host CI | full local M304 selector/focused gate passes; M303 GitHub Actions `45902286121` passed; M304 Actions pending |
+| Host CI | full local M304 selector/focused gate and GitHub Actions run `45922512194` pass |
 | CMS target | `GIT600 G` restored; M304 conflict/abort and auto-merge pulls passed on 2026-11-26 with a synthetic verified fetch stub; pre-test runtime and `GITFPACK` restored afterward |
 
 ## What is proven
@@ -81,8 +81,8 @@ disagrees with this page, this page wins. Last updated 2026-11-26.
 - Live network `GIT PULL` transport and the G-layout migration still need
   qualification on a disposable G1. M304 proves the post-fetch orchestration
   with standard packs through a synthetic fetch stub.
-- M303 GitHub Actions run `45902286121` passed, including the Linux-only
-  `MAP`/`CONFIG`/`BACKUP` checks; M304 Actions start on push.
+- M304 GitHub Actions run `45922512194` passed, including the Linux-only
+  `MAP`/`CONFIG`/`BACKUP` checks that cannot run on this Mac.
 - Old runtime EXEC backups remain on G as `* M300BK G`; VMARC archive of all
   20 pre-update EXECs is `M300BK VMARC G`. VMARC itself is installed on A;
   original binary retained as `VMARCRAW MODULE A`.
