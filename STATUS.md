@@ -8,11 +8,11 @@ disagrees with this page, this page wins. Last updated 2026-11-26.
 | Field | Value |
 |---|---|
 | Branch | `main` |
-| Latest milestone | **M303** — bounded record-level three-way merge |
-| Latest commit | M303 record-level merge; see `git log -1 --oneline` for the exact commit |
+| Latest milestone | **M304** — fetched-tip pull merge orchestration |
+| Latest commit | M304 pull conflict orchestration; see `git log -1 --oneline` for the exact commit |
 | Build | no package build; host checks only |
-| Host CI | full local M303 selector/focused gate and GitHub Actions run `45902286121` pass |
-| CMS target | `GIT600 G` restored; M303 separated/adjacent auto-merge and localized conflict/continue passed on 2026-11-26; pre-test M300 runtime restored afterward |
+| Host CI | full local M304 selector/focused gate passes; M303 GitHub Actions `45902286121` passed; M304 Actions pending |
+| CMS target | `GIT600 G` restored; M304 conflict/abort and auto-merge pulls passed on 2026-11-26 with a synthetic verified fetch stub; pre-test runtime and `GITFPACK` restored afterward |
 
 ## What is proven
 
@@ -48,10 +48,17 @@ disagrees with this page, this page wins. Last updated 2026-11-26.
   `474898F10AF9EC338456CDAE0994B13AC563128E` (adjacent edits), and
   `8F32B092A355C640F0BA9897B202959EA50C108C` (resolved overlap), then restored
   every runtime/ref/workfile backup and left `main` clean.
+- M304 routes divergent fetched tips through the M303 conflict stack. Real
+  conflicts persist with `UU` while the remote-tracking ref advances and the
+  local branch stays unchanged; abort restores the local tip/worktree and keeps
+  the tracking ref. Clean record-level pulls auto-continue to a two-parent
+  commit. A CMS synthetic-fetch fixture produced merge commit
+  `5E5645DE2B5BA00A89088060737A509B04D144D1`, then restored every M301BK target
+  and the original `GITFPACK` byte-for-byte.
 - CMS runtime source deployed on `GIT600 G` on 2026-11-16. The active
   `GIT.EXEC` blob is `96B343E3A881CDC1B4CA94E59056213E74DB35B8`; all 20 promoted
   runtime EXECs matched the then-current main/archive Git blob hashes.
-  M301–M303 are not included in that deployment. The existing `GIT LEVEL M176`
+  M301–M304 are not included in that deployment. The existing `GIT LEVEL M176`
   output is a native-generation marker, not the whole-client source revision.
 - Item-1 read-only user-command stress: 15/16 passed on the updated G runtime.
   `GIT LOG -n 16` stopped at missing object `C30F39A6` (tracked in issue #215).
@@ -62,19 +69,20 @@ disagrees with this page, this page wins. Last updated 2026-11-26.
 - Host/CI success is **not** CMS target proof. Do not describe a milestone as
   target-proven unless a real CMS run is recorded.
 - M303 is bounded to 2,048 records and 65,536 LCS cells per side; larger inputs
-  fall back to whole-file markers. Full network `GIT PULL` conflict orchestration
-  is still pending.
+  fall back to whole-file markers. M304 CMS proof used a synthetic verified
+  fetch stub; live network transport was not rerun. Path additions/removals and
+  mode changes remain unsupported.
 - `MAINT 0600` was restored to the CP directory on 2026-11-26 after the
   web-console candidate `CANDGD` was found to have dropped both `MDISK 600`
   (GIT600) and `MDISK 0601`. Only GIT600 was restored, through validated
   candidate `CANDGF80 DIRECT A`; rollback source `CANDGD DIRECT C` and backup
   `CANDGD DRBK26 C` remain on `02CC`.
 
-- Full `GIT PULL` non-fast-forward fetch/merge orchestration and the G-layout
-  migration still need qualification on a disposable G1. The CMS write test
-  exercised the merge commit/ref/apply core directly on scratch branches.
+- Live network `GIT PULL` transport and the G-layout migration still need
+  qualification on a disposable G1. M304 proves the post-fetch orchestration
+  with standard packs through a synthetic fetch stub.
 - M303 GitHub Actions run `45902286121` passed, including the Linux-only
-  `MAP`/`CONFIG`/`BACKUP` checks that cannot run on this Mac.
+  `MAP`/`CONFIG`/`BACKUP` checks; M304 Actions start on push.
 - Old runtime EXEC backups remain on G as `* M300BK G`; VMARC archive of all
   20 pre-update EXECs is `M300BK VMARC G`. VMARC itself is installed on A;
   original binary retained as `VMARCRAW MODULE A`.

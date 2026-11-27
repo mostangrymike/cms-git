@@ -1452,6 +1452,9 @@ if command='PULL' then do
    call localbranchtip currentbranch
    pullold=result
    zeros='0000000000000000000000000000000000000000'
+   pullconflict=0
+   pullautomerge=0
+   pullupdated=0
    /* An unborn branch has no local tip: the first pull creates it.  The
       ref updater only takes this path when HEAD still names this branch and
       no branch record exists, so a missing tip cannot overwrite another
@@ -1557,10 +1560,41 @@ if command='PULL' then do
                 parse pull .
              end
              'DROPBUF' mcbuf
-             if mergecheckrc\=0 then do
+             if mergecheckrc=12 then do
+                'MAKEBUF'
+                mcbuf=rc
+                if mcbuf<0 then exit 8
+                queue currentbranch
+                queue pullold
+                queue pullnew
+                queue pullbase
+                queue branchfromremote
+                mergecmd='EXEC GITWT MERGE-CONFLICT-STACK'
+                drop mergeconflictout.
+                mergeconflictout.0=0
+                'PIPE CMS' mergecmd '| STEM MERGECONFLICTOUT.'
+                mergeconflictrc=rc
+                do while queued()>0
+                   parse pull .
+                end
+                'DROPBUF' mcbuf
+                if mergeconflictrc=12 then pullconflict=1
+                else if mergeconflictrc=13 then pullautomerge=1
+                else do
+                   do ai=1 to mergeconflictout.0
+                      say mergeconflictout.ai
+                   end
+                   say 'GIT PULL: conflict preparation failed; local refs',
+                       'unchanged'
+                   exit 8
+                end
+                pulltarget=pullold
+             end
+             else if mergecheckrc\=0 then do
                 say 'GIT PULL: merge preflight failed; local refs unchanged'
                 exit 8
              end
+             if pullconflict=0 & pullautomerge=0 then do
              drop mergecommitout.
              mergecommitout.0=0
              'MAKEBUF'
@@ -1600,11 +1634,12 @@ if command='PULL' then do
                 exit 8
              end
              pulltarget=mergecommit
+             end
           end
        end
     end
     else pulltarget=pullnew
-    if pulltarget\=pullold then do
+    if pulltarget\=pullold & pullconflict=0 & pullautomerge=0 then do
        pullcheckcmd='EXEC GITWT CHECK-PULL'||' '||currentbranch||' '||,
            pullold||' '||pulltarget
        drop pullcheckout.
@@ -1639,12 +1674,33 @@ if command='PULL' then do
       say 'GIT PULL: remote-tracking ref update failed; local branch unchanged'
       exit rc
    end
-    'EXEC GITUPD PULL-HEAD' currentbranch pullold pulltarget
-   if rc\=0 then do
-      say 'GIT PULL: branch unchanged; tracking ref records fetched tip'
-      exit rc
+   if pullconflict=1 then do
+      do ai=1 to mergeconflictout.0
+         say mergeconflictout.ai
+      end
+      say 'PULL CONFLICTS RECORDED' pullremote branchfromremote,
+          pullold pullnew
+      say 'Resolve and stage conflicts, then run GIT MERGE --continue'
+      say 'Or run GIT MERGE --abort to restore the pre-merge worktree'
+      exit 8
    end
-    say 'PULL COMPLETE' pullremote branchfromremote pullold pulltarget
+   if pullautomerge=1 then do
+      call mergecontinue
+      if result\='OK' then do
+         say 'GIT PULL: automatic merge continue failed; inspect merge state'
+         exit 8
+      end
+      pulltarget=mccommit
+      pullupdated=1
+   end
+   if pullupdated=0 then do
+      'EXEC GITUPD PULL-HEAD' currentbranch pullold pulltarget
+      if rc\=0 then do
+         say 'GIT PULL: branch unchanged; tracking ref records fetched tip'
+         exit rc
+      end
+   end
+   say 'PULL COMPLETE' pullremote branchfromremote pullold pulltarget
     if pulltarget\=pullnew then say 'PULL REMOTE TIP' pullnew
    say 'PULL PACK RETAINED' pullpack 'INDEX' pullindex objectfm
    exit 0

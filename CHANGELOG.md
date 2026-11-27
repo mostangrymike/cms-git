@@ -5,6 +5,12 @@ lives in `STATUS.md`. This file records what landed, not proof claims.
 
 ## Unreleased
 
+- Add M304 fetched-tip merge orchestration for `GIT PULL`: divergent verified
+  tips route through the M303 conflict stack. Real conflicts persist for
+  `GIT MERGE --continue`/`--abort` while the remote-tracking ref advances and
+  the local branch stays unchanged; clean record-level auto-merges continue to
+  a two-parent commit. Adds `tests/test-m304-pull-conflicts.py` and a workflow
+  gate.
 - Add M303 bounded record-level three-way merge: LCS-derived edit hunks
   auto-merge non-overlapping replacements, insertions, deletions, and adjacent
   record edits; overlapping hunks produce localized conflict blocks. Auto-merged

@@ -16540,3 +16540,63 @@ The final restore compared all 15 runtime/ref/worktree targets identical to
 branches. A separate read-only pass rechecked those comparisons and verified the
 operator-requested CMS A sed/awk fixture cleanup: `S2TSCR`, `S2TDATA`, `T1`–`T6`,
 and `D1`/`D2` are absent, while recovery archive `CMSUTTST VMARC A` lists all ten.
+
+## 2026-11-26 — M304 fetched-tip pull merge orchestration
+
+M304 connects the verified fetch path to the M302/M303 persistent merge
+lifecycle:
+
+- A divergent fetched tip still uses `GITVREF MERGE-BASE-STACK` and
+  `GITWT CHECK-MERGE-STACK`. RC12 now queues branch, local tip, remote tip,
+  merge base, and remote branch into `GITWT MERGE-CONFLICT-STACK` instead of
+  failing preflight.
+- RC12 from conflict preparation records localized markers/state and leaves the
+  local branch unchanged. The remote-tracking ref advances first, then pull
+  exits 8 with `GIT MERGE --continue`/`--abort` instructions.
+- RC13 means M303 auto-merged the records. Pull updates the tracking ref, calls
+  the existing `mergecontinue`, and reports the resulting two-parent commit.
+- The old whole-blob `MERGE-COMMIT-STACK` block is explicitly skipped for both
+  conflict and record-auto-merge outcomes, preventing fall-through after staged
+  worktree changes.
+
+Host validation passed on the final source: all canonical selectors, the
+no-selector source/C guard, `CHECK`, clone/pull, install, pack, push/GC, M301,
+M302, M303, M304, archive audit, and LIVEDEPS.
+
+CMS validation used a synthetic verified `GITFPACK` stub but the real
+`GIT PULL` import, activation, ancestry, merge-base, conflict/auto-merge,
+tracking-ref, ref-CAS, worktree, abort, and continue paths. Host Git built a
+standard eight-path base and two standard remote commits; fixed-80 FTP downloads
+were normalized to the exact existing Git blob bytes. Packs were sparse and
+CMS-aware: the requested commit was always staged, while already-present
+trees/blobs were omitted. This avoided stale native-fixture object collisions
+without weakening pack verification.
+
+Fixture OIDs:
+
+- Standard base: `26EAA417BB4101174A67A37D20096B864779FEB0`.
+- CMS local parent: `4005E83C9F8464938969E7F81DB7DC2452134DAE`.
+- Conflict remote: `FD498A81DF0BB4606F3F6A739563FD09C712939A`.
+- Auto-merge remote: `A5887DD5E38CE69DA0B0B8B13F06B29884733A1D`.
+- Auto-merge commit: `5E5645DE2B5BA00A89088060737A509B04D144D1`.
+
+The conflicting pull wrote one localized marker block, reported
+`UU docs/guide/setup.md`, kept the local tip unchanged, and advanced
+`refs/remotes/origin/m304local`. `GIT MERGE --abort` restored local content and
+tip, cleared state, and preserved the tracking ref. The second pull auto-merged
+the local first-record edit with the remote third-record edit, continued to a
+two-parent commit, cleared state, and left clean status. LOG showed
+`COMMIT PARENTS 2`.
+
+Temporarily deployed runtime blob hashes:
+
+- `GIT.EXEC`: `2E8B749D93F6A557993461D28339915F30A9AE85`.
+- `GITWT.EXEC`: `6243599B0279838B8A0CF4C5591A8A57A66E8681`.
+- `GITVREF.EXEC`: `4ABA294CAC6763FF9EBFFE0C945E927305C60E76`.
+- `GITUPD.EXEC`: `DAF73ECCBF58676583E4039C3D62560D70D0A1BB`.
+
+The final restore compared all 15 runtime/ref/worktree targets identical to
+`M301BK`, restored `GITFPACK` from `M304BK`, removed merge state/temp files, and
+left `main` clean with no M304 branch. A separate read-only pass rechecked all
+comparisons. Live network transport was not rerun; M304 proves post-fetch pull
+orchestration with standard packs, not a new end-to-end network qualification.
