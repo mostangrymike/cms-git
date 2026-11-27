@@ -11,7 +11,7 @@ disagrees with this page, this page wins. Last updated 2026-11-27.
 | Latest milestone | **M308** — narrow single-slot tracked-workfile stash |
 | Latest commit | M308 stash save/pop, host guard, and archive refresh; see `git log -1 --oneline` for the exact commit |
 | Build | no package build; host checks only |
-| Host CI | full local M308 selector/focused gate pass; GitHub Actions pending |
+| Host CI | full local M308 selector/focused gate and GitHub Actions run `46083724085` pass |
 | CMS target | G runtime restored from `M306BK`; live clone/up-to-date/incremental pull passed on disposable `0601 B`; legacy G repository hashes unchanged; B remains formatted as `M0601B` at 6,964 cylinders |
 
 ## What is proven
@@ -68,7 +68,8 @@ disagrees with this page, this page wins. Last updated 2026-11-27.
   then restores workfiles from HEAD and resets the index. Pop replays the
   snapshot through the verified `CHERRY-PICK` path and clears the sidecar only
   on success. Host source/guard, archive, workflow, Regina syntax, and
-  80-column gates pass. CMS target proof is pending.
+  80-column gates pass, as does GitHub Actions run `46083724085`. CMS target
+  proof is pending.
 - M307 adds `GIT CHERRY-PICK <commit-id> [-m message]`. It resolves the picked
   commit through the verified `COMMIT-INFO` reader, requires exactly one parent,
   and replays its changes onto the current branch with the M301–M305 three-way
