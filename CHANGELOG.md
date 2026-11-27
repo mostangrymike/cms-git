@@ -5,6 +5,14 @@ lives in `STATUS.md`. This file records what landed, not proof claims.
 
 ## Unreleased
 
+- Add M308 `GIT STASH [-m message]` and `GIT STASH POP`. Save stages tracked
+  workfiles, creates a single-parent snapshot commit without moving the branch,
+  records its OID in a strictly validated `GITSTASH REPO` sidecar, then restores
+  workfiles from HEAD and resets the index. Pop replays the snapshot through
+  `CHERRY-PICK` and clears the sidecar only after a successful update. Narrow
+  scope: one slot, at most 16 mapped paths, no untracked files, staged
+  additions, deletions, or structural changes. Adds
+  `tests/test-m308-stash.py` and a workflow gate. Host-proven only.
 - Add M307 single-parent `GIT CHERRY-PICK <commit-id> [-m message]`. A verified
   `COMMIT-INFO` reader rejects root and merge commits; the M301–M305 three-way
   merge stack replays clean content changes onto the current branch, builds a

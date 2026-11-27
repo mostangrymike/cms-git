@@ -1366,6 +1366,136 @@ if command='CHERRY-PICK' then do
    say 'CHERRY-PICK COMPLETE' cpoid cptip cpcommit
    exit 0
 end
+/* M308: single-slot stash of tracked worktree changes. */
+if command='STASH' then do
+   parse var rest stfirst stsecond .
+   if translate(strip(stfirst))='POP' then do
+      if strip(stsecond)\='' then do
+         say 'Usage: GIT STASH POP'
+         exit 4
+      end
+      drop ststate.
+      ststate.0=0
+      'PIPE CMS EXEC GITWT --FM' objectfm 'STASH-STATE | STEM STSTATE.'
+      if rc\=0 then do
+         say 'GIT STASH: cannot read stash state'
+         exit 8
+      end
+      stoid=''
+      do sti=1 to ststate.0
+         if word(ststate.sti,1)='STASH' & words(ststate.sti)=2 then,
+            stoid=translate(word(ststate.sti,2))
+      end
+      if stoid='' then do
+         say 'GIT STASH: no stash to pop'
+         exit 8
+      end
+      stmsg='Stash_pop_'||stoid
+      'EXEC GIT --FM' objectfm 'CHERRY-PICK' stoid '-m' stmsg
+      if rc\=0 then do
+         say 'GIT STASH: pop failed; stash retained'
+         exit rc
+      end
+      'EXEC GITWT --FM' objectfm 'STASH-CLEAR' stoid
+      if rc\=0 then do
+         say 'GIT STASH: branch updated but stash sidecar was not cleared'
+         exit rc
+      end
+      say 'STASH POPPED' stoid
+      exit 0
+   end
+   stmsg=''
+   if strip(stfirst)\='' then do
+      if translate(stfirst)\='-M' then do
+         say 'Usage: GIT STASH [-m message] | GIT STASH POP'
+         exit 4
+      end
+      stmsgpos=wordindex(rest,2)
+      if stmsgpos=0 then do
+         say 'Usage: GIT STASH [-m message] | GIT STASH POP'
+         exit 4
+      end
+      stmsg=strip(substr(rest,stmsgpos))
+      if left(stmsg,1)='"' & right(stmsg,1)='"' then,
+         stmsg=substr(stmsg,2,length(stmsg)-2)
+      else if left(stmsg,1)= "'" & right(stmsg,1)= "'" then,
+         stmsg=substr(stmsg,2,length(stmsg)-2)
+      stmsg=translate(stmsg,'_',' ')
+   end
+   'SET CMSTYPE HT'
+   'STATE GITMERG MERGE' objectfm
+   stmstate=rc
+   'SET CMSTYPE RT'
+   if stmstate=0 then do
+      say 'GIT STASH: a merge is in progress'
+      exit 8
+   end
+   if stmstate\=28 then exit 8
+   drop sthout.
+   sthout.0=0
+   'PIPE CMS EXEC GITVREF --FM' objectfm 'HEAD | STEM STHOUT.'
+   if rc\=0 | sthout.0\=1 then exit 8
+   parse var sthout.1 sthhead sthextra
+   if sthextra\='' | left(sthhead,11)\='refs/heads/' then exit 8
+   sthbranch=substr(sthhead,12)
+   call validbranch sthbranch
+   if result\='OK' then exit 8
+   call localbranchtip sthbranch
+   sttip=result
+   if sttip='' then do
+      say 'GIT STASH: current branch has no commit'
+      exit 8
+   end
+   'EXEC GITWT --FM' objectfm 'STASH-PREP'
+   if rc\=0 then do
+      say 'GIT STASH: preflight failed; nothing changed'
+      exit 8
+   end
+   'EXEC GIT --FM' objectfm 'ADD -u'
+   if rc\=0 then do
+      say 'GIT STASH: staging failed; use GIT RESET * to unstage'
+      exit rc
+   end
+   if stmsg='' then stmsg='Stash_'||sttip
+   drop stcommit.
+   stcommit.0=0
+   'PIPE CMS EXEC GIT --FM' objectfm 'COMMIT-STAGED',
+      '-T 0 -Z +0000 -M' stmsg '| STEM STCOMMIT.'
+   if rc\=0 then do
+      say 'GIT STASH: snapshot commit failed; nothing saved'
+      exit 8
+   end
+   stoid=''
+   stparent=''
+   do sti=1 to stcommit.0
+      if word(stcommit.sti,1)\='COMMIT-STAGED' then iterate
+      if word(stcommit.sti,2)='COMMIT' then,
+         stoid=translate(word(stcommit.sti,3))
+      else if word(stcommit.sti,2)='PARENT' then,
+         stparent=translate(word(stcommit.sti,3))
+   end
+   if stoid='' | stparent\=sttip then do
+      say 'GIT STASH: snapshot commit result is ambiguous'
+      exit 8
+   end
+   'EXEC GITWT --FM' objectfm 'STASH-SAVE' stoid
+   if rc\=0 then do
+      say 'GIT STASH: stash sidecar save failed'
+      exit rc
+   end
+   'EXEC GIT --FM' objectfm 'RESTORE --source HEAD --worktree *'
+   if rc\=0 then do
+      say 'GIT STASH: snapshot saved but worktree restore failed'
+      exit rc
+   end
+   'EXEC GIT --FM' objectfm 'RESET *'
+   if rc\=0 then do
+      say 'GIT STASH: snapshot saved but index reset failed'
+      exit rc
+   end
+   say 'STASH SAVED' stoid
+   exit 0
+end
 /* M273: fetch, verify and apply one fast-forward pull to a clean flat tree. */
 if command='PULL' then do
    /* No-arg pull: resolve remote, bridge and port from GITREMOT config. */

@@ -16792,3 +16792,46 @@ GitHub Actions run `46082118223` for commit `6c1988e` passed in 2m46s, including
 the Linux-only `MAP`/`CONFIG`/`BACKUP` checks that are not runnable on the macOS
 workstation. M307 remains host-proven only; no CMS target run was attempted and
 no live repository state was changed.
+
+## 2026-11-27 — M308 narrow tracked-workfile stash
+
+M308 continues roadmap item 1 (#213) with a deliberately small stash model.
+It uses no new ref namespace: the snapshot commit is an ordinary verified
+single-parent commit in the object store, and its OID is held in a strictly
+validated one-record `GITSTASH REPO <fm>` sidecar.
+
+Save sequence (`GIT STASH [-m message]`):
+
+1. `GITWT STASH-PREP` rejects an existing stash, an empty map, more than 16
+   mapped paths, staged additions (zero base OID), absent workfiles, and a
+   worktree with no changes. It hashes each tracked workfile without storing
+   blobs and fails before any mutation if the scope is unsupported.
+2. `GIT ADD -u` stages the worktree version of every mapped path.
+3. `GIT COMMIT-STAGED` builds the snapshot tree and a commit whose parent is
+   the current tip; the branch ref is unchanged. The output parent is checked
+   against the tip read at the start.
+4. `GITWT STASH-SAVE` creates the sidecar, refusing to overwrite an existing
+   one and rejecting the zero OID.
+5. `GIT RESTORE --source HEAD --worktree *` and `GIT RESET *` clean the
+   workfiles and index. Steps 4–5 use the existing rollback-covered handlers;
+   if a cleanup step fails, the snapshot remains durable and the partial state
+   is reported rather than silently erased.
+
+Pop sequence (`GIT STASH POP`):
+
+1. Read and validate the sidecar through `GITWT STASH-STATE`.
+2. Replay the snapshot with the M307 `CHERRY-PICK` command, which supplies the
+   merge-in-progress, clean-worktree, single-parent, three-way replay, ref CAS,
+   and worktree apply checks. The replay creates a commit on the current branch.
+3. `GITWT STASH-CLEAR` erases the sidecar only after the replay succeeded, and
+   compares the stored OID before erasing.
+
+Unsupported cases fail closed: no untracked-file capture, no staged additions,
+no deleted workfiles, no multiple stash slots, and no commit-less index restore.
+The 16-path ceiling matches the existing ADD/RESTORE/RESET pathspec limit.
+
+Host validation: Regina syntax and 80-column checks, `tests/test-m308-stash.py`,
+the M307/M305/M273/M301 guards, the full local selector/focused workflow gate,
+`restore-cms-exec.py AUDIT` and `LIVEDEPS`, and `git diff --check`. The source
+archive entry for `GITWT.EXEC` was refreshed. No CMS target run was performed;
+M308 is host-proven only.

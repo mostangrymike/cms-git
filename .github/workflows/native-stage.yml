@@ -282,6 +282,8 @@ jobs:
         run: python3 tests/test-m306-repo-filemode.py
       - name: Check M307 single-parent cherry-pick
         run: python3 tests/test-m307-cherry-pick.py
+      - name: Check M308 narrow tracked-workfile stash
+        run: python3 tests/test-m308-stash.py
       - name: Check M260 loose-store GIT LOG fallback
         run: sh tests/check-canonical-source.sh M260
       - name: Check M190 7736-object selective seek closure

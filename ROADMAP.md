@@ -26,7 +26,7 @@ documented restrictions), **Hygiene** (docs/repo cleanup).
 | `cherry-pick` | Narrow | M307 replays a verified single-parent commit onto the current branch through the M301–M305 three-way merge stack and applies it with `MERGE-HEAD`. Root/merge commits, conflicts, add/add, delete/modify, and structural adds/deletes/mode changes fail closed; message defaults to `Cherry pick <oid>` with `-m` override. Host-proven only. |
 | `rebase` | Missing | — |
 | `revert` | Missing | — |
-| `stash` / `stash pop` | Missing | — |
+| `stash` / `stash pop` | Narrow | M308 saves a single snapshot of tracked workfiles in a `GITSTASH` sidecar and pops it through the verified cherry-pick replay. No untracked files, staged additions, deletions, structural changes, or multiple slots; at most 16 mapped paths. Host-proven only. |
 | `reset --hard` | Narrow | `RESET` is path-only (M245). |
 | `restore` | Narrow | Staged-content alias (M246). |
 | `diff` with content | Narrow | Name-only (M244); no hunks. |
