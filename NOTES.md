@@ -16739,3 +16739,11 @@ check confirmed `0601` maps to M01W01 cylinders 3331–10294, B is `M0601B` at
 6,964 cylinders with 1,253,413 free blocks, refs point to the incremental tip,
 `SECOND TXT B` exists, and merge artifacts are absent. Both disks were detached;
 no extent was released or erased after the final qualifying state.
+
+The first M306 Actions run, `46076269330`, failed because historical M156–M171
+source guards still expected pre-`--FM` dispatch literals. Commit `3dc27bb`
+updated those guards to require the selected repository filemode while leaving
+their host models unchanged. All 66 consolidated selectors and all 85 locally
+runnable non-selector workflow steps passed. Final GitHub Actions run
+`46079543515` passed in 2m43s, including the Linux-only GNU-`stat` disk-map,
+configuration, and backup checks that are not runnable on the macOS workstation.

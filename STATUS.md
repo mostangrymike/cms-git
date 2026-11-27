@@ -9,9 +9,9 @@ disagrees with this page, this page wins. Last updated 2026-11-27.
 |---|---|
 | Branch | `main` |
 | Latest milestone | **M306** — multi-minidisk repositories and live pull qualification |
-| Latest commit | M306 repository-filemode support; see `git log -1 --oneline` for the exact commit |
+| Latest commit | M306 repository-filemode support plus historical guard alignment; see `git log -1 --oneline` for the exact commit |
 | Build | no package build; host checks only |
-| Host CI | full local M306 selector/focused gate passes; GitHub Actions validation pending |
+| Host CI | full local M306 selector/focused gate and GitHub Actions run `46079543515` pass |
 | CMS target | G runtime restored from `M306BK`; live clone/up-to-date/incremental pull passed on disposable `0601 B`; legacy G repository hashes unchanged; B remains formatted as `M0601B` at 6,964 cylinders |
 
 ## What is proven
