@@ -16601,3 +16601,71 @@ The final restore compared all 15 runtime/ref/worktree targets identical to
 left `main` clean with no M304 branch. A separate read-only pass rechecked all
 comparisons. Live network transport was not rerun; M304 proves post-fetch pull
 orchestration with standard packs, not a new end-to-end network qualification.
+
+## 2026-11-26 — M305 structural merge changes
+
+M305 extends the M302/M303/M304 persistent merge lifecycle:
+
+- The merge path set is the union of base, local, and remote trees. One-sided
+  additions/removals stage through the existing conflict/auto-merge workflow.
+- `GITMODE REPO G` records staged `100644`/`100755` changes without changing
+  the `GITWORK` map format. Mode records use variable-length CMS records.
+- Structural-only merges return RC13 for pull auto-continue. Local `GIT MERGE`
+  keeps the branch unchanged and requires `GIT MERGE --continue`.
+- Add/add and delete/modify conflicts remain fail-closed; unmapped removals
+  also fail closed. Mode changes accompanying content conflicts stage
+  independently.
+- Abort and continue initialize the zero OID before inspecting staged
+  deletions. Commit-tree rewrites and `ACCEPT` count mode-only paths from the
+  sidecar.
+
+Host validation passed on the final source: all canonical selectors, the
+no-selector source/C guard, `CHECK`, clone/pull, install, pack, push/GC, M302,
+M303, M304, M305, archive audit, LIVEDEPS, Regina syntax, 80-column checks, and
+`git diff --check`.
+
+CMS validation used synthetic verified `GITFPACK` stubs but the real `GIT PULL`
+import, activation, ancestry, merge-base, conflict/abort, mode-only continue,
+structural continue, tracking-ref, ref-CAS, worktree, and tree-reader paths.
+Host Git built standard packs from the preserved eight-path fixture; fixed-80
+FTP downloads were normalized to exact Git blob bytes.
+
+Fixture OIDs:
+
+- Standard base: `2712305B4FEB7BD7F2EB23473BCC9F4A30E95EC8`.
+- CMS local parent: `81982CA66223C7D845137B209BF4FD0448C7C446`.
+- Conflict remote: `D813C07926907FB2CEA68D4F0DA39264D5CEB184`.
+- Mode-only remote: `B554FD4BC82BE6E6EB760D52CEB81DBD1258E59D`.
+- Pure mode merge: `9F700C5C54E9AF5C99F40AAB1C2BDA4B3A2A2B71`.
+- Structural remote: `F19C7E453402B41B23FEF347F71714E48CA766AD`.
+- Structural merge: `CD2B4DB6AF4022F6193D28D98D7A62406D605B17`.
+
+The conflicting pull staged the localized `docs/guide/setup.md` markers,
+removal of `newdir/added.txt`, executable addition `newdir/third.txt`, and
+`GITMODE` records for `TPUSH.TXT=100644` and `newdir/third.txt=100755`.
+`GIT MERGE --abort` restored the local tip, map, and workfiles and cleared both
+merge-state files.
+
+The mode-only pull made the same local content change on both sides plus a
+`Makefile` `100644`→`100755` change. It auto-continued to the pure mode merge,
+reported `ACCEPTED WORKTREE PATHS 1`, left clean status, and verified the merge
+tree with `Makefile=100755` and `TPUSH.TXT=100755`.
+
+The final structural pull added `newdir/third.txt`, removed
+`newdir/added.txt`, and changed `TPUSH.TXT` from `100755`→`100644` while
+preserving `Makefile=100755`. It auto-continued to a two-parent commit, left
+clean status, and verified all eight final tree entries.
+
+Temporarily deployed runtime blob hashes:
+
+- `GIT.EXEC`: `9341B0EE9EA877CB29CE4A4E92A6859ED44D2780`.
+- `GITWT.EXEC`: `821F075A2A5A123685723E1D9AD19B8E611759D8`.
+- `GITVREF.EXEC`: `4ABA294CAC6763FF9EBFFE0C945E927305C60E76`.
+- `GITUPD.EXEC`: `DAF73ECCBF58676583E4039C3D62560D70D0A1BB`.
+
+The final restore compared all 15 runtime/ref/worktree targets identical to
+`M301BK`, restored `GITFPACK` from `M305BK`, removed merge state/temp files, and
+left `main` clean with no M305 branch. A separate read-only pass rechecked all
+comparisons, pack restoration, artifact absence, status, and branches. Live
+network transport was not rerun; M305 proves post-fetch structural orchestration
+with standard packs, not a new end-to-end network qualification.

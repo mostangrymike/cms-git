@@ -1178,7 +1178,7 @@ if command='MERGE' then do
          exit 8
       end
       if mgrc=13 then do
-         say 'GIT MERGE: record-level changes merged; branch unchanged'
+         say 'GIT MERGE: merge changes staged; branch unchanged'
          say 'Run GIT MERGE --continue to create the merge commit'
          exit 8
       end

@@ -67,7 +67,7 @@ for token in (
     "state='RESOLVED'",
     "say 'UU '||p",
     "merge in progress; use GIT MERGE --continue",
-    "if scanfn='GITMERG' | scanfn='GITMRG' then iterate",
+    "if scanfn='GITMERG' | scanfn='GITMRG' | scanfn='GITMODE' then iterate",
 ):
     assert token in WT, token
 
@@ -87,6 +87,7 @@ assert "left(whline,7)='======='" not in markers
 state = WT.split("readmergestate:", 1)[1].split("clearmergestate:", 1)[0]
 for token in (
     "msr.0\\=8+msconflicts",
+    "msconflicts<0",
     "msidx=7+msi",
     "msidx=8+msconflicts",
     "mspath.msi=mspathhex",

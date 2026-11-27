@@ -11,12 +11,12 @@ documented restrictions), **Hygiene** (docs/repo cleanup).
 
 | Item | Status | Notes |
 |---|---|---|
-| First-class `GIT MERGE` verb | Narrow | M301 adds local branch merge; M304 adds fetched-tip `PULL` conflict/auto-merge orchestration. CMS synthetic fixtures passed 2026-11-26. |
+| First-class `GIT MERGE` verb | Narrow | M301 adds local branch merge; M304 adds fetched-tip `PULL` conflict/auto-merge orchestration; M305 adds structural changes. CMS synthetic fixtures passed 2026-11-26. |
 | Record-level three-way merge | Narrow | M303 auto-merges non-overlapping and adjacent record edits with bounded LCS hunks; oversized inputs fall back to whole-file markers. |
 | Conflict markers / conflicted state | Narrow | M302/M304 persist `GITMERG MERGE G` for local and fetched-tip merges, report `UU`, and localize markers to overlapping record hunks. |
 | `merge --abort` / `--continue` | Narrow | M302 restores the pre-merge local branch on abort and creates a two-parent commit on continue; CMS-validated. |
-| Merge path additions/removals | Missing | Rejected by M300. |
-| Merge mode changes | Missing | Rejected by M300. |
+| Merge path additions/removals | Narrow | M305 stages one-sided additions/removals through the persistent merge lifecycle; add/add and delete/modify conflicts remain fail-closed. |
+| Merge mode changes | Narrow | M305 stages `100644`↔`100755` changes in a `GITMODE` sidecar and preserves them in two-parent merge trees. |
 | Local merge without a remote fetch | Narrow | M301–M303 add `GIT MERGE <branch>` for local fast-forward, whole-blob, and bounded record-level merges; M304 adds fetched-tip orchestration. Host- and CMS-validated. |
 
 ## 2. History editing and worktree — [#213](https://github.com/mostangrymike/cms-git/issues/213)
@@ -66,8 +66,8 @@ documented restrictions), **Hygiene** (docs/repo cleanup).
 
 ## 6. CI and tests — [#217](https://github.com/mostangrymike/cms-git/issues/217)
 
-- The full local M304 selector/focused gate and GitHub Actions run
-  `45922512194` passed. Keep the full Python host-test set and C selectors green.
+- The full local M305 selector/focused gate passes; GitHub Actions validation is
+  pending. Keep the full Python host-test set and C selectors green.
 - `native-stage.yml` is one ~200-step sequential job; splitting it remains work.
 - Tests are source guards + synthetic fixtures, not behavioural differentials
   against reference `git`.
@@ -75,7 +75,7 @@ documented restrictions), **Hygiene** (docs/repo cleanup).
 
 ## Suggested order
 
-1. Complete merge parity: path add/remove/mode changes and live-network `PULL` qualification (#214).
+1. Complete merge parity: live-network `PULL` qualification (#214); M305 covers path add/remove/mode changes.
 2. cherry-pick / rebase / stash / content diff (#213).
 3. Credential hardening + push parity (#216).
 4. Deep-history strategy + fsck (#215).

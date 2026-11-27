@@ -5,6 +5,12 @@ lives in `STATUS.md`. This file records what landed, not proof claims.
 
 ## Unreleased
 
+- Add M305 structural merge support: one-sided path additions/removals and
+  `100644`↔`100755` mode changes now stage through the persistent merge
+  lifecycle, with rollback/abort and two-parent continuation. A `GITMODE` sidecar
+  preserves staged executable-bit changes without changing the worktree-map
+  format. Add/add and delete/modify conflicts remain fail-closed. Adds
+  `tests/test-m305-structural-merge.py` and a workflow gate.
 - Add M304 fetched-tip merge orchestration for `GIT PULL`: divergent verified
   tips route through the M303 conflict stack. Real conflicts persist for
   `GIT MERGE --continue`/`--abort` while the remote-tracking ref advances and

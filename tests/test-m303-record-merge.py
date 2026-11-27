@@ -28,7 +28,7 @@ for token in (
 ):
     assert token in WT, token
 assert "if mgrc=13 then do" in GIT
-assert "record-level changes merged; branch unchanged" in GIT
+assert "merge changes staged; branch unchanged" in GIT
 
 start = WT.index("lcsmatches:\n")
 end = WT.index("buildconflictmarkers:", start)

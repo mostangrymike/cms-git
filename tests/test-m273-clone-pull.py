@@ -179,9 +179,9 @@ assert "if command='MERGE-COMMIT' | command='MERGE-COMMIT-STACK' then do" in WT
 assert "if command='CHECK-MERGE-STACK' then do" in WT
 assert "if command='MERGE-COMMIT-STACK' then do" in WT
 assert "call preparemerge" in WT
-assert "GITWT: merge path additions or removals are unsupported" in WT
+assert "GITWT: merge add/add or delete/modify conflicts are unsupported" in WT
 assert "GITWT: content conflict at" in WT
-assert "GITWT: merge mode changes are unsupported" in WT
+assert "GITWT: merge mode conflict is unsupported" in WT
 assert "'-P' mergeparent" in WT
 assert "if command='MERGE-BASE' | command='MERGE-BASE-STACK' then do" in VREF
 assert "if command='IS-ANCESTOR' | command='IS-ANCESTOR-STACK' then do" in VREF

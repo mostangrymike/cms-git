@@ -2224,6 +2224,7 @@ mode=source[source.index('modehex:\n'):source.index('writehex:\n')]
 entry_start=commit.index('    if entryindex=0 then do')
 entry_end=commit.index('    if cd<pcnt then do',entry_start)
 entry=commit[entry_start:entry_end]
+entry=entry.replace("call mergemodefor mappath.mi","result=''")
 entry=entry.replace("address command 'EXEC GIT VERIFY-OBJECT' mapstage.mi",
  "if scenario='VERIFYFAIL' then rc=8\nelse do\n say 'SIMULATED VERIFY'\n rc=0\nend")
 prefix="""parse arg scenario
@@ -2375,7 +2376,7 @@ commit=source[source.index("if command='COMMIT' then do"):
                source.index("say 'GITWT: unknown command'")]
 for token in ('call splitpath newhex', 'nodeisnew.childnode=1',
               'newrootparent.newrootcount=currentnode',
-              "newrootmode.newrootcount='100644'",
+              "newrootmode.newrootcount=mergemode",
               "if nodeisnew.ni=1 then do", "newrootmode.1='40000'",
               'if newrootmode.nai=\'40000\' then newcompare=newcompare||\'2F\'',
               'nodeentry.nji=nodeentry.nji+1',
@@ -2389,6 +2390,7 @@ scan=commit[scan_start:scan_end]
 entry_start=scan_end
 entry_end=commit.index('    if cd<pcnt then do',entry_start)
 entry=commit[entry_start:entry_end]
+entry=entry.replace("call mergemodefor mappath.mi","result=''")
 entry=entry.replace("address command 'EXEC GIT VERIFY-OBJECT' mapstage.mi",
  "say 'SIMULATED VERIFY' mapstage.mi\nrc=0")
 insert=source[source.index('insertrootadds:\n'):source.index('parsepathout:\n')]
@@ -3595,6 +3597,8 @@ block=block.replace('call workoid mapfn.ai,mapft.ai,mapfm.ai,maplf.ai,0',
  "if ai=2 then result='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'\nelse result='CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC'")
 block=block.replace('call asciitocms mappath.ai',"result='deleted'")
 block=block.replace('call loadmap',"result='OK'")
+block=block.replace('call readmergemodes',"result='OK'\nmergemodecount=0")
+block=block.replace('call mergemodefor mappath.ai',"result=''")
 block=block.replace("'ERASE GITWORK REPO G'","say 'SIMULATED ERASE'\nrc=0")
 block=block.replace('call savemap',"result='OK'\nsay 'SIMULATED SAVE' mapcount")
 block=block.replace('call restoremap',"result='OK'")
