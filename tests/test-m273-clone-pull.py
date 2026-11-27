@@ -29,11 +29,11 @@ for token in (
     "call localbranchtip mrgarg",
     "call mergeancestor mrgold,mrgnew",
     "call mergeancestor mrgnew,mrgold",
-    "EXEC GITVREF MERGE-BASE",
-    "EXEC GITWT CHECK-MERGE",
-    "EXEC GITWT MERGE-COMMIT",
-    "EXEC GITUPD PULL-HEAD",
-    "EXEC GITUPD MERGE-HEAD",
+    "EXEC GITVREF --FM' objectfm 'MERGE-BASE",
+    "EXEC GITWT --FM' objectfm 'CHECK-MERGE",
+    "EXEC GITWT --FM' objectfm 'MERGE-COMMIT",
+    "EXEC GITUPD --FM' objectfm 'PULL-HEAD",
+    "EXEC GITUPD --FM' objectfm 'MERGE-HEAD",
     "MERGE COMPLETE",
 ):
     assert token in merge, token
@@ -48,34 +48,35 @@ assert not any(line.rstrip().endswith(",") and not line.rstrip().endswith(("|,",
 assert "parse upper arg maancestor,madescendant" in ancestor_helper
 assert "queue maancestor" in ancestor_helper
 assert "queue madescendant" in ancestor_helper
-assert "macmd='EXEC GITVREF IS-ANCESTOR-STACK'" in ancestor_helper
+assert "macmd='EXEC GITVREF --FM' objectfm 'IS-ANCESTOR-STACK'" in ancestor_helper
 assert "'MAKEBUF'" in ancestor_helper
 assert "'DROPBUF' mabuf" in ancestor_helper
 assert "queue mrgold" in merge
 assert "queue mrgnew" in merge
-assert "mgcmd='EXEC GITVREF MERGE-BASE-STACK'" in merge
-assert "mgcmd='EXEC GITWT CHECK-MERGE-STACK'" in merge
-assert "mgcmd='EXEC GITWT MERGE-COMMIT-STACK'" in merge
+assert "mgcmd='EXEC GITVREF --FM' objectfm 'MERGE-BASE-STACK'" in merge
+assert "mgcmd='EXEC GITWT --FM' objectfm 'CHECK-MERGE-STACK'" in merge
+assert "mgcmd='EXEC GITWT --FM' objectfm 'MERGE-COMMIT-STACK'" in merge
 assert merge.count("'MAKEBUF'") >= 3
 assert merge.count("'DROPBUF' mgbuf") >= 3
 assert GIT.index("if command='MERGE' then do") < GIT.index("if command='PULL' then do")
 pull = GIT.split("if command='PULL' then do", 1)[1]
-assert "EXEC GITVREF MERGE-BASE" in pull
-assert "EXEC GITWT CHECK-MERGE" in pull
-assert "EXEC GITWT MERGE-COMMIT" in pull
+assert "EXEC GITVREF --FM' objectfm 'MERGE-BASE" in pull
+assert "EXEC GITWT --FM' objectfm 'CHECK-MERGE" in pull
+assert "EXEC GITWT --FM' objectfm 'MERGE-COMMIT" in pull
 assert "PULL REMOTE TIP" in pull
 assert "remote tip is not a fast-forward" not in pull
 
 # --- INIT / initrefs: branch-aware unborn repository -------------------
-assert "Usage: GIT INIT [object-filemode [branch]]" in GIT
+assert "Usage: GIT INIT [repository-filemode [branch]]" in GIT
 assert "if initbranch='' then initbranch='main'" in GIT
 assert "meta.4 = 'HEAD refs/heads/'||initbranch" in GIT
 assert "call initrefs initbranch" in GIT
 assert "initrefs:\n   parse arg ibranch" in GIT
-assert "if ibranch='' then ibranch='main'\n   'STATE GITREF2 REPO G'" in GIT
+assert "if ibranch='' then ibranch='main'\n   'STATE GITREF2 REPO' objectfm" in GIT
 assert "initial.2\\=('HEAD refs/heads/'||ibranch)" in GIT
 assert "initial.2='HEAD refs/heads/'||ibranch" in GIT
-assert "if objectfm \\= 'G' then do" in GIT
+assert "verify(objectfm,'ABCDEFGHIJKLMNOPQRSTUVWXYZ')" in GIT
+assert "objectfm = 'D'" in GIT and "objectfm = 'S'" in GIT
 # The old hardcoded main-only initialisation must be gone.
 assert "meta.4 = 'HEAD refs/heads/main'" not in GIT
 assert "initial.2='HEAD refs/heads/main'" not in GIT
@@ -83,17 +84,19 @@ assert "initial.2='HEAD refs/heads/main'" not in GIT
 # --- CLONE: discover the advertised default branch ---------------------
 clone = GIT.split("if command='CLONE' then do", 1)[1]
 clone = clone.split("\nend\n", 1)[0]
-assert "EXEC GITFETCH DISCOVER" in clone
-assert "'HEAD'" in clone
+assert "EXEC GITFETCH --FM' objectfm," in clone
+assert " HEAD'" in clone
 assert "word(disco.ci,2)='DEFAULT'" in clone
 assert "word(disco.ci,3)='BRANCH'" in clone
 assert "clonebranch=substr(branchref,12)" in clone
 assert "parsecloneurl:" in GIT
 assert "call parsecloneurl cloneurl" in clone
-assert "EXEC GIT INIT' clonefm clonebranch" in clone
-assert "EXEC GIT PULL origin' clonebridge cloneport" in clone
-assert "if clonefm='' then clonefm='G'" in GIT
-assert "if clonefm\\='G' then do" in GIT
+assert "EXEC GIT --FM' objectfm 'INIT' clonefm clonebranch" in clone
+assert "EXEC GIT --FM' objectfm 'PULL origin'," in clone
+assert "if clonefm='' then clonefm='G'" not in GIT
+assert "call checkrepotarget objectfm" in clone
+assert "verify(clonefm,'ABCDEFGHIJKLMNOPQRSTUVWXYZ')" in GIT
+assert "clonefm='D'" in GIT and "clonefm='S'" in GIT
 # No hardcoded bridge endpoint or main branch in the clone command.
 assert "192.168.200.1 8443" not in clone
 assert "GIT PULL origin 192.168.200.1" not in GIT
@@ -101,19 +104,19 @@ assert "call validbranch 'main'" not in clone
 
 # Discovery must not depend on GITREMOT, which requires GITMETA.  The
 # remote record is added only after INIT and is rolled back on failure.
-assert "EXEC GIT REMOTE ADD origin" in clone
-assert clone.find("EXEC GITFETCH DISCOVER") < clone.find("'EXEC GIT INIT'")
-assert clone.find("'EXEC GIT REMOTE ADD origin'") > clone.find("'EXEC GIT INIT'")
-assert "'ERASE GITMETA REPO G'\n      'ERASE GITREF2 REPO G'" in clone
-assert "GIT CLONE: repository already initialized; use GIT PULL to resume" in clone
+assert "EXEC GIT --FM' objectfm 'REMOTE ADD origin" in clone
+assert clone.find("EXEC GITFETCH --FM' objectfm,") < clone.find("'EXEC GIT --FM' objectfm 'INIT'")
+assert clone.find("'EXEC GIT --FM' objectfm 'REMOTE ADD origin'") > clone.find("'EXEC GIT --FM' objectfm 'INIT'")
+assert "'ERASE GITMETA REPO' objectfm\n      'ERASE GITREF2 REPO' objectfm" in clone
+assert "repository namespace is not empty" in GIT
 assert "GIT CLONE: default-branch discovery framing failed" in clone
 
 # --- Configurable bridge ------------------------------------------------
 assert "readbridge:" in GIT
 # Missing metadata still uses plain STATE: CMS PIPE CMS STATE did not
 # propagate RC 28 on the validated target, so absence must use STATE's rc.
-assert "'STATE GITMETA REPO G'" in GIT
-assert "'PIPE CMS STATE GITMETA REPO G'" not in GIT
+assert "'STATE GITMETA REPO' objectfm" in GIT
+assert "'PIPE CMS STATE GITMETA REPO' objectfm" not in GIT
 assert "STATE GITBRIDG CONFIG G" in GIT
 assert "bridgehost='192.168.200.1'" in GIT
 assert "bridgeport='8443'" in GIT
@@ -139,13 +142,14 @@ FIMP = (ROOT / "src" / "GITFIMP.EXEC").read_text()
 FACT = (ROOT / "src" / "GITFACT.EXEC").read_text()
 for src, name in ((FIMP, "GITFIMP"), (FACT, "GITFACT")):
     assert "verify(datafm,'ABCDEFGHIJKLMNOPQRSTUVWXYZ')" in src
+    assert "datafm='D'" in src and "datafm='S'" in src
     assert "verify(datafm,'BCDEFGHIJKLMNOPQRSTUVWXYZ')" not in src
 # Activation must check the installer module it actually invokes.
 assert "module=word('GITPIDX GITPTRE M274L5 GITPCAT',i)" in FACT
 assert "GITPLOAD'" not in FACT.split("do i=1 to 4")[1].split("end",1)[0]
 assert "needblocks=(pbytes % 4096) * 5 + 1024" in FIMP
 assert "has' avail 'free blocks;'" in FIMP
-assert "datafm\\='G'" in FIMP
+assert "verify(datafm,'ABCDEFGHIJKLMNOPQRSTUVWXYZ')" in FIMP
 
 # The free-space check must run before import so a full disk cannot
 # produce a partial stage.
@@ -170,7 +174,7 @@ UPD = (ROOT / "src" / "GITUPD.EXEC").read_text()
 WT = (ROOT / "src" / "GITWT.EXEC").read_text()
 VREF = (ROOT / "src" / "GITVREF.EXEC").read_text()
 assert "call readloose toid" in WT
-assert "'PIPE CMS EXEC GIT PACK-READ' readid '| STEM READOBJ.'" in WT
+assert "'PIPE CMS EXEC GIT --FM' objectfm 'PACK-READ' readid '| STEM READOBJ.'" in WT
 assert "readobj.readi='PACK-READ PASS'" in WT
 assert "if readend\\=1 | length(readhex)%2\\=readsize then return 'ERROR'" in WT
 assert "if readtype\\='TREE' then return 'ERROR'" in WT
@@ -189,17 +193,17 @@ assert "if command='MERGE-BASE-STACK' then do" in VREF
 assert "if command='IS-ANCESTOR-STACK' then do" in VREF
 assert "call readparents localcurrent" in VREF
 assert "call readparents remotecurrent" in VREF
-assert "'PIPE CMS EXEC GIT PACK-READ' rpcommit '| STEM RPOUT.'" in VREF
+assert "'PIPE CMS EXEC GIT --FM' objectfm 'PACK-READ' rpcommit '| STEM RPOUT.'" in VREF
 assert "if rpend\\=1 | length(rphex)%2\\=rpsize then return 'ERROR'" in VREF
 assert "ambiguous merge bases are unsupported" in VREF
-assert "'PIPE CMS EXEC GIT PACK-READ' oid '| STEM OBJ.'" in UPD
+assert "'PIPE CMS EXEC GIT --FM' objectfm 'PACK-READ' oid '| STEM OBJ.'" in UPD
 assert "if createmode=0 & (slot=0 | localold\\=oldoid) then do" in UPD
 assert "if ref='PULL-HEAD' | ref='MERGE-HEAD' then do" in UPD
 assert "if ref='PULL-HEAD' then pullkind='FAST-FORWARD'" in UPD
 assert "else pullkind='MERGED'" in UPD
 assert "say pullkind branch oldoid newoid" in UPD
-assert "ancestrycmd='EXEC GITVREF IS-ANCESTOR-STACK'" in UPD
-assert "'EXEC GITWT CHECK-PULL' branch oldoid newoid" in UPD
+assert "ancestrycmd='EXEC GITVREF --FM' objectfm 'IS-ANCESTOR-STACK'" in UPD
+assert "'EXEC GITWT --FM' objectfm 'CHECK-PULL' branch oldoid newoid" in UPD
 assert "'DROPBUF' ancbuf" in UPD
 
 
@@ -310,7 +314,7 @@ else:
     raise AssertionError("conflicting edits must fail closed")
 assert "if slot=0 & oldoid=zeros then createmode=1" in UPD
 assert "refname.refcount=branchref" in UPD
-assert "EXEC GITWT CHECKOUT-TREE" in UPD
+assert "EXEC GITWT --FM' objectfm 'CHECKOUT-TREE" in UPD
 assert "say 'CREATED' branch newoid" in UPD
 assert "if createmode=0 then do\n  drop ancestry." in UPD
 # bindnative returns numeric 0/8; call sites must not compare with 'OK'.
@@ -386,7 +390,7 @@ assert "pullkeepcount=mapcount-pullremcount-pullupdcount" in WT
 assert "say 'GITWT: pull path additions or removals are not supported yet'" not in WT
 # Apply reserves every new name before mutating, verifies OIDs, then rolls back.
 assert "addwritten=0\n pendingcount=0\n synnext=1" in WT
-assert "call workoid addfn.ak,addft.ak,'A',pulladdfin.ni,0" in WT
+assert "call workoid addfn.ak,addft.ak,workfm,pulladdfin.ni,0" in WT
 assert "if result\\=newoid.ni then do" in WT
 assert "call eraseadditions" in WT
 assert "drop restorefn. restoreft. restorefm." in WT
@@ -405,8 +409,8 @@ assert "if length(mapbase.si)\\=40" in WT
 assert "GITWT: invalid worktree map entry" in WT
 # Map writes recreate the file so a longer PATH raises the LRECL, and a
 # failed rewrite puts the prior map back.
-assert "EXECIO * DISKR GITWORK REPO G 1 (STEM SMBAK. FINIS" in WT
-assert "EXECIO' smbak.0 'DISKW GITWORK REPO G" in WT
+assert "EXECIO * DISKR GITWORK REPO' objectfm '1 (STEM SMBAK. FINIS" in WT
+assert "EXECIO' smbak.0 'DISKW GITWORK REPO' objectfm" in WT
 # Every line stays within the CMS 80-column source convention.
 for number, line in enumerate(WT.splitlines(), 1):
     if len(line) > 80:

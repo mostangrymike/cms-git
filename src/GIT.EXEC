@@ -4,11 +4,22 @@
 parse arg command rest
 command = translate(command)
 objectfm = 'G'
-if command \= 'INIT' then do
-   'STATE GITMETA REPO G'
+if command = '--FM' then do
+   parse var rest objectfm command rest
+   command = translate(command)
+end
+if verify(objectfm,'ABCDEFGHIJKLMNOPQRSTUVWXYZ') \= 0 | objectfm = 'D' |,
+   objectfm = 'S' then do
+   say 'GIT: repository filemode must be one uppercase letter',
+       'other than D or S'
+   exit 4
+end
+if command \= 'INIT' & command \= 'CLONE' then do
+   repofm=objectfm
+   'STATE GITMETA REPO' objectfm
    if rc = 0 then do
       drop config.
-      'EXECIO * DISKR GITMETA REPO G 1 (STEM CONFIG. FINIS'
+      'EXECIO * DISKR GITMETA REPO' objectfm '1 (STEM CONFIG. FINIS'
       if rc \= 0 | config.0 < 4 |,
          config.1 \= 'CMS-GIT-REPOSITORY 1' then do
          say 'GIT: invalid repository metadata'
@@ -25,13 +36,14 @@ if command \= 'INIT' then do
             objectfm = translate(word(config.ci,2))
          end
       end
-      if objectrecords > 1 | length(objectfm) \= 1 |,
-         verify(objectfm,'ABCDEFGHIJKLMNOPQRSTUVWXYZ') \= 0 then do
+      if objectrecords > 1 |,
+         verify(objectfm,'ABCDEFGHIJKLMNOPQRSTUVWXYZ') \= 0 |,
+         objectfm = 'D' | objectfm = 'S' then do
          say 'GIT: invalid OBJECT-DISK setting'
          exit 8
       end
-      if objectfm \= 'G' then do
-         say 'GIT: repository OBJECT-DISK must be G'
+      if objectfm \= repofm then do
+         say 'GIT: repository metadata does not match filemode' repofm
          exit 8
       end
    end
@@ -51,7 +63,7 @@ if command='CHECKOUT' then do
       say 'GIT CHECKOUT -B is not supported'
       exit 4
    end
-   'STATE GITREF2 REPO G'
+   'STATE GITREF2 REPO' objectfm
    checkoutrc=rc
    if checkoutrc=28 then do
       if checkoutarg='-b' | checkoutarg='--branch' then do
@@ -80,7 +92,7 @@ if command = 'STAMP' then do
    exit 0
 end
 if command = 'CASE' then do
-   address command 'EXEC GITVREF CASE' rest
+   address command 'EXEC GITVREF --FM' objectfm 'CASE' rest
    exit rc
 end
 if command = 'LEVEL' then do
@@ -90,7 +102,7 @@ if command = 'LEVEL' then do
       exit 4
    end
    lvl.0 = 0
-   'PIPE CMS EXEC GITVREF LEVEL | STEM lvl.'
+   'PIPE CMS EXEC GITVREF --FM' objectfm 'LEVEL | STEM lvl.'
    if rc \= 0 then exit rc
    say 'GIT EXEC LEVEL M176'
    if lvl.0 \= 1 | lvl.1 \= 'GITVREF EXEC LEVEL M176' then do
@@ -104,22 +116,19 @@ if command = 'INIT' then do
    parse var rest objectfm initbranch extra
    objectfm=translate(objectfm)
    if extra \= '' | (objectfm \= '' &,
-      verify(objectfm,'ABCDEFGHIJKLMNOPQRSTUVWXYZ') \= 0) then do
-      say 'Usage: GIT INIT [object-filemode [branch]]'
+      verify(objectfm,'ABCDEFGHIJKLMNOPQRSTUVWXYZ') \= 0 |,
+       objectfm = 'D' | objectfm = 'S') then do
+      say 'Usage: GIT INIT [repository-filemode [branch]]'
       exit 4
    end
    if objectfm = '' then objectfm = 'G'
-   if objectfm \= 'G' then do
-      say 'GIT: this installation stores project data on filemode G'
-      exit 4
-   end
    if initbranch='' then initbranch='main'
    call validbranch initbranch
    if result\='OK' then do
       say 'GIT: invalid initial branch name'
       exit 4
    end
-   'STATE GITMETA REPO G'
+   'STATE GITMETA REPO' objectfm
    if rc = 0 then do
       call initrefs initbranch
       if result='OK' then do
@@ -137,42 +146,19 @@ if command = 'INIT' then do
       say 'GIT: cannot inspect repository metadata RC' rc
       exit 8
    end
-   if objectfm \= 'A' then do
-      drop diskinfo.
-      diskinfo.0 = 0
-      'PIPE CMS QUERY DISK' objectfm '| STEM DISKINFO.'
-      if rc \= 0 then do
-         say 'GIT: cannot inspect object data disk' objectfm
-         exit 8
-      end
-      diskcount = 0
-      freeblocks = ''
-      do di = 1 to diskinfo.0
-         if word(diskinfo.di,3) = objectfm &,
-            word(diskinfo.di,4) = 'R/W' &,
-            word(diskinfo.di,7) = '4096' &,
-            words(diskinfo.di) >= 11 then do
-            diskcount = diskcount + 1
-            freeblocks = word(diskinfo.di,10)
-         end
-      end
-      if diskcount \= 1 | datatype(freeblocks,'W') \= 1 |,
-         freeblocks < 180000 then do
-         say 'GIT: object disk needs R/W 4K and 180000 free blocks'
-         exit 8
-      end
-   end
+   call checkrepotarget objectfm
+   if result\='OK' then exit 8
    meta.0 = 5
    meta.1 = 'CMS-GIT-REPOSITORY 1'
    meta.2 = 'OBJECT-FORMAT SHA1'
    meta.3 = 'TEXT-RECORD-SEPARATOR LF'
    meta.4 = 'HEAD refs/heads/'||initbranch
    meta.5 = 'OBJECT-DISK' objectfm
-   'EXECIO' meta.0 'DISKW GITMETA REPO G 1 (STEM META. FINIS'
+   'EXECIO' meta.0 'DISKW GITMETA REPO' objectfm '1 (STEM META. FINIS'
    if rc \= 0 then exit rc
    call initrefs initbranch
    if result\='OK' then do
-      'ERASE GITMETA REPO G'
+      'ERASE GITMETA REPO' objectfm
       say 'GIT: could not initialize branch refs'
       exit 8
    end
@@ -182,7 +168,7 @@ end
 
 /* M262: repository-local HTTPS remote metadata for GitHub workflows. */
 if command = 'REMOTE' then do
-   address command 'EXEC GITREMOT' rest
+   address command 'EXEC GITREMOT --FM' objectfm rest
    exit rc
 end
 if command = 'CREDENTIAL' then do
@@ -193,7 +179,7 @@ end
 /* Modern lightweight and annotated tag porcelain over the guarded updater. */
 if command = 'TAG' then do
    if strip(rest)='' then do
-      address command 'EXEC GITVREF TAGS'
+      address command 'EXEC GITVREF --FM' objectfm 'TAGS'
       exit rc
    end
    parse var rest action tagname oid extra fifth
@@ -210,7 +196,7 @@ if command = 'TAG' then do
             exit 4
          end
       end
-      address command 'EXEC GITVREF TAGS' tagname
+      address command 'EXEC GITVREF --FM' objectfm 'TAGS' tagname
       exit rc
    end
    if verb='-A' | verb='--ANNOTATE' then do
@@ -320,7 +306,7 @@ if command = 'TAG' then do
       if result\='OK' then exit 8
       zeros='0000000000000000000000000000000000000000'
       ref='refs/tags/'||annname
-      address command 'EXEC GIT UPDATE-REF' ref annoiid zeros
+      address command 'EXEC GIT --FM' objectfm 'UPDATE-REF' ref annoiid zeros
       if rc\=0 then exit rc
       say 'TAG CREATED' ref annoiid
       exit 0
@@ -361,7 +347,7 @@ if command = 'TAG' then do
          say 'GIT: force update requires an existing tag OID'
          exit 4
       end
-      address command 'EXEC GIT VERIFY-OBJECT' newoid
+      address command 'EXEC GIT --FM' objectfm 'VERIFY-OBJECT' newoid
       if rc\=0 then exit 8
       call readobject newoid
       if result\='OK' |,
@@ -369,7 +355,7 @@ if command = 'TAG' then do
          say 'GIT: force update requires a verified COMMIT or TAG object'
          exit 8
       end
-      address command 'EXEC GIT UPDATE-REF' ref newoid oldoid
+      address command 'EXEC GIT --FM' objectfm 'UPDATE-REF' ref newoid oldoid
       if rc\=0 then exit rc
       say 'TAG UPDATED' ref oldoid newoid
       exit 0
@@ -402,7 +388,8 @@ if command = 'TAG' then do
          end
       end
       zeros='0000000000000000000000000000000000000000'
-      address command 'EXEC GIT UPDATE-REF' ref zeros expectedoid
+      address command 'EXEC GIT --FM' objectfm 'UPDATE-REF',
+         ref zeros expectedoid
       if rc\=0 then exit rc
       say 'TAG DELETED' ref expectedoid
       exit 0
@@ -432,7 +419,7 @@ if command = 'TAG' then do
       say 'GIT: tag start point is not a valid object-id'
       exit 4
    end
-   address command 'EXEC GIT VERIFY-OBJECT' oid
+   address command 'EXEC GIT --FM' objectfm 'VERIFY-OBJECT' oid
    if rc\=0 then exit 8
    call readobject oid
    if result\='OK' | objtype\='COMMIT' then do
@@ -441,7 +428,7 @@ if command = 'TAG' then do
    end
    zeros='0000000000000000000000000000000000000000'
    ref='refs/tags/'||action
-   address command 'EXEC GIT UPDATE-REF' ref oid zeros
+   address command 'EXEC GIT --FM' objectfm 'UPDATE-REF' ref oid zeros
    if rc\=0 then exit rc
    say 'TAG CREATED' ref oid
    exit 0
@@ -501,7 +488,7 @@ if command = 'LOG' then do
    end
    if logdepth+0=0 then exit 0
    backenddepth=logdepth-1
-   address command 'EXEC GITVREF LOG' logoid backenddepth
+   address command 'EXEC GITVREF --FM' objectfm 'LOG' logoid backenddepth
    exit rc
 end
 
@@ -519,13 +506,13 @@ if command = 'SHOW' then do
       say 'GIT: cannot resolve show revision' showstart
       exit 8
    end
-   address command 'EXEC GITVREF SHOW' showoid
+   address command 'EXEC GITVREF --FM' objectfm 'SHOW' showoid
    exit rc
 end
 
 /* Prefer modern REF2 branches, retaining M5 refs when REF2 is absent. */
 if command = 'BRANCH' then do
-    'STATE GITREF2 REPO G'
+    'STATE GITREF2 REPO' objectfm
     if rc=28 then do
        call legacybranch rest
        exit result
@@ -535,7 +522,7 @@ if command = 'BRANCH' then do
       exit rc
    end
    if strip(rest)='' then do
-      address command 'EXEC GITVREF BRANCHES'
+      address command 'EXEC GITVREF --FM' objectfm 'BRANCHES'
       exit rc
    end
    parse var rest brancharg1 brancharg2 brancharg3 brancharg4 brancharg5
@@ -546,7 +533,7 @@ if command = 'BRANCH' then do
          say 'Usage: GIT BRANCH -r|--remotes [remote]'
          exit 4
       end
-      address command 'EXEC GITVREF REMOTE-BRANCHES' brancharg2
+      address command 'EXEC GITVREF --FM' objectfm 'REMOTE-BRANCHES' brancharg2
       exit rc
    end
    if verb='-L' | verb='--LIST' then do
@@ -561,7 +548,7 @@ if command = 'BRANCH' then do
             exit 4
          end
       end
-      address command 'EXEC GITVREF BRANCHES' brancharg2
+      address command 'EXEC GITVREF --FM' objectfm 'BRANCHES' brancharg2
       exit rc
    end
    if verb='--SHOW-CURRENT' then do
@@ -572,7 +559,7 @@ if command = 'BRANCH' then do
       end
       drop showhead.
       showhead.0=0
-      'PIPE CMS EXEC GITVREF HEAD | STEM SHOWHEAD.'
+      'PIPE CMS EXEC GITVREF --FM' objectfm 'HEAD | STEM SHOWHEAD.'
       if rc\=0 | showhead.0\=1 then do
          say 'GIT: cannot resolve current symbolic HEAD'
          exit 8
@@ -604,7 +591,8 @@ if command = 'BRANCH' then do
       end
       oldref='refs/heads/'||brancharg2
       newref='refs/heads/'||brancharg3
-      cmd='EXEC GIT UPDATE-REF MOVE-REF' oldref newref expectedoid
+      cmd='EXEC GIT --FM' objectfm 'UPDATE-REF MOVE-REF',
+          oldref newref expectedoid
       address command cmd
       if rc\=0 then exit rc
       say 'BRANCH RENAMED' brancharg2 brancharg3
@@ -637,7 +625,8 @@ if command = 'BRANCH' then do
             exit 4
          end
       end
-      address command 'EXEC GIT UPDATE-REF' branchref zeros branchoid
+      address command 'EXEC GIT --FM' objectfm 'UPDATE-REF',
+         branchref zeros branchoid
       if rc\=0 then exit rc
       say 'BRANCH DELETED' brancharg2 branchoid
       exit 0
@@ -662,7 +651,8 @@ if command = 'BRANCH' then do
       say 'GIT: cannot resolve branch start point' branchstart
       exit 4
    end
-   address command 'EXEC GIT UPDATE-REF' branchref branchoid zeros
+   address command 'EXEC GIT --FM' objectfm 'UPDATE-REF',
+      branchref branchoid zeros
    if rc\=0 then exit rc
    say 'BRANCH CREATED' brancharg1 branchoid
    exit 0
@@ -705,7 +695,7 @@ if command = 'SWITCH' then do
    end
    drop currenthead.
    currenthead.0=0
-   'PIPE CMS EXEC GITVREF HEAD | STEM CURRENTHEAD.'
+   'PIPE CMS EXEC GITVREF --FM' objectfm 'HEAD | STEM CURRENTHEAD.'
    hrc=rc
    if hrc\=0 | currenthead.0\=1 then do
       say 'GIT: cannot resolve current symbolic HEAD'
@@ -717,11 +707,12 @@ if command = 'SWITCH' then do
       exit 8
    end
    if switchmode='-C' | switchmode='--CREATE' then do
-      cmd='EXEC GITUPD CREATE-HEAD refs/heads/'||brancharg||' '||,
-          headref||' '||startpoint
+      cmd='EXEC GITUPD --FM' objectfm,
+          'CREATE-HEAD refs/heads/'||brancharg||' '||headref||' '||startpoint
    end
    else do
-      cmd='EXEC GITUPD HEAD refs/heads/'||branchname||' '||headref
+      cmd='EXEC GITUPD --FM' objectfm,
+          'HEAD refs/heads/'||branchname||' '||headref
    end
    address command cmd
    exit rc
@@ -732,7 +723,7 @@ end
 if command = 'SHOW-REF' |,
    command = 'SYMBOLIC-REF' | command = 'REV-PARSE' then do
    if command = 'REV-PARSE' then do
-      address command 'EXEC GITVREF OID' rest
+      address command 'EXEC GITVREF --FM' objectfm 'OID' rest
       exit rc
    end
    if command = 'SHOW-REF' then do
@@ -740,234 +731,234 @@ if command = 'SHOW-REF' |,
          say 'Usage: GIT SHOW-REF'
          exit 4
       end
-      address command 'EXEC GITVREF REFS'
+      address command 'EXEC GITVREF --FM' objectfm 'REFS'
       exit rc
    end
    if length(rest) = 0 then do
-      address command 'EXEC GITVREF HEAD'
+      address command 'EXEC GITVREF --FM' objectfm 'HEAD'
       exit rc
    end
    say 'GIT: SYMBOLIC-REF update is not supported'
    exit 8
 end
 if command = 'UPDATE-REF' then do
-   'EXEC GITUPD' rest
+   'EXEC GITUPD --FM' objectfm rest
    exit rc
 end
 if command = 'VERIFY-REF' then do
-   address command 'EXEC GITVREF RESOLVE' rest
+   address command 'EXEC GITVREF --FM' objectfm 'RESOLVE' rest
    exit rc
 end
 if command = 'SHOW-REF-FULL' then do
-   address command 'EXEC GITVREF SHOW' rest
+   address command 'EXEC GITVREF --FM' objectfm 'SHOW' rest
    exit rc
 end
 if command = 'LOG-REF-FULL' then do
-   address command 'EXEC GITVREF LOG' rest
+   address command 'EXEC GITVREF --FM' objectfm 'LOG' rest
    exit rc
 end
 if command = 'LOGDAG-REF-FULL' then do
-   address command 'EXEC GITVREF DAG' rest
+   address command 'EXEC GITVREF --FM' objectfm 'DAG' rest
    exit rc
 end
 if command = 'HISTORYPATH-REF-FULL' then do
-   address command 'EXEC GITVREF HISTPATH' rest
+   address command 'EXEC GITVREF --FM' objectfm 'HISTPATH' rest
    exit rc
 end
 if command = 'HISTORYCHANGES-REF-FULL' then do
-   address command 'EXEC GITVREF HISTCHG' rest
+   address command 'EXEC GITVREF --FM' objectfm 'HISTCHG' rest
    exit rc
 end
 if command = 'HISTORYEDGES-REF-FULL' then do
-   address command 'EXEC GITVREF HISTEDGE' rest
+   address command 'EXEC GITVREF --FM' objectfm 'HISTEDGE' rest
    exit rc
 end
 if command = 'HISTORYDIFFS-REF-FULL' then do
-   address command 'EXEC GITVREF HISTDIFF' rest
+   address command 'EXEC GITVREF --FM' objectfm 'HISTDIFF' rest
    exit rc
 end
 if command = 'HISTORYSTATE-REF-FULL' then do
-   address command 'EXEC GITVREF HISTSTATE' rest
+   address command 'EXEC GITVREF --FM' objectfm 'HISTSTATE' rest
    exit rc
 end
 if command = 'HISTORYLOG-REF-FULL' then do
-   address command 'EXEC GITVREF HISTLOG' rest
+   address command 'EXEC GITVREF --FM' objectfm 'HISTLOG' rest
    exit rc
 end
 if command = 'HISTORYSTATUS-REF-FULL' then do
-   address command 'EXEC GITVREF HISTSTATUS' rest
+   address command 'EXEC GITVREF --FM' objectfm 'HISTSTATUS' rest
    exit rc
 end
 if command = 'HISTORYNEAREST-REF-FULL' then do
-   address command 'EXEC GITVREF HISTNEAR' rest
+   address command 'EXEC GITVREF --FM' objectfm 'HISTNEAR' rest
    exit rc
 end
 if command = 'HISTORYTRANSITIONS-REF-FULL' then do
-   address command 'EXEC GITVREF HISTTRANS' rest
+   address command 'EXEC GITVREF --FM' objectfm 'HISTTRANS' rest
    exit rc
 end
 if command = 'HISTORYREPORT-REF-FULL' then do
-   address command 'EXEC GITVREF HISTREPORT' rest
+   address command 'EXEC GITVREF --FM' objectfm 'HISTREPORT' rest
    exit rc
 end
 if command = 'HISTORYBOUNDS-REF-FULL' then do
-   address command 'EXEC GITVREF HISTBOUNDS' rest
+   address command 'EXEC GITVREF --FM' objectfm 'HISTBOUNDS' rest
    exit rc
 end
 if command = 'HISTORYCHRONOLOGY-REF-FULL' then do
-   address command 'EXEC GITVREF HISTCHRON' rest
+   address command 'EXEC GITVREF --FM' objectfm 'HISTCHRON' rest
    exit rc
 end
 if command = 'HISTORYACTORS-REF-FULL' then do
-   address command 'EXEC GITVREF HISTACTORS' rest
+   address command 'EXEC GITVREF --FM' objectfm 'HISTACTORS' rest
    exit rc
 end
 if command = 'HISTORYSUBJECTS-REF-FULL' then do
-   address command 'EXEC GITVREF HISTSUBJECTS' rest
+   address command 'EXEC GITVREF --FM' objectfm 'HISTSUBJECTS' rest
    exit rc
 end
 if command = 'HISTORYBODIES-REF-FULL' then do
-   address command 'EXEC GITVREF HISTBODIES' rest
+   address command 'EXEC GITVREF --FM' objectfm 'HISTBODIES' rest
    exit rc
 end
 if command = 'HISTORYTOPOLOGY-REF-FULL' then do
-   address command 'EXEC GITVREF HISTTOPO' rest
+   address command 'EXEC GITVREF --FM' objectfm 'HISTTOPO' rest
    exit rc
 end
 if command = 'HISTORYPARENTS-REF-FULL' then do
-   address command 'EXEC GITVREF HISTPARENTS' rest
+   address command 'EXEC GITVREF --FM' objectfm 'HISTPARENTS' rest
    exit rc
 end
 if command = 'HISTORYPARENTSLOTS-REF-FULL' then do
-   address command 'EXEC GITVREF HISTSLOTS' rest
+   address command 'EXEC GITVREF --FM' objectfm 'HISTSLOTS' rest
    exit rc
 end
 if command = 'HISTORYEDGEROLES-REF-FULL' then do
-   address command 'EXEC GITVREF HISTROLES' rest
+   address command 'EXEC GITVREF --FM' objectfm 'HISTROLES' rest
    exit rc
 end
 if command = 'HISTORYFIRSTPARENT-REF-FULL' then do
-   address command 'EXEC GITVREF HISTFIRST' rest
+   address command 'EXEC GITVREF --FM' objectfm 'HISTFIRST' rest
    exit rc
 end
 if command = 'HISTORYFIRSTCHANGES-REF-FULL' then do
-   address command 'EXEC GITVREF HISTFCHG' rest
+   address command 'EXEC GITVREF --FM' objectfm 'HISTFCHG' rest
    exit rc
 end
 if command = 'HISTORYFIRSTTRANSITIONS-REF-FULL' then do
-   address command 'EXEC GITVREF HISTFTRANS' rest
+   address command 'EXEC GITVREF --FM' objectfm 'HISTFTRANS' rest
    exit rc
 end
 if command = 'HISTORYFIRSTCHRONOLOGY-REF-FULL' then do
-   address command 'EXEC GITVREF HISTFCHRON' rest
+   address command 'EXEC GITVREF --FM' objectfm 'HISTFCHRON' rest
    exit rc
 end
 if command = 'HISTORYFIRSTACTORS-REF-FULL' then do
-   address command 'EXEC GITVREF HISTFACTORS' rest
+   address command 'EXEC GITVREF --FM' objectfm 'HISTFACTORS' rest
    exit rc
 end
 if command = 'HISTORYFIRSTSUBJECTS-REF-FULL' then do
-   address command 'EXEC GITVREF HISTFSUBJ' rest
+   address command 'EXEC GITVREF --FM' objectfm 'HISTFSUBJ' rest
    exit rc
 end
 if command = 'HISTORYFIRSTBODIES-REF-FULL' then do
-   address command 'EXEC GITVREF HISTFBODY' rest
+   address command 'EXEC GITVREF --FM' objectfm 'HISTFBODY' rest
    exit rc
 end
 if command = 'HISTORYFIRSTLOG-REF-FULL' then do
-   address command 'EXEC GITVREF HISTFLOG' rest
+   address command 'EXEC GITVREF --FM' objectfm 'HISTFLOG' rest
    exit rc
 end
 if command = 'HISTORYFIRSTREPORT-REF-FULL' then do
-   address command 'EXEC GITVREF HISTFREPORT' rest
+   address command 'EXEC GITVREF --FM' objectfm 'HISTFREPORT' rest
    exit rc
 end
 if command = 'HISTORYFIRSTDIFFS-REF-FULL' then do
-   address command 'EXEC GITVREF HISTFDIF' rest
+   address command 'EXEC GITVREF --FM' objectfm 'HISTFDIF' rest
    exit rc
 end
 if command = 'HISTORYFIRSTNEAREST-REF-FULL' then do
-   address command 'EXEC GITVREF HISTFNEAR' rest
+   address command 'EXEC GITVREF --FM' objectfm 'HISTFNEAR' rest
    exit rc
 end
 if command = 'HISTORYFIRSTSTATUS-REF-FULL' then do
-   address command 'EXEC GITVREF HISTFSTAT' rest
+   address command 'EXEC GITVREF --FM' objectfm 'HISTFSTAT' rest
    exit rc
 end
 if command = 'HISTORYFIRSTBOUNDS-REF-FULL' then do
-   address command 'EXEC GITVREF HISTFBOUND' rest
+   address command 'EXEC GITVREF --FM' objectfm 'HISTFBOUND' rest
    exit rc
 end
 if command = 'HISTORYFIRSTVERSIONS-REF-FULL' then do
-   address command 'EXEC GITVREF HISTFVER' rest
+   address command 'EXEC GITVREF --FM' objectfm 'HISTFVER' rest
    exit rc
 end
 if command = 'HISTORYFIRSTLIFETIME-REF-FULL' then do
-   address command 'EXEC GITVREF HISTFLIFE' rest
+   address command 'EXEC GITVREF --FM' objectfm 'HISTFLIFE' rest
    exit rc
 end
 if command = 'HISTORYFIRSTCURRENT-REF-FULL' then do
-   address command 'EXEC GITVREF HISTFCUR' rest
+   address command 'EXEC GITVREF --FM' objectfm 'HISTFCUR' rest
    exit rc
 end
 if command = 'HISTORYFIRSTORIGIN-REF-FULL' then do
-   address command 'EXEC GITVREF HISTFORIG' rest
+   address command 'EXEC GITVREF --FM' objectfm 'HISTFORIG' rest
    exit rc
 end
 if command = 'HISTORYFIRSTPRESENCE-REF-FULL' then do
-   address command 'EXEC GITVREF HISTFPRES' rest
+   address command 'EXEC GITVREF --FM' objectfm 'HISTFPRES' rest
    exit rc
 end
 if command = 'HISTORYFIRSTPRESENCEORIGIN-REF-FULL' then do
-   address command 'EXEC GITVREF HISTFPORIG' rest
+   address command 'EXEC GITVREF --FM' objectfm 'HISTFPORIG' rest
    exit rc
 end
 if command = 'HISTORYFIRSTPRESENCECHRONOLOGY-REF-FULL' then do
-   address command 'EXEC GITVREF HISTFPCHR' rest
+   address command 'EXEC GITVREF --FM' objectfm 'HISTFPCHR' rest
    exit rc
 end
 if command = 'HISTORYFIRSTPRESENCEEVENTS-REF-FULL' then do
-   address command 'EXEC GITVREF HISTFPEVT' rest
+   address command 'EXEC GITVREF --FM' objectfm 'HISTFPEVT' rest
    exit rc
 end
 if command = 'HISTORYFIRSTPRESENCEDURATION-REF-FULL' then do
-   address command 'EXEC GITVREF HISTFPDUR' rest
+   address command 'EXEC GITVREF --FM' objectfm 'HISTFPDUR' rest
    exit rc
 end
 if command = 'HISTORYFIRSTPRESENCEAGE-REF-FULL' then do
-   address command 'EXEC GITVREF HISTFPAGE' rest
+   address command 'EXEC GITVREF --FM' objectfm 'HISTFPAGE' rest
    exit rc
 end
 if command = 'HISTORYFIRSTPRESENCETIME-REF-FULL' then do
-   address command 'EXEC GITVREF HISTFPTIME' rest
+   address command 'EXEC GITVREF --FM' objectfm 'HISTFPTIME' rest
    exit rc
 end
 if command = 'HISTORYFIRSTPRESENCERATIO-REF-FULL' then do
-   address command 'EXEC GITVREF HISTFPRATIO' rest
+   address command 'EXEC GITVREF --FM' objectfm 'HISTFPRATIO' rest
    exit rc
 end
 if command = 'HISTORYFIRSTPRESENCECOVERAGE-REF-FULL' then do
-   address command 'EXEC GITVREF HISTFPCOV' rest
+   address command 'EXEC GITVREF --FM' objectfm 'HISTFPCOV' rest
    exit rc
 end
 if command = 'HISTORYFIRSTPRESENCEFRONTIER-REF-FULL' then do
-   address command 'EXEC GITVREF HISTFPFRONT' rest
+   address command 'EXEC GITVREF --FM' objectfm 'HISTFPFRONT' rest
    exit rc
 end
 if command = 'HISTORYFIRSTPRESENCEFRONTIERDISTANCE-REF-FULL' then do
-   address command 'EXEC GITVREF HISTFPFDIST' rest
+   address command 'EXEC GITVREF --FM' objectfm 'HISTFPFDIST' rest
    exit rc
 end
 if command = 'HISTORYFIRSTPRESENCEHORIZON-REF-FULL' then do
-   address command 'EXEC GITVREF HISTFPHORIZ' rest
+   address command 'EXEC GITVREF --FM' objectfm 'HISTFPHORIZ' rest
    exit rc
 end
 if command = 'READ-REF-FULL' then do
-   address command 'EXEC GITVREF READ' rest
+   address command 'EXEC GITVREF --FM' objectfm 'READ' rest
    exit rc
 end
 if command = 'DIR-REF-FULL' then do
-   address command 'EXEC GITVREF DIR' rest
+   address command 'EXEC GITVREF --FM' objectfm 'DIR' rest
    exit rc
 end
 if command = 'IMPORT-OBJECT' then do
@@ -975,19 +966,19 @@ if command = 'IMPORT-OBJECT' then do
    exit result
 end
 if command = 'FETCH-DISCOVER' then do
-   'EXEC GITFETCH DISCOVER' rest
+   'EXEC GITFETCH --FM' objectfm 'DISCOVER' rest
    exit rc
 end
 if command = 'FETCH-POST' then do
-   'EXEC GITPOST POST' rest
+   'EXEC GITPOST --FM' objectfm 'POST' rest
    exit rc
 end
 if command = 'FETCH-STORE' then do
-   'EXEC GITPOST STORE' rest
+   'EXEC GITPOST --FM' objectfm 'STORE' rest
    exit rc
 end
 if command = 'FETCH-PACK' then do
-   'EXEC GITFPACK' rest
+   'EXEC GITFPACK --FM' objectfm '' rest
    exit rc
 end
 if command = 'FETCH-IMPORT' then do
@@ -1030,14 +1021,14 @@ if command = 'FETCH-TRACK' then do
       say 'GIT: invalid remote-tracking object-id'
       exit 4
    end
-   'EXEC GITUPD' trackingref trackoid expectedoid
+   'EXEC GITUPD --FM' objectfm trackingref trackoid expectedoid
    exit rc
 end
 /* M301: merge one local branch without a remote fetch. */
 if command='MERGE' then do
    parse var rest mrgarg mrgextra
    if translate(mrgarg)='--ABORT' & mrgextra='' then do
-      'EXEC GITWT MERGE-ABORT'
+      'EXEC GITWT --FM' objectfm 'MERGE-ABORT'
       exit rc
    end
    if translate(mrgarg)='--CONTINUE' & mrgextra='' then do
@@ -1050,7 +1041,7 @@ if command='MERGE' then do
       exit 4
    end
    'SET CMSTYPE HT'
-   'STATE GITMERG MERGE G'
+   'STATE GITMERG MERGE' objectfm
    mrgstate=rc
    'SET CMSTYPE RT'
    if mrgstate=0 then do
@@ -1064,7 +1055,7 @@ if command='MERGE' then do
    if result\='OK' then exit 4
    drop mghout.
    mghout.0=0
-   'PIPE CMS EXEC GITVREF HEAD | STEM MGHOUT.'
+   'PIPE CMS EXEC GITVREF --FM' objectfm 'HEAD | STEM MGHOUT.'
    if rc\=0 | mghout.0\=1 then exit 8
    parse var mghout.1 mrghead extra
    if extra\='' | left(mrghead,11)\='refs/heads/' then exit 8
@@ -1098,7 +1089,7 @@ if command='MERGE' then do
       exit 8
    end
    if mrgrel='YES' then do
-      'EXEC GITUPD PULL-HEAD' mrgcurrent mrgold mrgnew
+      'EXEC GITUPD --FM' objectfm 'PULL-HEAD' mrgcurrent mrgold mrgnew
       if rc\=0 then do
          say 'GIT MERGE: fast-forward update failed'
          exit rc
@@ -1123,7 +1114,7 @@ if command='MERGE' then do
    if mgbuf<0 then exit 8
    queue mrgold
    queue mrgnew
-   mgcmd='EXEC GITVREF MERGE-BASE-STACK'
+   mgcmd='EXEC GITVREF --FM' objectfm 'MERGE-BASE-STACK'
    'PIPE CMS' mgcmd '| STEM MGBOUT.'
    mgrc=rc
    do while queued()>0
@@ -1148,7 +1139,7 @@ if command='MERGE' then do
    queue mrgold
    queue mrgnew
    queue mrgbase
-   mgcmd='EXEC GITWT CHECK-MERGE-STACK'
+   mgcmd='EXEC GITWT --FM' objectfm 'CHECK-MERGE-STACK'
    'PIPE CMS' mgcmd '| STEM MGBOUT.'
    mgrc=rc
    do while queued()>0
@@ -1164,7 +1155,7 @@ if command='MERGE' then do
       queue mrgnew
       queue mrgbase
       queue mrgarg
-      mgcmd='EXEC GITWT MERGE-CONFLICT-STACK'
+      mgcmd='EXEC GITWT --FM' objectfm 'MERGE-CONFLICT-STACK'
       'PIPE CMS' mgcmd '| STEM MGBOUT.'
       mgrc=rc
       do while queued()>0
@@ -1204,7 +1195,7 @@ if command='MERGE' then do
    queue mrgnew
    queue mrgbase
    queue mrgopts
-   mgcmd='EXEC GITWT MERGE-COMMIT-STACK'
+   mgcmd='EXEC GITWT --FM' objectfm 'MERGE-COMMIT-STACK'
    'PIPE CMS' mgcmd '| STEM MGCOUT.'
    mgrc=rc
    do while queued()>0
@@ -1232,7 +1223,7 @@ if command='MERGE' then do
       say 'GIT MERGE: merge commit result is ambiguous'
       exit 8
    end
-   'EXEC GITUPD MERGE-HEAD' mrgcurrent mrgold mrgcommit
+   'EXEC GITUPD --FM' objectfm 'MERGE-HEAD' mrgcurrent mrgold mrgcommit
    if rc\=0 then do
       say 'GIT MERGE: branch/worktree update failed; merge commit retained'
       exit rc
@@ -1246,7 +1237,7 @@ if command='PULL' then do
    if strip(rest)='' then do
       drop remout.
       remout.0=0
-      'PIPE CMS EXEC GITREMOT | STEM REMOUT.'
+      'PIPE CMS EXEC GITREMOT --FM' objectfm ' | STEM REMOUT.'
       if rc\=0 | remout.0=0 then do
          say 'GIT PULL: no remote configured; use GIT REMOTE ADD first'
          exit 8
@@ -1303,8 +1294,8 @@ if command='PULL' then do
    /* A failed pull deliberately retains its pack, stage and index for
       recovery.  A retry with the same fixed names would otherwise stop at
       "already exists", so clear stale pull artifacts up front and say so. */
-   stale.1=pullpack 'PACK G'
-   stale.2=pullpack 'META G'
+   stale.1=pullpack 'PACK' objectfm
+   stale.2=pullpack 'META' objectfm
    stale.3=pullpack 'STAGE' objectfm
    stale.4=pullindex 'INDEX' objectfm
    do sci=1 to 4
@@ -1325,7 +1316,7 @@ if command='PULL' then do
    end
    drop headout.
    headout.0=0
-   'PIPE CMS EXEC GITVREF HEAD | STEM HEADOUT.'
+   'PIPE CMS EXEC GITVREF --FM' objectfm 'HEAD | STEM HEADOUT.'
    if rc\=0 | headout.0\=1 then exit 8
    parse var headout.1 pullhead extra
    if extra\='' | left(pullhead,11)\='refs/heads/' then exit 8
@@ -1348,7 +1339,7 @@ if command='PULL' then do
    end
    drop statusout.
    statusout.0=0
-   'PIPE CMS EXEC GITWT STATUS --SHORT | STEM STATUSOUT.'
+   'PIPE CMS EXEC GITWT --FM' objectfm 'STATUS --SHORT | STEM STATUSOUT.'
    if rc\=0 then do
       say 'GIT PULL: cannot verify a clean worktree'
       exit 8
@@ -1372,8 +1363,9 @@ if command='PULL' then do
       say 'GIT PULL: no local tip; requesting a shallow depth-1 pack'
    drop fetchout.
    fetchout.0=0
-   fetchcmd='EXEC GITFPACK'||' '||pullremote||' '||pullbridge||' '||,
-       pullport||' '||pullpack||' '||pullrequest
+   fetchcmd='EXEC GITFPACK --FM' objectfm,
+       ' '||pullremote||' '||pullbridge||' '||pullport||' '||pullpack||' '||,
+       pullrequest
    if pullhave\='' then fetchcmd=fetchcmd||' HAVE '||pullhave
    'PIPE CMS' fetchcmd '| STEM FETCHOUT.'
    if rc\=0 then do
@@ -1437,14 +1429,14 @@ if command='PULL' then do
           needblocks 'required for this pull'
       exit 8
    end
-   'EXEC GIT FETCH-IMPORT' pullpack objectfm
+   'EXEC GIT --FM' objectfm 'FETCH-IMPORT' pullpack objectfm
    if rc\=0 then do
       say 'GIT PULL: import failed; pack retained for recovery'
       exit rc
    end
    incopt=''
    if pullhave\='' then incopt=' INCREMENTAL'
-   'EXEC GIT FETCH-ACTIVATE' pullpack pullindex objectfm||incopt
+   'EXEC GIT --FM' objectfm 'FETCH-ACTIVATE' pullpack pullindex objectfm||incopt
    if rc\=0 then do
       say 'GIT PULL: activation failed; stage and index retained'
       exit rc
@@ -1474,7 +1466,7 @@ if command='PULL' then do
        if ancbuf<0 then exit 8
        queue pullold
        queue pullnew
-       ancestorcmd='EXEC GITVREF IS-ANCESTOR-STACK'
+       ancestorcmd='EXEC GITVREF --FM' objectfm 'IS-ANCESTOR-STACK'
       'PIPE CMS' ancestorcmd '| STEM ANCESTOROUT.'
       ancestorrc=rc
       do while queued()>0
@@ -1499,7 +1491,7 @@ if command='PULL' then do
           if ancbuf<0 then exit 8
           queue pullnew
           queue pullold
-          ancestorcmd='EXEC GITVREF IS-ANCESTOR-STACK'
+          ancestorcmd='EXEC GITVREF --FM' objectfm 'IS-ANCESTOR-STACK'
           'PIPE CMS' ancestorcmd '| STEM ANCESTOROUT.'
           ancestorrc=rc
           do while queued()>0
@@ -1524,7 +1516,7 @@ if command='PULL' then do
              if mbbuf<0 then exit 8
              queue pullold
              queue pullnew
-             mergebasecmd='EXEC GITVREF MERGE-BASE-STACK'
+             mergebasecmd='EXEC GITVREF --FM' objectfm 'MERGE-BASE-STACK'
              'PIPE CMS' mergebasecmd '| STEM MERGEBASEOUT.'
              mergebaserc=rc
              do while queued()>0
@@ -1551,7 +1543,7 @@ if command='PULL' then do
              queue pullold
              queue pullnew
              queue pullbase
-             mergecheck='EXEC GITWT CHECK-MERGE-STACK'
+             mergecheck='EXEC GITWT --FM' objectfm 'CHECK-MERGE-STACK'
              drop mergecheckout.
              mergecheckout.0=0
              'PIPE CMS' mergecheck '| STEM MERGECHECKOUT.'
@@ -1569,7 +1561,7 @@ if command='PULL' then do
                 queue pullnew
                 queue pullbase
                 queue branchfromremote
-                mergecmd='EXEC GITWT MERGE-CONFLICT-STACK'
+                mergecmd='EXEC GITWT --FM' objectfm 'MERGE-CONFLICT-STACK'
                 drop mergeconflictout.
                 mergeconflictout.0=0
                 'PIPE CMS' mergecmd '| STEM MERGECONFLICTOUT.'
@@ -1605,7 +1597,7 @@ if command='PULL' then do
              queue pullnew
              queue pullbase
              queue '-T 0 -Z +0000 -M Merge_remote_branch'
-             mergecmd='EXEC GITWT MERGE-COMMIT-STACK'
+             mergecmd='EXEC GITWT --FM' objectfm 'MERGE-COMMIT-STACK'
              'PIPE CMS' mergecmd '| STEM MERGECOMMITOUT.'
              mergecommcrc=rc
              do while queued()>0
@@ -1640,8 +1632,8 @@ if command='PULL' then do
     end
     else pulltarget=pullnew
     if pulltarget\=pullold & pullconflict=0 & pullautomerge=0 then do
-       pullcheckcmd='EXEC GITWT CHECK-PULL'||' '||currentbranch||' '||,
-           pullold||' '||pulltarget
+       pullcheckcmd='EXEC GITWT --FM' objectfm,
+           'CHECK-PULL '||currentbranch||' '||pullold||' '||pulltarget
        drop pullcheckout.
        pullcheckout.0=0
        'PIPE CMS' pullcheckcmd '| STEM PULLCHECKOUT.'
@@ -1655,7 +1647,7 @@ if command='PULL' then do
       say 'GIT PULL: remote-tracking ref exceeds the REF2 limit'
       exit 8
    end
-   'EXECIO * DISKR GITREF2 REPO G 1 (STEM PULLREFS. FINIS'
+   'EXECIO * DISKR GITREF2 REPO' objectfm '1 (STEM PULLREFS. FINIS'
    if rc\=0 | PULLREFS.0<2 | PULLREFS.1\='REF2 1' then exit 8
    oldtracking='0000000000000000000000000000000000000000'
    trackcount=0
@@ -1669,7 +1661,8 @@ if command='PULL' then do
    end
    if trackcount>1 | length(oldtracking)\=40 |,
       verify(oldtracking,'0123456789ABCDEF')\=0 then exit 8
-   'EXEC GIT FETCH-TRACK' pullremote branchfromremote pullnew oldtracking
+   'EXEC GIT --FM' objectfm 'FETCH-TRACK',
+      pullremote branchfromremote pullnew oldtracking
    if rc\=0 then do
       say 'GIT PULL: remote-tracking ref update failed; local branch unchanged'
       exit rc
@@ -1694,7 +1687,7 @@ if command='PULL' then do
       pullupdated=1
    end
    if pullupdated=0 then do
-      'EXEC GITUPD PULL-HEAD' currentbranch pullold pulltarget
+      'EXEC GITUPD --FM' objectfm 'PULL-HEAD' currentbranch pullold pulltarget
       if rc\=0 then do
          say 'GIT PULL: branch unchanged; tracking ref records fetched tip'
          exit rc
@@ -1707,26 +1700,28 @@ if command='PULL' then do
 end
 /* M281: push local commits to a remote Git repository. */
 if command='PUSH' then do
-   'EXEC GITPUSH' rest
+   'EXEC GITPUSH --FM' objectfm rest
    exit rc
 end
 /* M274: clone a GitHub repository into an empty CMS file area. */
 if command='CLONE' then do
-   parse var rest cloneurl clonefm clonearg1 clonearg2 cloneextra
-   if cloneurl='' | cloneextra\='' then do
-      say 'Usage: GIT CLONE <https-url> [object-filemode] [bridge] [port]'
+   parse var rest cloneurl clonefm clonearg1 clonearg2 clonebranch cloneextra
+   if cloneurl='' | clonefm='' | cloneextra\='' then do
+      say 'Usage: GIT CLONE <https-url> <repository-filemode>',
+          '[bridge] [port] [branch]'
+      say 'Repository filemode selects an existing empty R/W 4K minidisk.'
       exit 4
    end
-   if clonefm='' then clonefm='G'
    clonefm=translate(clonefm)
-   if verify(clonefm,'ABCDEFGHIJKLMNOPQRSTUVWXYZ')\=0 then do
-      say 'GIT CLONE: invalid object filemode'
+   if verify(clonefm,'ABCDEFGHIJKLMNOPQRSTUVWXYZ')\=0 |,
+      clonefm='D' | clonefm='S' then do
+      say 'GIT CLONE: repository filemode must be one uppercase letter',
+       'other than D or S'
       exit 4
    end
-   if clonefm\='G' then do
-      say 'GIT CLONE: this installation stores project data on filemode G'
-      exit 4
-   end
+   objectfm=clonefm
+   call checkrepotarget objectfm
+   if result\='OK' then exit 8
    call readbridge
    if result\='OK' then do
       say 'GIT CLONE: invalid GITBRIDG CONFIG record'
@@ -1749,15 +1744,6 @@ if command='CLONE' then do
       say 'GIT CLONE: invalid bridge port'
       exit 4
    end
-   'STATE GITMETA REPO G'
-   if rc=0 then do
-      say 'GIT CLONE: repository already initialized; use GIT PULL to resume'
-      exit 8
-   end
-   if rc\=28 then do
-      say 'GIT CLONE: cannot inspect repository metadata RC' rc
-      exit 8
-   end
    /* GITREMOT needs repository metadata, so parse and discover before
       INIT.  Use the advertised HEAD symref so the initial branch matches
       the repository default instead of assuming "main". */
@@ -1767,12 +1753,14 @@ if command='CLONE' then do
       exit 4
    end
    clonepath=result
+   clonetarget=clonebranch
+   if clonetarget='' then clonetarget='HEAD'
    drop disco.
    disco.0=0
-   discocmd='EXEC GITFETCH DISCOVER' clonebridge cloneport 'github.com',
-       clonepath 'HEAD'
+   discocmd='EXEC GITFETCH --FM' objectfm,
+       'DISCOVER '||clonebridge||' '||cloneport||' github.com '||,
+       clonepath||' '||clonetarget
    'PIPE CMS' discocmd '| STEM DISCO.'
-   clonebranch=''
    cloneoid=''
    cloneoidcount=0
    clonepass=0
@@ -1786,8 +1774,9 @@ if command='CLONE' then do
             cloneoid=candidate
          end
       end
-      if word(disco.ci,1)='FETCH' & word(disco.ci,2)='DEFAULT' &,
-         word(disco.ci,3)='BRANCH' & words(disco.ci)=4 then do
+      if clonebranch='' & word(disco.ci,1)='FETCH' &,
+         word(disco.ci,2)='DEFAULT' & word(disco.ci,3)='BRANCH' &,
+         words(disco.ci)=4 then do
          branchref=word(disco.ci,4)
          if left(branchref,11)='refs/heads/' then,
             clonebranch=substr(branchref,12)
@@ -1803,19 +1792,20 @@ if command='CLONE' then do
       say 'GIT CLONE: remote did not advertise a usable default branch'
       exit 8
    end
-   'EXEC GIT INIT' clonefm clonebranch
+   'EXEC GIT --FM' objectfm 'INIT' clonefm clonebranch
    if rc\=0 then do
       say 'GIT CLONE: repository initialization failed'
       exit rc
    end
-   'EXEC GIT REMOTE ADD origin' cloneurl
+   'EXEC GIT --FM' objectfm 'REMOTE ADD origin' cloneurl
    if rc\=0 then do
       say 'GIT CLONE: remote configuration failed'
-      'ERASE GITMETA REPO G'
-      'ERASE GITREF2 REPO G'
+      'ERASE GITMETA REPO' objectfm
+      'ERASE GITREF2 REPO' objectfm
       exit rc
    end
-   'EXEC GIT PULL origin' clonebridge cloneport 'PULLNX01 PULLIX01 HEAD'
+   'EXEC GIT --FM' objectfm 'PULL origin',
+      clonebridge cloneport 'PULLNX01 PULLIX01 HEAD'
    if rc\=0 then do
       say 'GIT CLONE: initial pull failed; repository partially initialized'
       say 'GIT CLONE: after correcting the failure, run: GIT PULL'
@@ -1904,27 +1894,27 @@ if command = 'PACK-TREE' then do
    exit rc
 end
 if command = 'GC' | command = 'REPACK' then do
-   'EXEC GITGC' command rest
+   'EXEC GITGC --FM' objectfm command rest
    exit rc
 end
 if command = 'CHECKOUT-FILE' then do
-   'EXEC GITWT CHECKOUT' rest
+   'EXEC GITWT --FM' objectfm 'CHECKOUT' rest
    exit rc
 end
 if command = 'CHECKOUT-TREE' then do
-   'EXEC GITWT CHECKOUT-TREE' rest
+   'EXEC GITWT --FM' objectfm 'CHECKOUT-TREE' rest
    exit rc
 end
 if command = 'STATUS' then do
-   'EXEC GITWT STATUS' rest
+   'EXEC GITWT --FM' objectfm 'STATUS' rest
    exit rc
 end
 if command = 'DIFF' then do
-   'EXEC GITWT DIFF' rest
+   'EXEC GITWT --FM' objectfm 'DIFF' rest
    exit rc
 end
 if command = 'RESET' then do
-   'EXEC GITWT RESET' rest
+   'EXEC GITWT --FM' objectfm 'RESET' rest
    exit rc
 end
 if command = 'RESTORE' then do
@@ -1936,8 +1926,8 @@ if command = 'RESTORE' then do
          say 'Usage: GIT RESTORE --source revision --worktree [--] path...'
          exit 4
       end
-      address command 'EXEC GITWT RESTORE-WORKTREE --SOURCE' restorespec,
-         sourcepaths
+      address command 'EXEC GITWT --FM' objectfm,
+         'RESTORE-WORKTREE --SOURCE' restorespec sourcepaths
       exit rc
    end
    if left(translate(restoreopt),9)='--SOURCE=' then do
@@ -1948,8 +1938,8 @@ if command = 'RESTORE' then do
          say 'Usage: GIT RESTORE --source revision --worktree [--] path...'
          exit 4
       end
-      address command 'EXEC GITWT RESTORE-WORKTREE --SOURCE' restorespec,
-         sourcepaths
+      address command 'EXEC GITWT --FM' objectfm,
+         'RESTORE-WORKTREE --SOURCE' restorespec sourcepaths
       exit rc
    end
    if translate(restoreopt)='--WORKTREE' then do
@@ -1957,26 +1947,26 @@ if command = 'RESTORE' then do
          say 'Usage: GIT RESTORE --worktree [--] path...'
          exit 4
       end
-      address command 'EXEC GITWT RESTORE-WORKTREE' restorepaths
+      address command 'EXEC GITWT --FM' objectfm 'RESTORE-WORKTREE' restorepaths
       exit rc
    end
    if translate(restoreopt)\='--STAGED' | strip(restorepaths)='' then do
       say 'Usage: GIT RESTORE --staged [--] path...'
       exit 4
    end
-   address command 'EXEC GITWT RESET' restorepaths
+   address command 'EXEC GITWT --FM' objectfm 'RESET' restorepaths
    exit rc
 end
 if command = 'ADD' then do
-   'EXEC GITWT ADD' rest
+   'EXEC GITWT --FM' objectfm 'ADD' rest
    exit rc
 end
 if command = 'COMMIT-STAGED' then do
-   'EXEC GITWT COMMIT' rest
+   'EXEC GITWT --FM' objectfm 'COMMIT' rest
    exit rc
 end
 if command = 'COMMIT' then do
-   'EXEC GIT COMMIT-CURRENT' rest
+   'EXEC GIT --FM' objectfm 'COMMIT-CURRENT' rest
    exit rc
 end
 if command = 'COMMIT-STAGED-REF' then do
@@ -1995,7 +1985,7 @@ if command = 'COMMIT-STAGED-REF' then do
    end
    drop cr.
    cr.0=0
-   'PIPE CMS EXEC GITWT COMMIT' copts '| STEM cr.'
+   'PIPE CMS EXEC GITWT --FM' objectfm 'COMMIT' copts '| STEM cr.'
    crc=rc
    do cri=1 to cr.0
       say cr.cri
@@ -2027,7 +2017,7 @@ if command = 'COMMIT-STAGED-REF' then do
       say 'PARENT' parent
       exit 8
    end
-   address command 'EXEC GIT UPDATE-REF' cref newcommit expected
+   address command 'EXEC GIT --FM' objectfm 'UPDATE-REF' cref newcommit expected
    urc=rc
    if urc\=0 then do
       say 'COMMIT-STAGED-REF CAS FAIL RC' urc
@@ -2036,7 +2026,7 @@ if command = 'COMMIT-STAGED-REF' then do
    drop vr.
    verified=0
    headseen=0
-   'EXECIO * DISKR GITREF2 REPO G 1 (STEM VR. FINIS'
+   'EXECIO * DISKR GITREF2 REPO' objectfm '1 (STEM VR. FINIS'
    vrc=rc
    if vrc=0 & vr.0>=3 & vr.1='REF2 1' then do
       do vri=2 to vr.0
@@ -2055,7 +2045,8 @@ if command = 'COMMIT-STAGED-REF' then do
    end
    if vrc\=0 | headseen\=1 | verified\=1 then do
       say 'GIT: post-CAS ref verification failed; rolling back'
-      address command 'EXEC GIT UPDATE-REF' cref expected newcommit
+      address command 'EXEC GIT --FM' objectfm 'UPDATE-REF',
+         cref expected newcommit
       if rc\=0 then say 'GIT: post-CAS rollback failed'
       else say 'GIT: post-CAS rollback restored expected old'
       exit 8
@@ -2073,7 +2064,7 @@ if command = 'COMMIT-CURRENT' then do
       exit 4
    end
    drop hr.
-   'EXECIO * DISKR GITREF2 REPO G 1 (STEM HR. FINIS'
+   'EXECIO * DISKR GITREF2 REPO' objectfm '1 (STEM HR. FINIS'
    if rc\=0 | hr.0<3 | hr.1\='REF2 1' then do
       say 'GIT: cannot read current REF2 state'
       exit 8
@@ -2114,12 +2105,12 @@ if command = 'COMMIT-CURRENT' then do
    /* Run the integrated commit directly: GITWT itself uses PIPE stages,
       which cannot be nested inside a PIPE CMS stage.  The CAS wrapper
       preserves safety; read the advanced ref back to learn the new tip. */
-   cmd='EXEC GIT COMMIT-STAGED-REF' headref oldoid copts
+   cmd='EXEC GIT --FM' objectfm 'COMMIT-STAGED-REF' headref oldoid copts
    address command cmd
    ccrc=rc
    if ccrc\=0 then exit ccrc
    drop nr.
-   'EXECIO * DISKR GITREF2 REPO G 1 (STEM NR. FINIS'
+   'EXECIO * DISKR GITREF2 REPO' objectfm '1 (STEM NR. FINIS'
    nrc=rc
    newcount=0
    newcommit=''
@@ -2140,11 +2131,12 @@ if command = 'COMMIT-CURRENT' then do
       say 'GIT: integrated commit result framing failed'
       exit 8
    end
-   address command 'EXEC GITWT ACCEPT'
+   address command 'EXEC GITWT --FM' objectfm 'ACCEPT'
    arc=rc
    if arc\=0 then do
       say 'GIT: worktree accept failed; rolling back current branch'
-      address command 'EXEC GIT UPDATE-REF' headref oldoid newcommit
+      address command 'EXEC GIT --FM' objectfm 'UPDATE-REF',
+         headref oldoid newcommit
       if rc\=0 then say 'GIT: current branch rollback failed'
       else say 'GIT: current branch rollback restored old commit'
       exit 8
@@ -2840,9 +2832,7 @@ parsecloneurl:
       right(owner,1)='.' | right(repo,1)='.' then return 'ERROR'
    return p
 
-/* Default plain-HTTP to TLS bridge endpoint.  GITBRIDG CONFIG G may hold
-   one record: BRIDGE <host> <port>.  The defaults match the documented
-   VMnet gateway; override the file when the bridge listens elsewhere. */
+/* Application support file on G may hold one BRIDGE <host> <port> record. */
 readbridge:
    bridgehost='192.168.200.1'
    bridgeport='8443'
@@ -2880,19 +2870,62 @@ freespace:
    if fscount\=1 | datatype(fsfree,'W')\=1 then return 'ERROR'
    return fsfree
 
+/* One repository owns one minidisk namespace.  Never initialize over an
+   existing repository file, and never select an inaccessible/full disk. */
+checkrepotarget:
+   parse arg targetfm
+   if verify(targetfm,'ABCDEFGHIJKLMNOPQRSTUVWXYZ')\=0 |,
+      targetfm='D' | targetfm='S' then do
+      say 'GIT: repository filemode must be one uppercase letter',
+       'other than D or S'
+      return 'ERROR'
+   end
+   objectfm=targetfm
+   call freespace
+   if result='ERROR' | result<180000 then do
+      say 'GIT: target disk must be accessed R/W 4K with 180000 free blocks'
+      return 'ERROR'
+   end
+   ns.1='GITMETA REPO'
+   ns.2='GITREF2 REPO'
+   ns.3='GITREMOT REPO'
+   ns.4='GITWORK REPO'
+   ns.5='GITMERG MERGE'
+   ns.6='GITMODE REPO'
+   ns.7='GITPACKS REPO'
+   ns.8='GITREFS REPO'
+   ns.9='GHCRED REPO'
+   ns.10='GHTOKEN REPO'
+   ns.11='GHPASS REPO'
+   ns.12='GITTREE REPO'
+   ns.13='GITMRG BLOB'
+   do nsi=1 to 13
+      parse var ns.nsi nfn nft
+      'STATE' nfn nft targetfm
+      if rc=0 then do
+         say 'GIT: repository namespace is not empty' nfn nft targetfm
+         return 'ERROR'
+      end
+      if rc\=28 then do
+         say 'GIT: cannot inspect target namespace RC' rc
+         return 'ERROR'
+      end
+   end
+   return 'OK'
+
 initrefs:
    parse arg ibranch
    if ibranch='' then ibranch='main'
-   'STATE GITREF2 REPO G'
+   'STATE GITREF2 REPO' objectfm
    if rc=0 then return 'EXISTS'
    if rc\=28 then return 'ERROR'
    initial.0=2
    initial.1='REF2 1'
    initial.2='HEAD refs/heads/'||ibranch
-   'EXECIO 2 DISKW GITREF2 REPO G 1 (STEM INITIAL. FINIS'
+   'EXECIO 2 DISKW GITREF2 REPO' objectfm '1 (STEM INITIAL. FINIS'
    if rc\=0 then return 'ERROR'
    drop initial.
-   'EXECIO * DISKR GITREF2 REPO G 1 (STEM INITIAL. FINIS'
+   'EXECIO * DISKR GITREF2 REPO' objectfm '1 (STEM INITIAL. FINIS'
    if rc\=0 | initial.0\=2 | initial.1\='REF2 1' |,
       initial.2\=('HEAD refs/heads/'||ibranch) then return 'ERROR'
    return 'OK'
@@ -3033,11 +3066,11 @@ pickresolved:
    if pfound=0 & pbare=1 then return pbareoid
    return 'ERROR'
 
-queryref: procedure expose rs.
+queryref: procedure expose rs. objectfm
    parse arg qspec
    drop rs.
    rs.0=0
-   cmd='EXEC GITVREF RESOLVE' qspec
+   cmd='EXEC GITVREF --FM' objectfm 'RESOLVE' qspec
    'PIPE CMS' cmd '| STEM RS.'
    if rc\=0 then return 'ERROR'
    return 'OK'
@@ -3045,7 +3078,7 @@ queryref: procedure expose rs.
 mergecontinue:
    drop mcout.
    mcout.0=0
-   'PIPE CMS EXEC GITWT MERGE-CONTINUE | STEM MCOUT.'
+   'PIPE CMS EXEC GITWT --FM' objectfm 'MERGE-CONTINUE | STEM MCOUT.'
    if rc\=0 then do
       do mci=1 to mcout.0
          say mcout.mci
@@ -3084,7 +3117,7 @@ mergecontinue:
       return 'ERROR'
    drop mchout.
    mchout.0=0
-   'PIPE CMS EXEC GITVREF HEAD | STEM MCHOUT.'
+   'PIPE CMS EXEC GITVREF --FM' objectfm 'HEAD | STEM MCHOUT.'
    if rc\=0 | mchout.0\=1 then return 'ERROR'
    parse var mchout.1 mchead extra
    if extra\='' | left(mchead,11)\='refs/heads/' then return 'ERROR'
@@ -3093,15 +3126,15 @@ mergecontinue:
    if result\='OK' then return 'ERROR'
    call localbranchtip mcbranch
    if result\=mcparent then return 'ERROR'
-   'EXEC GIT UPDATE-REF' mchead mccommit mcparent
+   'EXEC GIT --FM' objectfm 'UPDATE-REF' mchead mccommit mcparent
    if rc\=0 then return 'ERROR'
-   'EXEC GITWT ACCEPT'
+   'EXEC GITWT --FM' objectfm 'ACCEPT'
    if rc\=0 then do
-      'EXEC GIT UPDATE-REF' mchead mcparent mccommit
+      'EXEC GIT --FM' objectfm 'UPDATE-REF' mchead mcparent mccommit
       say 'GIT MERGE: worktree accept failed; branch rollback attempted'
       return 'ERROR'
    end
-   'EXEC GITWT MERGE-CLEAR'
+   'EXEC GITWT --FM' objectfm 'MERGE-CLEAR'
    if rc\=0 then do
       say 'GIT MERGE: commit created but merge state clear failed'
       return 'ERROR'
@@ -3118,7 +3151,7 @@ mergeancestor:
    if mabuf<0 then return 'ERROR'
    queue maancestor
    queue madescendant
-   macmd='EXEC GITVREF IS-ANCESTOR-STACK'
+   macmd='EXEC GITVREF --FM' objectfm 'IS-ANCESTOR-STACK'
    'PIPE CMS' macmd '| STEM MAOUT.'
    marc=rc
    do while queued()>0
@@ -3143,7 +3176,7 @@ localbranchtip:
    lbtip=''
    drop lbt.
    lbt.0=0
-   'EXECIO * DISKR GITREF2 REPO G 1 (STEM LBT. FINIS'
+   'EXECIO * DISKR GITREF2 REPO' objectfm '1 (STEM LBT. FINIS'
    if rc\=0 | lbt.0<2 | lbt.1\='REF2 1' then return ''
    do lbti=2 to lbt.0
       if words(lbt.lbti)=3 & word(lbt.lbti,1)='REF' &,
@@ -3402,13 +3435,13 @@ if gc_action='REMOVE' then do
   say 'Usage: GIT CREDENTIAL REMOVE'
   exit 4
  end
- 'STATE GHCRED REPO G'
+ 'STATE GHCRED REPO' objectfm
  if rc=28 then do
   say 'No GitHub credential stored'
   exit 0
  end
  if rc\=0 then exit 8
- 'ERASE GHCRED REPO G'
+ 'ERASE GHCRED REPO' objectfm
  if rc\=0 then do
   say 'GITCRED: cannot remove credential file'
   exit 8
@@ -3428,13 +3461,13 @@ if gc_action='IMPORT' then do
   say 'GITCRED: invalid GitHub user name'
   exit 4
  end
- 'STATE GHTOKEN REPO G'
+ 'STATE GHTOKEN REPO' objectfm
  if rc\=0 then do
-  say 'GITCRED: create GHTOKEN REPO G with one TOKEN record first'
+  say 'GITCRED: create GHTOKEN REPO' objectfm 'with one TOKEN record first'
   exit 8
  end
  drop gc_input.
- 'EXECIO * DISKR GHTOKEN REPO G 1 (STEM GC_INPUT. FINIS'
+ 'EXECIO * DISKR GHTOKEN REPO' objectfm '1 (STEM GC_INPUT. FINIS'
  if rc\=0 | gc_input.0\=1 then do
   say 'GITCRED: token input must contain exactly one record'
   exit 8
@@ -3457,7 +3490,7 @@ if gc_action='IMPORT' then do
   say 'GITCRED: could not store API key'
   exit 8
  end
- 'ERASE GHTOKEN REPO G'
+ 'ERASE GHTOKEN REPO' objectfm
  if rc\=0 then do
   say 'GITCRED: stored credential; temporary input remains'
   exit 8
@@ -3471,13 +3504,13 @@ if gc_action='IMPORT-USERPASS' then do
   say 'Usage: GIT CREDENTIAL IMPORT-USERPASS'
   exit 4
  end
- 'STATE GHPASS REPO G'
+ 'STATE GHPASS REPO' objectfm
  if rc\=0 then do
-  say 'GITCRED: create GHPASS REPO G with USER and PASSWORD records'
+  say 'GITCRED: create GHPASS REPO' objectfm 'with USER and PASSWORD records'
   exit 8
  end
  drop gc_input.
- 'EXECIO * DISKR GHPASS REPO G 1 (STEM GC_INPUT. FINIS'
+ 'EXECIO * DISKR GHPASS REPO' objectfm '1 (STEM GC_INPUT. FINIS'
  if rc\=0 | gc_input.0\=2 then do
   say 'GITCRED: input must contain exactly two records'
   exit 8
@@ -3507,7 +3540,7 @@ if gc_action='IMPORT-USERPASS' then do
   say 'GITCRED: could not store username/password credential'
   exit 8
  end
- 'ERASE GHPASS REPO G'
+ 'ERASE GHPASS REPO' objectfm
  if rc\=0 then do
   say 'GITCRED: stored credential; temporary input remains'
   exit 8
@@ -3521,7 +3554,7 @@ say '       GIT CREDENTIAL REMOVE'
 exit 4
 
 gc_storecredential:
- 'STATE GHCRED REPO G'
+ 'STATE GHCRED REPO' objectfm
  if rc=0 then do
   say 'GITCRED: remove the existing credential before replacing it'
   return 'ERROR'
@@ -3544,16 +3577,16 @@ gc_storecredential:
   gc_pos=gc_pos+64
  end
  gc_output.0=gc_n
- 'EXECIO' gc_output.0 'DISKW GHCRED REPO G 1 (STEM GC_OUTPUT. FINIS'
+ 'EXECIO' gc_output.0 'DISKW GHCRED REPO' objectfm '1 (STEM GC_OUTPUT. FINIS'
  if rc\=0 then do
-  'STATE GHCRED REPO G'
-  if rc=0 then 'ERASE GHCRED REPO G'
+  'STATE GHCRED REPO' objectfm
+  if rc=0 then 'ERASE GHCRED REPO' objectfm
   return 'ERROR'
  end
  call gc_readcredential
  if result\='OK' | gc_present\=1 | gc_username\=gc_storeduser |,
     gc_credentialmode\=gc_storedmode | gc_secret\=gc_storedsecret then do
-  'ERASE GHCRED REPO G'
+  'ERASE GHCRED REPO' objectfm
   return 'ERROR'
  end
  return 'OK'
@@ -3563,11 +3596,11 @@ gc_readcredential:
  gc_storeduser=''
  gc_storedsecret=''
  gc_storedmode=''
- 'STATE GHCRED REPO G'
+ 'STATE GHCRED REPO' objectfm
  if rc=28 then return 'OK'
  if rc\=0 then return 'ERROR'
  drop gc_cred.
- 'EXECIO * DISKR GHCRED REPO G 1 (STEM GC_CRED. FINIS'
+ 'EXECIO * DISKR GHCRED REPO' objectfm '1 (STEM GC_CRED. FINIS'
  if rc\=0 | gc_cred.0<4 then return 'ERROR'
  if gc_cred.1='GHCRED 1' then do
   gc_storedmode='APIKEY'
@@ -3640,12 +3673,12 @@ gitimport:
  parse upper var gi_args gi_oid gi_extra
 gi_objfn=substr(gi_oid,1,8)
 
-/* Loose objects live on the repository object disk, which need not be A. */
-objectfm='G'
-'STATE GITMETA REPO G'
+/* Loose objects live on the selected repository disk. */
+repofm=objectfm
+'STATE GITMETA REPO' objectfm
 if rc=0 then do
  drop gi_impmeta.
- 'EXECIO * DISKR GITMETA REPO G 1 (STEM GI_IMPMETA. FINIS'
+ 'EXECIO * DISKR GITMETA REPO' objectfm '1 (STEM GI_IMPMETA. FINIS'
  if rc\=0 | gi_impmeta.0<1 | gi_impmeta.1\='CMS-GIT-REPOSITORY 1' then do
   say 'GITIMP: invalid repository metadata'
   exit 8
@@ -3659,13 +3692,13 @@ if rc=0 then do
    objectfm=translate(word(gi_impmeta.gi_mi,2))
   end
  end
- if length(objectfm)\=1 |,
-    verify(objectfm,'ABCDEFGHIJKLMNOPQRSTUVWXYZ')\=0 then do
+ if verify(objectfm,'ABCDEFGHIJKLMNOPQRSTUVWXYZ')\=0 | objectfm='D' |,
+   objectfm='S' then do
   say 'GITIMP: invalid OBJECT-DISK setting'
   exit 8
  end
- if objectfm\='G' then do
-  say 'GITIMP: repository OBJECT-DISK must be G'
+ if objectfm\=repofm then do
+  say 'GITIMP: repository metadata does not match filemode' repofm
   exit 8
  end
 end
@@ -3677,7 +3710,7 @@ end
 'STATE' gi_objfn 'GITOBJ' objectfm
 gi_src=rc
 if gi_src=0 then do
- address command 'EXEC GIT VERIFY-OBJECT' gi_oid
+ address command 'EXEC GIT --FM' objectfm 'VERIFY-OBJECT' gi_oid
  if rc\=0 then do
   say 'GITIMP: existing loose object failed verification'
   exit 8
@@ -3797,7 +3830,7 @@ if rc\=0 then do
  exit 8
 end
 
-address command 'EXEC GIT VERIFY-OBJECT' gi_oid
+address command 'EXEC GIT --FM' objectfm 'VERIFY-OBJECT' gi_oid
 vrc=rc
 if vrc\=0 then do
  'ERASE' gi_objfn 'GITOBJ' objectfm

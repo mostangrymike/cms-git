@@ -16669,3 +16669,73 @@ left `main` clean with no M305 branch. A separate read-only pass rechecked all
 comparisons, pack restoration, artifact absence, status, and branches. Live
 network transport was not rerun; M305 proves post-fetch structural orchestration
 with standard packs, not a new end-to-end network qualification.
+
+## 2026-11-27 — M306 multi-minidisk repositories and live pull
+
+M306 makes the minidisk the repository boundary. Runtime EXECs and native
+MODULEs remain on G; repository metadata, refs, remotes, objects, packs,
+worktree map, merge state, credentials, and new workfiles follow the selected
+single-letter CMS filemode. `GIT --FM <letter>` selects that repository for one
+command. Legacy G repositories keep their existing A-disk workfile behavior.
+
+Clone now requires an explicit repository filemode, verifies an accessed R/W
+4-KiB disk with at least 180,000 free blocks, and rejects non-empty repository
+namespaces. It also accepts an optional branch after bridge/port. Internal EXECs
+reparse the original argument line for `--FM`; procedures that use `objectfm`
+expose it explicitly. Non-G repositories never fall back to protected native
+G fixtures. The sanctioned minidisk planner remains read-only; directory
+activation and FORMAT each received explicit operator approval.
+
+Provisioning used active-source backups and separate candidates:
+
+- `M306G1 DIRECT A1` added `MDISK 0601 3390 3331 1138 M01W01 W`; initial receipt
+  `fd44818b-b6fb-459d-a303-2e2fe46c2d6b`.
+- The first real main-branch pack contained 11,957 objects and filled the
+  800.16-MiB filesystem during loose-object installation. Direct native import
+  and independent stage verification passed in 782.46s and 849.10s respectively.
+- Fresh planner evidence found an adjacent 4,096.41-MiB extent. `M306G2 DIRECT
+  A1` extended the same 0601 start to 6,964 cylinders; `M306BAK2` preserves the
+  prior active source. `RECOMP` did not expand this CMS filesystem, so an
+  explicitly approved full FORMAT created the final 4,896.56-MiB `M0601B`.
+- Final resize receipt: `a6aab094-38d4-4d12-8850-ba9e7d711670`; plan SHA-256
+  `ff18d9cdf87ff00e629d0054829a084e54336787cef8a022a52ea6a30fe1b920`.
+
+Live transport used the existing host HTTP-to-HTTPS bridge and the allowlisted
+`mostangrymike/cms-git-push-test` repository. A one-file orphan branch avoided
+the mapped-worktree cap:
+
+- Tiny clone tip: `6E354455B83425BBB2DD47DC064EDB331CB8414B`.
+- Incremental remote tip: `1389184747E98D28616EBC0516D86BA677898A9A`.
+- Clone performed real discovery, POST, three-object pack import/verification,
+  activation, ref creation, and B-disk worktree checkout.
+- A second pull returned `Already up to date`.
+- The incremental pull returned `FAST-FORWARD`, `PULL COMPLETE`, installed three
+  objects, added `SECOND TXT B`, and left clean status. LOG verified the new tip
+  and parent.
+- Bridge logs recorded guest GET/POST traffic and byte counts; no synthetic
+  `GITFPACK` was used for the qualifying tiny clone/pull.
+
+Final temporarily deployed runtime blob hashes:
+
+- `GIT.EXEC`: `EA849237859E385D1C88579D962F0464C3D4FD77`.
+- `GITWT.EXEC`: `A5E5F0C7A6827F379680B2E9F109259E1103A4F1`.
+- `GITVREF.EXEC`: `B6E1EC723F50CC2073F8C79BF687534E15553D30`.
+- `GITUPD.EXEC`: `F9C4ACD72E25B4451DC32858556AE7145C080AAD`.
+- `GITPUSH.EXEC`: `BA10E0D0D71BE70E9018F03A4ABFC4055B76C4A7`.
+- `GITREMOT.EXEC`: `D4E73649C0D291666FAF827DA7CF86A8E5E40465`.
+- `GITFETCH.EXEC`: `C204F91C4BD11CBB5712B3BBE07FDC0B30D2CB5E`.
+- `GITPOST.EXEC`: `343D56A8CFB7EFE931BB4788F3686DB86ED9F6DF`.
+- `GITFPACK.EXEC`: `F0847BB1DCF07E92285A5BD8ABCDC70765ED3057`.
+- `GITFIMP.EXEC`: `9C210A24ECC4BC04903D7AE4F7F3CDCDB1CC292D`.
+- `GITFACT.EXEC`: `85D68F6353C6B240B04C96CCEC627376A16901D9`.
+- `GITGC.EXEC`: `E2FB116CDDE4374DFB135AA0ECBA57A57EECCA88`.
+
+The final restore compared all 12 G runtime targets identical to `M306BK`.
+Legacy G repository hashes remained `GITMETA F0CCF6D79D56E01776E45E5BD377E727D866859D`,
+`GITREF2 A4F2402FA5BFFE1D6B48DA415A65C5DE59DFDFFC`,
+`GITWORK F1F24A239FD1B2721DDBFB7E5970E39F760E02B2`, and
+`GITREMOT 8EBB7C93C8529B671262B3FB3D07F2DF6BDE64BA`. A final native read-only
+check confirmed `0601` maps to M01W01 cylinders 3331–10294, B is `M0601B` at
+6,964 cylinders with 1,253,413 free blocks, refs point to the incremental tip,
+`SECOND TXT B` exists, and merge artifacts are absent. Both disks were detached;
+no extent was released or erased after the final qualifying state.

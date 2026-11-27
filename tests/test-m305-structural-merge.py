@@ -18,7 +18,7 @@ for token in (
     "call readmergemodes",
     "call mergemodefor",
     "call clearmergemodes",
-    "GITMODE REPO G",
+    "GITMODE REPO' objectfm",
     "if mapstage.apsi=zeros then do",
     "if mapbase.abi=zeros then do",
     "if mergeactive=2 then do",
@@ -45,7 +45,7 @@ assert "mapbase.newindex=zeros" in prepare
 mode_routines = WT.split("writemergemodes:", 1)[1].split("checkmergeworktree:", 1)[0]
 for token in ("MODE1", "PATH", "END", "mmout.mmidx='PATH'",
               "mmout.mmidx='END'", "SET CMSTYPE HT", "mmwrite=rc", "mmread=rc",
-              "RENAME GITMODE TMP G GITMODE REPO G"):
+              "RENAME GITMODE TMP' objectfm 'GITMODE REPO' objectfm"):
     assert token in mode_routines, token
 assert "mmout.mmout.0" not in mode_routines
 

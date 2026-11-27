@@ -1,18 +1,18 @@
 # Status
 
 **Canonical current-state file for `cms-git`.** If any other document
-disagrees with this page, this page wins. Last updated 2026-11-26.
+disagrees with this page, this page wins. Last updated 2026-11-27.
 
 ## Right now
 
 | Field | Value |
 |---|---|
 | Branch | `main` |
-| Latest milestone | **M305** — structural merge changes |
-| Latest commit | M305 structural merge support; see `git log -1 --oneline` for the exact commit |
+| Latest milestone | **M306** — multi-minidisk repositories and live pull qualification |
+| Latest commit | M306 repository-filemode support; see `git log -1 --oneline` for the exact commit |
 | Build | no package build; host checks only |
-| Host CI | full local M305 selector/focused gate and GitHub Actions run `45936644213` pass |
-| CMS target | `GIT600 G` restored; M305 conflict/abort, pure mode-only, and structural auto-merge pulls passed on 2026-11-26 with synthetic verified fetch stubs; all `M301BK` targets and `M305BK` `GITFPACK` were restored and rechecked read-only |
+| Host CI | full local M306 selector/focused gate passes; GitHub Actions validation pending |
+| CMS target | G runtime restored from `M306BK`; live clone/up-to-date/incremental pull passed on disposable `0601 B`; legacy G repository hashes unchanged; B remains formatted as `M0601B` at 6,964 cylinders |
 
 ## What is proven
 
@@ -62,10 +62,17 @@ disagrees with this page, this page wins. Last updated 2026-11-26.
   mode merge `9F700C5C54E9AF5C99F40AAB1C2BDA4B3A2A2B71` and structural merge
   `CD2B4DB6AF4022F6193D28D98D7A62406D605B17`; both merge trees and the final
   restored state were verified.
+- M306 keeps runtime/support files on G and selects each repository disk with
+  `GIT --FM <letter>`. Clone requires an explicit filemode and rejects non-empty
+  repository namespaces. A provisioned `0601 B` completed real bridge clone,
+  up-to-date pull, and incremental fast-forward pull from
+  `6E354455B83425BBB2DD47DC064EDB331CB8414B` to
+  `1389184747E98D28616EBC0516D86BA677898A9A`; the new workfile landed on B,
+  status stayed clean, and legacy G repository hashes were unchanged.
 - CMS runtime source deployed on `GIT600 G` on 2026-11-16. The active
   `GIT.EXEC` blob is `96B343E3A881CDC1B4CA94E59056213E74DB35B8`; all 20 promoted
   runtime EXECs matched the then-current main/archive Git blob hashes.
-  M301–M305 are not included in that deployment. The existing `GIT LEVEL M176`
+  M301–M306 are not included in that deployment. The existing `GIT LEVEL M176`
   output is a native-generation marker, not the whole-client source revision.
 - Item-1 read-only user-command stress: 15/16 passed on the updated G runtime.
   `GIT LOG -n 16` stopped at missing object `C30F39A6` (tracked in issue #215).
@@ -78,17 +85,18 @@ disagrees with this page, this page wins. Last updated 2026-11-26.
 - M303 is bounded to 2,048 records and 65,536 LCS cells per side; larger inputs
   fall back to whole-file markers. M305 accepts one-sided path additions/removals
   and `100644`↔`100755` changes; add/add and delete/modify conflicts remain
-  fail-closed. M304/M305 CMS proof used synthetic verified fetch stubs; live
-  network transport was not rerun.
+  fail-closed. M304/M305 CMS proof used synthetic verified fetch stubs; M306
+  separately qualifies live transport with a tiny controlled branch.
 - `MAINT 0600` was restored to the CP directory on 2026-11-26 after the
   web-console candidate `CANDGD` was found to have dropped both `MDISK 600`
   (GIT600) and `MDISK 0601`. Only GIT600 was restored, through validated
   candidate `CANDGF80 DIRECT A`; rollback source `CANDGD DIRECT C` and backup
   `CANDGD DRBK26 C` remain on `02CC`.
 
-- Live network `GIT PULL` transport and the G-layout migration still need
-  qualification on a disposable G1. M304/M305 prove post-fetch orchestration
-  with standard packs through synthetic fetch stubs.
+- Live network `GIT PULL` now passes through the workstation TLS bridge on
+  disposable `0601 B`. Native guest TLS remains unsupported. The client still
+  requires an explicit repository filemode; an interactive clone prompt is not
+  implemented.
 - M304 GitHub Actions run `45922512194` passed, including the Linux-only
   `MAP`/`CONFIG`/`BACKUP` checks that cannot run on this Mac.
 - Old runtime EXEC backups remain on G as `* M300BK G`; VMARC archive of all

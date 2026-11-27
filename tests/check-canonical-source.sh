@@ -113,20 +113,20 @@ u=(root/'src/GITUPD.EXEC').read_text()
 v=(root/'src/GITVREF.EXEC').read_text()
 w=(root/'src/GITWT.EXEC').read_text()
 required={
- 'GIT.EXEC': (g, ("if command = 'TAG' then do", "EXEC GITVREF TAGS",
+ 'GIT.EXEC': (g, ("if command = 'TAG' then do", "EXEC GITVREF --FM' objectfm 'TAGS",
      "verb='-L' | verb='--LIST'",
      "say 'Usage: GIT TAG [-l|--list [pattern]]'",
      "verb='-F' | verb='--FORCE'",
      "say 'Usage: GIT TAG -f|--force name new-oid [expected-old-oid]'",
      'if oldoid=zeros then do',
-     "EXEC GIT UPDATE-REF' ref newoid oldoid",
+     "EXEC GIT --FM' objectfm 'UPDATE-REF' ref newoid oldoid",
      "verb='-D' | verb='--DELETE'",
      "say '       GIT TAG -d|--delete name [expected-old-oid]'",
      "ref='refs/tags/'||action", "ref='refs/tags/'||tagname",
-     "EXEC GIT UPDATE-REF' ref oid zeros",
-     "EXEC GIT UPDATE-REF' ref zeros expectedoid")),
+     "EXEC GIT --FM' objectfm 'UPDATE-REF' ref oid zeros",
+     "EXEC GIT --FM' objectfm 'UPDATE-REF',")),
  'GITUPD.EXEC': (u, ("left(vr,11)='refs/heads/'",
-     "left(vr,10)='refs/tags/'", "EXEC GIT VERIFY-OBJECT' newoid",
+     "left(vr,10)='refs/tags/'", "EXEC GIT --FM' objectfm 'VERIFY-OBJECT' newoid",
      'current\\=oldoid', 'call restore')),
  'GITVREF.EXEC': (v, ("command='TAGS' then do",
      "left(refname.ti,10)='refs/tags/'", "left(wanted,10)\\='refs/tags/'",
@@ -161,7 +161,7 @@ from pathlib import Path
 import sys
 cli=Path(sys.argv[1]).read_text()
 refs=Path(sys.argv[2]).read_text()
-for token in ("address command 'EXEC GITVREF TAGS' tagname",):
+for token in ("address command 'EXEC GITVREF --FM' objectfm 'TAGS' tagname",):
  if token not in cli:
   raise SystemExit(f'GIT.EXEC missing list-pattern forwarding: {token}')
 for token in ("if spec='' then do",
@@ -320,8 +320,8 @@ guards=(
  ('call validbranch brancharg3', "oldref='refs/heads/'||brancharg2"),
  ('call validbranch brancharg2', "branchref='refs/heads/'||brancharg2"),
  ('call validbranch brancharg1', "branchref='refs/heads/'||brancharg1"),
- ('call validbranch brancharg', "cmd='EXEC GITUPD CREATE-HEAD"),
- ('call validbranch branchname', "cmd='EXEC GITUPD HEAD refs/heads/'||branchname"),
+ ('call validbranch brancharg', "cmd='EXEC GITUPD --FM' objectfm,"),
+ ('call validbranch branchname', "cmd='EXEC GITUPD --FM' objectfm,"),
 )
 for guard, command in guards:
  if cli.index(guard) >= cli.index(command):
@@ -375,7 +375,7 @@ Path(sys.argv[2]).write_text(
 tag=source[source.index("if command = 'TAG' then do"):]
 checks=(
  ("if verb='-L'", "call validtag tagname, 'PATTERN'",
-  "address command 'EXEC GITVREF TAGS' tagname"),
+  "address command 'EXEC GITVREF --FM' objectfm 'TAGS' tagname"),
  ("if verb='-F'", 'call validtag tagname', "ref='refs/tags/'||tagname"),
  ("if verb='-D'", 'call validtag tagname', "ref='refs/tags/'||tagname"),
  ("if action=''", 'call validtag action', "ref='refs/tags/'||action"),
@@ -467,10 +467,10 @@ create=tag[tag.index("if action='' "):]
 for token in ("if tagstart='' then tagstart='HEAD'",
               'call resolvetagtarget tagstart',
               "if result\\='OK' | objtype\\='COMMIT' then do",
-              "address command 'EXEC GIT UPDATE-REF' ref oid zeros"):
+              "address command 'EXEC GIT --FM' objectfm 'UPDATE-REF' ref oid zeros"):
  if token not in create:
   raise SystemExit(f'M226 tag creation missing {token!r}')
-if create.index('call resolvetagtarget tagstart') > create.index("address command 'EXEC GIT VERIFY-OBJECT' oid"):
+if create.index('call resolvetagtarget tagstart') > create.index("address command 'EXEC GIT --FM' objectfm 'VERIFY-OBJECT' oid"):
  raise SystemExit('M226 verifies target before resolving start point')
 print('M226 TAG START-POINT DISPATCH GUARDS PASS 5')
 PY
@@ -574,7 +574,7 @@ Path(sys.argv[2]).write_text(fixture)
 start=route.index("if verb='--SHOW-CURRENT' then do")
 end=route.index("if brancharg1='-m'",start)
 show=route[start:end]
-if show.index("Usage: GIT BRANCH --show-current") > show.index('PIPE CMS EXEC GITVREF HEAD'):
+if show.index("Usage: GIT BRANCH --show-current") > show.index("PIPE CMS EXEC GITVREF --FM' objectfm 'HEAD"):
  raise SystemExit('M228 queries HEAD before checking command arguments')
 for token in ('showhead.0\\=1', 'call branchnamefromhead showhead.1',
               'say result', 'exit 0'):
@@ -635,7 +635,7 @@ list_start=branch_route.index("if verb='-L' | verb='--LIST'")
 list_end=branch_route.index("if verb='--SHOW-CURRENT'",list_start)
 listing=branch_route[list_start:list_end]
 if listing.index("call validbranch brancharg2, 'PATTERN'") > listing.index(
-        "address command 'EXEC GITVREF BRANCHES' brancharg2"):
+        "address command 'EXEC GITVREF --FM' objectfm 'BRANCHES' brancharg2"):
  raise SystemExit('M229 forwards branch pattern before validation')
 for token in ("branchchars=branchchars||'0123456789._/-*?'",
               'call tagmatch branchpattern, branchcandidate',
@@ -700,7 +700,7 @@ route=source[source.index("if command = 'BRANCH' then do"):
              source.index("/* M218: change symbolic HEAD")]
 start=route.index("if brancharg1='' | brancharg3\\='' |")
 block=route[start:]
-command="address command 'EXEC GIT UPDATE-REF' branchref branchoid zeros"
+command="address command 'EXEC GIT --FM' objectfm 'UPDATE-REF',\n      branchref branchoid zeros"
 if command not in block:
  raise SystemExit('M230 branch create did not preserve the CAS updater')
 block=block.replace(command,
@@ -769,7 +769,7 @@ start=source.index("if command='CHECKOUT' then do")
 end=source.index("if command = 'VERSION' then do",start)
 block=source[start:end]
 for token in ("if checkoutarg='-B' then do",
-              "'STATE GITREF2 REPO G'", 'if checkoutrc=28 then do',
+              "'STATE GITREF2 REPO' objectfm", 'if checkoutrc=28 then do',
               "if checkoutarg='-b' | checkoutarg='--branch' then",
               "rest='-c'||substr(rest,length(checkoutarg)+1)",
               "command='SWITCH'"):
@@ -777,7 +777,7 @@ for token in ("if checkoutarg='-B' then do",
   raise SystemExit(f'M231 checkout alias missing {token!r}')
 prefix='parse arg command rest\ncommand=translate(command)\n'
 suffix='say command\nsay strip(rest)\n'
-state="'STATE GITREF2 REPO G'"
+state="'STATE GITREF2 REPO' objectfm"
 if state not in block:
  raise SystemExit('M231 state probe missing')
 for path, result in zip(sys.argv[2:], ('rc=0','rc=28','rc=8')):
@@ -845,7 +845,7 @@ source=Path(sys.argv[1]).read_text()
 start=source.index("if command='CHECKOUT' then do")
 end=source.index('if command = \'VERSION\' then do',start)
 block=source[start:end]
-for token in ("'STATE GITREF2 REPO G'", 'checkoutrc=rc',
+for token in ("'STATE GITREF2 REPO' objectfm", 'checkoutrc=rc',
               'if checkoutrc=28 then do',
               "if checkoutarg='-b' | checkoutarg='--branch' then do",
               "say 'GIT CHECKOUT -b requires modern REF2'",
@@ -856,7 +856,7 @@ legacy=block[block.index('if checkoutrc=28 then do'):
              block.index('else if checkoutrc=0 then do')]
 if "command='SWITCH'" in legacy:
  raise SystemExit('M232 routes legacy checkout to modern REF2 updater')
-if block.index("'STATE GITREF2 REPO G'") > block.index("command='SWITCH'"):
+if block.index("'STATE GITREF2 REPO' objectfm") > block.index("command='SWITCH'"):
  raise SystemExit('M232 selects checkout implementation before checking REF2')
 print('M232 LEGACY CHECKOUT FALLBACK GUARDS PASS 8')
 PY
@@ -883,7 +883,7 @@ tag=source[source.index("if command = 'TAG' then do"):
 start=tag.index("if verb='-D' | verb='--DELETE' then do")
 end=tag.index("if action=''",start)
 block=tag[start:end]
-command="address command 'EXEC GIT UPDATE-REF' ref zeros expectedoid"
+command="address command 'EXEC GIT --FM' objectfm 'UPDATE-REF',\n         ref zeros expectedoid"
 if command not in block:
  raise SystemExit('M233 tag deletion lost its CAS update')
 if block.index('call resolvestart ref') > block.index(command):
@@ -957,7 +957,7 @@ route=source[source.index("if command = 'BRANCH' then do"):
 start=route.index("if verb='-D' | verb='--DELETE' then do")
 end=route.index("if brancharg1='' | brancharg3",start)
 block=route[start:end]
-command="address command 'EXEC GIT UPDATE-REF' branchref zeros branchoid"
+command="address command 'EXEC GIT --FM' objectfm 'UPDATE-REF',\n         branchref zeros branchoid"
 if command not in block:
  raise SystemExit('M234 branch deletion lost its CAS update')
 if block.index('call resolvestart branchref') > block.index(command):
@@ -1030,7 +1030,7 @@ source=Path(sys.argv[1]).read_text()
 start=source.index("if command = 'LOG' then do")
 end=source.index("/* Prefer modern REF2 branches",start)
 block=source[start:end]
-command="address command 'EXEC GITVREF LOG' logoid backenddepth"
+command="address command 'EXEC GITVREF --FM' objectfm 'LOG' logoid backenddepth"
 resolver='call resolvetagtarget logstart'
 if command not in block or resolver not in block:
  raise SystemExit('M235 LOG router lost its resolver/backend')
@@ -1132,7 +1132,7 @@ start=source.index("if command = 'SHOW' then do")
 end=source.index("/* Prefer modern REF2 branches",start)
 block=source[start:end]
 resolver='call resolvetagtarget showstart'
-command="address command 'EXEC GITVREF SHOW' showoid"
+command="address command 'EXEC GITVREF --FM' objectfm 'SHOW' showoid"
 if resolver not in block or command not in block:
  raise SystemExit('M236 SHOW router lost its resolver/backend')
 if block.index(resolver)>block.index(command):
@@ -1211,8 +1211,8 @@ if route not in src:
     raise SystemExit('M260 LOG fallback is not routed')
 if src.index(route) > src.index('call bindnative'):
     raise SystemExit('M260 binds native fixtures before the loose store')
-if "if rc=28 then return 'NATIVE'" not in src:
-    raise SystemExit('M260 missing commit does not fall back')
+if "if rc=28 then do" not in src or "if objectfm\\='G' then return 'ERROR'" not in src:
+    raise SystemExit('M260 missing commit fallback is not filemode-safe')
 if "if length(rlo_hex)\\=rlo_size*2 then return 'ERROR'" not in src:
     raise SystemExit('M260 loose object size check is not exact')
 if "drop ll_oid. ll_tree. ll_hex. ll_size." not in src:
@@ -1237,7 +1237,7 @@ for token in ("if ll_tseen.ll_vroot='OK' then return 'OK'",
         raise SystemExit(f'M260 snapshot cache missing {token!r}')
 if src.count('call objectdisk') < 2:
     raise SystemExit('M260 RESOLVE/LOG do not read the object disk')
-if "od_seen>1 | length(od_fm)\\=1" not in src:
+if "od_seen>1 | verify(od_fm,'ABCDEFGHIJKLMNOPQRSTUVWXYZ')" not in src:
     raise SystemExit('M260 object-disk reader does not validate uniqueness')
 if ("  call objectdisk\n  if result='ERROR' then exit 8\n"
     "  if result='NATIVE' then objectfm='G'") not in src:
@@ -1413,8 +1413,8 @@ start=tag.index("if verb='-F' | verb='--FORCE' then do")
 end=tag.index("if verb='-D' | verb='--DELETE' then do",start)
 block=tag[start:end]
 resolver='call resolvestart ref'
-verify="address command 'EXEC GIT VERIFY-OBJECT' newoid"
-update="address command 'EXEC GIT UPDATE-REF' ref newoid oldoid"
+verify="address command 'EXEC GIT --FM' objectfm 'VERIFY-OBJECT' newoid"
+update="address command 'EXEC GIT --FM' objectfm 'UPDATE-REF' ref newoid oldoid"
 readobj='call readobject newoid'
 for command in (resolver,verify,readobj,update):
  if command not in block:
@@ -1803,7 +1803,7 @@ from pathlib import Path
 import sys
 
 router=Path(sys.argv[1]).read_text()
-if "if command = 'DIFF' then do\n   'EXEC GITWT DIFF' rest\n   exit rc\nend" not in router:
+if "if command = 'DIFF' then do\n   'EXEC GITWT --FM' objectfm 'DIFF' rest\n   exit rc\nend" not in router:
  raise SystemExit('M244 GIT DIFF porcelain route missing')
 source=Path(sys.argv[2]).read_text()
 start=source.index("if command='DIFF' then do")
@@ -1911,7 +1911,7 @@ from pathlib import Path
 import sys
 
 router=Path(sys.argv[1]).read_text()
-if "if command = 'RESET' then do\n   'EXEC GITWT RESET' rest\n   exit rc\nend" not in router:
+if "if command = 'RESET' then do\n   'EXEC GITWT --FM' objectfm 'RESET' rest\n   exit rc\nend" not in router:
  raise SystemExit('M245 GIT RESET route missing')
 source=Path(sys.argv[2]).read_text()
 start=source.index("if command='RESET' then do")
@@ -1997,9 +1997,9 @@ git=Path(sys.argv[1]).read_text()
 start=git.index("if command = 'COMMIT' then do")
 end=git.index("if command = 'COMMIT-STAGED-REF' then do",start)
 route=git[start:end]
-if "'EXEC GIT COMMIT-CURRENT' rest" not in route:
+if "'EXEC GIT --FM' objectfm 'COMMIT-CURRENT' rest" not in route:
  raise SystemExit('M251 GIT COMMIT current-branch route missing')
-route=route.replace("'EXEC GIT COMMIT-CURRENT' rest",
+route=route.replace("'EXEC GIT --FM' objectfm 'COMMIT-CURRENT' rest",
                     "say 'SIMULATED CURRENT' rest")
 Path(sys.argv[3]).write_text(
  "parse arg command rest\ncommand=translate(command)\n"+route)
@@ -2080,12 +2080,14 @@ toasciihex:
 """+splitpath
 block=block.replace("'STATE' newfn.ni newft.ni newfm.ni",
                     'call cmsstate newfn.ni,newft.ni,newfm.ni')
-block=block.replace("'STATE GITWORK REPO G'", 'call mapstate')
-block=block.replace("'EXECIO * DISKR GITWORK REPO G 1 (STEM BEFORE. FINIS'",
+block=block.replace("'STATE GITWORK REPO' objectfm", 'call mapstate')
+block=block.replace("'EXECIO * DISKR GITWORK REPO' objectfm '1 (STEM BEFORE. FINIS'",
                     'before.0=1\n rc=0')
-block=block.replace("'ERASE GITWORK REPO G'", "say 'SIMULATED ERASE'\n rc=0")
+block=block.replace("'ERASE GITWORK REPO' objectfm", "say 'SIMULATED ERASE'\n rc=0")
 prefix="""parse arg rest
 command='ADD'
+objectfm='G'
+workfm='A'
 mockmode='@MODE@'
 workpathhexmax=1024
 workdepthmax=32
@@ -2201,7 +2203,7 @@ for token in ('if mapbase.mi=zeros & mapstage.mi\\=zeros then do',
               'if cd=pcnt then do',
               'newrootname.newrootcount=pathcomp.mi.cd',
               'newrootoid.newrootcount=mapstage.mi',
-              "address command 'EXEC GIT VERIFY-OBJECT' mapstage.mi",
+              "address command 'EXEC GIT --FM' objectfm 'VERIFY-OBJECT' mapstage.mi",
               'call insertrootadds',
               "if matches=0 then return 'MISSING'",
               "if result\\='OK' & result\\='MISSING' then return 'ERROR'",
@@ -2214,7 +2216,7 @@ for token in ('if mapbase.mi=zeros & mapstage.mi\\=zeros then do',
               'nodeentry.nji=nodeentry.nji+1'):
  if token not in source:
   raise SystemExit(f'M253 root-file commit guard missing {token!r}')
-if not (commit.index("address command 'EXEC GIT VERIFY-OBJECT' mapstage.mi")<
+if not (commit.index("address command 'EXEC GIT --FM' objectfm 'VERIFY-OBJECT' mapstage.mi")<
         commit.index('newrootname.newrootcount=pathcomp.mi.cd')<
         commit.index('call insertrootadds')<commit.index('do level=maxdepth')):
  raise SystemExit('M253 inserts root files after tree rewrite begins')
@@ -2225,7 +2227,7 @@ entry_start=commit.index('    if entryindex=0 then do')
 entry_end=commit.index('    if cd<pcnt then do',entry_start)
 entry=commit[entry_start:entry_end]
 entry=entry.replace("call mergemodefor mappath.mi","result=''")
-entry=entry.replace("address command 'EXEC GIT VERIFY-OBJECT' mapstage.mi",
+entry=entry.replace("address command 'EXEC GIT --FM' objectfm 'VERIFY-OBJECT' mapstage.mi",
  "if scenario='VERIFYFAIL' then rc=8\nelse do\n say 'SIMULATED VERIFY'\n rc=0\nend")
 prefix="""parse arg scenario
 nodecount=1
@@ -2391,7 +2393,7 @@ entry_start=scan_end
 entry_end=commit.index('    if cd<pcnt then do',entry_start)
 entry=commit[entry_start:entry_end]
 entry=entry.replace("call mergemodefor mappath.mi","result=''")
-entry=entry.replace("address command 'EXEC GIT VERIFY-OBJECT' mapstage.mi",
+entry=entry.replace("address command 'EXEC GIT --FM' objectfm 'VERIFY-OBJECT' mapstage.mi",
  "say 'SIMULATED VERIFY' mapstage.mi\nrc=0")
 insert=source[source.index('insertrootadds:\n'):source.index('parsepathout:\n')]
 build=source[source.index('buildraw:\n'):source.index('insertrootadds:\n')]
@@ -2533,10 +2535,10 @@ if not block.index("'STATE' newfn.ni newft.ni newfm.ni") < block.index('call wor
  raise SystemExit('M255 must check all workfiles before hashing the batch')
 block=block.replace("'STATE' newfn.ni newft.ni newfm.ni",
                     'call cmsstate newfn.ni,newft.ni,newfm.ni')
-block=block.replace("'STATE GITWORK REPO G'", 'call mapstate')
-block=block.replace("'EXECIO * DISKR GITWORK REPO G 1 (STEM BEFORE. FINIS'",
+block=block.replace("'STATE GITWORK REPO' objectfm", 'call mapstate')
+block=block.replace("'EXECIO * DISKR GITWORK REPO' objectfm '1 (STEM BEFORE. FINIS'",
                     'before.0=1\n rc=0')
-block=block.replace("'ERASE GITWORK REPO G'", "say 'SIMULATED ERASE'\n rc=0")
+block=block.replace("'ERASE GITWORK REPO' objectfm", "say 'SIMULATED ERASE'\n rc=0")
 helpers=source[source.index('validid:\n'):source.index('validmode:\n')]
 helpers+=source[source.index('validmode:\n'):source.index('validtext:\n')]
 helpers+='''
@@ -2547,6 +2549,8 @@ toasciihex:
 helpers+=source[source.index('splitpath:\n'):source.index('readtree:\n')]
 prefix="""parse arg mockmode rest
 command='ADD'
+objectfm='G'
+workfm='A'
 workpathhexmax=1024
 workdepthmax=32
 workfilemax=50
@@ -2889,13 +2893,13 @@ router=Path(sys.argv[1]).read_text()
 rstart=router.index("if command = 'RESTORE' then do")
 rend=router.index("if command = 'ADD' then do",rstart)
 rblock=router[rstart:rend]
-for token in ("restoreopt)='--WORKTREE'", "'EXEC GITWT RESTORE-WORKTREE'",
-              "'EXEC GITWT RESET'"):
+for token in ("restoreopt)='--WORKTREE'", "'EXEC GITWT --FM' objectfm 'RESTORE-WORKTREE'",
+              "'EXEC GITWT --FM' objectfm 'RESET'"):
  if token not in rblock:
   raise SystemExit(f'M259 GIT RESTORE route guard missing {token!r}')
-rblock=rblock.replace("address command 'EXEC GITWT RESTORE-WORKTREE' restorepaths",
+rblock=rblock.replace("address command 'EXEC GITWT --FM' objectfm 'RESTORE-WORKTREE' restorepaths",
                       "say 'SIMULATED WORKTREE' restorepaths\nexit 0")
-rblock=rblock.replace("address command 'EXEC GITWT RESET' restorepaths",
+rblock=rblock.replace("address command 'EXEC GITWT --FM' objectfm 'RESET' restorepaths",
                       "say 'SIMULATED STAGED' restorepaths\nexit 0")
 Path(sys.argv[4]).write_text("parse arg command rest\ncommand=translate(command)\n"+rblock)
 
@@ -2925,8 +2929,8 @@ block=block.replace('call loadmap',"result='OK'")
 block=block.replace("'STATE' mapfn.pi mapft.pi mapfm.pi",'rc=0')
 block=block.replace("'EXECIO * DISKR' mapfn.pi mapft.pi mapfm.pi '1 (STEM RESTOREOLD. FINIS'",
                     "restoreold.0=1\nrestoreold.1='old-data'\nrc=0")
-block=block.replace("'STATE GITWORK REPO G'",'rc=0')
-block=block.replace("'EXECIO * DISKR GITWORK REPO G 1 (STEM BEFORE. FINIS'",
+block=block.replace("'STATE GITWORK REPO' objectfm",'rc=0')
+block=block.replace("'EXECIO * DISKR GITWORK REPO' objectfm '1 (STEM BEFORE. FINIS'",
                     "before.0=1\nbefore.1='WORK1 2'\nrc=0")
 block=block.replace('call readrestoreblob mapstage.pi',"result='6E65770A'")
 block=block.replace('call bodyrecords restorebody.restorearg',
@@ -3257,7 +3261,7 @@ for token in ("PACK-READ", "gcobjdata=gcobjdata||ghex",
     if token not in gblock:
         raise SystemExit(f'M299 GITGC packed reader guard missing {token!r}')
 gblock=gblock.replace(
-    "packcmd='PIPE CMS EXEC GIT PACK-READ'||' '||wanted||' | STEM GCPACK.'",
+    "packcmd='PIPE CMS EXEC GIT --FM' objectfm 'PACK-READ'||' '||wanted||' | STEM GCPACK.'",
     "packcmd='MOCK PACK-READ '||wanted")
 gblock=gblock.replace("address command packcmd", "call mockpack wanted")
 gfixture=(
@@ -3411,7 +3415,7 @@ for token in ("verb='-A' | verb='--ANNOTATE'",
               "say 'Usage: GIT TAG -a|--annotate name [start-point]'",
               "call hashstored 'TAG',annhex",
               "call storeobject annoiid,'TAG',annhex",
-              "EXEC GIT UPDATE-REF' ref annoiid zeros",
+              "EXEC GIT --FM' objectfm 'UPDATE-REF' ref annoiid zeros",
               "call peeltocommit resolvedoid",
               "call hashstored 'TAG',datahex",
               "result\\=storedoid",
@@ -3424,13 +3428,13 @@ for token in ("verb='-A' | verb='--ANNOTATE'",
 start=source.index("if command = 'TAG' then do")
 end=source.index("\n/* Bounded porcelain LOG",start)
 block=source[start:end]
-needle="address command 'EXEC GIT UPDATE-REF' ref annoiid zeros"
+needle="address command 'EXEC GIT --FM' objectfm 'UPDATE-REF' ref annoiid zeros"
 if needle not in block:
     raise SystemExit('M297 annotated tag update call missing')
 block=block.replace(needle,"call fakeupdate ref,annoiid,zeros")
-block=block.replace("address command 'EXEC GIT VERIFY-OBJECT' oid",
+block=block.replace("address command 'EXEC GIT --FM' objectfm 'VERIFY-OBJECT' oid",
                     "call fakeverify oid")
-block=block.replace("address command 'EXEC GIT UPDATE-REF' ref oid zeros",
+block=block.replace("address command 'EXEC GIT --FM' objectfm 'UPDATE-REF' ref oid zeros",
                     "call fakeupdate ref,oid,zeros")
 block=block.replace("if rc\\=0 then exit rc\n","")
 vstart=source.index('\nvalidtag: procedure\n')+1
@@ -3583,13 +3587,13 @@ end=source.index("if command='COMMIT' then do",start)
 block=source[start:end]
 for token in ('if mapstage.ai=zeros & mapbase.ai\\=zeros then do',
               'deleteflag.ai=1', 'if deleteflag.ai=1 then iterate',
-              'mapcount=keptcount', "'ERASE GITWORK REPO G'", 'call savemap',
+              'mapcount=keptcount', "'ERASE GITWORK REPO' objectfm", 'call savemap',
               "say 'ACCEPTED WORKTREE DELETED' deletepath.ai"):
  if token not in block:
   raise SystemExit(f'M250 delete acceptance source guard missing {token!r}')
-if not block.index("'ERASE GITWORK REPO G'")<block.index('call savemap'):
+if not block.index("'ERASE GITWORK REPO' objectfm")<block.index('call savemap'):
  raise SystemExit('M250 must erase before shorter map write')
-block=block.replace("'EXECIO * DISKR GITWORK REPO G 1 (STEM BEFORE. FINIS'",
+block=block.replace("'EXECIO * DISKR GITWORK REPO' objectfm '1 (STEM BEFORE. FINIS'",
                     "before.0=1\nrc=0")
 block=block.replace("'STATE' mapfn.ai mapft.ai mapfm.ai",
  "if mapfn.ai='DELETED' then rc=28\nelse rc=0")
@@ -3599,7 +3603,7 @@ block=block.replace('call asciitocms mappath.ai',"result='deleted'")
 block=block.replace('call loadmap',"result='OK'")
 block=block.replace('call readmergemodes',"result='OK'\nmergemodecount=0")
 block=block.replace('call mergemodefor mappath.ai',"result=''")
-block=block.replace("'ERASE GITWORK REPO G'","say 'SIMULATED ERASE'\nrc=0")
+block=block.replace("'ERASE GITWORK REPO' objectfm","say 'SIMULATED ERASE'\nrc=0")
 block=block.replace('call savemap',"result='OK'\nsay 'SIMULATED SAVE' mapcount")
 block=block.replace('call restoremap',"result='OK'")
 verify=("if mapcount\\=2 | mapfn.1\\='STAGED' | mapfn.2\\='CLEAN' then exit 12\n"
@@ -3861,15 +3865,15 @@ required=('parse var rest restoreopt restorepaths',
           "translate(restoreopt)\\='--STAGED'",
           "say 'Usage: GIT RESTORE --staged [--] path...'",
           "translate(restoreopt)='--WORKTREE'",
-          "address command 'EXEC GITWT RESTORE-WORKTREE' restorepaths",
-          "address command 'EXEC GITWT RESET' restorepaths",
+          "address command 'EXEC GITWT --FM' objectfm 'RESTORE-WORKTREE' restorepaths",
+          "address command 'EXEC GITWT --FM' objectfm 'RESET' restorepaths",
           'exit rc')
 for token in required:
  if token not in block:
   raise SystemExit(f'M246 restore source guard missing {token!r}')
-block=block.replace("address command 'EXEC GITWT RESTORE-WORKTREE' restorepaths",
+block=block.replace("address command 'EXEC GITWT --FM' objectfm 'RESTORE-WORKTREE' restorepaths",
                     "say 'SIMULATED WORKTREE' restorepaths\nexit 0")
-block=block.replace("address command 'EXEC GITWT RESET' restorepaths",
+block=block.replace("address command 'EXEC GITWT --FM' objectfm 'RESET' restorepaths",
                     "say 'SIMULATED RESET' restorepaths\nexit 0")
 Path(sys.argv[2]).write_text("parse arg rest\ncommand='RESTORE'\n"+block)
 print('M246 GIT RESTORE ROUTE SOURCE GUARDS PASS 5')
@@ -4167,11 +4171,11 @@ from pathlib import Path
 import sys
 git=Path(sys.argv[1]).read_text()
 refs=Path(sys.argv[2]).read_text()
-for token in ("if command = 'BRANCH' then do", "'STATE GITREF2 REPO G'",
+for token in ("if command = 'BRANCH' then do", "'STATE GITREF2 REPO' objectfm",
               'if rc=28 then do', "call legacybranch rest",
-              "EXEC GITVREF BRANCHES",
-              "EXEC GIT UPDATE-REF' branchref branchoid zeros",
-              "EXEC GIT UPDATE-REF' branchref zeros branchoid",
+              "EXEC GITVREF --FM' objectfm 'BRANCHES",
+              "EXEC GIT --FM' objectfm 'UPDATE-REF',",
+              "EXEC GIT --FM' objectfm 'UPDATE-REF',",
               "call resolvestart branchref",
               "verify(branchoid,'0123456789ABCDEF')"):
  if token not in git:
@@ -4247,8 +4251,8 @@ upd=Path(sys.argv[2]).read_text()
 refs=Path(sys.argv[3]).read_text()
 tmp=Path(sys.argv[4])
 for token in ("if command = 'SWITCH' then do",
-              "PIPE CMS EXEC GITVREF HEAD | STEM CURRENTHEAD.",
-              "EXEC GITUPD HEAD refs/heads/",
+              "PIPE CMS EXEC GITVREF --FM' objectfm 'HEAD | STEM CURRENTHEAD.",
+              "EXEC GITUPD --FM' objectfm,",
               "if ref='HEAD' then do",
               "if oldoid\\=newoid then do",
               "call checkswitch oldhead,newhead",
@@ -4259,7 +4263,7 @@ for token in ("if command = 'SWITCH' then do",
     if token not in source:
         raise SystemExit(f'M218 source missing guard: {token}')
 switch=git[git.index("if command = 'SWITCH' then do"):]
-assert switch.index("PIPE CMS EXEC GITVREF HEAD") < switch.index("EXEC GITUPD HEAD")
+assert switch.index("PIPE CMS EXEC GITVREF --FM' objectfm 'HEAD") < switch.index("EXEC GITUPD --FM' objectfm,")
 assert "headref=strip(currenthead.1)" in switch
 
 vstart=refs.index("if command='HEAD' then do")
@@ -4396,7 +4400,7 @@ git=Path(sys.argv[1]).read_text()
 upd=Path(sys.argv[2]).read_text()
 wt=Path(sys.argv[3]).read_text()
 out=Path(sys.argv[4])
-for source, token in ((upd,"EXEC GITWT CHECK-SWITCH"),
+for source, token in ((upd,"EXEC GITWT --FM' objectfm 'CHECK-SWITCH"),
                       (wt,"if command='CHECK-SWITCH' then do"),
                       (wt,"GITREC PATHFULLCAT GITFIX M15NEW"),
                       (wt,"'STATE' wfn wft wfm"),
@@ -4544,10 +4548,11 @@ for token in ("switchmode='-C' | switchmode='--CREATE'",
               "Usage: GIT SWITCH -c|--create name [start-point]",
               "if startpoint='' then startpoint='HEAD'",
               "call resolvestart startpoint",
-              "EXEC GITUPD CREATE-HEAD refs/heads/"):
+              "EXEC GITUPD --FM' objectfm,",
+              "CREATE-HEAD refs/heads/"):
     if token not in route:
         raise SystemExit(f'M220 switch router missing {token}')
-assert route.index("GITVREF HEAD") < route.index("GITUPD CREATE-HEAD")
+assert route.index("GITVREF --FM' objectfm 'HEAD") < route.index("CREATE-HEAD refs/heads/")
 ustart=upd.index("if ref='CREATE-HEAD' then do")
 uend=upd.index("/* HEAD changes require",ustart)
 block=upd[ustart:uend]
@@ -4730,7 +4735,7 @@ route_at=git.index("if command = 'BRANCH' then do")
 route=git[route_at:git.index("/* M5D integration boundary",route_at)]
 for token in ("if brancharg1='-m' | verb='--MOVE' then do",
               'call resolvestart brancharg2',
-              "EXEC GIT UPDATE-REF MOVE-REF' oldref newref expectedoid",
+              "EXEC GIT --FM' objectfm 'UPDATE-REF MOVE-REF',",
               'brancharg4\\=\'\''):
     if token not in route:
         raise SystemExit(f'M222 branch router missing {token}')
@@ -5070,8 +5075,8 @@ test -s "$g"
 test -s "$v"
 for token in \
  "command = 'REV-PARSE'" \
- "address command 'EXEC GITVREF OID' rest" \
- "address command 'EXEC GITVREF REFS'" \
+ "address command 'EXEC GITVREF --FM' objectfm 'OID' rest" \
+ "address command 'EXEC GITVREF --FM' objectfm 'REFS'" \
  "if length(rest) = 0 then do" \
  "SYMBOLIC-REF update is not supported"; do
  grep -Fq "$token" "$g"
@@ -5124,11 +5129,11 @@ required = (
     "call localbranchtip mrgarg",
     "call mergeancestor mrgold,mrgnew",
     "call mergeancestor mrgnew,mrgold",
-    "EXEC GITVREF MERGE-BASE-STACK",
-    "EXEC GITWT CHECK-MERGE-STACK",
-    "EXEC GITWT MERGE-COMMIT-STACK",
-    "EXEC GITUPD PULL-HEAD",
-    "EXEC GITUPD MERGE-HEAD",
+    "EXEC GITVREF --FM' objectfm 'MERGE-BASE-STACK",
+    "EXEC GITWT --FM' objectfm 'CHECK-MERGE-STACK",
+    "EXEC GITWT --FM' objectfm 'MERGE-COMMIT-STACK",
+    "EXEC GITUPD --FM' objectfm 'PULL-HEAD",
+    "EXEC GITUPD --FM' objectfm 'MERGE-HEAD",
     "MERGE COMPLETE",
 )
 for token in required:
@@ -5143,10 +5148,10 @@ if any(line.rstrip().endswith(",") and not line.rstrip().endswith(("|,", "&,", "
 order = (
     "call mergeancestor mrgold,mrgnew",
     "call mergeancestor mrgnew,mrgold",
-    "EXEC GITVREF MERGE-BASE-STACK",
-    "EXEC GITWT CHECK-MERGE-STACK",
-    "EXEC GITWT MERGE-COMMIT-STACK",
-    "EXEC GITUPD MERGE-HEAD",
+    "EXEC GITVREF --FM' objectfm 'MERGE-BASE-STACK",
+    "EXEC GITWT --FM' objectfm 'CHECK-MERGE-STACK",
+    "EXEC GITWT --FM' objectfm 'MERGE-COMMIT-STACK",
+    "EXEC GITUPD --FM' objectfm 'MERGE-HEAD",
 )
 positions = [merge.index(token) for token in order]
 if positions != sorted(positions):
@@ -5161,7 +5166,7 @@ for token in (
     "parse upper arg maancestor,madescendant",
     "queue maancestor",
     "queue madescendant",
-    "macmd='EXEC GITVREF IS-ANCESTOR-STACK'",
+    "macmd='EXEC GITVREF --FM' objectfm 'IS-ANCESTOR-STACK'",
     "'MAKEBUF'",
     "'DROPBUF' mabuf",
     "'PIPE CMS' macmd '| STEM MAOUT.'",
@@ -5174,9 +5179,9 @@ for token in (
 for token in (
     "queue mrgold",
     "queue mrgnew",
-    "mgcmd='EXEC GITVREF MERGE-BASE-STACK'",
-    "mgcmd='EXEC GITWT CHECK-MERGE-STACK'",
-    "mgcmd='EXEC GITWT MERGE-COMMIT-STACK'",
+    "mgcmd='EXEC GITVREF --FM' objectfm 'MERGE-BASE-STACK'",
+    "mgcmd='EXEC GITWT --FM' objectfm 'CHECK-MERGE-STACK'",
+    "mgcmd='EXEC GITWT --FM' objectfm 'MERGE-COMMIT-STACK'",
     "'MAKEBUF'",
     "'DROPBUF' mgbuf",
 ):
@@ -5404,112 +5409,112 @@ grep -Fq "SHOW FULL ROOT CLOSURE VERIFIED" "$v"
 grep -Fq "'FILEDEF SEL0 DISK M15SL0 PTR G'" "$v"
 grep -Fq "'FILEDEF SEL1 DISK M15SL1 PTR G'" "$v"
 grep -Fq "command = 'VERIFY-REF'" "$g"
-grep -Fq "address command 'EXEC GITVREF RESOLVE' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'RESOLVE' rest" "$g"
 grep -Fq "command = 'SHOW-REF-FULL'" "$g"
-grep -Fq "address command 'EXEC GITVREF SHOW' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'SHOW' rest" "$g"
 grep -Fq "command = 'LOG-REF-FULL'" "$g"
-grep -Fq "address command 'EXEC GITVREF LOG' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'LOG' rest" "$g"
 grep -Fq "command = 'LOGDAG-REF-FULL'" "$g"
-grep -Fq "address command 'EXEC GITVREF DAG' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'DAG' rest" "$g"
 grep -Fq "command = 'HISTORYPATH-REF-FULL'" "$g"
-grep -Fq "address command 'EXEC GITVREF HISTPATH' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'HISTPATH' rest" "$g"
 grep -Fq "command = 'HISTORYCHANGES-REF-FULL'" "$g"
-grep -Fq "address command 'EXEC GITVREF HISTCHG' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'HISTCHG' rest" "$g"
 grep -Fq "command = 'HISTORYEDGES-REF-FULL'" "$g"
 grep -Fq "command = 'HISTORYDIFFS-REF-FULL'" "$g"
-grep -Fq "address command 'EXEC GITVREF HISTDIFF' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'HISTDIFF' rest" "$g"
 grep -Fq "command = 'HISTORYSTATE-REF-FULL'" "$g"
-grep -Fq "address command 'EXEC GITVREF HISTSTATE' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'HISTSTATE' rest" "$g"
 grep -Fq "command = 'HISTORYLOG-REF-FULL'" "$g"
-grep -Fq "address command 'EXEC GITVREF HISTLOG' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'HISTLOG' rest" "$g"
 grep -Fq "command = 'HISTORYSTATUS-REF-FULL'" "$g"
-grep -Fq "address command 'EXEC GITVREF HISTSTATUS' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'HISTSTATUS' rest" "$g"
 grep -Fq "command = 'HISTORYNEAREST-REF-FULL'" "$g"
-grep -Fq "address command 'EXEC GITVREF HISTNEAR' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'HISTNEAR' rest" "$g"
 grep -Fq "command = 'HISTORYTRANSITIONS-REF-FULL'" "$g"
-grep -Fq "address command 'EXEC GITVREF HISTTRANS' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'HISTTRANS' rest" "$g"
 grep -Fq "command = 'HISTORYREPORT-REF-FULL'" "$g"
-grep -Fq "address command 'EXEC GITVREF HISTREPORT' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'HISTREPORT' rest" "$g"
 grep -Fq "command = 'HISTORYBOUNDS-REF-FULL'" "$g"
 grep -Fq "command = 'LEVEL'" "$g"
 grep -Fq "command = 'HISTORYCHRONOLOGY-REF-FULL'" "$g"
-grep -Fq "address command 'EXEC GITVREF HISTCHRON' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'HISTCHRON' rest" "$g"
 grep -Fq "command = 'HISTORYACTORS-REF-FULL'" "$g"
-grep -Fq "address command 'EXEC GITVREF HISTACTORS' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'HISTACTORS' rest" "$g"
 grep -Fq "command = 'HISTORYSUBJECTS-REF-FULL'" "$g"
-grep -Fq "address command 'EXEC GITVREF HISTSUBJECTS' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'HISTSUBJECTS' rest" "$g"
 grep -Fq "command = 'HISTORYBODIES-REF-FULL'" "$g"
-grep -Fq "address command 'EXEC GITVREF HISTBODIES' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'HISTBODIES' rest" "$g"
 grep -Fq "command = 'HISTORYTOPOLOGY-REF-FULL'" "$g"
-grep -Fq "address command 'EXEC GITVREF HISTTOPO' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'HISTTOPO' rest" "$g"
 grep -Fq "command = 'HISTORYPARENTS-REF-FULL'" "$g"
-grep -Fq "address command 'EXEC GITVREF HISTPARENTS' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'HISTPARENTS' rest" "$g"
 grep -Fq "command = 'HISTORYPARENTSLOTS-REF-FULL'" "$g"
-grep -Fq "address command 'EXEC GITVREF HISTSLOTS' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'HISTSLOTS' rest" "$g"
 grep -Fq "command = 'HISTORYEDGEROLES-REF-FULL'" "$g"
-grep -Fq "address command 'EXEC GITVREF HISTROLES' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'HISTROLES' rest" "$g"
 grep -Fq "command = 'HISTORYFIRSTPARENT-REF-FULL'" "$g"
-grep -Fq "address command 'EXEC GITVREF HISTFIRST' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'HISTFIRST' rest" "$g"
 grep -Fq "command = 'HISTORYFIRSTCHANGES-REF-FULL'" "$g"
-grep -Fq "address command 'EXEC GITVREF HISTFCHG' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'HISTFCHG' rest" "$g"
 grep -Fq "command = 'HISTORYFIRSTTRANSITIONS-REF-FULL'" "$g"
-grep -Fq "address command 'EXEC GITVREF HISTFTRANS' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'HISTFTRANS' rest" "$g"
 grep -Fq "command = 'HISTORYFIRSTCHRONOLOGY-REF-FULL'" "$g"
-grep -Fq "address command 'EXEC GITVREF HISTFCHRON' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'HISTFCHRON' rest" "$g"
 grep -Fq "command = 'HISTORYFIRSTACTORS-REF-FULL'" "$g"
-grep -Fq "address command 'EXEC GITVREF HISTFACTORS' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'HISTFACTORS' rest" "$g"
 grep -Fq "command = 'HISTORYFIRSTSUBJECTS-REF-FULL'" "$g"
-grep -Fq "address command 'EXEC GITVREF HISTFSUBJ' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'HISTFSUBJ' rest" "$g"
 grep -Fq "command = 'HISTORYFIRSTBODIES-REF-FULL'" "$g"
-grep -Fq "address command 'EXEC GITVREF HISTFBODY' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'HISTFBODY' rest" "$g"
 grep -Fq "command = 'HISTORYFIRSTLOG-REF-FULL'" "$g"
-grep -Fq "address command 'EXEC GITVREF HISTFLOG' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'HISTFLOG' rest" "$g"
 grep -Fq "command = 'HISTORYFIRSTREPORT-REF-FULL'" "$g"
-grep -Fq "address command 'EXEC GITVREF HISTFREPORT' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'HISTFREPORT' rest" "$g"
 grep -Fq "command = 'HISTORYFIRSTDIFFS-REF-FULL'" "$g"
-grep -Fq "address command 'EXEC GITVREF HISTFDIF' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'HISTFDIF' rest" "$g"
 grep -Fq "command = 'HISTORYFIRSTNEAREST-REF-FULL'" "$g"
-grep -Fq "address command 'EXEC GITVREF HISTFNEAR' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'HISTFNEAR' rest" "$g"
 grep -Fq "command = 'HISTORYFIRSTSTATUS-REF-FULL'" "$g"
-grep -Fq "address command 'EXEC GITVREF HISTFSTAT' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'HISTFSTAT' rest" "$g"
 grep -Fq "command = 'HISTORYFIRSTBOUNDS-REF-FULL'" "$g"
-grep -Fq "address command 'EXEC GITVREF HISTFBOUND' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'HISTFBOUND' rest" "$g"
 grep -Fq "command = 'HISTORYFIRSTVERSIONS-REF-FULL'" "$g"
-grep -Fq "address command 'EXEC GITVREF HISTFVER' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'HISTFVER' rest" "$g"
 grep -Fq "command = 'HISTORYFIRSTLIFETIME-REF-FULL'" "$g"
-grep -Fq "address command 'EXEC GITVREF HISTFLIFE' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'HISTFLIFE' rest" "$g"
 grep -Fq "command = 'HISTORYFIRSTCURRENT-REF-FULL'" "$g"
-grep -Fq "address command 'EXEC GITVREF HISTFCUR' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'HISTFCUR' rest" "$g"
 grep -Fq "command = 'HISTORYFIRSTORIGIN-REF-FULL'" "$g"
-grep -Fq "address command 'EXEC GITVREF HISTFORIG' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'HISTFORIG' rest" "$g"
 grep -Fq "command = 'HISTORYFIRSTPRESENCE-REF-FULL'" "$g"
-grep -Fq "address command 'EXEC GITVREF HISTFPRES' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'HISTFPRES' rest" "$g"
 grep -Fq "command = 'HISTORYFIRSTPRESENCEORIGIN-REF-FULL'" "$g"
-grep -Fq "address command 'EXEC GITVREF HISTFPORIG' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'HISTFPORIG' rest" "$g"
 grep -Fq "command = 'HISTORYFIRSTPRESENCECHRONOLOGY-REF-FULL'" "$g"
-grep -Fq "address command 'EXEC GITVREF HISTFPCHR' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'HISTFPCHR' rest" "$g"
 grep -Fq "command = 'HISTORYFIRSTPRESENCEEVENTS-REF-FULL'" "$g"
-grep -Fq "address command 'EXEC GITVREF HISTFPEVT' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'HISTFPEVT' rest" "$g"
 grep -Fq "command = 'HISTORYFIRSTPRESENCEDURATION-REF-FULL'" "$g"
-grep -Fq "address command 'EXEC GITVREF HISTFPDUR' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'HISTFPDUR' rest" "$g"
 grep -Fq "command = 'HISTORYFIRSTPRESENCEAGE-REF-FULL'" "$g"
-grep -Fq "address command 'EXEC GITVREF HISTFPAGE' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'HISTFPAGE' rest" "$g"
 grep -Fq "command = 'HISTORYFIRSTPRESENCETIME-REF-FULL'" "$g"
-grep -Fq "address command 'EXEC GITVREF HISTFPTIME' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'HISTFPTIME' rest" "$g"
 grep -Fq "command = 'HISTORYFIRSTPRESENCERATIO-REF-FULL'" "$g"
-grep -Fq "address command 'EXEC GITVREF HISTFPRATIO' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'HISTFPRATIO' rest" "$g"
 grep -Fq "command = 'HISTORYFIRSTPRESENCECOVERAGE-REF-FULL'" "$g"
-grep -Fq "address command 'EXEC GITVREF HISTFPCOV' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'HISTFPCOV' rest" "$g"
 grep -Fq "command = 'HISTORYFIRSTPRESENCEFRONTIER-REF-FULL'" "$g"
-grep -Fq "address command 'EXEC GITVREF HISTFPFRONT' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'HISTFPFRONT' rest" "$g"
 grep -Fq "command = 'HISTORYFIRSTPRESENCEFRONTIERDISTANCE-REF-FULL'" "$g"
-grep -Fq "address command 'EXEC GITVREF HISTFPFDIST' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'HISTFPFDIST' rest" "$g"
 grep -Fq "command = 'HISTORYFIRSTPRESENCEHORIZON-REF-FULL'" "$g"
-grep -Fq "address command 'EXEC GITVREF HISTFPHORIZ' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'HISTFPHORIZ' rest" "$g"
 grep -Fq "GIT EXEC LEVEL M176" "$g"
 grep -Fq "GITVREF EXEC LEVEL M176" "$v"
 grep -Fq "GIT EXEC STAMP C4" "$g"
-grep -Fq "address command 'EXEC GITVREF CASE' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'CASE' rest" "$g"
 grep -Fq "GITVREF CASE C6" "$v"
 grep -Fq "GITVREF EXEC LEVEL MISMATCH" "$g"
 grep -Fxq "numeric digits 20" "$v"
@@ -5863,8 +5868,8 @@ grep -Fq "HISTORYCHRONOLOGY AUTHOR NEGATIVE EDGES" "$v"
 grep -Fq "HISTORYCHRONOLOGY COMMITTER NEGATIVE EDGES" "$v"
 grep -Fq "HISTORYCHRONOLOGY LAG NEGATIVE NODES" "$v"
 grep -Fq "if command='LEVEL' then do" "$v"
-grep -Fq "address command 'EXEC GITVREF HISTBOUNDS' rest" "$g"
-grep -Fq "address command 'EXEC GITVREF HISTEDGE' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'HISTBOUNDS' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'HISTEDGE' rest" "$g"
 grep -Fq "command='HISTCHG'" "$v"
 grep -Fq "HISTORYCHANGES FULL SNAPSHOTS VERIFIED" "$v"
 grep -Fq "HISTORYCHANGES DISTINCT PATH OIDS" "$v"
@@ -6057,13 +6062,13 @@ grep -Fq "command='READ'" "$v"
 grep -Fq "GITREC PATHFULLCAT GITFIX M15NEW" "$v"
 grep -Fq "COMMIT ROOT FULL CLOSURE VERIFIED" "$v"
 grep -Fq "command = 'READ-REF-FULL'" "$g"
-grep -Fq "address command 'EXEC GITVREF READ' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'READ' rest" "$g"
 grep -Fq "pathasciihex:" "$v"
 grep -Fq "command='DIR'" "$v"
 grep -Fq "GITREC PATHFULLDIR GITFIX M15NEW" "$v"
 grep -Fq "command = 'DIR-REF-FULL'" "$g"
-grep -Fq "address command 'EXEC GITVREF DIR' rest" "$g"
-if grep -Eq "^[[:space:]]*'EXEC GITVREF " "$g"; then
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'DIR' rest" "$g"
+if grep -Eq "^[[:space:]]*'EXEC GITVREF --FM' objectfm '" "$g"; then
  echo "FAIL: GITVREF wrapper route can uppercase case-sensitive args" >&2
  exit 1
 fi
@@ -6078,11 +6083,11 @@ awk 'length($0)>80 {print "FAIL: GITREF2 record >80 columns:", NR; bad=1}
 grep -Fq "if command = 'IMPORT-OBJECT' then do" "$g"
 grep -Fq "call gitimport rest" "$g"
 grep -Fq "if command = 'CHECKOUT-FILE' then do" "$g"
-grep -Fq "'EXEC GITWT CHECKOUT' rest" "$g"
+grep -Fq "'EXEC GITWT --FM' objectfm 'CHECKOUT' rest" "$g"
 grep -Fq "if command = 'STATUS' then do" "$g"
-grep -Fq "'EXEC GITWT STATUS' rest" "$g"
+grep -Fq "'EXEC GITWT --FM' objectfm 'STATUS' rest" "$g"
 grep -Fq "if command = 'ADD' then do" "$g"
-grep -Fq "'EXEC GITWT ADD' rest" "$g"
+grep -Fq "'EXEC GITWT --FM' objectfm 'ADD' rest" "$g"
 grep -Fq "command = 'HASH-WORKFILE'" "$g"
 grep -Fq "command = 'WRITE-WORKFILE'" "$g"
 grep -Fq "strip(wline.i,'T')" "$g"
@@ -6090,8 +6095,8 @@ grep -Fq "if final = '1' then hex = hex || '0A'" "$g"
 # M283: read-only ref commands resolve from REF2, never the absent legacy
 # GITREF EXEC.  The HEAD-writing SYMBOLIC-REF form is refused explicitly.
 grep -Fq "command = 'REV-PARSE'" "$g"
-grep -Fq "address command 'EXEC GITVREF OID' rest" "$g"
-grep -Fq "address command 'EXEC GITVREF REFS'" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'OID' rest" "$g"
+grep -Fq "address command 'EXEC GITVREF --FM' objectfm 'REFS'" "$g"
 grep -Fq "if length(rest) = 0 then do" "$g"
 grep -Fq "SYMBOLIC-REF update is not supported" "$g"
 grep -Fq "if command='OID' then do" "$v"
@@ -7076,6 +7081,11 @@ old_body = old_body.replace("STEM IMPMETA.", "STEM GI_IMPMETA.")
 old_body = old_body.replace("STEM OUT.", "STEM GI_OUT.")
 old_body = old_body.replace("STEM out.", "STEM GI_OUT.")
 old_body = old_body.replace("STEM LOOSE.", "STEM GI_LOOSE.")
+# M306 keeps the caller's selected repository filemode instead of resetting G.
+old_body = old_body.replace(
+    "/* Loose objects live on the repository object disk, which need not be A. */\n"
+    "objectfm='G'",
+    "/* Loose objects live on the selected repository disk. */")
 # M297 extended the inlined importer to accept loose TAG objects.  Apply that
 # one documented change so the remaining body still has to match the archive
 # byte-for-byte.

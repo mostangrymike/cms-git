@@ -5,6 +5,12 @@ lives in `STATUS.md`. This file records what landed, not proof claims.
 
 ## Unreleased
 
+- Add M306 multi-minidisk repository support: runtime/support files stay on G,
+  while `GIT --FM <letter>` selects repository metadata, refs, objects, packs,
+  worktree map, and workfiles. Clone requires an explicit filemode and validates
+  disk capacity plus an empty repository namespace. Add optional clone branch
+  selection and qualify real bridge clone/up-to-date/incremental pull on a
+  provisioned `0601 B` minidisk.
 - Add M305 structural merge support: one-sided path additions/removals and
   `100644`↔`100755` mode changes now stage through the persistent merge
   lifecycle, with rollback/abort and two-parent continuation. A `GITMODE` sidecar

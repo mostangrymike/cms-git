@@ -16,10 +16,10 @@ merge = GIT.split("if command='MERGE' then do", 1)[1].split("\nend\n", 1)[0]
 for token in (
     "translate(mrgarg)='--ABORT'",
     "translate(mrgarg)='--CONTINUE'",
-    "STATE GITMERG MERGE G",
-    "EXEC GITWT MERGE-ABORT",
+    "STATE GITMERG MERGE' objectfm",
+    "EXEC GITWT --FM' objectfm 'MERGE-ABORT",
     "call mergecontinue",
-    "EXEC GITWT MERGE-CONFLICT-STACK",
+    "EXEC GITWT --FM' objectfm 'MERGE-CONFLICT-STACK",
     "if mgrc=12 then do",
     "conflicts recorded; branch unchanged",
     "GIT MERGE --continue",
@@ -30,12 +30,12 @@ for token in (
 assert "mergecontinue:" in GIT
 continue_helper = GIT.split("mergecontinue:", 1)[1].split("mergeancestor:", 1)[0]
 for token in (
-    "EXEC GITWT MERGE-CONTINUE",
+    "EXEC GITWT --FM' objectfm 'MERGE-CONTINUE",
     "COMMIT-STAGED",
     "MERGE-PARENT",
-    "EXEC GIT UPDATE-REF",
-    "EXEC GITWT ACCEPT",
-    "EXEC GITWT MERGE-CLEAR",
+    "EXEC GIT --FM' objectfm 'UPDATE-REF",
+    "EXEC GITWT --FM' objectfm 'ACCEPT",
+    "EXEC GITWT --FM' objectfm 'MERGE-CLEAR",
     "MERGE CONTINUE COMPLETE",
     "say mcout.mci",
 ):
@@ -56,8 +56,8 @@ for token in (
     "'<<<<<<< HEAD'",
     "'======='",
     "'>>>>>>> '||mergeremotebranch",
-    "GITMRG BLOB G",
-    "call workoid 'GITMRG','BLOB','G',1,1",
+    "GITMRG BLOB' objectfm",
+    "call workoid 'GITMRG','BLOB',objectfm,1,1",
     "MERGE CONFLICT",
     "exit 12",
     "mergeactive=2",

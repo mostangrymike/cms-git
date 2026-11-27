@@ -25,7 +25,7 @@ assert "call peeltocommit resolvedoid" in resolve_block
 
 # Routing in GIT.EXEC.
 assert "if command = 'REMOTE' then do" in GIT
-assert "address command 'EXEC GITREMOT' rest" in GIT
+assert "address command 'EXEC GITREMOT --FM' objectfm rest" in GIT
 assert "if command = 'CREDENTIAL' then do" in GIT
 assert "call gitcredential rest" in GIT
 assert "address command 'EXEC GITCRED' rest" not in GIT
@@ -35,8 +35,8 @@ for helper in ("gc_storecredential:", "gc_readcredential:",
     assert helper in GIT
 assert "gc_tokenalphabet=" in GIT
 assert "if command = 'GC' | command = 'REPACK' then do" in GIT
-assert "'EXEC GITGC' command rest" in GIT
-assert "'EXEC GITPUSH' rest" in GIT
+assert "'EXEC GITGC --FM' objectfm command rest" in GIT
+assert "'EXEC GITPUSH --FM' objectfm rest" in GIT
 
 # GITPUSH routes through GITPMK BUILD and git-receive-pack.
 assert "EXEC GITPMK BUILD" in PUSH
@@ -110,10 +110,10 @@ assert "ancestry check failed" not in PUSH
 
 # Credential requirement and no credential echoing.
 assert "valid GitHub credential required for push" in PUSH
-assert "STATE GHCRED REPO G" in PUSH
-assert "STATE GITMETA REPO G" in PUSH
-assert "STATE GITREMOT REPO G" in PUSH
-assert "DISKR GITREF2 REPO G" in PUSH
+assert "STATE GHCRED REPO' objectfm" in PUSH
+assert "STATE GITMETA REPO' objectfm" in PUSH
+assert "STATE GITREMOT REPO' objectfm" in PUSH
+assert "DISKR GITREF2 REPO' objectfm" in PUSH
 assert "Authorization: Basic" in PUSH
 assert "Bearer" not in PUSH
 
@@ -134,8 +134,8 @@ for src, name in ((PUSH, "GITPUSH"), (CRED, "GITCRED"),
 # Fast-forward / ancestry refusal.
 assert "ANCESTOR YES" in PUSH
 assert "not a fast-forward; remote has diverged" in PUSH
-assert "GITVREF IS-ANCESTOR" in PUSH
-assert "GITVREF IS-ANCESTOR-STACK" in PUSH
+assert "GITVREF --FM' objectfm 'IS-ANCESTOR" in PUSH
+assert "GITVREF --FM' objectfm 'IS-ANCESTOR-STACK" in PUSH
 assert "queue remoteadoid" in PUSH
 assert "queue localtip" in PUSH
 assert "'MAKEBUF'" in PUSH
@@ -156,7 +156,7 @@ gcwalk_end = GC.index("walk_tree: procedure", gcwalk_start)
 gcwalk = GC[gcwalk_start:gcwalk_end]
 for token in (
     "if ctype='TAG' then do",
-    "EXEC GIT VERIFY-OBJECT' current",
+    "EXEC GIT --FM' objectfm 'VERIFY-OBJECT' current",
     "left(cdata,14)\\='6F626A65637420'",
     "substr(cdata,95,2)\\='0A'",
     "call asciitocms substr(cdata,15,80)",
@@ -264,7 +264,7 @@ walk = GC[walkstart:walkend]
 assert walk.index("if cmtstate=28 then do") < walk.index(
     "call readgcpacked current")
 assert GC.index("call readgcpacked oidcur") < GC.index("objtype=gcobjtype")
-first_repo_read = GC.index("'STATE GITMETA REPO G'")
+first_repo_read = GC.index("'STATE GITMETA REPO' objectfm")
 for guard in (
     "LIMIT cannot be combined with --prune=now",
     "LIMIT cannot be combined with -d",
@@ -298,7 +298,7 @@ assert "return 'ERROR'" in pr_block
 assert "verify(prname,'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@$#')\\=0" in pr_block
 
 # GITIMP must resolve the configured object disk instead of assuming A.
-assert "'STATE GITMETA REPO G'" in IMP
+assert "'STATE GITMETA REPO' objectfm" in IMP
 assert "objectfm=translate(word(impmeta.mi,2))" in IMP
 assert "'STATE' objfn 'GITOBJ' objectfm" in IMP
 assert "'DISKW' objfn 'GITOBJ' objectfm" in IMP

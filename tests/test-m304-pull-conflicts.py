@@ -21,13 +21,13 @@ for token in (
     "queue pullnew",
     "queue pullbase",
     "queue branchfromremote",
-    "mergecmd='EXEC GITWT MERGE-CONFLICT-STACK'",
+    "mergecmd='EXEC GITWT --FM' objectfm 'MERGE-CONFLICT-STACK'",
     "if mergeconflictrc=12 then pullconflict=1",
     "else if mergeconflictrc=13 then pullautomerge=1",
     "pulltarget=pullold",
     "if pullconflict=0 & pullautomerge=0 then do",
     "if pulltarget\\=pullold & pullconflict=0 & pullautomerge=0 then do",
-    "'EXEC GIT FETCH-TRACK' pullremote branchfromremote pullnew oldtracking",
+    "'EXEC GIT --FM' objectfm 'FETCH-TRACK',",
     "if pullconflict=1 then do",
     "PULL CONFLICTS RECORDED",
     "Resolve and stage conflicts, then run GIT MERGE --continue",
@@ -37,7 +37,7 @@ for token in (
     "pulltarget=mccommit",
     "pullupdated=1",
     "if pullupdated=0 then do",
-    "'EXEC GITUPD PULL-HEAD' currentbranch pullold pulltarget",
+    "'EXEC GITUPD --FM' objectfm 'PULL-HEAD' currentbranch pullold pulltarget",
     "PULL COMPLETE",
     "PULL REMOTE TIP",
 ):
@@ -49,13 +49,13 @@ assert prepare.count("'MAKEBUF'") == 1
 assert prepare.count("'DROPBUF' mcbuf") == 1
 assert "do while queued()>0" in prepare
 assert "mergeconflictrc=rc" in prepare
-assert pull.index("'EXEC GIT FETCH-ACTIVATE'") < pull.index(
+assert pull.index("'EXEC GIT --FM' objectfm 'FETCH-ACTIVATE'") < pull.index(
     "if mergecheckrc=12 then do")
 assert pull.index("if mergecheckrc=12 then do") < pull.index(
-    "'EXEC GIT FETCH-TRACK'")
+    "'EXEC GIT --FM' objectfm 'FETCH-TRACK'")
 clean_commit = pull.split("if pullconflict=0 & pullautomerge=0 then do", 1)[1]
 clean_commit = clean_commit.split("if pulltarget\\=pullold", 1)[0]
-assert "EXEC GITWT MERGE-COMMIT-STACK" in clean_commit
+assert "EXEC GITWT --FM' objectfm 'MERGE-COMMIT-STACK" in clean_commit
 
 conflict = pull.split("if pullconflict=1 then do", 1)[1].split(
     "if pullautomerge=1 then do", 1)[0]
@@ -69,14 +69,14 @@ assert "call mergecontinue" in auto
 assert "pulltarget=mccommit" in auto
 assert "pullupdated=1" in auto
 assert "GITUPD PULL-HEAD" not in auto
-assert pull.index("'EXEC GIT FETCH-TRACK'") < pull.index(
+assert pull.index("'EXEC GIT --FM' objectfm 'FETCH-TRACK'") < pull.index(
     "if pullautomerge=1 then do")
 
 for token in (
     "if command='MERGE-ABORT' then do",
     "if command='MERGE-CONTINUE' then do",
     "writemergestate:",
-    "'STATE GITMERG MERGE G'",
+    "'STATE GITMERG MERGE' objectfm",
 ):
     assert token in WT, token
 
