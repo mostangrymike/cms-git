@@ -5,6 +5,13 @@ lives in `STATUS.md`. This file records what landed, not proof claims.
 
 ## Unreleased
 
+- Add M307 single-parent `GIT CHERRY-PICK <commit-id> [-m message]`. A verified
+  `COMMIT-INFO` reader rejects root and merge commits; the M301–M305 three-way
+  merge stack replays clean content changes onto the current branch, builds a
+  commit with the old tip as its only parent, and applies it through
+  `GITUPD MERGE-HEAD`. Conflicts, add/add, delete/modify, path additions,
+  removals, and mode changes fail closed. Adds `CHERRY-PICK-STACK` in `GITWT`,
+  `tests/test-m307-cherry-pick.py`, and a workflow gate. Host-proven only.
 - Add M306 multi-minidisk repository support: runtime/support files stay on G,
   while `GIT --FM <letter>` selects repository metadata, refs, objects, packs,
   worktree map, and workfiles. Clone requires an explicit filemode and validates

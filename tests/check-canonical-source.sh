@@ -5198,9 +5198,9 @@ for token in (
         raise SystemExit(f"M301 GITUPD missing {token!r}")
 for token in (
     "if command='CHECK-MERGE' | command='CHECK-MERGE-STACK' then do",
-    "if command='MERGE-COMMIT' | command='MERGE-COMMIT-STACK' then do",
+    "if command='MERGE-COMMIT' | command='MERGE-COMMIT-STACK' |,",
     "if command='CHECK-MERGE-STACK' then do",
-    "if command='MERGE-COMMIT-STACK' then do",
+    "if command='MERGE-COMMIT-STACK' |,",
     "call preparemerge",
     "'-P' mergeparent",
 ):

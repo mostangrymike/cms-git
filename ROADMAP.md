@@ -23,7 +23,7 @@ documented restrictions), **Hygiene** (docs/repo cleanup).
 
 | Item | Status | Notes |
 |---|---|---|
-| `cherry-pick` | Missing | — |
+| `cherry-pick` | Narrow | M307 replays a verified single-parent commit onto the current branch through the M301–M305 three-way merge stack and applies it with `MERGE-HEAD`. Root/merge commits, conflicts, add/add, delete/modify, and structural adds/deletes/mode changes fail closed; message defaults to `Cherry pick <oid>` with `-m` override. Host-proven only. |
 | `rebase` | Missing | — |
 | `revert` | Missing | — |
 | `stash` / `stash pop` | Missing | — |
@@ -76,7 +76,7 @@ documented restrictions), **Hygiene** (docs/repo cleanup).
 
 ## Suggested order
 
-1. cherry-pick / rebase / stash / content diff (#213).
+1. cherry-pick / rebase / stash / content diff (#213). M307 cherry-pick landed narrow; rebase, stash, content diff, revert, and blame remain.
 2. Credential hardening + push parity (#216).
 3. Deep-history strategy + fsck (#215).
 4. CI split + behavioural tests (#217).

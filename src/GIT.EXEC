@@ -1231,6 +1231,141 @@ if command='MERGE' then do
    say 'MERGE COMPLETE' mrgarg mrgold mrgcommit mrgbase
    exit 0
 end
+/* M307: replay one single-parent commit onto the current branch. */
+if command='CHERRY-PICK' then do
+   parse var rest cpoid cprest
+   cpoid=translate(strip(cpoid))
+   if cpoid='' then do
+      say 'Usage: GIT CHERRY-PICK <commit-id> [-m message]'
+      exit 4
+   end
+   if length(cpoid)\=40 |,
+      verify(cpoid,'0123456789ABCDEF')\=0 then do
+      say 'GIT CHERRY-PICK: commit-id must be 40 hex digits'
+      exit 4
+   end
+   cpmsg=''
+   if strip(cprest)\='' then do
+      if translate(word(cprest,1))\='-M' then do
+         say 'Usage: GIT CHERRY-PICK <commit-id> [-m message]'
+         exit 4
+      end
+      cpmsgpos=wordindex(cprest,2)
+      if cpmsgpos=0 then do
+         say 'Usage: GIT CHERRY-PICK <commit-id> [-m message]'
+         exit 4
+      end
+      cpmsg=strip(substr(cprest,cpmsgpos))
+      if left(cpmsg,1)='"' & right(cpmsg,1)='"' then,
+         cpmsg=substr(cpmsg,2,length(cpmsg)-2)
+      else if left(cpmsg,1)="'" & right(cpmsg,1)="'" then,
+         cpmsg=substr(cpmsg,2,length(cpmsg)-2)
+      cpmsg=translate(cpmsg,'_',' ')
+   end
+   'SET CMSTYPE HT'
+   'STATE GITMERG MERGE' objectfm
+   cpstate=rc
+   'SET CMSTYPE RT'
+   if cpstate=0 then do
+      say 'GIT CHERRY-PICK: a merge is in progress'
+      exit 8
+   end
+   if cpstate\=28 then exit 8
+   drop cphout.
+   cphout.0=0
+   'PIPE CMS EXEC GITVREF --FM' objectfm 'HEAD | STEM CPHOUT.'
+   if rc\=0 | cphout.0\=1 then exit 8
+   parse var cphout.1 cphead cpheadextra
+   if cpheadextra\='' | left(cphead,11)\='refs/heads/' then exit 8
+   cpbranch=substr(cphead,12)
+   call validbranch cpbranch
+   if result\='OK' then exit 8
+   call localbranchtip cpbranch
+   cptip=result
+   if cptip='' then do
+      say 'GIT CHERRY-PICK: current branch has no commit'
+      exit 8
+   end
+   if cpoid=cptip then do
+      say 'GIT CHERRY-PICK: cannot pick the current tip'
+      exit 8
+   end
+   drop cpinfo.
+   cpinfo.0=0
+   'PIPE CMS EXEC GIT --FM' objectfm 'COMMIT-INFO' cpoid,
+      '| STEM CPINFO.'
+   if rc\=0 then do
+      say 'GIT CHERRY-PICK: cannot read picked commit'
+      exit 8
+   end
+   cpparents=-1
+   cpparent=''
+   do cpi=1 to cpinfo.0
+      if word(cpinfo.cpi,1)\='COMMIT-INFO' then iterate
+      cpkey=word(cpinfo.cpi,2)
+      if cpkey='PARENTS' then cpparents=word(cpinfo.cpi,3)
+      else if cpkey='PARENT' then,
+         cpparent=translate(word(cpinfo.cpi,3))
+   end
+   if cpparents\=1 | cpparent='' then do
+      say 'GIT CHERRY-PICK: only single-parent commits are supported'
+      exit 8
+   end
+   if cpmsg='' then cpmsg='Cherry_pick_'||cpoid
+   'MAKEBUF'
+   cpbuf=rc
+   if cpbuf<0 then exit 8
+   queue cpbranch
+   queue cptip
+   queue cpoid
+   queue cpparent
+   queue '-T 0 -Z +0000 -M' cpmsg
+   drop cpcommitout.
+   cpcommitout.0=0
+   'PIPE CMS EXEC GITWT --FM' objectfm,
+      'CHERRY-PICK-STACK | STEM CPCOMMITOUT.'
+   cprc=rc
+   do while queued()>0
+      parse pull .
+   end
+   'DROPBUF' cpbuf
+   if cprc=12 then do
+      say 'GIT CHERRY-PICK: conflicts or structural changes',
+          'are not supported'
+      exit 8
+   end
+   if cprc=13 then do
+      say 'GIT CHERRY-PICK: picked commit cannot be replayed cleanly'
+      exit 8
+   end
+   if cprc\=0 then do
+      say 'GIT CHERRY-PICK: cannot build the picked tree; branch unchanged'
+      exit 8
+   end
+   cpcommit=''
+   cpcommits=0
+   do cpi=1 to cpcommitout.0
+      if word(cpcommitout.cpi,1)\='COMMIT-STAGED' then iterate
+      if word(cpcommitout.cpi,2)\='COMMIT' then iterate
+      cpcandidate=translate(word(cpcommitout.cpi,3))
+      if length(cpcandidate)=40 &,
+         verify(cpcandidate,'0123456789ABCDEF')=0 then do
+         cpcommits=cpcommits+1
+         cpcommit=cpcandidate
+      end
+   end
+   if cpcommits\=1 then do
+      say 'GIT CHERRY-PICK: commit result is ambiguous'
+      exit 8
+   end
+   'EXEC GITUPD --FM' objectfm 'MERGE-HEAD' cpbranch cptip cpcommit
+   if rc\=0 then do
+      say 'GIT CHERRY-PICK: branch/worktree update failed'
+      exit rc
+   end
+   say 'CHERRY-PICK COMPLETE' cpoid cptip cpcommit
+   exit 0
+end
 /* M273: fetch, verify and apply one fast-forward pull to a clean flat tree. */
 if command='PULL' then do
    /* No-arg pull: resolve remote, bridge and port from GITREMOT config. */
@@ -2232,6 +2367,32 @@ if command = 'VERIFY-OBJECT' | command = 'CAT-OBJECT' |,
    exit 0
 end
 
+/* M307 internal: verified commit header reader for CHERRY-PICK. */
+if command = 'COMMIT-INFO' then do
+   parse var rest ci_oid ci_extra
+   ci_oid = translate(strip(ci_oid))
+   if ci_oid = '' | ci_extra \= '' | length(ci_oid) \= 40 |,
+      verify(ci_oid,'0123456789ABCDEF') \= 0 then do
+      say 'Usage: GIT COMMIT-INFO object-id'
+      exit 4
+   end
+   call readobject ci_oid
+   if result \= 'OK' then exit 8
+   call hashstored objtype,datahex
+   if result = 'HASHERROR' then exit 8
+   if result \= storedoid then do
+      say 'GIT: corrupt object' ci_oid '- content hash mismatch'
+      exit 8
+   end
+   if objtype \= 'COMMIT' then do
+      say 'GIT COMMIT-INFO: object is not a commit' ci_oid
+      exit 8
+   end
+   call commitinfo datahex
+   if result \= 'OK' then exit 8
+   exit 0
+end
+
 /* M165 plumbing: hash/store an authenticated raw tree hex file. */
 if command = 'WRITE-TREE-HEXFILE' then do
    parse var rest fn ft fm extra
@@ -2790,6 +2951,57 @@ hashstored: procedure
    pull oid
    'DROPBUF'
    return oid
+
+/* M307: parse a verified commit body hex string into header fields.
+   Header keywords stay in ASCII hex so this runs unchanged on EBCDIC. */
+commitinfo: procedure
+   parse arg ci_hex
+   ci_hex=translate(ci_hex)
+   ci_tree=''
+   ci_parents=0
+   drop ci_parent.
+   if length(ci_hex)<92 |,
+      left(ci_hex,10)\='7472656520' then do
+      say 'GIT COMMIT-INFO: commit tree header is invalid'
+      return 'ERROR'
+   end
+   ci_tree=hexasciitohex(substr(ci_hex,11,80))
+   if ci_tree='ERROR' then do
+      say 'GIT COMMIT-INFO: commit tree is invalid'
+      return 'ERROR'
+   end
+   ci_pos=93
+   do while substr(ci_hex,ci_pos,14)='706172656E7420'
+      ci_parents=ci_parents+1
+      ci_parent.ci_parents=hexasciitohex(substr(ci_hex,ci_pos+14,80))
+      if ci_parent.ci_parents='ERROR' then do
+         say 'GIT COMMIT-INFO: commit parent is invalid'
+         return 'ERROR'
+      end
+      ci_pos=ci_pos+96
+   end
+   say 'COMMIT-INFO TREE' ci_tree
+   say 'COMMIT-INFO PARENTS' ci_parents
+   do ci_i=1 to ci_parents
+      say 'COMMIT-INFO PARENT' ci_parent.ci_i
+   end
+   return 'OK'
+
+/* Decode an ASCII-hex-of-hex field into its 40-character hex value. */
+hexasciitohex: procedure
+   parse arg hah
+   hahout=''
+   if length(hah)//2\=0 then return 'ERROR'
+   do hai=1 to length(hah) by 2
+      hav=x2d(substr(hah,hai,2))
+      if hav>=48 & hav<=57 then had=hav-48
+      else if hav>=65 & hav<=70 then had=hav-55
+      else if hav>=97 & hav<=102 then had=hav-87
+      else return 'ERROR'
+      hahout=hahout||substr('0123456789ABCDEF',had+1,1)
+   end
+   if length(hahout)\=40 then return 'ERROR'
+   return hahout
 
 branchnamefromhead: procedure
    parse arg headline

@@ -63,7 +63,7 @@ assert "if result\\='' then acceptedcount=acceptedcount+1" in accept
 
 commit = WT.split("if command='COMMIT' then do", 1)[1].split("addselected:", 1)[0]
 assert "call readmergemodes" in commit
-assert "if mergeactive=1 & mapstage.mi=zeros then do" in commit
+assert "(mergeactive=1 | mergeactive=3) & mapstage.mi=zeros" in commit
 assert "if mapstage.mi=zeros then do" in commit
 assert "call mergemodefor mappath.mi" in commit
 assert "if result\\='' then mapchanged.mi=1" in commit

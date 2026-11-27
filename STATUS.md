@@ -8,10 +8,10 @@ disagrees with this page, this page wins. Last updated 2026-11-27.
 | Field | Value |
 |---|---|
 | Branch | `main` |
-| Latest milestone | **M306** — multi-minidisk repositories and live pull qualification |
-| Latest commit | M306 repository-filemode support plus historical guard alignment; see `git log -1 --oneline` for the exact commit |
+| Latest milestone | **M307** — single-parent `GIT CHERRY-PICK` replay |
+| Latest commit | M307 cherry-pick replay, host guard, and historical guard alignment; see `git log -1 --oneline` for the exact commit |
 | Build | no package build; host checks only |
-| Host CI | full local M306 selector/focused gate and GitHub Actions run `46079543515` pass |
+| Host CI | full local M307 selector/focused gate pass; GitHub Actions pending |
 | CMS target | G runtime restored from `M306BK`; live clone/up-to-date/incremental pull passed on disposable `0601 B`; legacy G repository hashes unchanged; B remains formatted as `M0601B` at 6,964 cylinders |
 
 ## What is proven
@@ -62,6 +62,14 @@ disagrees with this page, this page wins. Last updated 2026-11-27.
   mode merge `9F700C5C54E9AF5C99F40AAB1C2BDA4B3A2A2B71` and structural merge
   `CD2B4DB6AF4022F6193D28D98D7A62406D605B17`; both merge trees and the final
   restored state were verified.
+- M307 adds `GIT CHERRY-PICK <commit-id> [-m message]`. It resolves the picked
+  commit through the verified `COMMIT-INFO` reader, requires exactly one parent,
+  and replays its changes onto the current branch with the M301–M305 three-way
+  merge machinery. The resulting commit has one parent (the previous branch
+  tip) and is applied through `GITUPD MERGE-HEAD`, which verifies the branch,
+  ancestry, clean worktree, ref CAS, and worktree apply. Host source/guard,
+  archive, workflow, Regina syntax, and 80-column gates pass. CMS target proof
+  is pending.
 - M306 keeps runtime/support files on G and selects each repository disk with
   `GIT --FM <letter>`. Clone requires an explicit filemode and rejects non-empty
   repository namespaces. A provisioned `0601 B` completed real bridge clone,
@@ -82,6 +90,12 @@ disagrees with this page, this page wins. Last updated 2026-11-27.
 
 - Host/CI success is **not** CMS target proof. Do not describe a milestone as
   target-proven unless a real CMS run is recorded.
+- M307 is narrow: it rejects root commits, merge commits, picks of the current
+  tip, an in-progress merge, content conflicts, add/add and delete/modify, and
+  path additions/removals and mode changes (these fail closed and leave the
+  branch and worktree unchanged). It does not carry over the original commit
+  message; the default is `Cherry pick <oid>` with `-m` as an override. No
+  `CHERRY-PICK --abort`/`--continue` lifecycle exists yet.
 - M303 is bounded to 2,048 records and 65,536 LCS cells per side; larger inputs
   fall back to whole-file markers. M305 accepts one-sided path additions/removals
   and `100644`↔`100755` changes; add/add and delete/modify conflicts remain

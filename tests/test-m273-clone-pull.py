@@ -179,9 +179,9 @@ assert "readobj.readi='PACK-READ PASS'" in WT
 assert "if readend\\=1 | length(readhex)%2\\=readsize then return 'ERROR'" in WT
 assert "if readtype\\='TREE' then return 'ERROR'" in WT
 assert "if command='CHECK-MERGE' | command='CHECK-MERGE-STACK' then do" in WT
-assert "if command='MERGE-COMMIT' | command='MERGE-COMMIT-STACK' then do" in WT
+assert "if command='MERGE-COMMIT' | command='MERGE-COMMIT-STACK' |," in WT
 assert "if command='CHECK-MERGE-STACK' then do" in WT
-assert "if command='MERGE-COMMIT-STACK' then do" in WT
+assert "if command='MERGE-COMMIT-STACK' |," in WT
 assert "call preparemerge" in WT
 assert "GITWT: merge add/add or delete/modify conflicts are unsupported" in WT
 assert "GITWT: content conflict at" in WT

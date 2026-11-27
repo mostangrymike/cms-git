@@ -16750,3 +16750,40 @@ their host models unchanged. All 66 consolidated selectors and all 85 locally
 runnable non-selector workflow steps passed. Final GitHub Actions run
 `46079543515` passed in 2m43s, including the Linux-only GNU-`stat` disk-map,
 configuration, and backup checks that are not runnable on the macOS workstation.
+
+## 2026-11-27 — M307 single-parent cherry-pick
+
+M307 starts the history/worktree gap work from roadmap item 1 (#213). It adds
+`GIT CHERRY-PICK <commit-id> [-m message]` without disturbing the merge
+lifecycle or the live M306 repository state.
+
+Design:
+
+- `GIT.EXEC` gained a verified internal `COMMIT-INFO` command plus an EBCDIC-safe
+  `commitinfo` parser that reads the tree and parent headers directly from the
+  authenticated commit-body hex. `hexasciitohex` decodes ASCII-hex OID fields
+  without using a host code page. `CHERRY-PICK` rejects malformed OIDs, a merge
+  in progress, an unborn or detached HEAD, a root or merge commit, and a pick of
+  the current tip.
+- The replay reuses the M301–M305 three-way merge stack. `GITWT.EXEC` accepts a
+  new `CHERRY-PICK-STACK` request, which shares the `MERGE-COMMIT-STACK` argument
+  parsing but sets `mergeactive=3`. That mode keeps the clean-worktree
+  preflight, ref/tip recheck, and `preparemerge` three-way replay, but builds a
+  commit with only the old branch tip as parent. The existing two-parent merge
+  paths are unchanged.
+- `GITUPD MERGE-HEAD` applies the new commit with the usual ancestor check,
+  clean-worktree/path preflight, ref readback/CAS, and workfile rollback. On
+  conflict or an unsupported structural change, no ref or workfile is touched.
+
+Scope is deliberately narrow: content-only clean replay. Content conflicts,
+add/add and delete/modify, path additions/removals, and mode changes fail closed
+with RC 8 and an explanatory message. The original commit message is not copied;
+the default is `Cherry pick <oid>` and `-m` (or `-M`) overrides it. There is no
+`--abort`/`--continue` lifecycle for cherry-pick.
+
+Host validation: Regina syntax and 80-column checks for both EXECs;
+`tests/test-m307-cherry-pick.py`; the M301/M305/M273 source guards adjusted for
+the shared dispatch; the full local selector/focused workflow gate;
+`restore-cms-exec.py AUDIT` and `LIVEDEPS`; and `git diff --check`. No CMS target
+run was performed, so M307 is host-proven only. The source archive entry for
+`GITWT.EXEC` was refreshed because that runtime EXEC is restored on demand.

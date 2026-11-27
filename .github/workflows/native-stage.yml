@@ -280,6 +280,8 @@ jobs:
         run: python3 tests/test-m305-structural-merge.py
       - name: Check M306 repository minidisk selection
         run: python3 tests/test-m306-repo-filemode.py
+      - name: Check M307 single-parent cherry-pick
+        run: python3 tests/test-m307-cherry-pick.py
       - name: Check M260 loose-store GIT LOG fallback
         run: sh tests/check-canonical-source.sh M260
       - name: Check M190 7736-object selective seek closure
