@@ -11,7 +11,7 @@ disagrees with this page, this page wins. Last updated 2026-11-27.
 | Latest milestone | **M309** — bounded record-level `GIT DIFF` content output |
 | Latest commit | M309 content diff, host guard, and archive refresh; see `git log -1 --oneline` for the exact commit |
 | Build | no package build; host checks only |
-| Host CI | full local M309 selector/focused gate pass; GitHub Actions pending |
+| Host CI | full local M309 selector/focused gate and GitHub Actions run `46085843196` pass |
 | CMS target | G runtime restored from `M306BK`; live clone/up-to-date/incremental pull passed on disposable `0601 B`; legacy G repository hashes unchanged; B remains formatted as `M0601B` at 6,964 cylinders |
 
 ## What is proven
@@ -68,7 +68,8 @@ disagrees with this page, this page wins. Last updated 2026-11-27.
   default diffs worktree against the index. Oversized inputs report
   `DIFF TOO LARGE` instead of consuming unbounded memory. Name-only output and
   the 16-pathspec limit are unchanged. Host source/guard/fixture, archive,
-  workflow, and 80-column gates pass. CMS target proof is pending.
+  workflow, and 80-column gates pass, as does GitHub Actions run `46085843196`.
+  CMS target proof is pending.
 - M308 adds `GIT STASH [-m message]` and `GIT STASH POP`. Save verifies the
   change set, stages tracked workfiles with `ADD -u`, builds a single-parent
   snapshot commit with `COMMIT-STAGED`, persists its OID in a `GITSTASH` sidecar,
