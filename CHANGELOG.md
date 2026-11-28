@@ -5,6 +5,12 @@ lives in `STATUS.md`. This file records what landed, not proof claims.
 
 ## Unreleased
 
+- CMS target sync and M307–M309 qualification: all 12 current runtime EXECs
+  were deployed to G and hash-verified. Target testing on disposable `0601 B`
+  proved `COMMIT-INFO`, content diff, stash save/pop, and single-parent replay,
+  and exposed three real defects now fixed: content-diff ceiling initialization,
+  `ADD -u`/`workoid`/`COMMIT-TREE` filemode propagation and loop-index reuse,
+  and non-truncating workfile restore. Host guards were updated accordingly.
 - Add M309 bounded record-level content output to `GIT DIFF`. Without
   `--name-only`, changed paths report old/new blob OIDs and LCS-aligned `-`/`+`
   CMS records; `--cached`/`--staged` covers the index and the default covers

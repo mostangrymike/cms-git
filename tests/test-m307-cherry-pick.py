@@ -44,8 +44,8 @@ assert "if mergeactive=3 then exit 12" in WT
 assert "if mergeactive=3 then exit 13" in WT
 
 # Existing two-parent merge behaviour is unchanged.
-assert "'GIT COMMIT-TREE' newroot '-P' parent '-P' mergeparent" in WT
-assert "'GIT COMMIT-TREE' newroot '-P' parent," in WT
+assert "'GIT --FM' objectfm 'COMMIT-TREE' newroot '-P' parent" in WT
+assert "'-P' mergeparent '-T' stamp '-Z' zone '-M' msgarg" in WT
 
 assert "if command = 'COMMIT-INFO' then do" in GIT
 assert "commitinfo: procedure" in GIT

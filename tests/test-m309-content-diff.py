@@ -23,6 +23,8 @@ for token in (
     "call diffblobtorec diffnew",
     "'EXECIO * DISKR' mapfn.i mapft.i mapfm.i '1 (STEM MX. FINIS'",
     "say 'DIFF CONTENT' path diffold diffnew",
+    "merge3maxrecords=2048",
+    "merge3maxcells=65536",
     "call lcsmatches mb.0,mx.0",
     "if result='LIMIT' then do",
     "say 'DIFF TOO LARGE' path",

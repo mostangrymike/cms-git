@@ -16875,3 +16875,77 @@ was refreshed. No CMS target run was performed; M309 is host-proven only.
 GitHub Actions run `46085843196` for commit `f9e687f` passed in 3m04s, including
 the Linux-only `MAP`/`CONFIG`/`BACKUP` checks. M309 remains host-proven only; no
 CMS target run was attempted and no live repository state was changed.
+
+## 2026-11-27 — CMS source sync and M307–M309 target proof
+
+The operator asked to sync the current source to the guest and test there.
+All work used the line-mode Telnet driver and FTP GET from the existing local
+FTP server; no FORMAT, DASD initialization, DIRECTXA, RELEASE, or extent change
+was performed. No credentials were printed or committed.
+
+Deployment and rollback preparation:
+
+- Read-only probe confirmed `MAINT AT TACOTICO`, CMS 27/1302, `GIT600` on G.
+  `0601` was attached as mode B with `ACCESS 0601 B`.
+- All 12 runtime EXECs previously deployed for M306 were stale on G; their
+  Git blob hashes matched the older M300-era baseline rather than current
+  `main`. Current sources were staged on A under `M309NEW`/`M309FIX*` IDs,
+  verified there with `GIT HASH-WORKFILE ... 1`, and promoted to G with
+  `COPYFILE ... (REPlace`. Final G hashes matched the current source exactly:
+  `GIT.EXEC 42A8C89F849DF96FC2CB8379794473090F91AB43`,
+  `GITWT.EXEC 9F4A0A05757A12D623D184F2D1FEB6D0A621AB43`,
+  `GITVREF.EXEC B6E1EC723F50CC2073F8C79BF687534E15553D30`,
+  `GITUPD.EXEC F9C4ACD72E25B4451DC32858556AE7145C080AAD`,
+  `GITPUSH.EXEC BA10E0D0D71BE70E9018F03A4ABFC4055B76C4A7`,
+  `GITREMOT.EXEC D4E73649C0D291666FAF827DA7CF86A8E5E40465`,
+  `GITFETCH.EXEC C204F91C4BD11CBB5712B3BBE07FDC0B30D2CB5E`,
+  `GITPOST.EXEC 343D56A8CFB7EFE931BB4788F3686DB86ED9F6DF`,
+  `GITFPACK.EXEC F0847BB1DCF07E92285A5BD8ABCDC70765ED3057`,
+  `GITFIMP.EXEC 9C210A24ECC4BC04903D7AE4F7F3CDCDB1CC292D`,
+  `GITFACT.EXEC 85D68F6353C6B240B04C96CCEC627376A16901D9`,
+  `GITGC.EXEC E2FB116CDDE4374DFB135AA0ECBA57A57EECCA88`.
+- Protected rollback copies remain on G as `* M306BK G` for all 12 files.
+  Fresh `* M309BK G` copies were also made for `GIT` and `GITWT` before
+  promotion. Disposable B refs, map, and both workfiles were copied to
+  `* M309BK B` before any target test.
+
+Target results on the tiny B repository (tip `1389184747E98D28616EBC0516D86BA677898A9A`):
+
+- `GIT --FM B COMMIT-INFO` returned the verified tree and single parent.
+  `GIT --FM B SYMBOLIC-REF`, `SHOW-REF`, and `LOG -n 3` worked after GITVREF
+  was synced; they had failed with the stale G runtime.
+- Content diff on an unstaged one-line insertion emitted
+  `DIFF + 2 M309 target probe` with the old/new OIDs and `DIFF END`;
+  `--name-only` kept its compact path output and an unchanged worktree was
+  silent.
+- `GIT --FM B STASH` on the modified workfile saved snapshot
+  `ED2D9A56CB67B5D83B89C27A15CF89CD42B9D749`, restored both workfiles from
+  HEAD, unstaged the index, and left status clean with the branch tip unchanged.
+- `GIT --FM B STASH POP` replayed the snapshot through `CHERRY-PICK` and
+  created single-parent commit `3CBE3F8FC20FA3BCC60927D918252F86CDFE1243`
+  with parent `1389184747E98D28616EBC0516D86BA677898A9A`, applied the second
+  line, left status clean, and cleared the stash sidecar.
+
+Target testing exposed three real defects that host guards had missed; all
+were fixed and re-verified on the guest:
+
+1. The `lcsmatches` ceilings were only initialized by the merge path, so a
+   content diff on a small file reported `DIFF TOO LARGE`. M309 now sets the
+   2,048-record / 65,536-cell ceilings before calling the matcher.
+2. `ADD -u` reused the loop index `AI`, which the shared-label `asciitocms`
+   helper clobbered; only the first mapped path was staged. The loop now uses
+   `auindex`. Same class of issue applies to staged blob placement: `workoid`
+   now passes `--FM objectfm` to `GIT WRITE-WORKFILE`, and `COMMIT-TREE` is
+   invoked with `--FM objectfm`, so writes stay on the selected repository
+   disk instead of G.
+3. `RESTORE-WORKTREE` wrote with fixed-80 DISKW without truncating a longer
+   file, so restoring a one-line HEAD blob over a two-line workfile left a
+   stale record and failed verification. It now ERASEs the target first;
+   rollback still restores the pre-command snapshot.
+
+After tests, B was returned to its exact pre-test state: refs and worktree map
+restored from `M309BK`, `SECOND TXT B` back to one line, `README TXT B` restored,
+and the test-created `GITSTASH REPO B` sidecar erased. New test objects were
+left in place; nothing was erased or RELEASEd from either minidisk. Host
+guards, the full local workflow-equivalent gate, AUDIT, LIVEDEPS, and
+`git diff --check` were rerun and pass after the fixes.

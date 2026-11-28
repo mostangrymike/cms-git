@@ -1617,8 +1617,9 @@ required=("translate(word(rest,1))='-U'",
            'addrequested=addrequested-1',
            "if translate(word(rest,2))='--' then do",
            'call toasciihex path', 'call matchliteral pathhex,mappath.pi',
-           'if addall=1 & addrequested=0 then do', 'do ai=1 to mapcount',
-          'call asciitocms mappath.ai', "say 'GITWT: no mapped paths to update'",
+           'if addall=1 & addrequested=0 then do',
+          'do auindex=1 to mapcount', 'call asciitocms mappath.auindex',
+          "say 'GITWT: no mapped paths to update'",
           'call savemap')
 for token in required:
  if token not in block:
@@ -2989,20 +2990,20 @@ check() {
 }
 check "$tmp/router.rexx" 0 'SIMULATED WORKTREE -- alpha' RESTORE --worktree -- alpha
 check "$tmp/router.rexx" 0 'SIMULATED STAGED alpha' RESTORE --staged alpha
-expected=$(printf 'SIMULATED WRITE MOD\nSIMULATED ERASE DEL\nSIMULATED SAVE\nRESTORED WORKTREE alpha BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\nRESTORED WORKTREE DELETION gone')
+expected=$(printf 'SIMULATED ERASE MOD\nSIMULATED WRITE MOD\nSIMULATED ERASE DEL\nSIMULATED SAVE\nRESTORED WORKTREE alpha BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\nRESTORED WORKTREE DELETION gone')
 check "$tmp/restore.rexx" 0 "$expected" alpha gone
-expected=$(printf 'SIMULATED WRITE MOD\nSIMULATED SAVE\nRESTORED WORKTREE alpha BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB')
+expected=$(printf 'SIMULATED ERASE MOD\nSIMULATED WRITE MOD\nSIMULATED SAVE\nRESTORED WORKTREE alpha BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB')
 check "$tmp/restore.rexx" 0 "$expected" 'a*'
 check "$tmp/restore.rexx" 0 "$expected" 'a[lb]pha'
 check "$tmp/restore.rexx" 0 "$expected" alpha 'a*'
 check "$tmp/restore.rexx" 0 "$expected" -- alpha
-expected=$(printf 'SIMULATED WRITE MOD\nSIMULATED SAVE\nRESTORED WORKTREE alpha AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA')
+expected=$(printf 'SIMULATED ERASE MOD\nSIMULATED WRITE MOD\nSIMULATED SAVE\nRESTORED WORKTREE alpha AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA')
 check "$tmp/base.rexx" 0 "$expected" alpha
 check "$tmp/restore.rexx" 4 'GITWT: pathspec did not match any checked out path missing' missing
 check "$tmp/restore.rexx" 4 'Usage: GIT RESTORE --worktree [--] path [path ...]' --bogus
 many='alpha alpha alpha alpha alpha alpha alpha alpha alpha alpha alpha alpha alpha alpha alpha alpha alpha'
 check "$tmp/restore.rexx" 4 'Usage: GIT RESTORE --worktree [--] path [path ...] (maximum 16 paths)' $many
-expected=$(printf 'SIMULATED WRITE MOD\nSIMULATED BACKUP RESTORE MOD\nSIMULATED BACKUP RESTORE DEL\nGITWT: workfile verification failed; restore rollback RC OK')
+expected=$(printf 'SIMULATED ERASE MOD\nSIMULATED WRITE MOD\nSIMULATED BACKUP RESTORE MOD\nSIMULATED BACKUP RESTORE DEL\nGITWT: workfile verification failed; restore rollback RC OK')
 check "$tmp/failure.rexx" 8 "$expected" alpha gone
 echo 'M259 SOURCE-DERIVED WORKTREE RESTORE FIXTURES PASS 11'
 )

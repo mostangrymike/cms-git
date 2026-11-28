@@ -67,6 +67,19 @@ for token in (
     assert token in helpers, token
 assert "ss_oid='0000000000000000000000000000000000000000' then exit 4" in helpers
 
+# STASH relies on ADD -u visiting every mapped path.  asciitocms is a shared
+# label that reuses AI, so the ADD -u loop must not use that index.
+addall = WT.split("if addall=1 & addrequested=0 then do", 1)[1].split(
+    "  else do", 1)[0]
+assert "do auindex=1 to mapcount" in addall
+assert "call asciitocms mappath.auindex" in addall
+assert "call asciitocms mappath.ai" not in addall
+assert "do ai=1 to mapcount" not in addall
+
+# Staged blobs must land on the selected repository disk, not always G.
+assert "'PIPE CMS GIT --FM' objectfm verb wfn wft wfm wlf '| STEM wh.'" in WT
+assert "'PIPE CMS GIT' verb wfn wft wfm wlf" not in WT
+
 for name, text in (("GIT.EXEC", GIT), ("GITWT.EXEC", WT)):
     for number, line in enumerate(text.splitlines(), 1):
         assert len(line) <= 80, (name, number, line)

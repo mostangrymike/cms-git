@@ -12,7 +12,7 @@ disagrees with this page, this page wins. Last updated 2026-11-27.
 | Latest commit | M309 content diff, host guard, and archive refresh; see `git log -1 --oneline` for the exact commit |
 | Build | no package build; host checks only |
 | Host CI | full local M309 selector/focused gate and GitHub Actions run `46085843196` pass |
-| CMS target | G runtime restored from `M306BK`; live clone/up-to-date/incremental pull passed on disposable `0601 B`; legacy G repository hashes unchanged; B remains formatted as `M0601B` at 6,964 cylinders |
+| CMS target | 12 current runtime EXECs deployed to G and hash-verified; M307/M308/M309 target-tested on disposable `0601 B`; B restored to its pre-test refs/map/workfiles; legacy G repository data unchanged; backups `M306BK` and `M309BK` retained |
 
 ## What is proven
 
@@ -69,7 +69,9 @@ disagrees with this page, this page wins. Last updated 2026-11-27.
   `DIFF TOO LARGE` instead of consuming unbounded memory. Name-only output and
   the 16-pathspec limit are unchanged. Host source/guard/fixture, archive,
   workflow, and 80-column gates pass, as does GitHub Actions run `46085843196`.
-  CMS target proof is pending.
+  CMS target proof passed on disposable `0601 B`: `GIT --FM B DIFF` emitted
+  `DIFF + 2 M309 target probe` for a one-line insertion, and name-only stayed
+  unchanged.
 - M308 adds `GIT STASH [-m message]` and `GIT STASH POP`. Save verifies the
   change set, stages tracked workfiles with `ADD -u`, builds a single-parent
   snapshot commit with `COMMIT-STAGED`, persists its OID in a `GITSTASH` sidecar,
@@ -77,7 +79,9 @@ disagrees with this page, this page wins. Last updated 2026-11-27.
   snapshot through the verified `CHERRY-PICK` path and clears the sidecar only
   on success. Host source/guard, archive, workflow, Regina syntax, and
   80-column gates pass, as does GitHub Actions run `46083724085`. CMS target
-  proof is pending.
+  proof passed on `0601 B`: save `ED2D9A56CB67B5D83B89C27A15CF89CD42B9D749`
+  left the worktree clean; pop created single-parent commit
+  `3CBE3F8FC20FA3BCC60927D918252F86CDFE1243` and cleared the sidecar.
 - M307 adds `GIT CHERRY-PICK <commit-id> [-m message]`. It resolves the picked
   commit through the verified `COMMIT-INFO` reader, requires exactly one parent,
   and replays its changes onto the current branch with the M301–M305 three-way
@@ -85,7 +89,9 @@ disagrees with this page, this page wins. Last updated 2026-11-27.
   tip) and is applied through `GITUPD MERGE-HEAD`, which verifies the branch,
   ancestry, clean worktree, ref CAS, and worktree apply. Host source/guard,
   archive, workflow, Regina syntax, and 80-column gates pass, as does GitHub
-  Actions run `46082118223`. CMS target proof is pending.
+  Actions run `46082118223`. CMS target proof passed on `0601 B`: the
+  verified `COMMIT-INFO` reader and `CHERRY-PICK` single-parent replay ran on
+  the guest (pop produced the one-parent commit above).
 - M306 keeps runtime/support files on G and selects each repository disk with
   `GIT --FM <letter>`. Clone requires an explicit filemode and rejects non-empty
   repository namespaces. A provisioned `0601 B` completed real bridge clone,

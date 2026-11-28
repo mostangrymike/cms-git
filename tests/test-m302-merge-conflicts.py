@@ -62,7 +62,7 @@ for token in (
     "exit 12",
     "mergeactive=2",
     "if mergeactive>=1 then",
-    "'-P' parent '-P' mergeparent",
+    "'-P' mergeparent '-T' stamp '-Z' zone '-M' msgarg",
     "state='CONFLICT'",
     "state='RESOLVED'",
     "say 'UU '||p",
