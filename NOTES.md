@@ -16949,3 +16949,8 @@ and the test-created `GITSTASH REPO B` sidecar erased. New test objects were
 left in place; nothing was erased or RELEASEd from either minidisk. Host
 guards, the full local workflow-equivalent gate, AUDIT, LIVEDEPS, and
 `git diff --check` were rerun and pass after the fixes.
+
+GitHub Actions run `46092112758` for commit `12684fa` passed in 2m51s, including
+the Linux-only `MAP`/`CONFIG`/`BACKUP` checks. The CMS deployment made for this
+qualification remains active on G; rollback copies are preserved as documented
+above.
