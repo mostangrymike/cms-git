@@ -108,6 +108,8 @@ disagrees with this page, this page wins. Last updated 2026-11-27.
   `GIT LOG -n 16` stopped at missing object `C30F39A6` (tracked in issue #215).
   No command exceeded 120 seconds; slowest CMS-reported timing was about 23.4s.
 
+- A 33-command CMS end-to-end gate (`scripts/e2e_cms.py`) passed on 2026-11-28: read-only G suite plus disposable-B write suite, slowest 24.68s, no command over 120 seconds. `GIT LOG -n 16` still stops at missing object `C30F39A6`; evidence was added to issue #215.
+
 ## What is not proven
 
 - Host/CI success is **not** CMS target proof. Do not describe a milestone as

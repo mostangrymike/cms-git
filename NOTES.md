@@ -16954,3 +16954,32 @@ GitHub Actions run `46092112758` for commit `12684fa` passed in 2m51s, including
 the Linux-only `MAP`/`CONFIG`/`BACKUP` checks. The CMS deployment made for this
 qualification remains active on G; rollback copies are preserved as documented
 above.
+
+## 2026-11-28 — CMS end-to-end gate and defect reporting
+
+The operator requested an end-to-end CMS test with GitHub defect documentation
+and a hard rule that any command over 120 seconds is a defect. A new manual
+runner, `scripts/e2e_cms.py`, drives one line-mode Telnet session, attaches
+`0601 B`, records each command's RC, CMS `Ready` timing, and wall time, and
+files or updates GitHub issues for failures and slow commands. It is a manual
+target gate, not a CI step; CI cannot reach the guest.
+
+The initial harness run treated the driver's `rc=None` for CMS `Ready; T=...`
+(no explicit RC) as an error and opened 31 false-positive issues, numbers
+222–252. Those were all closed with an explanatory comment after the harness
+was corrected to treat `None` as RC 0. No CMS defect was hidden or lost.
+
+The corrected run executed 33 commands: production-G read-only suite, a
+disposable-B write suite (edit, status, content diff, stage, stash save, clean
+check, stash pop, single-parent replay, bad-pick rejection), and full restore
+of B refs/map/workfiles. Slowest CMS command was `GIT LOG -n 1` / `GIT SHOW HEAD`
+at 24.68s; no command exceeded 120 seconds. The only failure was the already
+known `GIT LOG -n 16` stopping at missing object `C30F39A6` (RC 8), and the
+evidence was appended as a comment on issue #215 instead of opening a
+duplicate.
+
+Three target defects found earlier in this session were documented as issues
+and closed as resolved by commit `12684fa`: #253 (content diff ceiling
+initialization), #254 (filemode propagation and ADD loop index reuse), and
+#255 (non-truncating workfile restore). Results are in
+`e2e_cms_results.json`, which stays ignored as live target evidence.

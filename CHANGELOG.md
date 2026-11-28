@@ -5,6 +5,7 @@ lives in `STATUS.md`. This file records what landed, not proof claims.
 
 ## Unreleased
 
+- Add a manual 33-command CMS end-to-end gate (`scripts/e2e_cms.py`) that times every guest command, treats over-120-second runs as defects, and files or updates GitHub issues. First run: no command over 120s, slowest 24.68s; only the known missing-object LOG failure remains (issue #215). Three earlier target defects were documented as issues #253–#255 and closed as resolved.
 - CMS target sync and M307–M309 qualification: all 12 current runtime EXECs
   were deployed to G and hash-verified. Target testing on disposable `0601 B`
   proved `COMMIT-INFO`, content diff, stash save/pop, and single-parent replay,
