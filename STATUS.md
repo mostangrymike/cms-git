@@ -11,7 +11,7 @@ disagrees with this page, this page wins. Last updated 2026-11-27.
 | Latest milestone | **M309** — bounded record-level `GIT DIFF` content output |
 | Latest commit | M309 content diff, host guard, and archive refresh; see `git log -1 --oneline` for the exact commit |
 | Build | no package build; host checks only |
-| Host CI | full local M309 selector/focused gate and GitHub Actions runs `46085843196`, `46092112758` pass |
+| Host CI | full local M309 selector/focused gate and GitHub Actions runs `46085843196`, `46092112758`, `46104578650` pass |
 | CMS target | 12 current runtime EXECs deployed to G and hash-verified; M307/M308/M309 target-tested on disposable `0601 B`; B restored to its pre-test refs/map/workfiles; legacy G repository data unchanged; backups `M306BK` and `M309BK` retained |
 
 ## What is proven

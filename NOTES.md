@@ -16983,3 +16983,6 @@ and closed as resolved by commit `12684fa`: #253 (content diff ceiling
 initialization), #254 (filemode propagation and ADD loop index reuse), and
 #255 (non-truncating workfile restore). Results are in
 `e2e_cms_results.json`, which stays ignored as live target evidence.
+
+GitHub Actions run `46104578650` for commit `cb133f5` passed. The e2e runner
+is manual-only and does not execute in CI; no guest is available there.
