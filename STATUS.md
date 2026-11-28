@@ -8,10 +8,10 @@ disagrees with this page, this page wins. Last updated 2026-11-27.
 | Field | Value |
 |---|---|
 | Branch | `main` |
-| Latest milestone | **M308** — narrow single-slot tracked-workfile stash |
-| Latest commit | M308 stash save/pop, host guard, and archive refresh; see `git log -1 --oneline` for the exact commit |
+| Latest milestone | **M309** — bounded record-level `GIT DIFF` content output |
+| Latest commit | M309 content diff, host guard, and archive refresh; see `git log -1 --oneline` for the exact commit |
 | Build | no package build; host checks only |
-| Host CI | full local M308 selector/focused gate and GitHub Actions run `46083724085` pass |
+| Host CI | full local M309 selector/focused gate pass; GitHub Actions pending |
 | CMS target | G runtime restored from `M306BK`; live clone/up-to-date/incremental pull passed on disposable `0601 B`; legacy G repository hashes unchanged; B remains formatted as `M0601B` at 6,964 cylinders |
 
 ## What is proven
@@ -62,6 +62,13 @@ disagrees with this page, this page wins. Last updated 2026-11-27.
   mode merge `9F700C5C54E9AF5C99F40AAB1C2BDA4B3A2A2B71` and structural merge
   `CD2B4DB6AF4022F6193D28D98D7A62406D605B17`; both merge trees and the final
   restored state were verified.
+- M309 extends `GIT DIFF` with bounded record-level content output. Without
+  `--name-only`, each changed path reports its old/new blob OIDs and LCS-aligned
+  `-`/`+` records; `--cached`/`--staged` diffs index against HEAD, while the
+  default diffs worktree against the index. Oversized inputs report
+  `DIFF TOO LARGE` instead of consuming unbounded memory. Name-only output and
+  the 16-pathspec limit are unchanged. Host source/guard/fixture, archive,
+  workflow, and 80-column gates pass. CMS target proof is pending.
 - M308 adds `GIT STASH [-m message]` and `GIT STASH POP`. Save verifies the
   change set, stages tracked workfiles with `ADD -u`, builds a single-parent
   snapshot commit with `COMMIT-STAGED`, persists its OID in a `GITSTASH` sidecar,
@@ -98,6 +105,11 @@ disagrees with this page, this page wins. Last updated 2026-11-27.
 
 - Host/CI success is **not** CMS target proof. Do not describe a milestone as
   target-proven unless a real CMS run is recorded.
+- M309 is narrow: CMS text records only, bounded by the existing M303 ceilings
+  (2,048 records and 65,536 LCS cells per side). It emits ordered line markers
+  rather than Git-style unified hunk headers or context lines, and ignores
+  final-newline-only differences. Binary or oversized paths are reported, not
+  decoded heuristically.
 - M308 is narrow: one stash slot, at most 16 mapped paths, tracked workfiles
   only. Untracked files, staged additions, deleted workfiles, and structural
   changes are rejected before anything is written. Save stores the worktree

@@ -1812,8 +1812,8 @@ block=source[start:end]
 required=("diffopt='--CACHED'", "diffopt='--STAGED'",
           "diffopt='--NAME-ONLY'", 'diffselected.i\\=1',
           'if mapstage.i\\=mapbase.i then changed=1',
-          "'STATE' mapfn.i mapft.i mapfm.i", 'if work\\=mapstage.i then changed=1',
-          'if changed=1 then do', 'say path')
+          "'STATE' mapfn.i mapft.i mapfm.i", 'if diffwork\\=mapstage.i then changed=1',
+          'if changed\\=1 then iterate', 'say path')
 for token in required:
  if token not in block:
   raise SystemExit(f'M244 diff source guard missing {token!r}')
@@ -1892,7 +1892,7 @@ check "$tmp/diff.rexx" 0 'staged' --cached --name-only 'st[a-z]ged'
 check "$tmp/diff.rexx" 0 'dir/addgone' --name-only 'dir/*'
 check "$tmp/diff.rexx" 0 "$unstaged" --name-only --
 check "$tmp/empty.rexx" 0 '' --name-only
-check "$tmp/diff.rexx" 4 'Usage: GIT DIFF [--cached|--staged] --name-only [--] [path ...]' --cached
+check "$tmp/diff.rexx" 4 'Usage: GIT DIFF [--cached|--staged] [--name-only] [--] [path ...]' --bogus
 check "$tmp/diff.rexx" 4 'GITWT: pathspec did not match any checked out path missing' --name-only missing
 echo 'M244 SOURCE-DERIVED GIT DIFF NAME-ONLY FIXTURES PASS 10'
 )

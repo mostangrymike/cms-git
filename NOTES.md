@@ -16842,3 +16842,32 @@ CMS target run was attempted and no live repository state was changed. A first
 commit accidentally staged the restored `GITWT.EXEC` as a new tracked file; it
 was unstaged and the commit amended before push, preserving the project rule
 that archived runtime EXECs stay untracked in `src/`.
+
+## 2026-11-27 — M309 bounded content diff
+
+M309 closes the content half of the `diff` gap in roadmap item 1 (#213) without
+changing the existing name-only contract. `GIT DIFF` now accepts options in
+any order: `--cached`/`--staged` selects index-vs-HEAD, `--name-only` keeps the
+compact M244 output, and the absence of `--name-only` requests content output.
+Up to 16 pathspecs are still accepted, with the same literal and glob matching.
+
+For each changed path the content mode:
+
+1. Chooses old/new OIDs: `mapbase`/`mapstage` for cached diffs, or `mapstage`
+   and the hashed workfile (zero when absent) for worktree diffs.
+2. Loads verified blob bodies through `readrestoreblob` and `bodyrecords`, or
+   reads the CMS workfile records directly. The new `diffblobtorec` helper is
+   placed with the other subroutine labels so the EXEC dispatch guard stays
+   clean.
+3. Reuses the M303 `lcsmatches` routine to align old and new records, then
+   walks the match map to emit ordered `DIFF - <line> <text>` and
+   `DIFF + <line> <text>` records framed by `DIFF CONTENT` and `DIFF END`.
+   Inputs above the existing 2,048-record / 65,536-cell ceilings return
+   `DIFF TOO LARGE` for that path and are not heuristically decoded.
+
+Host validation: Regina syntax and 80-column checks, the M244 source-derived
+name-only fixtures updated for the widened usage line, `tests/test-m309-content-diff.py`
+with an independent Python LCS/diff model, the M308/M307/M305/M273/M301 guards,
+the full local selector/focused workflow gate, `restore-cms-exec.py AUDIT` and
+`LIVEDEPS`, and `git diff --check`. The source archive entry for `GITWT.EXEC`
+was refreshed. No CMS target run was performed; M309 is host-proven only.

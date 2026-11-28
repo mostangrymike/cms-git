@@ -29,7 +29,7 @@ documented restrictions), **Hygiene** (docs/repo cleanup).
 | `stash` / `stash pop` | Narrow | M308 saves a single snapshot of tracked workfiles in a `GITSTASH` sidecar and pops it through the verified cherry-pick replay. No untracked files, staged additions, deletions, structural changes, or multiple slots; at most 16 mapped paths. Host-proven only. |
 | `reset --hard` | Narrow | `RESET` is path-only (M245). |
 | `restore` | Narrow | Staged-content alias (M246). |
-| `diff` with content | Narrow | Name-only (M244); no hunks. |
+| `diff` with content | Narrow | M309 emits bounded LCS-aligned `-`/`+` records, with old/new OIDs, for index or worktree diffs; name-only remains opt-in. No unified hunk headers, context lines, binary diffs, or final-newline-only reporting; ceilings are 2,048 records and 65,536 LCS cells per side. Host-proven only. |
 | `blame` | Missing | — |
 | `.gitignore` semantics | Missing | Untracked status is opt-in (M298). |
 | Untracked files in default `status` | Narrow | Opt-in only (M298). |

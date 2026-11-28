@@ -5,6 +5,13 @@ lives in `STATUS.md`. This file records what landed, not proof claims.
 
 ## Unreleased
 
+- Add M309 bounded record-level content output to `GIT DIFF`. Without
+  `--name-only`, changed paths report old/new blob OIDs and LCS-aligned `-`/`+`
+  CMS records; `--cached`/`--staged` covers the index and the default covers
+  the worktree. Inputs over the M303 record/cell ceilings report `DIFF TOO
+  LARGE` and are not decoded. Name-only output and the 16-pathspec limit stay
+  unchanged. Adds `tests/test-m309-content-diff.py` and a workflow gate.
+  Host-proven only.
 - Add M308 `GIT STASH [-m message]` and `GIT STASH POP`. Save stages tracked
   workfiles, creates a single-parent snapshot commit without moving the branch,
   records its OID in a strictly validated `GITSTASH REPO` sidecar, then restores
